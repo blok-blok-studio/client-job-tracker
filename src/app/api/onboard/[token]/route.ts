@@ -66,8 +66,8 @@ const onboardSchema = z.object({
       z.object({
         name: z.string().min(1).max(200),
         role: z.string().max(100).optional(),
-        email: z.string().email().max(254).optional(),
-        phone: z.string().max(30).optional(),
+        email: z.string().email().max(254),
+        phone: z.string().min(1).max(30),
         isPrimary: z.boolean().optional(),
       })
     )
@@ -217,8 +217,10 @@ export async function POST(
         { status: 400, headers: corsHeaders(request) }
       );
     }
+    console.error("Onboard POST error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: "Failed to process onboarding" },
+      { success: false, error: "Failed to process onboarding", debug: message },
       { status: 500, headers: corsHeaders(request) }
     );
   }

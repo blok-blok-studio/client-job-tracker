@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Plus, Trash2, Check, Loader2 } from "lucide-react";
+import { Plus, Trash2, Check, Loader2, ChevronDown } from "lucide-react";
 
 interface Contact {
   name: string;
   role: string;
   email: string;
+  countryCode: string;
   phone: string;
   isPrimary: boolean;
 }
@@ -39,6 +40,72 @@ const SOCIAL_PLATFORMS = [
   "Other",
 ];
 
+const COUNTRY_CODES = [
+  { code: "+1", flag: "\u{1F1FA}\u{1F1F8}", name: "US" },
+  { code: "+1", flag: "\u{1F1E8}\u{1F1E6}", name: "CA" },
+  { code: "+44", flag: "\u{1F1EC}\u{1F1E7}", name: "UK" },
+  { code: "+49", flag: "\u{1F1E9}\u{1F1EA}", name: "DE" },
+  { code: "+33", flag: "\u{1F1EB}\u{1F1F7}", name: "FR" },
+  { code: "+34", flag: "\u{1F1EA}\u{1F1F8}", name: "ES" },
+  { code: "+39", flag: "\u{1F1EE}\u{1F1F9}", name: "IT" },
+  { code: "+31", flag: "\u{1F1F3}\u{1F1F1}", name: "NL" },
+  { code: "+41", flag: "\u{1F1E8}\u{1F1ED}", name: "CH" },
+  { code: "+43", flag: "\u{1F1E6}\u{1F1F9}", name: "AT" },
+  { code: "+46", flag: "\u{1F1F8}\u{1F1EA}", name: "SE" },
+  { code: "+47", flag: "\u{1F1F3}\u{1F1F4}", name: "NO" },
+  { code: "+45", flag: "\u{1F1E9}\u{1F1F0}", name: "DK" },
+  { code: "+358", flag: "\u{1F1EB}\u{1F1EE}", name: "FI" },
+  { code: "+48", flag: "\u{1F1F5}\u{1F1F1}", name: "PL" },
+  { code: "+351", flag: "\u{1F1F5}\u{1F1F9}", name: "PT" },
+  { code: "+353", flag: "\u{1F1EE}\u{1F1EA}", name: "IE" },
+  { code: "+32", flag: "\u{1F1E7}\u{1F1EA}", name: "BE" },
+  { code: "+61", flag: "\u{1F1E6}\u{1F1FA}", name: "AU" },
+  { code: "+64", flag: "\u{1F1F3}\u{1F1FF}", name: "NZ" },
+  { code: "+81", flag: "\u{1F1EF}\u{1F1F5}", name: "JP" },
+  { code: "+82", flag: "\u{1F1F0}\u{1F1F7}", name: "KR" },
+  { code: "+86", flag: "\u{1F1E8}\u{1F1F3}", name: "CN" },
+  { code: "+91", flag: "\u{1F1EE}\u{1F1F3}", name: "IN" },
+  { code: "+55", flag: "\u{1F1E7}\u{1F1F7}", name: "BR" },
+  { code: "+52", flag: "\u{1F1F2}\u{1F1FD}", name: "MX" },
+  { code: "+27", flag: "\u{1F1FF}\u{1F1E6}", name: "ZA" },
+  { code: "+234", flag: "\u{1F1F3}\u{1F1EC}", name: "NG" },
+  { code: "+254", flag: "\u{1F1F0}\u{1F1EA}", name: "KE" },
+  { code: "+233", flag: "\u{1F1EC}\u{1F1ED}", name: "GH" },
+  { code: "+971", flag: "\u{1F1E6}\u{1F1EA}", name: "AE" },
+  { code: "+966", flag: "\u{1F1F8}\u{1F1E6}", name: "SA" },
+  { code: "+972", flag: "\u{1F1EE}\u{1F1F1}", name: "IL" },
+  { code: "+90", flag: "\u{1F1F9}\u{1F1F7}", name: "TR" },
+  { code: "+7", flag: "\u{1F1F7}\u{1F1FA}", name: "RU" },
+  { code: "+380", flag: "\u{1F1FA}\u{1F1E6}", name: "UA" },
+  { code: "+65", flag: "\u{1F1F8}\u{1F1EC}", name: "SG" },
+  { code: "+66", flag: "\u{1F1F9}\u{1F1ED}", name: "TH" },
+  { code: "+63", flag: "\u{1F1F5}\u{1F1ED}", name: "PH" },
+  { code: "+62", flag: "\u{1F1EE}\u{1F1E9}", name: "ID" },
+  { code: "+60", flag: "\u{1F1F2}\u{1F1FE}", name: "MY" },
+  { code: "+84", flag: "\u{1F1FB}\u{1F1F3}", name: "VN" },
+  { code: "+20", flag: "\u{1F1EA}\u{1F1EC}", name: "EG" },
+  { code: "+212", flag: "\u{1F1F2}\u{1F1E6}", name: "MA" },
+  { code: "+56", flag: "\u{1F1E8}\u{1F1F1}", name: "CL" },
+  { code: "+57", flag: "\u{1F1E8}\u{1F1F4}", name: "CO" },
+  { code: "+54", flag: "\u{1F1E6}\u{1F1F7}", name: "AR" },
+  { code: "+51", flag: "\u{1F1F5}\u{1F1EA}", name: "PE" },
+];
+
+function getGmtOffset(tz: string): string {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      timeZoneName: "shortOffset",
+    });
+    const parts = formatter.formatToParts(now);
+    const offsetPart = parts.find((p) => p.type === "timeZoneName");
+    return offsetPart?.value || "";
+  } catch {
+    return "";
+  }
+}
+
 export default function OnboardPage() {
   const { token } = useParams<{ token: string }>();
   const [loading, setLoading] = useState(true);
@@ -46,11 +113,10 @@ export default function OnboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [clientName, setClientName] = useState("");
-  const [, setClientCompany] = useState("");
 
   // Form state
   const [contacts, setContacts] = useState<Contact[]>([
-    { name: "", role: "", email: "", phone: "", isPrimary: true },
+    { name: "", role: "", email: "", countryCode: "+1", phone: "", isPrimary: true },
   ]);
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([
@@ -62,6 +128,17 @@ export default function OnboardPage() {
   const [notes, setNotes] = useState("");
   const [brandGuidelines, setBrandGuidelines] = useState("");
 
+  const timezoneOptions = useMemo(() => {
+    try {
+      return Intl.supportedValuesOf("timeZone").map((tz) => ({
+        value: tz,
+        label: `${tz.replace(/_/g, " ")} (${getGmtOffset(tz)})`,
+      }));
+    } catch {
+      return [];
+    }
+  }, []);
+
   useEffect(() => {
     async function fetchClient() {
       try {
@@ -69,7 +146,6 @@ export default function OnboardPage() {
         const data = await res.json();
         if (data.success) {
           setClientName(data.data.name);
-          setClientCompany(data.data.company || "");
         } else {
           setError(data.error || "Invalid onboarding link");
         }
@@ -85,6 +161,7 @@ export default function OnboardPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    setError(null);
 
     const validContacts = contacts.filter((c) => c.name.trim());
     const validCredentials = credentials.filter(
@@ -94,12 +171,21 @@ export default function OnboardPage() {
       (s) => s.platform.trim() && s.url.trim()
     );
 
+    // Combine country code + phone for submission
+    const contactsPayload = validContacts.map((c) => ({
+      name: c.name,
+      role: c.role,
+      email: c.email,
+      phone: c.phone ? `${c.countryCode} ${c.phone}` : "",
+      isPrimary: c.isPrimary,
+    }));
+
     try {
       const res = await fetch(`/api/onboard/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contacts: validContacts.length > 0 ? validContacts : undefined,
+          contacts: contactsPayload.length > 0 ? contactsPayload : undefined,
           credentials:
             validCredentials.length > 0 ? validCredentials : undefined,
           socialLinks:
@@ -126,7 +212,7 @@ export default function OnboardPage() {
   function addContact() {
     setContacts([
       ...contacts,
-      { name: "", role: "", email: "", phone: "", isPrimary: false },
+      { name: "", role: "", email: "", countryCode: "+1", phone: "", isPrimary: false },
     ]);
   }
   function removeContact(i: number) {
@@ -314,24 +400,41 @@ export default function OnboardPage() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>Email</label>
+                <div>
+                  <label className={labelClass}>Email *</label>
+                  <input
+                    type="email"
+                    value={contact.email}
+                    onChange={(e) => updateContact(i, "email", e.target.value)}
+                    required
+                    className={inputClass}
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Phone *</label>
+                  <div className="flex gap-2">
+                    <div className="relative">
+                      <select
+                        value={contact.countryCode}
+                        onChange={(e) => updateContact(i, "countryCode", e.target.value)}
+                        className="appearance-none pl-3 pr-8 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 focus:border-bb-orange transition-colors min-w-[100px]"
+                      >
+                        {COUNTRY_CODES.map((c, idx) => (
+                          <option key={`${c.code}-${c.name}-${idx}`} value={c.code}>
+                            {c.flag} {c.name} ({c.code})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-bb-dim pointer-events-none" />
+                    </div>
                     <input
-                      type="email"
-                      value={contact.email}
-                      onChange={(e) => updateContact(i, "email", e.target.value)}
-                      className={inputClass}
-                      placeholder="email@example.com"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Phone</label>
-                    <input
+                      type="tel"
                       value={contact.phone}
                       onChange={(e) => updateContact(i, "phone", e.target.value)}
-                      className={inputClass}
-                      placeholder="+1 234 567 8900"
+                      required
+                      className={`${inputClass} flex-1`}
+                      placeholder="234 567 8900"
                     />
                   </div>
                 </div>
@@ -516,9 +619,9 @@ export default function OnboardPage() {
                 onChange={(e) => setTimezone(e.target.value)}
                 className={inputClass}
               >
-                {Intl.supportedValuesOf("timeZone").map((tz) => (
-                  <option key={tz} value={tz}>
-                    {tz.replace(/_/g, " ")}
+                {timezoneOptions.map((tz) => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
                   </option>
                 ))}
               </select>
