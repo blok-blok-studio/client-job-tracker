@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import { clientSchema } from "@/lib/validations";
 
@@ -44,6 +45,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = clientSchema.parse(body);
 
+    const onboardToken = randomBytes(24).toString("hex");
+
     const client = await prisma.client.create({
       data: {
         ...parsed,
@@ -56,6 +59,7 @@ export async function POST(request: NextRequest) {
         monthlyRetainer: parsed.monthlyRetainer ?? null,
         contractStart: parsed.contractStart ? new Date(parsed.contractStart) : null,
         contractEnd: parsed.contractEnd ? new Date(parsed.contractEnd) : null,
+        onboardToken,
         checklistItems: {
           create: DEFAULT_CHECKLIST_ITEMS.map((label, i) => ({
             label,

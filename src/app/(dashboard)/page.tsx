@@ -1,4 +1,6 @@
-import prisma from "@/lib/prisma";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import type { Priority } from "@/types";
 import TopBar from "@/components/layout/TopBar";
 import StatsGrid from "@/components/dashboard/StatsGrid";
@@ -6,117 +8,89 @@ import UpcomingDeadlines from "@/components/dashboard/UpcomingDeadlines";
 import AgentActivityFeed from "@/components/dashboard/AgentActivityFeed";
 import RevenueChart from "@/components/dashboard/RevenueChart";
 
-async function getDashboardData() {
-  const [activeClients, openTasks, overdueItems, upcomingTasks, agentActivity, clients] =
-    await Promise.all([
-      prisma.client.count({ where: { type: "ACTIVE" } }),
-      prisma.task.count({
-        where: { status: { notIn: ["DONE", "BLOCKED"] } },
-      }),
-      prisma.task.count({
-        where: {
-          dueDate: { lt: new Date() },
-          status: { notIn: ["DONE"] },
-        },
-      }),
-      prisma.task.findMany({
-        where: {
-          dueDate: { not: null },
-          status: { notIn: ["DONE"] },
-        },
-        orderBy: { dueDate: "asc" },
-        take: 10,
-        include: { client: { select: { name: true } } },
-      }),
-      prisma.activityLog.findMany({
-        where: { actor: "agent" },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-        include: { client: { select: { name: true } } },
-      }),
-      prisma.client.findMany({
-        where: { type: "ACTIVE", monthlyRetainer: { not: null } },
-        select: { monthlyRetainer: true },
-      }),
-    ]);
-
-  const monthlyRevenue = clients.reduce(
-    (sum, c) => sum + (c.monthlyRetainer ? Number(c.monthlyRetainer) : 0),
-    0
-  );
-
-  // Generate 12-month revenue chart (simplified: uses current retainer * months back)
-  const now = new Date();
-  const revenueData = Array.from({ length: 12 }, (_, i) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
-    return {
-      month: date.toLocaleString("default", { month: "short" }),
-      revenue: monthlyRevenue * (0.7 + Math.random() * 0.3), // slight variation for demo
-    };
-  });
-
-  return {
-    activeClients,
-    openTasks,
-    monthlyRevenue,
-    overdueItems,
-    deadlines: upcomingTasks.map((t: Record<string, unknown>) => ({
-      id: t.id as string,
-      title: t.title as string,
-      dueDate: (t.dueDate as Date).toISOString(),
-      priority: t.priority as Priority,
-      clientName: (t as { client?: { name: string } }).client?.name || null,
-      status: t.status as string,
-    })),
-    activities: agentActivity.map((a: Record<string, unknown>) => ({
-      id: a.id as string,
-      action: a.action as string,
-      details: a.details as string | null,
-      clientName: (a as { client?: { name: string } }).client?.name || null,
-      createdAt: (a.createdAt as Date).toISOString(),
-    })),
-    revenueData,
-  };
+interface Deadline {
+  id: string;
+  title: string;
+  dueDate: string;
+  priority: Priority;
+  clientName: string | null;
+  status: string;
 }
 
-export default async function DashboardPage() {
-  let data;
-  try {
-    data = await getDashboardData();
-  } catch {
-    // DB not connected — show empty state
-    data = {
-      activeClients: 0,
-      openTasks: 0,
-      monthlyRevenue: 0,
-      overdueItems: 0,
-      deadlines: [],
-      activities: [],
-      revenueData: [],
-    };
-  }
+interface Activity {
+  id: string;
+  action: string;
+  details: string | null;
+  clientName: string | null;
+  createdAt: string;
+}
+
+interface RevenueDataPoint {
+  month: string;
+  revenue: number;
+}
+
+export default function DashboardPage() {
+  const [stats, setStats] = useState({
+    activeClients: 0,
+    openTasks: 0,
+    monthlyRevenue: 0,
+    overdueItems: 0,
+  });
+  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const [statsRes, deadlinesRes, revenueRes, activityRes] = await Promise.all([
+        fetch("/api/dashboard/stats"),
+        fetch("/api/dashboard/deadlines"),
+        fetch("/api/dashboard/revenue"),
+        fetch("/api/dashboard/activity"),
+      ]);
+
+      const [statsData, deadlinesData, revenueDataRes, activityData] = await Promise.all([
+        statsRes.json(),
+        deadlinesRes.json(),
+        revenueRes.json(),
+        activityRes.ok ? activityRes.json() : { success: false },
+      ]);
+
+      if (statsData.success) setStats(statsData.data);
+      if (deadlinesData.success) setDeadlines(deadlinesData.data);
+      if (revenueDataRes.success) setRevenueData(revenueDataRes.data);
+      if (activityData.success) setActivities(activityData.data);
+    } catch {
+      // API not available — keep empty state
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   return (
     <div>
       <TopBar title="Command Center" subtitle="Overview of all operations" />
       <div className="px-4 lg:px-6 space-y-4 lg:space-y-6 pb-8">
         <StatsGrid
-          activeClients={data.activeClients}
-          openTasks={data.openTasks}
-          monthlyRevenue={data.monthlyRevenue}
-          overdueItems={data.overdueItems}
+          activeClients={stats.activeClients}
+          openTasks={stats.openTasks}
+          monthlyRevenue={stats.monthlyRevenue}
+          overdueItems={stats.overdueItems}
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-3">
-            <UpcomingDeadlines deadlines={data.deadlines} />
+            <UpcomingDeadlines deadlines={deadlines} onRefresh={fetchDashboardData} />
           </div>
           <div className="lg:col-span-2">
-            <AgentActivityFeed activities={data.activities} />
+            <AgentActivityFeed activities={activities} />
           </div>
         </div>
 
-        <RevenueChart data={data.revenueData} />
+        <RevenueChart data={revenueData} />
       </div>
     </div>
   );

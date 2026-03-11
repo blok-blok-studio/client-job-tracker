@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Bot, User, Calendar } from "lucide-react";
+import { Bot, User, Calendar, Trash2 } from "lucide-react";
 import Badge from "@/components/shared/Badge";
 import { formatRelativeDate } from "@/lib/utils";
 import type { Priority, TaskCategory } from "@/types";
@@ -18,6 +18,7 @@ interface TaskCardProps {
   checklistTotal: number;
   checklistDone: number;
   onClick: () => void;
+  onDelete?: (id: string) => void;
 }
 
 const priorityBorder: Record<Priority, string> = {
@@ -52,6 +53,7 @@ export default function TaskCard({
   checklistTotal,
   checklistDone,
   onClick,
+  onDelete,
 }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
@@ -71,9 +73,23 @@ export default function TaskCard({
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`bg-bb-surface border border-bb-border border-l-4 ${priorityBorder[priority]} rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-bb-orange/30 transition-colors`}
+      className={`group bg-bb-surface border border-bb-border border-l-4 ${priorityBorder[priority]} rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-bb-orange/30 transition-colors`}
     >
-      <p className="text-sm font-medium mb-2 line-clamp-2">{title}</p>
+      <div className="flex items-start justify-between gap-1 mb-2">
+        <p className="text-sm font-medium line-clamp-2">{title}</p>
+        {onDelete && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(id);
+            }}
+            className="p-1 rounded hover:bg-red-500/20 text-bb-dim hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+            title="Delete task"
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center gap-1.5 mb-2">
         {clientName && <Badge variant="default" size="sm">{clientName}</Badge>}

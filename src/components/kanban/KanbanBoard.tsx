@@ -242,6 +242,7 @@ export default function KanbanBoard() {
                 const t = tasks.find((task) => task.id === id);
                 if (t) setDetailTask(t);
               }}
+              onDeleteTask={handleDeleteTask}
             />
           ))}
         </div>

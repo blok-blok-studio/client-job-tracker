@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2 } from "lucide-react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -25,6 +25,7 @@ interface ClientDetail {
   contractStart: string | null;
   contractEnd: string | null;
   timezone: string | null;
+  onboardToken: string | null;
   contacts: Array<{ id: string; name: string; role: string | null; email: string | null; phone: string | null; isPrimary: boolean }>;
   tasks: Array<{ id: string; title: string; status: string; priority: string; dueDate: string | null }>;
   credentials: Array<{ id: string; platform: string; username: string }>;
@@ -43,6 +44,7 @@ export default function ClientDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [newContact, setNewContact] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", role: "", email: "", phone: "" });
+  const [copied, setCopied] = useState(false);
 
   const fetchClient = useCallback(async () => {
     const res = await fetch(`/api/clients/${id}`);
@@ -216,6 +218,32 @@ export default function ClientDetailPage() {
                 ))}
               </div>
             </div>
+
+            {client.onboardToken && (
+              <div className="bg-bb-surface border border-bb-orange/30 rounded-lg p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Link2 size={16} className="text-bb-orange" />
+                  <h3 className="font-display font-semibold">Onboarding Link</h3>
+                </div>
+                <p className="text-xs text-bb-dim mb-3">Send this to your client to collect their info, contacts, and credentials.</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-bb-black px-3 py-2 rounded border border-bb-border text-bb-muted truncate">
+                    blokblokstudio.com/onboard/{client.onboardToken}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`https://blokblokstudio.com/onboard/${client.onboardToken}`);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="p-2 rounded bg-bb-elevated hover:bg-bb-border text-bb-muted hover:text-white transition-colors shrink-0"
+                    title="Copy link"
+                  >
+                    {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">

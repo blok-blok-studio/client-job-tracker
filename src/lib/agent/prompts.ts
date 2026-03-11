@@ -10,8 +10,8 @@ YOUR ROLE:
 - You are proactive: create tasks before they're needed, flag issues before they're urgent
 
 YOUR CAPABILITIES:
-You can: create tasks, move tasks between statuses, flag overdue items, draft reminders, generate reports, manage checklists, add notes, and suggest actions.
-You cannot: delete anything, access credentials, send messages directly, make financial decisions, or change your own configuration.
+You can: create tasks, move tasks between statuses, flag overdue items, draft reminders, generate reports, manage checklists, add notes, suggest actions, and reply to client support tickets via Telegram.
+You cannot: delete anything, access credentials, make financial decisions, or change your own configuration.
 
 YOUR PERSONALITY:
 - Direct and efficient (no fluff)
@@ -41,6 +41,7 @@ VALID ACTIONS:
 - CREATE_CHECKLIST_ITEM: { action: "CREATE_CHECKLIST_ITEM", taskId?, clientId?, label }
 - SUGGEST_ACTION: { action: "SUGGEST_ACTION", suggestion, reasoning, urgency: "low"|"medium"|"high" }
 - LOG_NOTE: { action: "LOG_NOTE", clientId?, taskId?, note }
+- REPLY_SUPPORT_TICKET: { action: "REPLY_SUPPORT_TICKET", ticketId, text }
 
 RULES:
 1. Never perform more than 50 actions in one cycle
@@ -48,13 +49,15 @@ RULES:
 3. Prioritize: overdue items > due today > due this week > everything else
 4. If a client has no tasks and an active contract, suggest creating a recurring content task
 5. If a contract is expiring within 30 days, flag it as high urgency
-6. Generate a daily summary at the start of each day's first run`;
+6. Generate a daily summary at the start of each day's first run
+7. For open support tickets: acknowledge the client's message, provide helpful info if you can, and escalate to Chase (via SUGGEST_ACTION) if the request requires human judgment
+8. Keep support replies professional, friendly, and concise — you represent Blok Blok Studio`;
 
 export async function buildContextPayload() {
   const now = new Date();
   const berlinTime = format(now, "yyyy-MM-dd HH:mm:ss 'Berlin'");
 
-  const [activeClients, openTasks, recentlyCompleted, overdueTasks, upcomingTasks, lastAgentLog, todayActionCount] =
+  const [activeClients, openTasks, recentlyCompleted, overdueTasks, upcomingTasks, lastAgentLog, todayActionCount, openTickets] =
     await Promise.all([
       prisma.client.findMany({
         where: { type: "ACTIVE" },
@@ -100,6 +103,15 @@ export async function buildContextPayload() {
           createdAt: { gte: new Date(now.setHours(0, 0, 0, 0)) },
         },
       }),
+      prisma.supportTicket.findMany({
+        where: { status: { in: ["OPEN", "IN_PROGRESS"] } },
+        include: {
+          client: { select: { name: true } },
+          messages: { orderBy: { createdAt: "desc" }, take: 3 },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+      }),
     ]);
 
   return {
@@ -139,5 +151,17 @@ export async function buildContextPayload() {
     })),
     lastAgentRun: lastAgentLog?.createdAt.toISOString() || "never",
     actionsToday: todayActionCount,
+    openSupportTickets: (openTickets as Array<Record<string, unknown>>).map((t) => ({
+      id: t.id,
+      subject: t.subject,
+      status: t.status,
+      priority: t.priority,
+      clientName: (t as { client?: { name: string } }).client?.name || null,
+      recentMessages: ((t as { messages?: Array<Record<string, unknown>> }).messages || []).map((m) => ({
+        sender: m.sender,
+        text: (m.text as string)?.slice(0, 200),
+        createdAt: (m.createdAt as Date).toISOString(),
+      })),
+    })),
   };
 }

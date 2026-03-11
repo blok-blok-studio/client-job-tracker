@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Trash2 } from "lucide-react";
 import { formatRelativeDate } from "@/lib/utils";
 import Badge from "@/components/shared/Badge";
 import type { Priority } from "@/types";
@@ -21,14 +22,19 @@ const priorityVariant: Record<Priority, "red" | "orange" | "blue" | "gray"> = {
   LOW: "gray",
 };
 
-export default function UpcomingDeadlines({ deadlines }: { deadlines: Deadline[] }) {
+export default function UpcomingDeadlines({ deadlines, onRefresh }: { deadlines: Deadline[]; onRefresh?: () => void }) {
   async function handleToggleDone(taskId: string) {
     await fetch(`/api/tasks/${taskId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "DONE" }),
     });
-    window.location.reload();
+    if (onRefresh) onRefresh();
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+    if (onRefresh) onRefresh();
   }
 
   return (
@@ -68,6 +74,13 @@ export default function UpcomingDeadlines({ deadlines }: { deadlines: Deadline[]
                 <Badge variant={priorityVariant[task.priority]} size="sm">
                   {task.priority}
                 </Badge>
+                <button
+                  onClick={() => handleDeleteTask(task.id)}
+                  className="p-1 rounded hover:bg-red-500/20 text-bb-dim hover:text-red-400 transition-colors shrink-0"
+                  title="Delete task"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             );
           })

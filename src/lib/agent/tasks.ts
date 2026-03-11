@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import { sendTelegramMessage } from "@/lib/telegram";
 import type { ActionResult, AgentAction } from "@/types";
 
 // --- Action Functions ---
@@ -275,6 +276,58 @@ export async function logNote(params: {
   return { success: true, message: `Note logged` };
 }
 
+export async function replySupportTicket(params: {
+  ticketId: string;
+  text: string;
+}): Promise<ActionResult> {
+  const schema = z.object({
+    ticketId: z.string(),
+    text: z.string().min(1),
+  });
+
+  const parsed = schema.parse(params);
+
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: parsed.ticketId },
+    select: { id: true, telegramChatId: true, clientId: true, status: true },
+  });
+
+  if (!ticket) {
+    return { success: false, message: "Ticket not found" };
+  }
+
+  // Save the message
+  await prisma.supportMessage.create({
+    data: {
+      ticketId: ticket.id,
+      sender: "bot",
+      text: parsed.text,
+    },
+  });
+
+  // Update ticket to IN_PROGRESS if OPEN
+  if (ticket.status === "OPEN") {
+    await prisma.supportTicket.update({
+      where: { id: ticket.id },
+      data: { status: "IN_PROGRESS" },
+    });
+  }
+
+  // Send via Telegram
+  await sendTelegramMessage(ticket.telegramChatId, parsed.text);
+
+  await prisma.activityLog.create({
+    data: {
+      clientId: ticket.clientId,
+      actor: "agent",
+      action: "replied_support_ticket",
+      details: `Auto-replied to support ticket: ${parsed.text.slice(0, 100)}`,
+    },
+  });
+
+  return { success: true, message: `Replied to support ticket` };
+}
+
 // --- Action Dispatcher ---
 
 const actionMap: Record<string, (params: Record<string, unknown>) => Promise<ActionResult>> = {
@@ -287,6 +340,7 @@ const actionMap: Record<string, (params: Record<string, unknown>) => Promise<Act
   CREATE_CHECKLIST_ITEM: (p) => createChecklistItem(p as Parameters<typeof createChecklistItem>[0]),
   SUGGEST_ACTION: (p) => suggestAction(p as Parameters<typeof suggestAction>[0]),
   LOG_NOTE: (p) => logNote(p as Parameters<typeof logNote>[0]),
+  REPLY_SUPPORT_TICKET: (p) => replySupportTicket(p as Parameters<typeof replySupportTicket>[0]),
 };
 
 export async function dispatchAction(

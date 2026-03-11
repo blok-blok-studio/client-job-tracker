@@ -24,9 +24,10 @@ interface KanbanColumnProps {
   tasks: Task[];
   onAddTask: (status: TaskStatus) => void;
   onTaskClick: (taskId: string) => void;
+  onDeleteTask: (taskId: string) => void;
 }
 
-export default function KanbanColumn({ status, label, tasks, onAddTask, onTaskClick }: KanbanColumnProps) {
+export default function KanbanColumn({ status, label, tasks, onAddTask, onTaskClick, onDeleteTask }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
@@ -50,7 +51,7 @@ export default function KanbanColumn({ status, label, tasks, onAddTask, onTaskCl
       <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-250px)]">
           {tasks.map((task) => (
-            <TaskCard key={task.id} {...task} onClick={() => onTaskClick(task.id)} />
+            <TaskCard key={task.id} {...task} onClick={() => onTaskClick(task.id)} onDelete={onDeleteTask} />
           ))}
           {tasks.length === 0 && (
             <div className="text-center py-8 text-bb-dim text-xs">

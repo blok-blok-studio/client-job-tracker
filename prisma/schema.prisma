@@ -24,13 +24,16 @@ model Client {
   contractEnd     DateTime?
   timezone        String?    @default("Europe/Berlin")
   avatarUrl       String?
+  onboardToken    String?    @unique
+  telegramChatId  String?    @unique
 
-  credentials    Credential[]
-  tasks          Task[]
-  invoices       Invoice[]
-  contacts       Contact[]
-  activityLogs   ActivityLog[]
-  checklistItems ChecklistItem[]
+  credentials      Credential[]
+  tasks            Task[]
+  invoices         Invoice[]
+  contacts         Contact[]
+  activityLogs     ActivityLog[]
+  checklistItems   ChecklistItem[]
+  supportTickets   SupportTicket[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -184,6 +187,39 @@ model ActivityLog {
   actor    String
   action   String
   details  String? @db.Text
+
+  createdAt DateTime @default(now())
+}
+
+// --- SUPPORT TICKETS (Telegram) ---
+model SupportTicket {
+  id             String       @id @default(cuid())
+  clientId       String
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  telegramChatId String
+  subject        String
+  status         TicketStatus @default(OPEN)
+  priority       Priority     @default(MEDIUM)
+
+  messages SupportMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model SupportMessage {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender   String // "client" | "chase" | "bot"
+  text     String @db.Text
 
   createdAt DateTime @default(now())
 }

@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Lock,
   Bot,
+  MessageCircle,
   Settings,
   LogOut,
   ChevronLeft,
@@ -26,6 +27,7 @@ const navItems = [
   { href: "/kanban", label: "Kanban", icon: Columns3 },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/vault", label: "Vault", icon: Lock },
+  { href: "/support", label: "Support", icon: MessageCircle },
   { href: "/agent", label: "Agent", icon: Bot },
   { href: "/agent/config", label: "Settings", icon: Settings },
 ];
