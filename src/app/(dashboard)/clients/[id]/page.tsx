@@ -168,7 +168,7 @@ export default function ClientDetailPage() {
                 {([
                   ["Email", client.email],
                   ["Phone", client.phone],
-                  ["Source", client.source],
+                  ["How They Found Us", client.source],
                   ["Industry", client.industry],
                   ["Timezone", client.timezone],
                   ["Retainer", client.monthlyRetainer ? formatCurrency(Number(client.monthlyRetainer)) : null],
