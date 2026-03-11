@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-const PUBLIC_PATHS = ["/login", "/onboard", "/contract", "/api/auth/login", "/api/openclaw/webhook", "/api/onboard", "/api/contract", "/api/telegram/webhook"];
+const PUBLIC_PATHS = ["/login", "/onboard", "/contract", "/api/auth/login", "/api/openclaw/webhook", "/api/onboard", "/api/contract", "/api/telegram/webhook", "/api/stripe/webhook"];
 
 function getSecret() {
   const secret = process.env.AUTH_SECRET;

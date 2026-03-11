@@ -19,6 +19,7 @@ export async function GET(
       socialLinks: { orderBy: { createdAt: "asc" } },
       activityLogs: { orderBy: { createdAt: "desc" }, take: 20 },
       contracts: { orderBy: { createdAt: "desc" }, select: { id: true, token: true, status: true, signedName: true, signedAt: true, createdAt: true } },
+      paymentLinks: { orderBy: { createdAt: "desc" }, select: { id: true, stripeUrl: true, amount: true, description: true, status: true, paidAt: true, createdAt: true } },
     },
   });
 

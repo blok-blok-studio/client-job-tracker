@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard } from "lucide-react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -37,6 +37,7 @@ interface ClientDetail {
   socialLinks: Array<{ id: string; platform: string; url: string; handle: string | null }>;
   activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; createdAt: string }>;
   contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
+  paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; description: string; status: string; paidAt: string | null; createdAt: string }>;
 }
 
 const tierVariant: Record<string, "orange" | "gray" | "blue"> = { VIP: "orange", STANDARD: "gray", TRIAL: "blue" };
@@ -61,6 +62,11 @@ export default function ClientDetailPage() {
   const [customTerms, setCustomTerms] = useState("");
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractCopied, setContractCopied] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDescription, setPaymentDescription] = useState("");
+  const [generatingPayment, setGeneratingPayment] = useState(false);
+  const [paymentCopied, setPaymentCopied] = useState<string | null>(null);
 
   const fetchClient = useCallback(async () => {
     const res = await fetch(`/api/clients/${id}`);
@@ -177,6 +183,33 @@ export default function ClientDetailPage() {
     navigator.clipboard.writeText(`${window.location.origin}/contract/${token}`);
     setContractCopied(token);
     setTimeout(() => setContractCopied(null), 2000);
+  }
+
+  async function handleGeneratePaymentLink() {
+    const amount = Number(paymentAmount);
+    if (!amount || amount <= 0 || !paymentDescription.trim()) return;
+    setGeneratingPayment(true);
+    try {
+      const res = await fetch(`/api/clients/${id}/payment-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, description: paymentDescription.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowPaymentModal(false);
+        setPaymentAmount("");
+        setPaymentDescription("");
+        fetchClient();
+      }
+    } catch { /* stay on modal */ }
+    finally { setGeneratingPayment(false); }
+  }
+
+  function handleCopyPaymentLink(url: string, linkId: string) {
+    navigator.clipboard.writeText(url);
+    setPaymentCopied(linkId);
+    setTimeout(() => setPaymentCopied(null), 2000);
   }
 
   async function handleDeleteSocial(linkId: string) {
@@ -407,6 +440,62 @@ export default function ClientDetailPage() {
                   ))
                 ) : (
                   <p className="text-sm text-bb-dim">No contracts generated</p>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-display font-semibold flex items-center gap-2">
+                  <CreditCard size={16} className="text-bb-orange" /> Payments
+                </h3>
+                <button
+                  onClick={() => setShowPaymentModal(true)}
+                  className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1"
+                >
+                  <Plus size={14} /> New
+                </button>
+              </div>
+              <div className="space-y-2">
+                {client.paymentLinks && client.paymentLinks.length > 0 ? (
+                  client.paymentLinks.map((link) => (
+                    <div key={link.id} className="p-3 rounded-lg bg-bb-black border border-bb-border space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm font-medium text-white">${(link.amount / 100).toLocaleString()}</span>
+                          <span className="text-xs text-bb-dim ml-2">{link.description}</span>
+                        </div>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          link.status === "PAID"
+                            ? "bg-green-500/10 text-green-400"
+                            : "bg-yellow-500/10 text-yellow-400"
+                        }`}>
+                          {link.status === "PAID" ? "Paid" : "Pending"}
+                        </span>
+                      </div>
+                      {link.status === "PAID" && link.paidAt && (
+                        <p className="text-xs text-bb-muted">
+                          Paid on {new Date(link.paidAt).toLocaleString()}
+                        </p>
+                      )}
+                      {link.status === "PENDING" && (
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 text-xs bg-bb-surface px-2 py-1.5 rounded border border-bb-border text-bb-dim truncate">
+                            {link.stripeUrl}
+                          </code>
+                          <button
+                            onClick={() => handleCopyPaymentLink(link.stripeUrl, link.id)}
+                            className="p-1.5 rounded bg-bb-elevated hover:bg-bb-border text-bb-muted hover:text-white transition-colors shrink-0"
+                            title="Copy link"
+                          >
+                            {paymentCopied === link.id ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-bb-dim">No payment links</p>
                 )}
               </div>
             </div>
@@ -678,6 +767,73 @@ export default function ClientDetailPage() {
                 <>
                   <FileText size={14} />
                   Generate Contract
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Generate Payment Link Modal */}
+      <Modal open={showPaymentModal} onClose={() => setShowPaymentModal(false)} title="Create Payment Link">
+        <div className="space-y-4">
+          <p className="text-xs text-bb-dim">
+            Generate a Stripe payment link to send to {client?.name?.split(" ")[0]}. They&apos;ll be redirected to a secure Stripe checkout page.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-white mb-1.5">Description *</label>
+            <input
+              type="text"
+              value={paymentDescription}
+              onChange={(e) => setPaymentDescription(e.target.value)}
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+              placeholder="e.g. Single Agent Build, AI Operations Package"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white mb-1.5">Amount (USD) *</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim text-sm">$</span>
+              <input
+                type="number"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                className="w-full pl-7 pr-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+                placeholder="5000"
+                min="1"
+                step="1"
+              />
+            </div>
+          </div>
+          {paymentAmount && Number(paymentAmount) > 0 && (
+            <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
+              <div className="flex justify-between text-sm">
+                <span className="text-bb-dim">Payment amount</span>
+                <span className="text-white font-mono font-semibold">${Number(paymentAmount).toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+          <div className="flex gap-3 justify-end pt-2">
+            <button
+              onClick={() => setShowPaymentModal(false)}
+              className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleGeneratePaymentLink}
+              disabled={!paymentAmount || Number(paymentAmount) <= 0 || !paymentDescription.trim() || generatingPayment}
+              className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+            >
+              {generatingPayment ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <CreditCard size={14} />
+                  Create Payment Link
                 </>
               )}
             </button>

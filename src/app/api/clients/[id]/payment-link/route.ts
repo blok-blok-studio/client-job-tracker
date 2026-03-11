@@ -1,0 +1,144 @@
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { stripe } from "@/lib/stripe";
+import { z } from "zod";
+
+const createSchema = z.object({
+  amount: z.number().min(1, "Amount must be at least $1"),
+  description: z.string().min(1).max(500),
+});
+
+// POST — Create a Stripe payment link for a client
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  try {
+    const client = await prisma.client.findUnique({
+      where: { id },
+      select: { id: true, name: true, email: true, company: true },
+    });
+
+    if (!client) {
+      return NextResponse.json({ success: false, error: "Client not found" }, { status: 404 });
+    }
+
+    const body = await request.json();
+    const parsed = createSchema.parse(body);
+    const amountInCents = Math.round(parsed.amount * 100);
+
+    // Create a Stripe product on the fly
+    const product = await stripe.products.create({
+      name: parsed.description,
+      metadata: {
+        clientId: client.id,
+        clientName: client.name,
+      },
+    });
+
+    // Create a one-time price
+    const price = await stripe.prices.create({
+      product: product.id,
+      unit_amount: amountInCents,
+      currency: "usd",
+    });
+
+    // Create the payment link
+    const paymentLink = await stripe.paymentLinks.create({
+      line_items: [{ price: price.id, quantity: 1 }],
+      metadata: {
+        clientId: client.id,
+        clientName: client.name,
+      },
+      after_completion: {
+        type: "hosted_confirmation",
+        hosted_confirmation: {
+          custom_message: `Thank you for your payment, ${client.name.split(" ")[0]}! We'll be in touch shortly to get started.`,
+        },
+      },
+      ...(client.email ? { custom_fields: [] } : {}),
+    });
+
+    // Save to our database
+    const record = await prisma.paymentLink.create({
+      data: {
+        clientId: client.id,
+        stripePaymentLink: paymentLink.id,
+        stripeUrl: paymentLink.url,
+        amount: amountInCents,
+        currency: "usd",
+        description: parsed.description,
+        stripePriceId: price.id,
+        stripeProductId: product.id,
+      },
+    });
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        clientId: client.id,
+        actor: "chase",
+        action: "payment_link_created",
+        details: `Payment link created: $${parsed.amount.toLocaleString()} for ${parsed.description}`,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: record.id,
+        url: paymentLink.url,
+        amount: amountInCents,
+        description: parsed.description,
+        status: record.status,
+        createdAt: record.createdAt,
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { success: false, error: "Validation failed", details: error.issues },
+        { status: 400 }
+      );
+    }
+    console.error("Payment link creation error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to create payment link" },
+      { status: 500 }
+    );
+  }
+}
+
+// GET — List all payment links for a client
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  try {
+    const links = await prisma.paymentLink.findMany({
+      where: { clientId: id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        stripeUrl: true,
+        amount: true,
+        currency: true,
+        description: true,
+        status: true,
+        paidAt: true,
+        createdAt: true,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: links });
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch payment links" },
+      { status: 500 }
+    );
+  }
+}

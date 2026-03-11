@@ -36,6 +36,7 @@ model Client {
   supportTickets   SupportTicket[]
   socialLinks      SocialLink[]
   contracts        ContractSignature[]
+  paymentLinks     PaymentLink[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -259,6 +260,33 @@ enum ContractStatus {
   PENDING
   SIGNED
   EXPIRED
+}
+
+// --- PAYMENT LINKS (Stripe) ---
+model PaymentLink {
+  id                String        @id @default(cuid())
+  clientId          String
+  client            Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  stripePaymentLink String        @unique
+  stripeUrl         String
+  amount            Int           // cents
+  currency          String        @default("usd")
+  description       String
+  status            PaymentStatus @default(PENDING)
+  stripePriceId     String?
+  stripeProductId   String?
+  stripeSessionId   String?
+  paidAt            DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  EXPIRED
+  CANCELLED
 }
 
 // --- AGENT CONFIG ---
