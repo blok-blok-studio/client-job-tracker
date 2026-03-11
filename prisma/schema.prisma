@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- CLIENTS ---
+model Client {
+  id              String     @id @default(cuid())
+  name            String
+  email           String?
+  phone           String?
+  company         String?
+  type            ClientType @default(ACTIVE)
+  tier            ClientTier @default(STANDARD)
+  source          String?
+  industry        String?
+  notes           String?    @db.Text
+  monthlyRetainer Decimal?   @db.Decimal(10, 2)
+  contractStart   DateTime?
+  contractEnd     DateTime?
+  timezone        String?    @default("Europe/Berlin")
+  avatarUrl       String?
+
+  credentials    Credential[]
+  tasks          Task[]
+  invoices       Invoice[]
+  contacts       Contact[]
+  activityLogs   ActivityLog[]
+  checklistItems ChecklistItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ClientType {
+  PROSPECT
+  ACTIVE
+  PAST
+  ARCHIVED
+}
+
+enum ClientTier {
+  VIP
+  STANDARD
+  TRIAL
+}
+
+// --- CONTACTS (multiple per client) ---
+model Contact {
+  id        String  @id @default(cuid())
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  role      String?
+  email     String?
+  phone     String?
+  isPrimary Boolean @default(false)
+  notes     String?
+
+  createdAt DateTime @default(now())
+}
+
+// --- CREDENTIALS VAULT (encrypted) ---
+model Credential {
+  id          String    @id @default(cuid())
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  platform    String
+  label       String?
+  username    String
+  password    String
+  notes       String?
+  url         String?
+  iv          String
+  lastRotated DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- TASKS (Kanban + tracking) ---
+model Task {
+  id           String       @id @default(cuid())
+  clientId     String?
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  title        String
+  description  String?      @db.Text
+  status       TaskStatus   @default(BACKLOG)
+  priority     Priority     @default(MEDIUM)
+  category     TaskCategory @default(GENERAL)
+  dueDate      DateTime?
+  completedAt  DateTime?
+  assignedTo   String?      @default("agent")
+  isRecurring  Boolean      @default(false)
+  recurPattern String?
+  tags         String[]
+  sortOrder    Int          @default(0)
+
+  checklistItems ChecklistItem[]
+  activityLogs   ActivityLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  BLOCKED
+}
+
+enum Priority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TaskCategory {
+  GENERAL
+  CONTENT_CREATION
+  SOCIAL_MEDIA
+  CLIENT_COMMS
+  REPORTING
+  STRATEGY
+  INVOICING
+  ONBOARDING
+  OFFBOARDING
+  DEVELOPMENT
+  DESIGN
+}
+
+// --- CHECKLIST ITEMS (per task or per client) ---
+model ChecklistItem {
+  id        String   @id @default(cuid())
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  label     String
+  checked   Boolean  @default(false)
+  sortOrder Int      @default(0)
+
+  createdAt DateTime @default(now())
+}
+
+// --- INVOICES ---
+model Invoice {
+  id       String        @id @default(cuid())
+  clientId String
+  client   Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amount   Decimal       @db.Decimal(10, 2)
+  currency String        @default("USD")
+  status   InvoiceStatus @default(DRAFT)
+  dueDate  DateTime?
+  paidAt   DateTime?
+  notes    String?
+
+  createdAt DateTime @default(now())
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// --- ACTIVITY LOG ---
+model ActivityLog {
+  id       String  @id @default(cuid())
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  taskId   String?
+  task     Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  actor    String
+  action   String
+  details  String? @db.Text
+
+  createdAt DateTime @default(now())
+}
+
+// --- AGENT CONFIG ---
+model AgentConfig {
+  id              String   @id @default("default")
+  isActive        Boolean  @default(true)
+  runIntervalMins Int      @default(30)
+  autoAssign      Boolean  @default(true)
+  autoRemind      Boolean  @default(true)
+  autoReport      Boolean  @default(true)
+  allowedActions  String[] @default(["create_task", "move_task", "send_reminder", "generate_report", "flag_overdue"])
+  claudeModel     String   @default("claude-sonnet-4-20250514")
+  maxTokens       Int      @default(4096)
+  systemPrompt    String?  @db.Text
+
+  updatedAt DateTime @updatedAt
+}
