@@ -31,7 +31,7 @@ export default function Modal({ open, onClose, title, children, className }: Mod
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="fixed inset-0 z-50 bg-transparent p-0 m-0 max-w-none max-h-none w-full h-full backdrop:bg-black/60"
+      className="fixed inset-0 z-50 bg-transparent p-0 m-0 max-w-none max-h-none w-full h-full text-white backdrop:bg-black/60"
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}

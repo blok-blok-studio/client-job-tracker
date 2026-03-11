@@ -46,7 +46,7 @@ export default function OnboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [clientName, setClientName] = useState("");
-  const [clientCompany, setClientCompany] = useState("");
+  const [, setClientCompany] = useState("");
 
   // Form state
   const [contacts, setContacts] = useState<Contact[]>([
@@ -134,7 +134,8 @@ export default function OnboardPage() {
   }
   function updateContact(i: number, field: keyof Contact, value: string | boolean) {
     const updated = [...contacts];
-    (updated[i] as Record<string, string | boolean>)[field] = value;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (updated[i] as any)[field] = value;
     setContacts(updated);
   }
 
