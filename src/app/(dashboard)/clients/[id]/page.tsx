@@ -57,6 +57,7 @@ export default function ClientDetailPage() {
   const [showContractModal, setShowContractModal] = useState(false);
   const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [customItems, setCustomItems] = useState<{ name: string; price: string }[]>([]);
   const [customTerms, setCustomTerms] = useState("");
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractCopied, setContractCopied] = useState<string | null>(null);
@@ -143,8 +144,11 @@ export default function ClientDetailPage() {
   }
 
   async function handleGenerateContract() {
-    if (selectedPackages.length === 0) return;
+    if (selectedPackages.length === 0 && customItems.filter(i => i.name.trim()).length === 0) return;
     setGeneratingContract(true);
+    const validCustomItems = customItems
+      .filter(i => i.name.trim() && Number(i.price) > 0)
+      .map(i => ({ name: i.name.trim(), price: Number(i.price) }));
     try {
       const res = await fetch(`/api/clients/${id}/contract`, {
         method: "POST",
@@ -152,6 +156,7 @@ export default function ClientDetailPage() {
         body: JSON.stringify({
           packages: selectedPackages,
           addons: selectedAddons,
+          customItems: validCustomItems.length > 0 ? validCustomItems : undefined,
           customTerms: customTerms.trim() || undefined,
         }),
       });
@@ -160,6 +165,7 @@ export default function ClientDetailPage() {
         setShowContractModal(false);
         setSelectedPackages([]);
         setSelectedAddons([]);
+        setCustomItems([]);
         setCustomTerms("");
         fetchClient();
       }
@@ -570,14 +576,70 @@ export default function ClientDetailPage() {
             </div>
           </div>
 
-          {(selectedPackages.length > 0 || selectedAddons.length > 0) && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-white">Custom Line Items</h4>
+              <button
+                type="button"
+                onClick={() => setCustomItems([...customItems, { name: "", price: "" }])}
+                className="text-bb-orange hover:text-bb-orange-light text-xs flex items-center gap-1"
+              >
+                <Plus size={12} /> Add Item
+              </button>
+            </div>
+            {customItems.length === 0 && (
+              <p className="text-xs text-bb-dim">Use this for discounted or custom-priced services.</p>
+            )}
+            <div className="space-y-2">
+              {customItems.map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={item.name}
+                    onChange={(e) => {
+                      const updated = [...customItems];
+                      updated[i].name = e.target.value;
+                      setCustomItems(updated);
+                    }}
+                    className="flex-1 px-3 py-1.5 bg-bb-black border border-bb-border rounded text-sm text-white placeholder:text-bb-dim"
+                    placeholder="Service name"
+                  />
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-bb-dim text-sm">$</span>
+                    <input
+                      type="number"
+                      value={item.price}
+                      onChange={(e) => {
+                        const updated = [...customItems];
+                        updated[i].price = e.target.value;
+                        setCustomItems(updated);
+                      }}
+                      className="w-28 pl-6 pr-3 py-1.5 bg-bb-black border border-bb-border rounded text-sm text-white placeholder:text-bb-dim"
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCustomItems(customItems.filter((_, idx) => idx !== i))}
+                    className="p-1 text-bb-dim hover:text-red-400"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {(selectedPackages.length > 0 || selectedAddons.length > 0 || customItems.some(i => i.name.trim() && Number(i.price) > 0)) && (
             <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
               <div className="flex justify-between text-sm">
                 <span className="text-bb-dim">Total</span>
                 <span className="text-white font-mono font-semibold">
-                  ${[...SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id)),
+                  ${([...SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id)),
                     ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id))]
                     .reduce((sum, item) => sum + item.price, 0)
+                    + customItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0))
                     .toLocaleString()}
                 </span>
               </div>
@@ -604,7 +666,7 @@ export default function ClientDetailPage() {
             </button>
             <button
               onClick={handleGenerateContract}
-              disabled={selectedPackages.length === 0 || generatingContract}
+              disabled={(selectedPackages.length === 0 && !customItems.some(i => i.name.trim())) || generatingContract}
               className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {generatingContract ? (

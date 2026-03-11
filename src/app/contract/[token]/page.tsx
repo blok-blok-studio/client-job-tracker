@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Check, Loader2, FileText, Shield } from "lucide-react";
+import { Check, Loader2, Shield } from "lucide-react";
 
 interface ContractData {
   clientName: string;
@@ -13,6 +13,133 @@ interface ContractData {
   signedName: string | null;
   signedAt: string | null;
   createdAt: string;
+}
+
+function ContractRenderer({ body }: { body: string }) {
+  const lines = body.split("\n");
+
+  return (
+    <div className="space-y-1">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+
+        // Main title
+        if (trimmed === "SERVICE AGREEMENT") {
+          return (
+            <h2 key={i} className="text-2xl font-display font-bold text-white text-center pt-2 pb-4">
+              {trimmed}
+            </h2>
+          );
+        }
+
+        // Section headers (SECTION 1. ...)
+        if (/^SECTION \d+\./.test(trimmed)) {
+          return (
+            <h3 key={i} className="text-base font-display font-semibold text-white pt-8 pb-2 border-t border-bb-border/30 mt-6">
+              {trimmed}
+            </h3>
+          );
+        }
+
+        // ACKNOWLEDGMENT header
+        if (trimmed === "ACKNOWLEDGMENT AND ACCEPTANCE") {
+          return (
+            <h3 key={i} className="text-base font-display font-semibold text-white pt-8 pb-2 border-t border-bb-border/30 mt-6">
+              {trimmed}
+            </h3>
+          );
+        }
+
+        // Sub-headers (e.g. "What is included:", "Estimated timeline:", etc.)
+        if (trimmed === "What is included:") {
+          return (
+            <p key={i} className="text-sm text-bb-muted font-medium pl-8 pt-1">
+              {trimmed}
+            </p>
+          );
+        }
+
+        // Lettered items (A. Package Name    $5,000 USD)
+        if (/^[A-Z]\.\s/.test(trimmed) && trimmed.includes("$")) {
+          const parts = trimmed.match(/^([A-Z]\.\s.+?)\s{2,}\$(.+)$/);
+          if (parts) {
+            return (
+              <div key={i} className="flex items-baseline justify-between pt-4 pb-1 pl-4">
+                <span className="text-sm font-semibold text-white">{parts[1]}</span>
+                <span className="text-sm font-mono text-bb-orange font-semibold">${parts[2]}</span>
+              </div>
+            );
+          }
+        }
+
+        // Total line
+        if (trimmed.startsWith("Total") && trimmed.includes("$")) {
+          const parts = trimmed.match(/^Total\s{2,}\$(.+)$/);
+          if (parts) {
+            return (
+              <div key={i} className="flex items-baseline justify-between pt-3 pb-1 pl-4 border-t border-bb-border/30 mt-2">
+                <span className="text-sm font-bold text-white">Total</span>
+                <span className="text-base font-mono text-bb-orange font-bold">${parts[1]}</span>
+              </div>
+            );
+          }
+        }
+
+        // Itemized breakdown lines (   Package Name    $X,XXX USD)
+        if (/^\s{3}\S/.test(line) && trimmed.includes("$") && trimmed.includes("USD") && !trimmed.startsWith("Total")) {
+          const parts = trimmed.match(/^(.+?)\s{2,}\$(.+)$/);
+          if (parts) {
+            return (
+              <div key={i} className="flex items-baseline justify-between pl-6 py-0.5">
+                <span className="text-xs text-bb-dim">{parts[1]}</span>
+                <span className="text-xs font-mono text-bb-muted">${parts[2]}</span>
+              </div>
+            );
+          }
+        }
+
+        // Indented deliverable items
+        if (/^\s{8,}/.test(line) && trimmed) {
+          return (
+            <p key={i} className="text-sm text-bb-dim pl-12 py-0.5">
+              {trimmed}
+            </p>
+          );
+        }
+
+        // "Estimated timeline:" and "Post-launch support:" lines
+        if (trimmed.startsWith("Estimated timeline:") || trimmed.startsWith("Post-launch support:")) {
+          const [label, value] = trimmed.split(": ");
+          return (
+            <p key={i} className="text-xs text-bb-dim pl-8 py-0.5">
+              <span className="text-bb-dim/70">{label}:</span> {value}
+            </p>
+          );
+        }
+
+        // Empty lines
+        if (!trimmed) {
+          return <div key={i} className="h-2" />;
+        }
+
+        // Intro paragraph text (between parties, etc.)
+        if (trimmed.startsWith("This Service Agreement") || trimmed.startsWith("This Agreement outlines")) {
+          return (
+            <p key={i} className="text-sm text-bb-muted leading-relaxed">
+              {trimmed}
+            </p>
+          );
+        }
+
+        // Regular paragraph text
+        return (
+          <p key={i} className="text-sm text-bb-muted leading-relaxed">
+            {trimmed}
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function ContractSignPage() {
@@ -172,27 +299,18 @@ export default function ContractSignPage() {
           <Image
             src="/bb_logo_wordmark_subhead_WHT_PNG.png"
             alt="Blok Blok Studio"
-            width={180}
-            height={60}
-            className="mx-auto mb-6"
+            width={200}
+            height={67}
+            className="mx-auto mb-8"
           />
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-white">
-            Service Agreement
-          </h1>
           <p className="text-bb-muted mt-2 text-sm sm:text-base">
             Please review and sign the agreement below, {contract.clientName.split(" ")[0]}.
           </p>
         </div>
 
         {/* Contract Body */}
-        <div className="bg-bb-surface border border-bb-border rounded-xl p-6 sm:p-8 mb-8">
-          <div className="flex items-center gap-2 mb-6 pb-4 border-b border-bb-border">
-            <FileText size={20} className="text-bb-orange" />
-            <h2 className="text-lg font-display font-semibold text-white">Agreement Terms</h2>
-          </div>
-          <pre className="whitespace-pre-wrap text-sm text-bb-muted font-sans leading-relaxed">
-            {contract.contractBody}
-          </pre>
+        <div className="bg-bb-surface border border-bb-border rounded-xl p-6 sm:p-10 mb-8">
+          <ContractRenderer body={contract.contractBody} />
         </div>
 
         {/* Signing Section */}
@@ -207,7 +325,7 @@ export default function ContractSignPage() {
             <p className="text-xs text-bb-dim">
               By signing below, you acknowledge that you have read, understood, and agree to the
               terms outlined in this Service Agreement. Your full legal name, IP address, and
-              timestamp will be recorded.
+              timestamp will be recorded as part of this legally binding digital signature.
             </p>
 
             <div>
@@ -223,9 +341,12 @@ export default function ContractSignPage() {
                 required
               />
               {signedName && (
-                <p className="mt-2 text-2xl font-serif italic text-white">
-                  {signedName}
-                </p>
+                <div className="mt-3 p-4 bg-bb-black rounded-lg border border-bb-border">
+                  <p className="text-xs text-bb-dim mb-1">Signature preview</p>
+                  <p className="text-3xl font-serif italic text-white">
+                    {signedName}
+                  </p>
+                </div>
               )}
             </div>
 
@@ -238,7 +359,8 @@ export default function ContractSignPage() {
               />
               <span className="text-sm text-bb-muted">
                 I have read and agree to the terms of this Service Agreement. I understand
-                that this constitutes a legally binding digital signature.
+                that this constitutes a legally binding digital signature and that my name,
+                IP address, timestamp, and browser information will be recorded for verification purposes.
               </span>
             </label>
           </div>

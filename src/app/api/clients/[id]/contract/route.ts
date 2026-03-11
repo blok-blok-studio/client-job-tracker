@@ -5,8 +5,12 @@ import { generateContractBody } from "@/lib/contract-templates";
 import { z } from "zod";
 
 const generateSchema = z.object({
-  packages: z.array(z.string()).min(1, "Select at least one package"),
+  packages: z.array(z.string()).default([]),
   addons: z.array(z.string()).optional().default([]),
+  customItems: z.array(z.object({
+    name: z.string().min(1).max(200),
+    price: z.number().min(0),
+  })).optional().default([]),
   customTerms: z.string().max(5000).optional(),
 });
 
@@ -36,6 +40,7 @@ export async function POST(
       client.company,
       parsed.packages,
       parsed.addons,
+      parsed.customItems,
       parsed.customTerms
     );
 
