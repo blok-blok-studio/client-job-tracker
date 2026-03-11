@@ -48,12 +48,17 @@ export default function SupportPage() {
   const [activeTab, setActiveTab] = useState("ALL");
 
   const fetchTickets = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (activeTab !== "ALL") params.set("status", activeTab);
-    const res = await fetch(`/api/support?${params}`);
-    const data = await res.json();
-    if (data.success) setTickets(data.data);
-    setLoading(false);
+    try {
+      const params = new URLSearchParams();
+      if (activeTab !== "ALL") params.set("status", activeTab);
+      const res = await fetch(`/api/support?${params}`);
+      const data = await res.json();
+      if (data.success) setTickets(data.data);
+    } catch {
+      // API not available
+    } finally {
+      setLoading(false);
+    }
   }, [activeTab]);
 
   useEffect(() => {

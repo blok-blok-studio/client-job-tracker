@@ -8,6 +8,7 @@ import ClientForm from "@/components/clients/ClientForm";
 import Modal from "@/components/shared/Modal";
 import { cn } from "@/lib/utils";
 import { CardSkeleton } from "@/components/shared/Skeleton";
+import { useToast } from "@/components/shared/Toast";
 
 const TABS = [
   { key: "ACTIVE", label: "Active" },
@@ -33,15 +34,21 @@ export default function ClientsPage() {
   const [activeTab, setActiveTab] = useState("ACTIVE");
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const { toast } = useToast();
 
   const fetchClients = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (activeTab !== "ALL") params.set("type", activeTab);
-    if (search) params.set("search", search);
-    const res = await fetch(`/api/clients?${params}`);
-    const data = await res.json();
-    if (data.success) setClients(data.data);
-    setLoading(false);
+    try {
+      const params = new URLSearchParams();
+      if (activeTab !== "ALL") params.set("type", activeTab);
+      if (search) params.set("search", search);
+      const res = await fetch(`/api/clients?${params}`);
+      const data = await res.json();
+      if (data.success) setClients(data.data);
+    } catch {
+      // API not available
+    } finally {
+      setLoading(false);
+    }
   }, [activeTab, search]);
 
   useEffect(() => {
@@ -49,14 +56,22 @@ export default function ClientsPage() {
   }, [fetchClients]);
 
   async function handleAddClient(data: Record<string, unknown>) {
-    const res = await fetch("/api/clients", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (res.ok) {
-      setShowAddModal(false);
-      fetchClients();
+    try {
+      const res = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        setShowAddModal(false);
+        toast("Client created", "success");
+        fetchClients();
+      } else {
+        const err = await res.json().catch(() => null);
+        toast(err?.error || "Failed to create client", "error");
+      }
+    } catch {
+      toast("Failed to create client", "error");
     }
   }
 
