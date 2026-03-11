@@ -114,7 +114,7 @@ export default function SupportPage() {
                   </div>
                   {ticket.messages[0] && (
                     <p className="text-xs text-bb-muted mt-1 line-clamp-1">
-                      {ticket.messages[0].sender === "client" ? "Client: " : "You: "}
+                      {ticket.messages[0].sender === "client" ? "Client: " : ticket.messages[0].sender === "bot" ? "Bot: " : "You: "}
                       {ticket.messages[0].text}
                     </p>
                   )}
