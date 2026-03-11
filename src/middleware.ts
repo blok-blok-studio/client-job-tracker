@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifySessionToken } from "@/lib/auth";
 
-const PUBLIC_PATHS = ["/login", "/api/openclaw/webhook"];
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/openclaw/webhook"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
