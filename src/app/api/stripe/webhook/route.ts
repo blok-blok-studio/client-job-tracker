@@ -34,24 +34,25 @@ export async function POST(request: NextRequest) {
 
         if (!paymentLinkId) break;
 
-        // Find our payment link record
         const record = await prisma.paymentLink.findUnique({
           where: { stripePaymentLink: paymentLinkId },
         });
 
         if (!record) break;
 
-        // Mark as paid
+        const isSubscription = session.mode === "subscription";
+
         await prisma.paymentLink.update({
           where: { id: record.id },
           data: {
-            status: "PAID",
+            status: isSubscription ? "ACTIVE" : "PAID",
             paidAt: new Date(),
             stripeSessionId: session.id,
+            stripeSubscriptionId: (session.subscription as string) || null,
           },
         });
 
-        // Auto-check "Payment received" on client checklist
+        // Auto-check "Payment" on client checklist
         await prisma.checklistItem.updateMany({
           where: {
             clientId: record.clientId,
@@ -61,7 +62,6 @@ export async function POST(request: NextRequest) {
           data: { checked: true },
         });
 
-        // Log activity
         const amountFormatted = (record.amount / 100).toLocaleString("en-US", {
           style: "currency",
           currency: "USD",
@@ -71,10 +71,62 @@ export async function POST(request: NextRequest) {
           data: {
             clientId: record.clientId,
             actor: "stripe",
-            action: "payment_received",
-            details: `Payment of ${amountFormatted} received for ${record.description}`,
+            action: isSubscription ? "subscription_started" : "payment_received",
+            details: isSubscription
+              ? `Subscription started: ${amountFormatted}/${record.interval} for ${record.description}`
+              : `Payment of ${amountFormatted} received for ${record.description}`,
           },
         });
+
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+
+        await prisma.paymentLink.updateMany({
+          where: { stripeSubscriptionId: subscription.id },
+          data: { status: "CANCELLED" },
+        });
+
+        const cancelledRecord = await prisma.paymentLink.findFirst({
+          where: { stripeSubscriptionId: subscription.id },
+        });
+
+        if (cancelledRecord) {
+          await prisma.activityLog.create({
+            data: {
+              clientId: cancelledRecord.clientId,
+              actor: "stripe",
+              action: "subscription_cancelled",
+              details: `Subscription cancelled: ${cancelledRecord.description}`,
+            },
+          });
+        }
+
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = invoice.subscription as string | null;
+
+        if (!subscriptionId) break;
+
+        const failedRecord = await prisma.paymentLink.findFirst({
+          where: { stripeSubscriptionId: subscriptionId },
+        });
+
+        if (failedRecord) {
+          await prisma.activityLog.create({
+            data: {
+              clientId: failedRecord.clientId,
+              actor: "stripe",
+              action: "payment_failed",
+              details: `Subscription payment failed for ${failedRecord.description}`,
+            },
+          });
+        }
 
         break;
       }

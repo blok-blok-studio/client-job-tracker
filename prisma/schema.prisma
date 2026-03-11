@@ -264,19 +264,22 @@ enum ContractStatus {
 
 // --- PAYMENT LINKS (Stripe) ---
 model PaymentLink {
-  id                String        @id @default(cuid())
-  clientId          String
-  client            Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  stripePaymentLink String        @unique
-  stripeUrl         String
-  amount            Int           // cents
-  currency          String        @default("usd")
-  description       String
-  status            PaymentStatus @default(PENDING)
-  stripePriceId     String?
-  stripeProductId   String?
-  stripeSessionId   String?
-  paidAt            DateTime?
+  id                  String        @id @default(cuid())
+  clientId            String
+  client              Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  stripePaymentLink   String        @unique
+  stripeUrl           String
+  amount              Int           // cents
+  currency            String        @default("usd")
+  description         String
+  recurring           Boolean       @default(false)
+  interval            String?       // "month" | "year"
+  status              PaymentStatus @default(PENDING)
+  stripePriceId       String?
+  stripeProductId     String?
+  stripeSessionId     String?
+  stripeSubscriptionId String?
+  paidAt              DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -285,6 +288,7 @@ model PaymentLink {
 enum PaymentStatus {
   PENDING
   PAID
+  ACTIVE
   EXPIRED
   CANCELLED
 }

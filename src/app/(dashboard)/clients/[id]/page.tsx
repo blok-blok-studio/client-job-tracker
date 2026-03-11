@@ -37,7 +37,7 @@ interface ClientDetail {
   socialLinks: Array<{ id: string; platform: string; url: string; handle: string | null }>;
   activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; createdAt: string }>;
   contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
-  paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; description: string; status: string; paidAt: string | null; createdAt: string }>;
+  paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; createdAt: string }>;
 }
 
 const tierVariant: Record<string, "orange" | "gray" | "blue"> = { VIP: "orange", STANDARD: "gray", TRIAL: "blue" };
@@ -65,6 +65,8 @@ export default function ClientDetailPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDescription, setPaymentDescription] = useState("");
+  const [paymentRecurring, setPaymentRecurring] = useState(false);
+  const [paymentInterval, setPaymentInterval] = useState<"month" | "year">("month");
   const [generatingPayment, setGeneratingPayment] = useState(false);
   const [paymentCopied, setPaymentCopied] = useState<string | null>(null);
 
@@ -193,13 +195,20 @@ export default function ClientDetailPage() {
       const res = await fetch(`/api/clients/${id}/payment-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, description: paymentDescription.trim() }),
+        body: JSON.stringify({
+          amount,
+          description: paymentDescription.trim(),
+          recurring: paymentRecurring,
+          interval: paymentRecurring ? paymentInterval : undefined,
+        }),
       });
       const data = await res.json();
       if (data.success) {
         setShowPaymentModal(false);
         setPaymentAmount("");
         setPaymentDescription("");
+        setPaymentRecurring(false);
+        setPaymentInterval("month");
         fetchClient();
       }
     } catch { /* stay on modal */ }
@@ -462,20 +471,27 @@ export default function ClientDetailPage() {
                     <div key={link.id} className="p-3 rounded-lg bg-bb-black border border-bb-border space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="text-sm font-medium text-white">${(link.amount / 100).toLocaleString()}</span>
+                          <span className="text-sm font-medium text-white">
+                            ${(link.amount / 100).toLocaleString()}
+                            {link.recurring && link.interval && (
+                              <span className="text-bb-dim font-normal">/{link.interval === "year" ? "yr" : "mo"}</span>
+                            )}
+                          </span>
                           <span className="text-xs text-bb-dim ml-2">{link.description}</span>
                         </div>
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          link.status === "PAID"
+                          link.status === "PAID" || link.status === "ACTIVE"
                             ? "bg-green-500/10 text-green-400"
+                            : link.status === "CANCELLED"
+                            ? "bg-red-500/10 text-red-400"
                             : "bg-yellow-500/10 text-yellow-400"
                         }`}>
-                          {link.status === "PAID" ? "Paid" : "Pending"}
+                          {link.status === "ACTIVE" ? "Active" : link.status === "PAID" ? "Paid" : link.status === "CANCELLED" ? "Cancelled" : "Pending"}
                         </span>
                       </div>
-                      {link.status === "PAID" && link.paidAt && (
+                      {(link.status === "PAID" || link.status === "ACTIVE") && link.paidAt && (
                         <p className="text-xs text-bb-muted">
-                          Paid on {new Date(link.paidAt).toLocaleString()}
+                          {link.status === "ACTIVE" ? "Started" : "Paid"} on {new Date(link.paidAt).toLocaleString()}
                         </p>
                       )}
                       {link.status === "PENDING" && (
@@ -805,11 +821,51 @@ export default function ClientDetailPage() {
               />
             </div>
           </div>
+          <div>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={paymentRecurring}
+                onChange={(e) => setPaymentRecurring(e.target.checked)}
+                className="w-4 h-4 rounded border-bb-border bg-bb-black accent-bb-orange"
+              />
+              <span className="text-sm text-white font-medium">Recurring subscription</span>
+            </label>
+            {paymentRecurring && (
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentInterval("month")}
+                  className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                    paymentInterval === "month"
+                      ? "border-bb-orange bg-bb-orange/10 text-bb-orange"
+                      : "border-bb-border bg-bb-black text-bb-muted hover:border-bb-orange/30"
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentInterval("year")}
+                  className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                    paymentInterval === "year"
+                      ? "border-bb-orange bg-bb-orange/10 text-bb-orange"
+                      : "border-bb-border bg-bb-black text-bb-muted hover:border-bb-orange/30"
+                  }`}
+                >
+                  Yearly
+                </button>
+              </div>
+            )}
+          </div>
           {paymentAmount && Number(paymentAmount) > 0 && (
             <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
               <div className="flex justify-between text-sm">
-                <span className="text-bb-dim">Payment amount</span>
-                <span className="text-white font-mono font-semibold">${Number(paymentAmount).toLocaleString()}</span>
+                <span className="text-bb-dim">{paymentRecurring ? "Subscription" : "Payment"} amount</span>
+                <span className="text-white font-mono font-semibold">
+                  ${Number(paymentAmount).toLocaleString()}
+                  {paymentRecurring && <span className="text-bb-dim font-normal">/{paymentInterval === "year" ? "yr" : "mo"}</span>}
+                </span>
               </div>
             </div>
           )}

@@ -6,6 +6,8 @@ import { z } from "zod";
 const createSchema = z.object({
   amount: z.number().min(1, "Amount must be at least $1"),
   description: z.string().min(1).max(500),
+  recurring: z.boolean().default(false),
+  interval: z.enum(["month", "year"]).optional(),
 });
 
 // POST — Create a Stripe payment link for a client
@@ -28,6 +30,7 @@ export async function POST(
     const body = await request.json();
     const parsed = createSchema.parse(body);
     const amountInCents = Math.round(parsed.amount * 100);
+    const isRecurring = parsed.recurring && parsed.interval;
 
     // Create a Stripe product on the fly
     const product = await stripe.products.create({
@@ -38,27 +41,33 @@ export async function POST(
       },
     });
 
-    // Create a one-time price
+    // Create price (one-time or recurring)
     const price = await stripe.prices.create({
       product: product.id,
       unit_amount: amountInCents,
       currency: "usd",
+      ...(isRecurring
+        ? { recurring: { interval: parsed.interval! } }
+        : {}),
     });
 
-    // Create the payment link
+    // Create the payment link with card/bank payment methods
     const paymentLink = await stripe.paymentLinks.create({
       line_items: [{ price: price.id, quantity: 1 }],
+      payment_method_types: ["card", "us_bank_account"],
       metadata: {
         clientId: client.id,
         clientName: client.name,
+        recurring: isRecurring ? "true" : "false",
       },
       after_completion: {
         type: "hosted_confirmation",
         hosted_confirmation: {
-          custom_message: `Thank you for your payment, ${client.name.split(" ")[0]}! We'll be in touch shortly to get started.`,
+          custom_message: isRecurring
+            ? `Thank you, ${client.name.split(" ")[0]}! Your subscription is now active. You'll be billed ${parsed.interval === "year" ? "annually" : "monthly"}.`
+            : `Thank you for your payment, ${client.name.split(" ")[0]}! We'll be in touch shortly to get started.`,
         },
       },
-      ...(client.email ? { custom_fields: [] } : {}),
     });
 
     // Save to our database
@@ -70,18 +79,21 @@ export async function POST(
         amount: amountInCents,
         currency: "usd",
         description: parsed.description,
+        recurring: !!isRecurring,
+        interval: isRecurring ? parsed.interval : null,
         stripePriceId: price.id,
         stripeProductId: product.id,
       },
     });
 
     // Log activity
+    const intervalLabel = isRecurring ? `/${parsed.interval}` : "";
     await prisma.activityLog.create({
       data: {
         clientId: client.id,
         actor: "chase",
         action: "payment_link_created",
-        details: `Payment link created: $${parsed.amount.toLocaleString()} for ${parsed.description}`,
+        details: `${isRecurring ? "Subscription" : "Payment"} link created: $${parsed.amount.toLocaleString()}${intervalLabel} for ${parsed.description}`,
       },
     });
 
@@ -92,6 +104,8 @@ export async function POST(
         url: paymentLink.url,
         amount: amountInCents,
         description: parsed.description,
+        recurring: record.recurring,
+        interval: record.interval,
         status: record.status,
         createdAt: record.createdAt,
       },
@@ -128,6 +142,8 @@ export async function GET(
         amount: true,
         currency: true,
         description: true,
+        recurring: true,
+        interval: true,
         status: true,
         paidAt: true,
         createdAt: true,
