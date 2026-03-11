@@ -194,7 +194,7 @@ export default function OnboardPage() {
             validSocialLinks.length > 0 ? validSocialLinks : undefined,
           timezone: timezone || undefined,
           company: company.trim() || undefined,
-          companyWebsite: companyWebsite.trim() || undefined,
+          companyWebsite: companyWebsite.trim() ? `https://www.${companyWebsite.trim()}` : undefined,
           notes: notes.trim() || undefined,
           brandGuidelines: brandGuidelines.trim() || undefined,
         }),
@@ -467,13 +467,18 @@ export default function OnboardPage() {
               </div>
               <div>
                 <label className={labelClass}>Company Website</label>
-                <input
-                  type="url"
-                  value={companyWebsite}
-                  onChange={(e) => setCompanyWebsite(e.target.value)}
-                  className={inputClass}
-                  placeholder="https://example.com"
-                />
+                <div className="flex">
+                  <span className="inline-flex items-center px-3 bg-bb-black border border-r-0 border-bb-border rounded-l-lg text-bb-dim text-sm">
+                    https://www.
+                  </span>
+                  <input
+                    type="text"
+                    value={companyWebsite}
+                    onChange={(e) => setCompanyWebsite(e.target.value)}
+                    className={`${inputClass} rounded-l-none`}
+                    placeholder="example.com"
+                  />
+                </div>
               </div>
             </div>
           </section>
