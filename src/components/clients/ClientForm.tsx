@@ -21,6 +21,8 @@ interface ClientFormProps {
   onSubmit: (data: Record<string, unknown>) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
+  /** When true, shows only essential fields (name, company, type, tier) */
+  compact?: boolean;
 }
 
 export default function ClientForm({
@@ -28,8 +30,10 @@ export default function ClientForm({
   onSubmit,
   onCancel,
   submitLabel = "Create Client",
+  compact = false,
 }: ClientFormProps) {
   const [loading, setLoading] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -71,17 +75,6 @@ export default function ClientForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className={labelClass}>Email</label>
-          <input name="email" type="email" defaultValue={initialData.email} className={inputClass} placeholder="email@example.com" />
-        </div>
-        <div>
-          <label className={labelClass}>Phone</label>
-          <input name="phone" defaultValue={initialData.phone} className={inputClass} placeholder="+1 234 567 8900" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
           <label className={labelClass}>Type</label>
           <select name="type" defaultValue={initialData.type || "ACTIVE"} className={inputClass}>
             <option value="PROSPECT">Prospect</option>
@@ -99,37 +92,64 @@ export default function ClientForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass}>Source</label>
-          <input name="source" defaultValue={initialData.source} className={inputClass} placeholder="Referral, Instagram, etc." />
-        </div>
-        <div>
-          <label className={labelClass}>Industry</label>
-          <input name="industry" defaultValue={initialData.industry} className={inputClass} placeholder="Tech, Fitness, etc." />
-        </div>
-      </div>
+      {compact && !showMore && (
+        <button
+          type="button"
+          onClick={() => setShowMore(true)}
+          className="text-sm text-bb-dim hover:text-bb-muted transition-colors"
+        >
+          + More details (optional)
+        </button>
+      )}
 
-      <div>
-        <label className={labelClass}>Monthly Retainer ($)</label>
-        <input name="monthlyRetainer" type="number" step="0.01" defaultValue={initialData.monthlyRetainer ?? ""} className={inputClass} placeholder="0.00" />
-      </div>
+      {(!compact || showMore || Object.keys(initialData).length > 0) && (
+        <div className="space-y-4">
+          {compact && <div className="border-t border-bb-border" />}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass}>Contract Start</label>
-          <input name="contractStart" type="date" defaultValue={initialData.contractStart?.split("T")[0]} className={inputClass} />
-        </div>
-        <div>
-          <label className={labelClass}>Contract End</label>
-          <input name="contractEnd" type="date" defaultValue={initialData.contractEnd?.split("T")[0]} className={inputClass} />
-        </div>
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Email</label>
+              <input name="email" type="email" defaultValue={initialData.email} className={inputClass} placeholder="email@example.com" />
+            </div>
+            <div>
+              <label className={labelClass}>Phone</label>
+              <input name="phone" defaultValue={initialData.phone} className={inputClass} placeholder="+1 234 567 8900" />
+            </div>
+          </div>
 
-      <div>
-        <label className={labelClass}>Notes</label>
-        <textarea name="notes" defaultValue={initialData.notes} rows={3} className={inputClass} placeholder="Free-form notes..." />
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Source</label>
+              <input name="source" defaultValue={initialData.source} className={inputClass} placeholder="Referral, Instagram, etc." />
+            </div>
+            <div>
+              <label className={labelClass}>Industry</label>
+              <input name="industry" defaultValue={initialData.industry} className={inputClass} placeholder="Tech, Fitness, etc." />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Monthly Retainer ($)</label>
+            <input name="monthlyRetainer" type="number" step="0.01" defaultValue={initialData.monthlyRetainer ?? ""} className={inputClass} placeholder="0.00" />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Contract Start</label>
+              <input name="contractStart" type="date" defaultValue={initialData.contractStart?.split("T")[0]} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Contract End</label>
+              <input name="contractEnd" type="date" defaultValue={initialData.contractEnd?.split("T")[0]} className={inputClass} />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Notes</label>
+            <textarea name="notes" defaultValue={initialData.notes} rows={3} className={inputClass} placeholder="Free-form notes..." />
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end gap-3 pt-2">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors">

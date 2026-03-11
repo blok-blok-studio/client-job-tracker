@@ -50,8 +50,9 @@ export async function GET(
     );
   } catch (error) {
     console.error("Onboard GET error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: "Failed to fetch onboarding data" },
+      { success: false, error: "Failed to fetch onboarding data", debug: message },
       { status: 500, headers: corsHeaders(request) }
     );
   }
@@ -162,6 +163,20 @@ export async function POST(
             url: cred.url || null,
             notes: cred.notes || null,
           },
+        });
+      }
+    }
+
+    // Create social links
+    if (parsed.socialLinks && parsed.socialLinks.length > 0) {
+      const validLinks = parsed.socialLinks.filter((s) => s.platform && s.url);
+      if (validLinks.length > 0) {
+        await prisma.socialLink.createMany({
+          data: validLinks.map((s) => ({
+            clientId: client.id,
+            platform: s.platform,
+            url: s.url,
+          })),
         });
       }
     }

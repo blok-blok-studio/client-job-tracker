@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Copy, Check, Link2 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import ClientCard from "@/components/clients/ClientCard";
 import ClientForm from "@/components/clients/ClientForm";
@@ -34,6 +34,8 @@ export default function ClientsPage() {
   const [activeTab, setActiveTab] = useState("ACTIVE");
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [onboardLink, setOnboardLink] = useState<{ name: string; link: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
   const fetchClients = useCallback(async () => {
@@ -62,12 +64,21 @@ export default function ClientsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (res.ok) {
+      const json = await res.json();
+      if (res.ok && json.success) {
         setShowAddModal(false);
-        toast("Client created", "success");
         fetchClients();
+        // Show onboarding link if token was generated
+        if (json.data?.onboardToken) {
+          setOnboardLink({
+            name: json.data.name,
+            link: `https://blokblokstudio.com/onboard/${json.data.onboardToken}`,
+          });
+        } else {
+          toast("Client created", "success");
+        }
       } else {
-        const err = await res.json().catch(() => null);
+        const err = json;
         toast(err?.error || "Failed to create client", "error");
       }
     } catch {
@@ -78,6 +89,13 @@ export default function ClientsPage() {
   async function handleArchive(id: string) {
     await fetch(`/api/clients/${id}`, { method: "DELETE" });
     fetchClients();
+  }
+
+  function handleCopyLink() {
+    if (!onboardLink) return;
+    navigator.clipboard.writeText(onboardLink.link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -147,8 +165,59 @@ export default function ClientsPage() {
         </div>
       </div>
 
+      {/* Add Client Modal */}
       <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add Client">
-        <ClientForm onSubmit={handleAddClient} onCancel={() => setShowAddModal(false)} />
+        <ClientForm compact onSubmit={handleAddClient} onCancel={() => setShowAddModal(false)} />
+      </Modal>
+
+      {/* Onboarding Link Modal */}
+      <Modal
+        open={!!onboardLink}
+        onClose={() => { setOnboardLink(null); setCopied(false); }}
+        title="Client Created"
+      >
+        {onboardLink && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-green-400">
+              <Check size={20} />
+              <span className="text-sm font-medium">{onboardLink.name} has been added</span>
+            </div>
+
+            <div className="bg-bb-black border border-bb-orange/30 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Link2 size={16} className="text-bb-orange" />
+                <h3 className="text-sm font-semibold text-white">Onboarding Link</h3>
+              </div>
+              <p className="text-xs text-bb-dim">
+                Send this link to your client. They&apos;ll fill in their contacts, credentials, and social profiles.
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-bb-surface px-3 py-2 rounded border border-bb-border text-bb-muted truncate">
+                  {onboardLink.link}
+                </code>
+                <button
+                  onClick={handleCopyLink}
+                  className="p-2 rounded bg-bb-orange hover:bg-bb-orange-light text-white transition-colors shrink-0"
+                  title="Copy link"
+                >
+                  {copied ? <Check size={16} /> : <Copy size={16} />}
+                </button>
+              </div>
+              {copied && (
+                <p className="text-xs text-green-400">Copied to clipboard!</p>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => { setOnboardLink(null); setCopied(false); }}
+                className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
