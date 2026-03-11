@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock } from "lucide-react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -10,6 +10,7 @@ import Modal from "@/components/shared/Modal";
 import EditClientForm from "@/components/clients/EditClientForm";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
 import { PLATFORM_OPTIONS } from "@/types";
+import { getFlagFromPhone, LiveClock } from "@/lib/client-utils";
 
 interface ClientDetail {
   id: string;
@@ -167,10 +168,9 @@ export default function ClientDetailPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 {([
                   ["Email", client.email],
-                  ["Phone", client.phone],
+                  ["Phone", client.phone ? `${getFlagFromPhone(client.phone) || ""} ${client.phone}`.trim() : null],
                   ["How They Found Us", client.source],
                   ["Industry", client.industry],
-                  ["Timezone", client.timezone],
                   ["Retainer", client.monthlyRetainer ? formatCurrency(Number(client.monthlyRetainer)) : null],
                   ["Contract Start", client.contractStart ? new Date(client.contractStart).toLocaleDateString() : null],
                   ["Contract End", client.contractEnd ? new Date(client.contractEnd).toLocaleDateString() : null],
@@ -180,6 +180,17 @@ export default function ClientDetailPage() {
                     <p className="text-bb-muted">{value || "\u2014"}</p>
                   </div>
                 ))}
+                <div className="col-span-2">
+                  <span className="text-bb-dim flex items-center gap-1"><Clock size={12} /> Local Time</span>
+                  {client.timezone ? (
+                    <p className="text-bb-muted flex items-center gap-2">
+                      <LiveClock timezone={client.timezone} />
+                      <span className="text-bb-dim text-xs">({client.timezone.replace(/_/g, " ")})</span>
+                    </p>
+                  ) : (
+                    <p className="text-bb-muted">{"\u2014"}</p>
+                  )}
+                </div>
               </div>
               {client.notes && (
                 <div className="mt-4 pt-4 border-t border-bb-border">
@@ -341,14 +352,12 @@ export default function ClientDetailPage() {
               <div className="space-y-2">
                 {client.socialLinks.map((link) => (
                   <div key={link.id} className="flex items-center justify-between p-2 rounded hover:bg-bb-elevated">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium text-white shrink-0">{link.platform}</span>
+                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 min-w-0 group">
+                      <span className="text-sm font-medium text-white group-hover:text-bb-orange transition-colors shrink-0">{link.platform}</span>
                       {link.handle && <span className="text-xs text-bb-dim truncate">{link.handle}</span>}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="p-1 text-bb-dim hover:text-white"><ExternalLink size={14} /></a>
-                      <button onClick={() => handleDeleteSocial(link.id)} className="p-1 text-bb-dim hover:text-red-400"><Trash2 size={14} /></button>
-                    </div>
+                      <ExternalLink size={12} className="text-bb-dim group-hover:text-bb-orange transition-colors shrink-0" />
+                    </a>
+                    <button onClick={() => handleDeleteSocial(link.id)} className="p-1 text-bb-dim hover:text-red-400 shrink-0"><Trash2 size={14} /></button>
                   </div>
                 ))}
                 {client.socialLinks.length === 0 && !newSocial && <p className="text-sm text-bb-dim">No social links added</p>}

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { MoreVertical, Calendar, CheckSquare } from "lucide-react";
+import { MoreVertical, Calendar, CheckSquare, Clock } from "lucide-react";
 import Badge from "@/components/shared/Badge";
 import { formatCurrency } from "@/lib/utils";
 import { useState } from "react";
+import { getFlagFromPhone, LiveClock } from "@/lib/client-utils";
 
 interface ClientCardProps {
   id: string;
@@ -16,6 +17,8 @@ interface ClientCardProps {
   contractEnd: string | null;
   openTaskCount: number;
   onArchive: (id: string) => void;
+  phone?: string | null;
+  timezone?: string | null;
 }
 
 const tierVariant: Record<string, "orange" | "gray" | "blue"> = {
@@ -33,7 +36,10 @@ export default function ClientCard({
   contractEnd,
   openTaskCount,
   onArchive,
+  phone,
+  timezone,
 }: ClientCardProps) {
+  const flag = getFlagFromPhone(phone || null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const daysUntilExpiry = contractEnd
@@ -46,7 +52,7 @@ export default function ClientCard({
       <div className="flex items-start justify-between mb-3">
         <Link href={`/clients/${id}`} className="group">
           <h3 className="font-display font-semibold text-white group-hover:text-bb-orange transition-colors">
-            {name}
+            {flag && <span className="mr-1.5">{flag}</span>}{name}
           </h3>
           {company && <p className="text-sm text-bb-muted">{company}</p>}
         </Link>
@@ -107,6 +113,16 @@ export default function ClientCard({
           </span>
           <span className="text-bb-muted font-mono">{openTaskCount}</span>
         </div>
+        {timezone && (
+          <div className="flex items-center justify-between">
+            <span className="text-bb-dim flex items-center gap-1">
+              <Clock size={12} /> Local Time
+            </span>
+            <span className="text-bb-muted font-mono text-xs">
+              <LiveClock timezone={timezone} />
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

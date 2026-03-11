@@ -25,6 +25,8 @@ interface ClientData {
   type: string;
   monthlyRetainer: string | number | null;
   contractEnd: string | null;
+  phone: string | null;
+  timezone: string | null;
   _count: { tasks: number };
 }
 
@@ -155,6 +157,8 @@ export default function ClientsPage() {
               contractEnd={client.contractEnd}
               openTaskCount={client._count.tasks}
               onArchive={handleArchive}
+              phone={client.phone}
+              timezone={client.timezone}
             />
           ))}
           {!loading && clients.length === 0 && (
