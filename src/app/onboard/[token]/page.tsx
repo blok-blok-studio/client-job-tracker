@@ -27,6 +27,75 @@ interface SocialLink {
   url: string;
 }
 
+const SOURCE_OPTIONS = [
+  "Referral",
+  "Instagram",
+  "LinkedIn",
+  "TikTok",
+  "Twitter/X",
+  "Facebook",
+  "YouTube",
+  "Google Search",
+  "Website",
+  "Cold Outreach",
+  "Networking Event",
+  "Word of Mouth",
+  "Other",
+];
+
+const INDUSTRY_OPTIONS = [
+  "Accounting & Finance",
+  "Advertising & Marketing",
+  "Agriculture",
+  "Architecture",
+  "Automotive",
+  "Beauty & Cosmetics",
+  "Blockchain & Crypto",
+  "Cannabis",
+  "Coaching & Consulting",
+  "Construction",
+  "Creative Agency",
+  "Dental",
+  "E-commerce",
+  "Education",
+  "Energy & Utilities",
+  "Entertainment",
+  "Events & Hospitality",
+  "Fashion & Apparel",
+  "Film & Video",
+  "Fitness & Wellness",
+  "Food & Beverage",
+  "Gaming",
+  "Government",
+  "Healthcare",
+  "Home Services",
+  "Insurance",
+  "Interior Design",
+  "Jewelry & Watches",
+  "Law & Legal",
+  "Logistics & Shipping",
+  "Manufacturing",
+  "Media & Publishing",
+  "Music",
+  "Nonprofit",
+  "Outdoor & Recreation",
+  "Pets & Animals",
+  "Photography",
+  "Real Estate",
+  "Restaurants & Bars",
+  "Retail",
+  "SaaS & Software",
+  "Skincare",
+  "Social Media",
+  "Sports",
+  "Sustainability & Green",
+  "Tech & Startups",
+  "Telecommunications",
+  "Travel & Tourism",
+  "Venture Capital & PE",
+  "Other",
+];
+
 const SOCIAL_PLATFORMS = [
   "Instagram",
   "LinkedIn",
@@ -127,6 +196,10 @@ export default function OnboardPage() {
   );
   const [company, setCompany] = useState("");
   const [companyWebsite, setCompanyWebsite] = useState("");
+  const [source, setSource] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [industryOpen, setIndustryOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [brandGuidelines, setBrandGuidelines] = useState("");
 
@@ -195,6 +268,8 @@ export default function OnboardPage() {
           timezone: timezone || undefined,
           company: company.trim() || undefined,
           companyWebsite: companyWebsite.trim() ? `https://www.${companyWebsite.trim()}` : undefined,
+          source: source.trim() || undefined,
+          industry: industry.trim() || undefined,
           notes: notes.trim() || undefined,
           brandGuidelines: brandGuidelines.trim() || undefined,
         }),
@@ -479,6 +554,69 @@ export default function OnboardPage() {
                     placeholder="example.com"
                   />
                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="relative">
+                <label className={labelClass}>How did you hear about us?</label>
+                <input
+                  type="text"
+                  value={source}
+                  onChange={(e) => { setSource(e.target.value); setSourceOpen(true); }}
+                  onFocus={() => setSourceOpen(true)}
+                  onBlur={() => setTimeout(() => setSourceOpen(false), 150)}
+                  className={inputClass}
+                  placeholder="Select or type..."
+                />
+                {sourceOpen && (() => {
+                  const filtered = source
+                    ? SOURCE_OPTIONS.filter((o) => o.toLowerCase().includes(source.toLowerCase()))
+                    : SOURCE_OPTIONS;
+                  return filtered.length > 0 ? (
+                    <ul className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto bg-bb-black border border-bb-border rounded-lg shadow-lg">
+                      {filtered.map((opt) => (
+                        <li
+                          key={opt}
+                          onMouseDown={() => { setSource(opt); setSourceOpen(false); }}
+                          className="px-3 py-2 text-sm text-white hover:bg-bb-orange/20 cursor-pointer"
+                        >
+                          {opt}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
+              </div>
+              <div className="relative">
+                <label className={labelClass}>Industry</label>
+                <input
+                  type="text"
+                  value={industry}
+                  onChange={(e) => { setIndustry(e.target.value); setIndustryOpen(true); }}
+                  onFocus={() => setIndustryOpen(true)}
+                  onBlur={() => setTimeout(() => setIndustryOpen(false), 150)}
+                  className={inputClass}
+                  placeholder="Select or type..."
+                />
+                {industryOpen && (() => {
+                  const filtered = industry
+                    ? INDUSTRY_OPTIONS.filter((o) => o.toLowerCase().includes(industry.toLowerCase()))
+                    : INDUSTRY_OPTIONS;
+                  return filtered.length > 0 ? (
+                    <ul className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto bg-bb-black border border-bb-border rounded-lg shadow-lg">
+                      {filtered.map((opt) => (
+                        <li
+                          key={opt}
+                          onMouseDown={() => { setIndustry(opt); setIndustryOpen(false); }}
+                          className="px-3 py-2 text-sm text-white hover:bg-bb-orange/20 cursor-pointer"
+                        >
+                          {opt}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
               </div>
             </div>
           </section>

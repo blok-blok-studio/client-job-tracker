@@ -88,6 +88,8 @@ const onboardSchema = z.object({
   timezone: z.string().max(50).optional(),
   company: z.string().max(200).optional(),
   companyWebsite: z.string().max(500).optional(),
+  source: z.string().max(200).optional(),
+  industry: z.string().max(200).optional(),
   telegramChatId: z.string().max(30).optional(),
   contractStart: z.string().optional(),
   contractEnd: z.string().optional(),
@@ -128,6 +130,8 @@ export async function POST(
     const updates: Record<string, unknown> = {};
     if (parsed.timezone) updates.timezone = parsed.timezone;
     if (parsed.company) updates.company = parsed.company;
+    if (parsed.source) updates.source = parsed.source;
+    if (parsed.industry) updates.industry = parsed.industry;
     if (parsed.telegramChatId) updates.telegramChatId = parsed.telegramChatId;
     if (parsed.contractStart) updates.contractStart = new Date(parsed.contractStart);
     if (parsed.contractEnd) updates.contractEnd = new Date(parsed.contractEnd);
