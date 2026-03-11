@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { syncEvent } from "@/lib/sync";
 
 export async function GET(
   _request: NextRequest,
@@ -33,10 +34,21 @@ export async function PATCH(
   if (body.status) updates.status = body.status;
   if (body.priority) updates.priority = body.priority;
 
+  const existing = await prisma.supportTicket.findUnique({ where: { id }, select: { status: true, subject: true, clientId: true } });
   const ticket = await prisma.supportTicket.update({
     where: { id },
     data: updates,
   });
+
+  // Sync: notify when ticket is resolved
+  if (body.status === "RESOLVED" && existing && existing.status !== "RESOLVED") {
+    syncEvent({
+      type: "ticket_resolved",
+      clientId: existing.clientId,
+      ticketId: id,
+      subject: existing.subject,
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ success: true, data: ticket });
 }

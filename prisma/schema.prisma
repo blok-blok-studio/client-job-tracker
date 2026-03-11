@@ -34,6 +34,7 @@ model Client {
   activityLogs     ActivityLog[]
   checklistItems   ChecklistItem[]
   supportTickets   SupportTicket[]
+  socialLinks      SocialLink[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -220,6 +221,18 @@ model SupportMessage {
   ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   sender   String // "client" | "chase" | "bot"
   text     String @db.Text
+
+  createdAt DateTime @default(now())
+}
+
+// --- SOCIAL LINKS ---
+model SocialLink {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  platform String
+  url      String
+  handle   String?
 
   createdAt DateTime @default(now())
 }

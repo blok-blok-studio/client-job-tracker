@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2 } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
 import Modal from "@/components/shared/Modal";
 import ClientForm from "@/components/clients/ClientForm";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
+import { PLATFORM_OPTIONS } from "@/types";
 
 interface ClientDetail {
   id: string;
@@ -31,6 +32,7 @@ interface ClientDetail {
   credentials: Array<{ id: string; platform: string; username: string }>;
   checklistItems: Array<{ id: string; label: string; checked: boolean }>;
   invoices: Array<{ id: string; amount: string | number; status: string; createdAt: string }>;
+  socialLinks: Array<{ id: string; platform: string; url: string; handle: string | null }>;
   activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; createdAt: string }>;
 }
 
@@ -45,6 +47,9 @@ export default function ClientDetailPage() {
   const [newContact, setNewContact] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", role: "", email: "", phone: "" });
   const [copied, setCopied] = useState(false);
+  const [newSocial, setNewSocial] = useState(false);
+  const [socialForm, setSocialForm] = useState({ platform: "", url: "", handle: "" });
+  const [customPlatform, setCustomPlatform] = useState("");
 
   const fetchClient = useCallback(async () => {
     const res = await fetch(`/api/clients/${id}`);
@@ -96,6 +101,29 @@ export default function ClientDetailPage() {
   async function handleDeleteContact(contactId: string) {
     await fetch(`/api/clients/${id}/contacts/${contactId}`, { method: "DELETE" });
     fetchClient();
+  }
+
+  async function handleAddSocial() {
+    const platform = socialForm.platform === "Other" ? customPlatform : socialForm.platform;
+    if (!platform || !socialForm.url) return;
+    try {
+      await fetch(`/api/clients/${id}/social-links`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform, url: socialForm.url, handle: socialForm.handle || undefined }),
+      });
+      setNewSocial(false);
+      setSocialForm({ platform: "", url: "", handle: "" });
+      setCustomPlatform("");
+      fetchClient();
+    } catch { /* stay on form */ }
+  }
+
+  async function handleDeleteSocial(linkId: string) {
+    try {
+      await fetch(`/api/clients/${id}/social-links?linkId=${linkId}`, { method: "DELETE" });
+      fetchClient();
+    } catch { /* silently fail */ }
   }
 
   if (!client) return <div className="p-6 text-bb-dim">Loading...</div>;
@@ -258,6 +286,45 @@ export default function ClientDetailPage() {
                   </div>
                 ))}
                 {client.credentials.length === 0 && <p className="text-sm text-bb-dim">No credentials stored</p>}
+              </div>
+            </div>
+
+            <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-display font-semibold">Social Links</h3>
+                <button onClick={() => setNewSocial(true)} className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1"><Plus size={14} /> Add</button>
+              </div>
+              {newSocial && (
+                <div className="mb-4 p-3 bg-bb-black rounded-lg space-y-2">
+                  <select value={socialForm.platform} onChange={(e) => setSocialForm({ ...socialForm, platform: e.target.value })} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white">
+                    <option value="">Select platform</option>
+                    {PLATFORM_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  {socialForm.platform === "Other" && (
+                    <input placeholder="Custom platform *" value={customPlatform} onChange={(e) => setCustomPlatform(e.target.value)} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
+                  )}
+                  <input placeholder="URL *" value={socialForm.url} onChange={(e) => setSocialForm({ ...socialForm, url: e.target.value })} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
+                  <input placeholder="Handle (e.g. @username)" value={socialForm.handle} onChange={(e) => setSocialForm({ ...socialForm, handle: e.target.value })} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => { setNewSocial(false); setSocialForm({ platform: "", url: "", handle: "" }); setCustomPlatform(""); }} className="p-1 text-bb-dim hover:text-white"><X size={16} /></button>
+                    <button onClick={handleAddSocial} disabled={!socialForm.platform || !socialForm.url || (socialForm.platform === "Other" && !customPlatform)} className="p-1 text-bb-orange hover:text-bb-orange-light disabled:opacity-50"><Check size={16} /></button>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                {client.socialLinks.map((link) => (
+                  <div key={link.id} className="flex items-center justify-between p-2 rounded hover:bg-bb-elevated">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-medium text-white shrink-0">{link.platform}</span>
+                      {link.handle && <span className="text-xs text-bb-dim truncate">{link.handle}</span>}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="p-1 text-bb-dim hover:text-white"><ExternalLink size={14} /></a>
+                      <button onClick={() => handleDeleteSocial(link.id)} className="p-1 text-bb-dim hover:text-red-400"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                ))}
+                {client.socialLinks.length === 0 && !newSocial && <p className="text-sm text-bb-dim">No social links added</p>}
               </div>
             </div>
 

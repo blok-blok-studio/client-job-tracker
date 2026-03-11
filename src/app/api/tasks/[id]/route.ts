@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { taskSchema } from "@/lib/validations";
+import { syncEvent } from "@/lib/sync";
 
 export async function GET(
   _request: NextRequest,
@@ -49,6 +50,17 @@ export async function PATCH(
           details: `Moved "${task.title}" from ${oldTask.status} to ${parsed.status}`,
         },
       });
+
+      // Sync: notify client via Telegram + Cortana when task completes
+      if (task.clientId) {
+        syncEvent({
+          type: "task_status_changed",
+          clientId: task.clientId,
+          taskId: id,
+          title: task.title,
+          newStatus: parsed.status,
+        }).catch(() => {});
+      }
     }
 
     return NextResponse.json({ success: true, data: task });

@@ -16,6 +16,7 @@ export async function GET(
       credentials: { select: { id: true, platform: true, label: true, username: true, url: true, lastRotated: true, createdAt: true } },
       checklistItems: { orderBy: { sortOrder: "asc" } },
       invoices: { orderBy: { createdAt: "desc" }, take: 10 },
+      socialLinks: { orderBy: { createdAt: "asc" } },
       activityLogs: { orderBy: { createdAt: "desc" }, take: 20 },
     },
   });
