@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import prisma from "@/lib/prisma";
-import { sendTelegramMessage } from "@/lib/telegram";
+import { sendTelegramMessage, getWebhookSecret } from "@/lib/telegram";
 import { sendToOpenClaw } from "@/lib/openclaw/client";
 import { respondToTicket } from "@/lib/agent/ticket-responder";
 
@@ -14,6 +15,18 @@ interface TelegramUpdate {
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify Telegram secret token header
+    const secret = getWebhookSecret();
+    if (secret) {
+      const headerSecret = request.headers.get("x-telegram-bot-api-secret-token");
+      if (!headerSecret || !crypto.timingSafeEqual(
+        Buffer.from(headerSecret),
+        Buffer.from(secret)
+      )) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
+
     const update: TelegramUpdate = await request.json();
 
     if (!update.message?.text) {

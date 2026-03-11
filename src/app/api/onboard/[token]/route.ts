@@ -1,21 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { encrypt } from "@/lib/encryption";
 import { z } from "zod";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+const ALLOWED_ORIGINS = [
+  "https://blokblokstudio.com",
+  "https://www.blokblokstudio.com",
+  ...(process.env.NODE_ENV === "development" ? ["http://localhost:3000", "http://localhost:3001"] : []),
+];
+
+function corsHeaders(request: NextRequest) {
+  const origin = request.headers.get("origin") || "";
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+}
 
 // Handle CORS preflight
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(request) });
 }
 
 // GET — Fetch client name + company so the form can greet them
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
@@ -28,13 +39,13 @@ export async function GET(
   if (!client) {
     return NextResponse.json(
       { success: false, error: "Invalid or expired onboarding link" },
-      { status: 404, headers: CORS_HEADERS }
+      { status: 404, headers: corsHeaders(request) }
     );
   }
 
   return NextResponse.json(
     { success: true, data: { name: client.name, company: client.company } },
-    { headers: CORS_HEADERS }
+    { headers: corsHeaders(request) }
   );
 }
 
@@ -43,31 +54,34 @@ const onboardSchema = z.object({
   contacts: z
     .array(
       z.object({
-        name: z.string().min(1),
-        role: z.string().optional(),
-        email: z.string().email().optional(),
-        phone: z.string().optional(),
+        name: z.string().min(1).max(200),
+        role: z.string().max(100).optional(),
+        email: z.string().email().max(254).optional(),
+        phone: z.string().max(30).optional(),
         isPrimary: z.boolean().optional(),
       })
     )
+    .max(20)
     .optional(),
   credentials: z
     .array(
       z.object({
-        platform: z.string().min(1),
-        username: z.string().min(1),
-        password: z.string().min(1),
-        url: z.string().optional(),
-        notes: z.string().optional(),
+        platform: z.string().min(1).max(100),
+        username: z.string().min(1).max(200),
+        password: z.string().min(1).max(500),
+        url: z.string().max(500).optional(),
+        notes: z.string().max(1000).optional(),
       })
     )
+    .max(50)
     .optional(),
-  timezone: z.string().optional(),
-  telegramChatId: z.string().optional(),
-  notes: z.string().optional(),
-  brandGuidelines: z.string().optional(),
+  timezone: z.string().max(50).optional(),
+  telegramChatId: z.string().max(30).optional(),
+  notes: z.string().max(5000).optional(),
+  brandGuidelines: z.string().max(10000).optional(),
   socialLinks: z
-    .array(z.object({ platform: z.string(), url: z.string() }))
+    .array(z.object({ platform: z.string().max(50), url: z.string().max(500) }))
+    .max(20)
     .optional(),
 });
 
@@ -85,7 +99,7 @@ export async function POST(
   if (!client) {
     return NextResponse.json(
       { success: false, error: "Invalid or expired onboarding link" },
-      { status: 404, headers: CORS_HEADERS }
+      { status: 404, headers: corsHeaders(request) }
     );
   }
 
@@ -126,33 +140,21 @@ export async function POST(
       });
     }
 
-    // Create credentials (encrypted at rest via vault)
+    // Create credentials (encrypted with AES-256-GCM)
     if (parsed.credentials && parsed.credentials.length > 0) {
-      const crypto = await import("crypto");
-      const key = process.env.VAULT_KEY;
-      if (key) {
-        for (const cred of parsed.credentials) {
-          const iv = crypto.randomBytes(16);
-          const cipher = crypto.createCipheriv(
-            "aes-256-cbc",
-            Buffer.from(key, "hex"),
-            iv
-          );
-          let encrypted = cipher.update(cred.password, "utf8", "hex");
-          encrypted += cipher.final("hex");
-
-          await prisma.credential.create({
-            data: {
-              clientId: client.id,
-              platform: cred.platform,
-              username: cred.username,
-              password: encrypted,
-              iv: iv.toString("hex"),
-              url: cred.url || null,
-              notes: cred.notes || null,
-            },
-          });
-        }
+      for (const cred of parsed.credentials) {
+        const { encrypted, iv } = encrypt(cred.password);
+        await prisma.credential.create({
+          data: {
+            clientId: client.id,
+            platform: cred.platform,
+            username: cred.username,
+            password: encrypted,
+            iv,
+            url: cred.url || null,
+            notes: cred.notes || null,
+          },
+        });
       }
     }
 
@@ -182,18 +184,18 @@ export async function POST(
 
     return NextResponse.json(
       { success: true, message: "Onboarding complete" },
-      { headers: CORS_HEADERS }
+      { headers: corsHeaders(request) }
     );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { success: false, error: "Validation failed", details: error.issues },
-        { status: 400, headers: CORS_HEADERS }
+        { status: 400, headers: corsHeaders(request) }
       );
     }
     return NextResponse.json(
       { success: false, error: "Failed to process onboarding" },
-      { status: 500, headers: CORS_HEADERS }
+      { status: 500, headers: corsHeaders(request) }
     );
   }
 }

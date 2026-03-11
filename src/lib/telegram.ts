@@ -37,15 +37,24 @@ export async function sendTelegramMessage(
   }
 }
 
+export function getWebhookSecret(): string {
+  return process.env.TELEGRAM_WEBHOOK_SECRET || process.env.CRON_SECRET || "";
+}
+
 export async function setTelegramWebhook(url: string): Promise<{ success: boolean; error?: string }> {
   const token = getToken();
   if (!token) return { success: false, error: "Telegram not configured" };
+
+  const secret = getWebhookSecret();
 
   try {
     const res = await fetch(`${TELEGRAM_API}${token}/setWebhook`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({
+        url,
+        ...(secret ? { secret_token: secret } : {}),
+      }),
     });
 
     const data = await res.json();

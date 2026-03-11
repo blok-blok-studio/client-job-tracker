@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Eye, EyeOff, Copy, ExternalLink, RotateCcw } from "lucide-react";
+import { Search, Plus, Eye, EyeOff, Copy, ExternalLink, RotateCcw, Trash2 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
 import { PLATFORM_OPTIONS } from "@/types";
@@ -34,6 +34,9 @@ const platformColors: Record<string, string> = {
   YouTube: "border-l-red-600",
   GitHub: "border-l-purple-500",
   Figma: "border-l-violet-500",
+  Shopify: "border-l-green-400",
+  WordPress: "border-l-blue-400",
+  Slack: "border-l-purple-400",
 };
 
 export default function VaultPage() {
@@ -43,18 +46,23 @@ export default function VaultPage() {
   const [revealed, setRevealed] = useState<Record<string, RevealedData>>({});
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState("");
 
   const fetchCredentials = useCallback(async () => {
-    const res = await fetch("/api/vault");
-    const data = await res.json();
-    if (data.success) setCredentials(data.data);
+    try {
+      const res = await fetch("/api/vault");
+      const data = await res.json();
+      if (data.success) setCredentials(data.data);
+    } catch {
+      // silently fail
+    }
   }, []);
 
   useEffect(() => {
     fetchCredentials();
     fetch("/api/clients").then((r) => r.json()).then((d) => {
       if (d.success) setClients(d.data.map((c: Record<string, string>) => ({ id: c.id, name: c.name })));
-    });
+    }).catch(() => {});
   }, [fetchCredentials]);
 
   async function handleReveal(id: string) {
@@ -66,10 +74,14 @@ export default function VaultPage() {
       });
       return;
     }
-    const res = await fetch(`/api/vault/${id}/reveal`, { method: "POST" });
-    const data = await res.json();
-    if (data.success) {
-      setRevealed((prev) => ({ ...prev, [id]: data.data }));
+    try {
+      const res = await fetch(`/api/vault/${id}/reveal`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setRevealed((prev) => ({ ...prev, [id]: data.data }));
+      }
+    } catch {
+      // silently fail
     }
   }
 
@@ -77,34 +89,46 @@ export default function VaultPage() {
     await navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
-    // Auto-clear clipboard after 30 seconds
     setTimeout(() => navigator.clipboard.writeText(""), 30000);
   }
 
   async function handleAddCredential(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const platform = formData.get("platform") as string;
     const data = {
       clientId: formData.get("clientId") as string,
-      platform: formData.get("platform") === "Other" ? formData.get("customPlatform") as string : formData.get("platform") as string,
+      platform: platform === "Other" ? (formData.get("customPlatform") as string) : platform,
       label: formData.get("label") as string,
       username: formData.get("username") as string,
       password: formData.get("password") as string,
       url: formData.get("url") as string,
       notes: formData.get("notes") as string,
     };
-    await fetch("/api/vault", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    setShowAdd(false);
-    fetchCredentials();
+    try {
+      const res = await fetch("/api/vault", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setShowAdd(false);
+      setSelectedPlatform("");
+      fetchCredentials();
+    } catch {
+      // stay on form
+    }
   }
 
   async function handleDelete(id: string) {
-    await fetch(`/api/vault/${id}`, { method: "DELETE" });
-    fetchCredentials();
+    if (!confirm("Delete this credential? This cannot be undone.")) return;
+    try {
+      const res = await fetch(`/api/vault/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
+      fetchCredentials();
+    } catch {
+      // silently fail
+    }
   }
 
   // Group by client
@@ -144,7 +168,7 @@ export default function VaultPage() {
 
         {Object.entries(grouped).map(([clientName, creds]) => (
           <div key={clientName} className="space-y-2">
-            <h3 className="font-display font-semibold text-bb-muted">{clientName}</h3>
+            <h3 className="font-display font-semibold text-white">{clientName}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {creds.map((cred) => {
                 const rev = revealed[cred.id];
@@ -152,7 +176,7 @@ export default function VaultPage() {
                   <div key={cred.id} className={`bg-bb-surface border border-bb-border border-l-4 ${platformColors[cred.platform] || "border-l-bb-dim"} rounded-lg p-4`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{cred.platform}</span>
+                        <span className="font-medium text-sm text-white">{cred.platform}</span>
                         {cred.label && <span className="text-xs text-bb-dim">({cred.label})</span>}
                       </div>
                       <div className="flex items-center gap-1">
@@ -161,8 +185,8 @@ export default function VaultPage() {
                             <ExternalLink size={14} />
                           </a>
                         )}
-                        <button onClick={() => handleDelete(cred.id)} className="p-1 text-bb-dim hover:text-red-400 text-xs">
-                          Delete
+                        <button onClick={() => handleDelete(cred.id)} className="p-1 text-bb-dim hover:text-red-400">
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
@@ -171,7 +195,7 @@ export default function VaultPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-bb-dim">Username</span>
                         <div className="flex items-center gap-1">
-                          <span className="font-mono text-bb-muted">{rev ? rev.username : cred.username}</span>
+                          <span className="font-mono text-white">{rev ? rev.username : cred.username}</span>
                           <button
                             onClick={() => copyToClipboard(rev?.username || cred.username, `u-${cred.id}`)}
                             className="p-1 text-bb-dim hover:text-white"
@@ -185,7 +209,7 @@ export default function VaultPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-bb-dim">Password</span>
                         <div className="flex items-center gap-1">
-                          <span className="font-mono text-bb-muted">{rev ? rev.password : "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"}</span>
+                          <span className="font-mono text-white">{rev ? rev.password : "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"}</span>
                           <button onClick={() => handleReveal(cred.id)} className="p-1 text-bb-dim hover:text-white">
                             {rev ? <EyeOff size={12} /> : <Eye size={12} />}
                           </button>
@@ -219,7 +243,7 @@ export default function VaultPage() {
         )}
       </div>
 
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Credential">
+      <Modal open={showAdd} onClose={() => { setShowAdd(false); setSelectedPlatform(""); }} title="Add Credential">
         <form onSubmit={handleAddCredential} className="space-y-4">
           <div>
             <label className="block text-sm text-bb-muted mb-1">Client *</label>
@@ -230,10 +254,17 @@ export default function VaultPage() {
           </div>
           <div>
             <label className="block text-sm text-bb-muted mb-1">Platform *</label>
-            <select name="platform" required className={inputClass}>
+            <select name="platform" required className={inputClass} value={selectedPlatform} onChange={(e) => setSelectedPlatform(e.target.value)}>
+              <option value="">Select platform</option>
               {PLATFORM_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
+          {selectedPlatform === "Other" && (
+            <div>
+              <label className="block text-sm text-bb-muted mb-1">Custom Platform *</label>
+              <input name="customPlatform" required className={inputClass} placeholder="Platform name" />
+            </div>
+          )}
           <div>
             <label className="block text-sm text-bb-muted mb-1">Label</label>
             <input name="label" className={inputClass} placeholder="e.g., Main account" />
@@ -257,7 +288,7 @@ export default function VaultPage() {
             <textarea name="notes" rows={2} className={inputClass} placeholder="Any additional notes..." />
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-bb-muted">Cancel</button>
+            <button type="button" onClick={() => { setShowAdd(false); setSelectedPlatform(""); }} className="px-4 py-2 text-sm text-bb-muted hover:text-white">Cancel</button>
             <button type="submit" className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md">Save Credential</button>
           </div>
         </form>

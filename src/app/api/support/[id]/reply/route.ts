@@ -9,7 +9,8 @@ export async function POST(
   const { id } = await params;
   const body = await request.json();
   const text = body.text as string;
-  const sender = (body.sender as string) || "chase";
+  // Sender is always "chase" for manual replies — "bot" and "client" are set by their respective systems
+  const sender = "chase";
 
   if (!text) {
     return NextResponse.json({ success: false, error: "Text is required" }, { status: 400 });

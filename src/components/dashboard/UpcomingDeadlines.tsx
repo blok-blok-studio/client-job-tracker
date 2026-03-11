@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { Trash2, Check } from "lucide-react";
 import { formatRelativeDate } from "@/lib/utils";
 import Badge from "@/components/shared/Badge";
 import type { Priority } from "@/types";
@@ -23,18 +24,32 @@ const priorityVariant: Record<Priority, "red" | "orange" | "blue" | "gray"> = {
 };
 
 export default function UpcomingDeadlines({ deadlines, onRefresh }: { deadlines: Deadline[]; onRefresh?: () => void }) {
+  const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
+
   async function handleToggleDone(taskId: string) {
-    await fetch(`/api/tasks/${taskId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "DONE" }),
-    });
-    if (onRefresh) onRefresh();
+    setDoneIds((prev) => new Set(prev).add(taskId));
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "DONE" }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      await new Promise((r) => setTimeout(r, 600));
+      if (onRefresh) onRefresh();
+    } catch {
+      setDoneIds((prev) => { const next = new Set(prev); next.delete(taskId); return next; });
+    }
   }
 
   async function handleDeleteTask(taskId: string) {
-    await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-    if (onRefresh) onRefresh();
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
+      if (onRefresh) onRefresh();
+    } catch {
+      // silently fail — task stays visible
+    }
   }
 
   return (
@@ -53,16 +68,20 @@ export default function UpcomingDeadlines({ deadlines, onRefresh }: { deadlines:
             const date = new Date(task.dueDate);
             const relative = formatRelativeDate(date);
             const isOverdue = date < new Date();
+            const isDone = doneIds.has(task.id);
             return (
-              <div key={task.id} className="px-5 py-3 flex items-center gap-3 hover:bg-bb-elevated/50 transition-colors">
+              <div key={task.id} className={`px-5 py-3 flex items-center gap-3 hover:bg-bb-elevated/50 transition-all ${isDone ? "opacity-50" : ""}`}>
                 <button
                   onClick={() => handleToggleDone(task.id)}
-                  className="w-4 h-4 rounded border border-bb-border hover:border-bb-orange shrink-0 transition-colors"
+                  disabled={isDone}
+                  className={`w-4 h-4 rounded border shrink-0 transition-all flex items-center justify-center ${isDone ? "bg-bb-orange border-bb-orange" : "border-bb-border hover:border-bb-orange"}`}
                   title="Mark done"
-                />
+                >
+                  {isDone && <Check size={10} className="text-white" />}
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium truncate">{task.title}</span>
+                    <span className={`text-sm font-medium truncate ${isDone ? "line-through text-bb-dim" : ""}`}>{task.title}</span>
                     {task.clientName && (
                       <Badge variant="default" size="sm">{task.clientName}</Badge>
                     )}
