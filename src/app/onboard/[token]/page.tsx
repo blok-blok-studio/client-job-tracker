@@ -199,7 +199,8 @@ export default function OnboardPage() {
       if (data.success) {
         setSubmitted(true);
       } else {
-        setError(data.error || "Something went wrong");
+        const debugInfo = data.debug ? ` (${data.debug})` : "";
+        setError((data.error || "Something went wrong") + debugInfo);
       }
     } catch {
       setError("Failed to submit. Please try again.");

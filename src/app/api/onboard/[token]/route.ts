@@ -113,11 +113,13 @@ export async function POST(
     );
   }
 
+  let step = "parsing";
   try {
     const body = await request.json();
     const parsed = onboardSchema.parse(body);
 
     // Update client with onboarding info
+    step = "updating client";
     const updates: Record<string, unknown> = {};
     if (parsed.timezone) updates.timezone = parsed.timezone;
     if (parsed.telegramChatId) updates.telegramChatId = parsed.telegramChatId;
@@ -138,6 +140,7 @@ export async function POST(
 
     // Create contacts
     if (parsed.contacts && parsed.contacts.length > 0) {
+      step = "creating contacts";
       await prisma.contact.createMany({
         data: parsed.contacts.map((c) => ({
           clientId: client.id,
@@ -152,8 +155,10 @@ export async function POST(
 
     // Create credentials (encrypted with AES-256-GCM)
     if (parsed.credentials && parsed.credentials.length > 0) {
+      step = "encrypting credentials";
       for (const cred of parsed.credentials) {
         const { encrypted, iv } = encrypt(cred.password);
+        step = "saving credentials";
         await prisma.credential.create({
           data: {
             clientId: client.id,
@@ -170,6 +175,7 @@ export async function POST(
 
     // Create social links
     if (parsed.socialLinks && parsed.socialLinks.length > 0) {
+      step = "creating social links";
       const validLinks = parsed.socialLinks.filter((s) => s.platform && s.url);
       if (validLinks.length > 0) {
         await prisma.socialLink.createMany({
@@ -183,6 +189,7 @@ export async function POST(
     }
 
     // Mark relevant checklist items as done
+    step = "updating checklist";
     const checklistLabels = ["Credentials received"];
     if (parsed.contacts && parsed.contacts.length > 0) {
       checklistLabels.push("Onboarding call completed");
@@ -197,6 +204,7 @@ export async function POST(
     });
 
     // Log the activity
+    step = "logging activity";
     await prisma.activityLog.create({
       data: {
         clientId: client.id,
@@ -217,10 +225,10 @@ export async function POST(
         { status: 400, headers: corsHeaders(request) }
       );
     }
-    console.error("Onboard POST error:", error);
+    console.error(`Onboard POST error at step "${step}":`, error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: "Failed to process onboarding", debug: message },
+      { success: false, error: `Failed at: ${step}`, debug: message },
       { status: 500, headers: corsHeaders(request) }
     );
   }
