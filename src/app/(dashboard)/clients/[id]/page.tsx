@@ -101,12 +101,12 @@ export default function ClientDetailPage() {
   return (
     <div>
       <TopBar title={client.name} subtitle={client.company || undefined} />
-      <div className="px-6 pb-8">
-        <div className="flex items-center justify-between mb-6">
+      <div className="px-4 lg:px-6 pb-8">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
           <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-bb-muted hover:text-white transition-colors">
             <ArrowLeft size={16} /> Back
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={typeVariant[client.type] || "gray"}>{client.type}</Badge>
             <Badge variant={tierVariant[client.tier] || "gray"}>{client.tier}</Badge>
             <button onClick={() => setEditOpen(true)} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bb-elevated hover:bg-bb-border rounded-md text-bb-muted hover:text-white transition-colors">
@@ -153,7 +153,7 @@ export default function ClientDetailPage() {
               {newContact && (
                 <div className="mb-4 p-3 bg-bb-black rounded-lg space-y-2">
                   <input placeholder="Name *" value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input placeholder="Role" value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} className="px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
                     <input placeholder="Email" value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} className="px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
                     <input placeholder="Phone" value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} className="px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />

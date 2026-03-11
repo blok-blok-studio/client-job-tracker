@@ -93,24 +93,24 @@ export default function AgentPage() {
   return (
     <div>
       <TopBar title="Agent" subtitle="AI agent activity and controls" />
-      <div className="px-6 pb-8 space-y-6">
+      <div className="px-4 lg:px-6 pb-8 space-y-4 lg:space-y-6">
         {/* Status Banner */}
-        <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-6">
+        <div className="bg-bb-surface border border-bb-border rounded-lg p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <span className={`w-4 h-4 rounded-full ${status?.config?.isActive ? "bg-bb-orange animate-pulse" : "bg-bb-dim"}`} />
                 <span className="font-display font-semibold text-lg">
                   Agent: {status?.config?.isActive ? "Active" : "Paused"}
                 </span>
               </div>
-              <div className="flex items-center gap-4 text-sm text-bb-dim">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-bb-dim">
                 <span>Last run: {status?.lastRun ? formatDistanceToNow(new Date(status.lastRun), { addSuffix: true }) : "Never"}</span>
                 {status?.nextRun && <span>Next run: {formatDistanceToNow(new Date(status.nextRun), { addSuffix: true })}</span>}
                 <span>Actions today: <span className="text-bb-muted">{status?.actionsToday || 0}</span></span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 onClick={handleToggleActive}
                 className="flex items-center gap-2 px-4 py-2 bg-bb-elevated hover:bg-bb-border rounded-md text-sm transition-colors"

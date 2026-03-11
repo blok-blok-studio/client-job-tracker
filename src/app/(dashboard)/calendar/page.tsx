@@ -103,9 +103,9 @@ export default function CalendarPage() {
   return (
     <div>
       <TopBar title="Calendar" subtitle="Deadlines and scheduling" />
-      <div className="px-6 pb-8">
+      <div className="px-4 lg:px-6 pb-8">
         {/* Controls */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-1 bg-bb-surface border border-bb-border rounded-lg p-1">
             <button
               onClick={() => setMode("calendar")}
@@ -122,9 +122,9 @@ export default function CalendarPage() {
           </div>
 
           {mode === "calendar" && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1.5 rounded hover:bg-bb-elevated text-bb-muted"><ChevronLeft size={18} /></button>
-              <h2 className="font-display font-semibold text-lg w-40 text-center">{format(currentMonth, "MMMM yyyy")}</h2>
+              <h2 className="font-display font-semibold text-sm sm:text-lg w-28 sm:w-40 text-center">{format(currentMonth, "MMM yyyy")}</h2>
               <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1.5 rounded hover:bg-bb-elevated text-bb-muted"><ChevronRight size={18} /></button>
               <button onClick={() => { setCurrentMonth(new Date()); setSelectedDay(new Date()); }} className="px-3 py-1 text-sm bg-bb-elevated hover:bg-bb-border rounded text-bb-muted">Today</button>
             </div>
@@ -134,10 +134,13 @@ export default function CalendarPage() {
         {mode === "calendar" ? (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Calendar Grid */}
-            <div className="lg:col-span-3 bg-bb-surface border border-bb-border rounded-lg p-4">
+            <div className="lg:col-span-3 bg-bb-surface border border-bb-border rounded-lg p-2 sm:p-4">
               <div className="grid grid-cols-7 mb-2">
+                {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                  <div key={i} className="text-center text-xs text-bb-dim py-2 sm:hidden">{d}</div>
+                ))}
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                  <div key={d} className="text-center text-xs text-bb-dim py-2">{d}</div>
+                  <div key={d} className="text-center text-xs text-bb-dim py-2 hidden sm:block">{d}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-px bg-bb-border">
@@ -150,7 +153,7 @@ export default function CalendarPage() {
                       key={day.toISOString()}
                       onClick={() => setSelectedDay(day)}
                       className={cn(
-                        "bg-bb-surface p-2 min-h-[80px] text-left hover:bg-bb-elevated transition-colors",
+                        "bg-bb-surface p-1 sm:p-2 min-h-[48px] sm:min-h-[80px] text-left hover:bg-bb-elevated transition-colors",
                         !isCurrentMonth && "opacity-30",
                         isSelected && "ring-2 ring-bb-orange",
                         isToday(day) && "bg-bb-elevated"

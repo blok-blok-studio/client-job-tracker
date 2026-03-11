@@ -58,7 +58,7 @@ export default function ClientForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Name *</label>
           <input name="name" defaultValue={initialData.name} required className={inputClass} placeholder="Client name" />
@@ -69,7 +69,7 @@ export default function ClientForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Email</label>
           <input name="email" type="email" defaultValue={initialData.email} className={inputClass} placeholder="email@example.com" />
@@ -80,7 +80,7 @@ export default function ClientForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Type</label>
           <select name="type" defaultValue={initialData.type || "ACTIVE"} className={inputClass}>
@@ -99,7 +99,7 @@ export default function ClientForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Source</label>
           <input name="source" defaultValue={initialData.source} className={inputClass} placeholder="Referral, Instagram, etc." />
@@ -115,7 +115,7 @@ export default function ClientForm({
         <input name="monthlyRetainer" type="number" step="0.01" defaultValue={initialData.monthlyRetainer ?? ""} className={inputClass} placeholder="0.00" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Contract Start</label>
           <input name="contractStart" type="date" defaultValue={initialData.contractStart?.split("T")[0]} className={inputClass} />

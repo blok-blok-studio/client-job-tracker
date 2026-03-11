@@ -9,7 +9,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-bb-black">
       <Sidebar />
-      <div className="ml-[260px] flex flex-col min-h-screen">
+      <div className="lg:ml-[260px] flex flex-col min-h-screen">
         <AgentStatusBar />
         <main className="flex-1">{children}</main>
       </div>

@@ -14,8 +14,8 @@ export default function AgentStatusBar({
   actionsToday = 0,
 }: AgentStatusBarProps) {
   return (
-    <div className="bg-bb-surface border-b border-bb-border px-6 py-2 flex items-center justify-between text-xs">
-      <div className="flex items-center gap-4">
+    <div className="bg-bb-surface border-b border-bb-border pl-14 lg:pl-6 pr-4 lg:pr-6 py-2 flex items-center justify-between text-xs">
+      <div className="flex items-center gap-2 sm:gap-4">
         <div className="flex items-center gap-2">
           <Bot size={14} className="text-bb-muted" />
           <span
@@ -25,12 +25,12 @@ export default function AgentStatusBar({
             Agent: {isActive ? "Running" : "Paused"}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-bb-dim">
+        <div className="hidden sm:flex items-center gap-2 text-bb-dim">
           <Activity size={12} />
           <span>Last run: {lastRun}</span>
         </div>
       </div>
-      <div className="text-bb-dim">
+      <div className="text-bb-dim hidden sm:block">
         Actions today: <span className="text-bb-muted">{actionsToday}</span>
       </div>
     </div>

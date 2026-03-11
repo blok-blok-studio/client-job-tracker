@@ -99,7 +99,7 @@ export default async function DashboardPage() {
   return (
     <div>
       <TopBar title="Command Center" subtitle="Overview of all operations" />
-      <div className="px-6 space-y-6 pb-8">
+      <div className="px-4 lg:px-6 space-y-4 lg:space-y-6 pb-8">
         <StatsGrid
           activeClients={data.activeClients}
           openTasks={data.openTasks}

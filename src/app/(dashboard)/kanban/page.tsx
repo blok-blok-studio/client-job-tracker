@@ -5,7 +5,7 @@ export default function KanbanPage() {
   return (
     <div>
       <TopBar title="Kanban Board" subtitle="Drag and drop task management" />
-      <div className="px-6">
+      <div className="px-4 lg:px-6">
         <KanbanBoard />
       </div>
     </div>

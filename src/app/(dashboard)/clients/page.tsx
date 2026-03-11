@@ -65,16 +65,16 @@ export default function ClientsPage() {
   return (
     <div>
       <TopBar title="Clients" subtitle="Manage your client relationships" />
-      <div className="px-6 space-y-4">
+      <div className="px-4 lg:px-6 space-y-4">
         {/* Tabs + Actions */}
-        <div className="flex items-center justify-between">
-          <div className="flex gap-1 bg-bb-surface border border-bb-border rounded-lg p-1">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex gap-1 bg-bb-surface border border-bb-border rounded-lg p-1 overflow-x-auto w-full sm:w-auto">
             {TABS.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  "px-3 py-1.5 text-sm rounded-md transition-colors",
+                  "px-3 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap",
                   activeTab === tab.key
                     ? "bg-bb-orange text-white"
                     : "text-bb-muted hover:text-white"
@@ -86,7 +86,7 @@ export default function ClientsPage() {
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors shrink-0 w-full sm:w-auto justify-center sm:justify-start"
           >
             <Plus size={16} />
             Add Client

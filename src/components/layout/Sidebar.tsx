@@ -14,8 +14,10 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Menu,
+  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -32,6 +34,22 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Prevent body scroll when mobile drawer is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -39,13 +57,8 @@ export default function Sidebar() {
     router.refresh();
   }
 
-  return (
-    <aside
-      className={cn(
-        "fixed top-0 left-0 h-screen bg-bb-surface border-r border-bb-border flex flex-col transition-all duration-200 z-50",
-        collapsed ? "w-[72px]" : "w-[260px]"
-      )}
-    >
+  const sidebarContent = (
+    <>
       {/* Logo */}
       <div className="p-4 flex items-center justify-between border-b border-bb-border">
         {!collapsed && (
@@ -57,11 +70,19 @@ export default function Sidebar() {
             className="h-8 w-auto"
           />
         )}
+        {/* Desktop collapse button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-md hover:bg-bb-elevated text-bb-muted hover:text-white transition-colors"
+          className="hidden lg:block p-1.5 rounded-md hover:bg-bb-elevated text-bb-muted hover:text-white transition-colors"
         >
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        </button>
+        {/* Mobile close button */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="lg:hidden p-1.5 rounded-md hover:bg-bb-elevated text-bb-muted hover:text-white transition-colors"
+        >
+          <X size={18} />
         </button>
       </div>
 
@@ -84,7 +105,7 @@ export default function Sidebar() {
               title={collapsed ? item.label : undefined}
             >
               <item.icon size={20} className="shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              {(!collapsed || mobileOpen) && <span>{item.label}</span>}
             </Link>
           );
         })}
@@ -94,7 +115,7 @@ export default function Sidebar() {
       <div className="border-t border-bb-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shrink-0" />
-          {!collapsed && (
+          {(!collapsed || mobileOpen) && (
             <span className="text-xs text-bb-muted">Agent: Active</span>
           )}
         </div>
@@ -102,13 +123,54 @@ export default function Sidebar() {
           onClick={handleLogout}
           className={cn(
             "flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-bb-muted hover:text-red-400 hover:bg-bb-elevated transition-colors w-full",
-            collapsed && "justify-center px-0"
+            collapsed && !mobileOpen && "justify-center px-0"
           )}
         >
           <LogOut size={18} />
-          {!collapsed && <span>Logout</span>}
+          {(!collapsed || mobileOpen) && <span>Logout</span>}
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="lg:hidden fixed top-3 left-3 z-50 p-2 rounded-lg bg-bb-surface border border-bb-border text-bb-muted hover:text-white transition-colors"
+        aria-label="Open menu"
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/60 z-50"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <aside
+        className={cn(
+          "lg:hidden fixed top-0 left-0 h-screen w-[280px] bg-bb-surface border-r border-bb-border flex flex-col z-50 transition-transform duration-200",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Desktop sidebar */}
+      <aside
+        className={cn(
+          "hidden lg:flex fixed top-0 left-0 h-screen bg-bb-surface border-r border-bb-border flex-col transition-all duration-200 z-50",
+          collapsed ? "w-[72px]" : "w-[260px]"
+        )}
+      >
+        {sidebarContent}
+      </aside>
+    </>
   );
 }

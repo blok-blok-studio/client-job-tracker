@@ -100,7 +100,7 @@ export default function AgentConfigPage() {
   return (
     <div>
       <TopBar title="Agent Configuration" subtitle="Configure agent behavior and permissions" />
-      <div className="px-6 pb-8 max-w-3xl space-y-6">
+      <div className="px-4 lg:px-6 pb-8 max-w-3xl space-y-4 lg:space-y-6">
         {/* Status */}
         <div className="bg-bb-surface border border-bb-border rounded-lg p-5 space-y-4">
           <h3 className="font-display font-semibold">General</h3>

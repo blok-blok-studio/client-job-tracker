@@ -191,8 +191,8 @@ export default function KanbanBoard() {
   return (
     <>
       {/* Filters */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="space-y-3 mb-4">
+        <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim" />
           <input
             value={search}
@@ -201,23 +201,25 @@ export default function KanbanBoard() {
             className="w-full pl-8 pr-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
           />
         </div>
-        <Filter size={14} className="text-bb-dim" />
-        <select value={filterClient} onChange={(e) => setFilterClient(e.target.value)} className="px-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-bb-muted">
-          <option value="">All Clients</option>
-          {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="px-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-bb-muted">
-          <option value="">All Priorities</option>
-          <option value="URGENT">Urgent</option>
-          <option value="HIGH">High</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="LOW">Low</option>
-        </select>
-        <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)} className="px-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-bb-muted">
-          <option value="">All Assignees</option>
-          <option value="agent">Agent</option>
-          <option value="chase">Chase</option>
-        </select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter size={14} className="text-bb-dim shrink-0" />
+          <select value={filterClient} onChange={(e) => setFilterClient(e.target.value)} className="flex-1 min-w-[100px] px-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-bb-muted">
+            <option value="">All Clients</option>
+            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="flex-1 min-w-[100px] px-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-bb-muted">
+            <option value="">All Priorities</option>
+            <option value="URGENT">Urgent</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+          <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)} className="flex-1 min-w-[100px] px-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-bb-muted">
+            <option value="">All Assignees</option>
+            <option value="agent">Agent</option>
+            <option value="chase">Chase</option>
+          </select>
+        </div>
       </div>
 
       {/* Board */}
@@ -264,7 +266,7 @@ export default function KanbanBoard() {
             <label className="block text-sm text-bb-muted mb-1">Description</label>
             <textarea name="description" rows={2} className={inputClass} placeholder="Details..." />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-bb-muted mb-1">Priority</label>
               <select name="priority" defaultValue="MEDIUM" className={inputClass}>
@@ -289,7 +291,7 @@ export default function KanbanBoard() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-bb-muted mb-1">Client</label>
               <select name="clientId" defaultValue="" className={inputClass}>

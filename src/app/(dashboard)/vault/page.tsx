@@ -126,8 +126,8 @@ export default function VaultPage() {
   return (
     <div>
       <TopBar title="Credential Vault" subtitle="Encrypted client credentials" />
-      <div className="px-6 pb-8 space-y-4">
-        <div className="flex items-center gap-3">
+      <div className="px-4 lg:px-6 pb-8 space-y-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim" />
             <input
@@ -137,7 +137,7 @@ export default function VaultPage() {
               className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
             />
           </div>
-          <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md">
+          <button onClick={() => setShowAdd(true)} className="flex items-center justify-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md shrink-0">
             <Plus size={16} /> Add Credential
           </button>
         </div>
@@ -238,7 +238,7 @@ export default function VaultPage() {
             <label className="block text-sm text-bb-muted mb-1">Label</label>
             <input name="label" className={inputClass} placeholder="e.g., Main account" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-bb-muted mb-1">Username *</label>
               <input name="username" required className={inputClass} />

@@ -36,15 +36,15 @@ export default function Modal({ open, onClose, title, children, className }: Mod
         if (e.target === dialogRef.current) onClose();
       }}
     >
-      <div className="flex items-center justify-center min-h-full p-4">
+      <div className="flex items-end sm:items-center justify-center min-h-full sm:p-4">
         <div
           className={cn(
-            "bg-bb-surface border border-bb-border rounded-xl shadow-modal w-full max-w-lg max-h-[85vh] overflow-y-auto",
+            "bg-bb-surface border border-bb-border rounded-t-xl sm:rounded-xl shadow-modal w-full max-w-lg max-h-[90vh] sm:max-h-[85vh] overflow-y-auto",
             className
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-6 py-4 border-b border-bb-border sticky top-0 bg-bb-surface rounded-t-xl">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-bb-border sticky top-0 bg-bb-surface rounded-t-xl">
             <h2 className="text-lg font-display font-semibold">{title}</h2>
             <button
               onClick={onClose}
@@ -53,7 +53,7 @@ export default function Modal({ open, onClose, title, children, className }: Mod
               <X size={18} />
             </button>
           </div>
-          <div className="p-6">{children}</div>
+          <div className="p-4 sm:p-6">{children}</div>
         </div>
       </div>
     </dialog>
