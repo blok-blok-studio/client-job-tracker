@@ -125,6 +125,9 @@ export default function OnboardPage() {
   const [timezone, setTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone
   );
+  const [contractStart, setContractStart] = useState("");
+  const [contractEnd, setContractEnd] = useState("");
+  const [monthlyRetainer, setMonthlyRetainer] = useState("");
   const [notes, setNotes] = useState("");
   const [brandGuidelines, setBrandGuidelines] = useState("");
 
@@ -191,6 +194,9 @@ export default function OnboardPage() {
           socialLinks:
             validSocialLinks.length > 0 ? validSocialLinks : undefined,
           timezone: timezone || undefined,
+          contractStart: contractStart || undefined,
+          contractEnd: contractEnd || undefined,
+          monthlyRetainer: monthlyRetainer ? parseFloat(monthlyRetainer) : undefined,
           notes: notes.trim() || undefined,
           brandGuidelines: brandGuidelines.trim() || undefined,
         }),
@@ -605,6 +611,50 @@ export default function OnboardPage() {
                 </div>
               </div>
             ))}
+          </section>
+
+          {/* Contract Details */}
+          <section className="bg-bb-surface border border-bb-border rounded-xl p-4 sm:p-6 space-y-4">
+            <h2 className="text-lg font-display font-semibold text-white">
+              Contract Details
+            </h2>
+            <p className="text-xs text-bb-dim">
+              Help us keep track of your contract terms.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Contract Signed Date</label>
+                <input
+                  type="date"
+                  value={contractStart}
+                  onChange={(e) => setContractStart(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Contract End Date</label>
+                <input
+                  type="date"
+                  value={contractEnd}
+                  onChange={(e) => setContractEnd(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Monthly Retainer ($)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={monthlyRetainer}
+                onChange={(e) => setMonthlyRetainer(e.target.value)}
+                className={inputClass}
+                placeholder="e.g. 2500"
+              />
+            </div>
           </section>
 
           {/* Additional Info */}

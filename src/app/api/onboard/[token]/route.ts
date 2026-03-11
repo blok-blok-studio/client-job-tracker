@@ -87,6 +87,9 @@ const onboardSchema = z.object({
     .optional(),
   timezone: z.string().max(50).optional(),
   telegramChatId: z.string().max(30).optional(),
+  contractStart: z.string().optional(),
+  contractEnd: z.string().optional(),
+  monthlyRetainer: z.number().min(0).optional(),
   notes: z.string().max(5000).optional(),
   brandGuidelines: z.string().max(10000).optional(),
   socialLinks: z
@@ -123,6 +126,9 @@ export async function POST(
     const updates: Record<string, unknown> = {};
     if (parsed.timezone) updates.timezone = parsed.timezone;
     if (parsed.telegramChatId) updates.telegramChatId = parsed.telegramChatId;
+    if (parsed.contractStart) updates.contractStart = new Date(parsed.contractStart);
+    if (parsed.contractEnd) updates.contractEnd = new Date(parsed.contractEnd);
+    if (parsed.monthlyRetainer !== undefined) updates.monthlyRetainer = parsed.monthlyRetainer;
     if (parsed.notes) updates.notes = parsed.notes;
     if (parsed.brandGuidelines) {
       updates.notes = parsed.notes
@@ -203,6 +209,12 @@ export async function POST(
     const checklistLabels = ["Credentials received"];
     if (parsed.contacts && parsed.contacts.length > 0) {
       checklistLabels.push("Onboarding call completed");
+    }
+    if (parsed.contractStart) {
+      checklistLabels.push("Contract signed");
+    }
+    if (parsed.monthlyRetainer !== undefined) {
+      checklistLabels.push("Payment method confirmed");
     }
 
     await prisma.checklistItem.updateMany({
