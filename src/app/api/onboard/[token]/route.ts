@@ -138,9 +138,19 @@ export async function POST(
       data: updates,
     });
 
-    // Create contacts
+    // Create contacts and populate client email/phone from primary contact
     if (parsed.contacts && parsed.contacts.length > 0) {
       step = "creating contacts";
+      const primaryContact = parsed.contacts.find((c) => c.isPrimary) || parsed.contacts[0];
+      if (primaryContact) {
+        await prisma.client.update({
+          where: { id: client.id },
+          data: {
+            email: primaryContact.email || undefined,
+            phone: primaryContact.phone || undefined,
+          },
+        });
+      }
       await prisma.contact.createMany({
         data: parsed.contacts.map((c) => ({
           clientId: client.id,
