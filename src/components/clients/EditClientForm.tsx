@@ -1,6 +1,75 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+
+const SOURCE_OPTIONS = [
+  "Referral",
+  "Instagram",
+  "LinkedIn",
+  "TikTok",
+  "Twitter/X",
+  "Facebook",
+  "YouTube",
+  "Google Search",
+  "Website",
+  "Cold Outreach",
+  "Networking Event",
+  "Word of Mouth",
+  "Other",
+];
+
+const INDUSTRY_OPTIONS = [
+  "Accounting & Finance",
+  "Advertising & Marketing",
+  "Agriculture",
+  "Architecture",
+  "Automotive",
+  "Beauty & Cosmetics",
+  "Blockchain & Crypto",
+  "Cannabis",
+  "Coaching & Consulting",
+  "Construction",
+  "Creative Agency",
+  "Dental",
+  "E-commerce",
+  "Education",
+  "Energy & Utilities",
+  "Entertainment",
+  "Events & Hospitality",
+  "Fashion & Apparel",
+  "Film & Video",
+  "Fitness & Wellness",
+  "Food & Beverage",
+  "Gaming",
+  "Government",
+  "Healthcare",
+  "Home Services",
+  "Insurance",
+  "Interior Design",
+  "Jewelry & Watches",
+  "Law & Legal",
+  "Logistics & Shipping",
+  "Manufacturing",
+  "Media & Publishing",
+  "Music",
+  "Nonprofit",
+  "Outdoor & Recreation",
+  "Pets & Animals",
+  "Photography",
+  "Real Estate",
+  "Restaurants & Bars",
+  "Retail",
+  "SaaS & Software",
+  "Skincare",
+  "Social Media",
+  "Sports",
+  "Sustainability & Green",
+  "Tech & Startups",
+  "Telecommunications",
+  "Travel & Tourism",
+  "Venture Capital & PE",
+  "Other",
+];
 
 interface EditClientFormProps {
   initialData: {
@@ -21,6 +90,57 @@ interface EditClientFormProps {
   onSubmit: (data: Record<string, unknown>) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
+}
+
+function FilterableSelect({
+  name,
+  defaultValue,
+  options,
+  placeholder,
+  inputClass,
+}: {
+  name: string;
+  defaultValue: string;
+  options: string[];
+  placeholder: string;
+  inputClass: string;
+}) {
+  const [value, setValue] = useState(defaultValue);
+  const [open, setOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    if (!value) return options;
+    const lower = value.toLowerCase();
+    return options.filter((o) => o.toLowerCase().includes(lower));
+  }, [value, options]);
+
+  return (
+    <div className="relative">
+      <input type="hidden" name={name} value={value} />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => { setValue(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className={inputClass}
+        placeholder={placeholder}
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto bg-bb-black border border-bb-border rounded-md shadow-lg">
+          {filtered.map((opt) => (
+            <li
+              key={opt}
+              onMouseDown={() => { setValue(opt); setOpen(false); }}
+              className="px-3 py-2 text-sm text-white hover:bg-bb-orange/20 cursor-pointer"
+            >
+              {opt}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export default function EditClientForm({
@@ -101,12 +221,24 @@ export default function EditClientForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className={labelClass}>Source</label>
-          <input name="source" defaultValue={initialData.source} className={inputClass} placeholder="Referral, Instagram, etc." />
+          <label className={labelClass}>How did you hear about us?</label>
+          <FilterableSelect
+            name="source"
+            defaultValue={initialData.source || ""}
+            options={SOURCE_OPTIONS}
+            placeholder="Select or type..."
+            inputClass={inputClass}
+          />
         </div>
         <div>
           <label className={labelClass}>Industry</label>
-          <input name="industry" defaultValue={initialData.industry} className={inputClass} placeholder="Tech, Fitness, etc." />
+          <FilterableSelect
+            name="industry"
+            defaultValue={initialData.industry || ""}
+            options={INDUSTRY_OPTIONS}
+            placeholder="Select or type..."
+            inputClass={inputClass}
+          />
         </div>
       </div>
 

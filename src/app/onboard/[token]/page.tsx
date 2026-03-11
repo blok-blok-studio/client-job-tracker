@@ -125,6 +125,8 @@ export default function OnboardPage() {
   const [timezone, setTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone
   );
+  const [company, setCompany] = useState("");
+  const [companyWebsite, setCompanyWebsite] = useState("");
   const [notes, setNotes] = useState("");
   const [brandGuidelines, setBrandGuidelines] = useState("");
 
@@ -191,6 +193,8 @@ export default function OnboardPage() {
           socialLinks:
             validSocialLinks.length > 0 ? validSocialLinks : undefined,
           timezone: timezone || undefined,
+          company: company.trim() || undefined,
+          companyWebsite: companyWebsite.trim() || undefined,
           notes: notes.trim() || undefined,
           brandGuidelines: brandGuidelines.trim() || undefined,
         }),
@@ -443,6 +447,37 @@ export default function OnboardPage() {
             ))}
           </section>
 
+          {/* Company Info */}
+          <section className="bg-bb-surface border border-bb-border rounded-xl p-4 sm:p-6 space-y-4">
+            <h2 className="text-lg font-display font-semibold text-white">
+              Company Info
+            </h2>
+            <p className="text-xs text-bb-dim">
+              If applicable, share your company details.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Company Name</label>
+                <input
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  className={inputClass}
+                  placeholder="Acme Inc."
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Company Website</label>
+                <input
+                  type="url"
+                  value={companyWebsite}
+                  onChange={(e) => setCompanyWebsite(e.target.value)}
+                  className={inputClass}
+                  placeholder="https://example.com"
+                />
+              </div>
+            </div>
+          </section>
+
           {/* Social Links Section */}
           <section className="bg-bb-surface border border-bb-border rounded-xl p-4 sm:p-6 space-y-4">
             <div className="flex items-center justify-between">
@@ -569,7 +604,7 @@ export default function OnboardPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className={labelClass}>Username *</label>
+                    <label className={labelClass}>Username / Email *</label>
                     <input
                       value={cred.username}
                       onChange={(e) =>

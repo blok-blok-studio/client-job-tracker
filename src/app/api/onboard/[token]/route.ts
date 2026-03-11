@@ -86,6 +86,8 @@ const onboardSchema = z.object({
     .max(50)
     .optional(),
   timezone: z.string().max(50).optional(),
+  company: z.string().max(200).optional(),
+  companyWebsite: z.string().max(500).optional(),
   telegramChatId: z.string().max(30).optional(),
   contractStart: z.string().optional(),
   contractEnd: z.string().optional(),
@@ -125,6 +127,7 @@ export async function POST(
     step = "updating client";
     const updates: Record<string, unknown> = {};
     if (parsed.timezone) updates.timezone = parsed.timezone;
+    if (parsed.company) updates.company = parsed.company;
     if (parsed.telegramChatId) updates.telegramChatId = parsed.telegramChatId;
     if (parsed.contractStart) updates.contractStart = new Date(parsed.contractStart);
     if (parsed.contractEnd) updates.contractEnd = new Date(parsed.contractEnd);
@@ -134,6 +137,12 @@ export async function POST(
       updates.notes = parsed.notes
         ? `${parsed.notes}\n\nBrand Guidelines:\n${parsed.brandGuidelines}`
         : `Brand Guidelines:\n${parsed.brandGuidelines}`;
+    }
+    if (parsed.companyWebsite) {
+      const current = (updates.notes as string) || parsed.notes || "";
+      updates.notes = current
+        ? `${current}\n\nCompany Website: ${parsed.companyWebsite}`
+        : `Company Website: ${parsed.companyWebsite}`;
     }
 
     // Invalidate the token after use
