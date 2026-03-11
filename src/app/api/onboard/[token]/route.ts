@@ -210,12 +210,6 @@ export async function POST(
     if (parsed.contacts && parsed.contacts.length > 0) {
       checklistLabels.push("Onboarding call completed");
     }
-    if (parsed.contractStart) {
-      checklistLabels.push("Contract signed");
-    }
-    if (parsed.monthlyRetainer !== undefined) {
-      checklistLabels.push("Payment method confirmed");
-    }
 
     await prisma.checklistItem.updateMany({
       where: {
