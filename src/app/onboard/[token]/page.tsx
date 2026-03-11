@@ -806,46 +806,93 @@ export default function OnboardPage() {
                 </h2>
               </div>
               <p className="text-xs text-bb-dim">
-                Get instant updates and direct support through Telegram. Scan the
-                QR code or tap the button below to connect. Take your time — this
-                link won&apos;t expire while you download and set up the app.
+                Get instant updates and direct support through Telegram. Take your
+                time — this link won&apos;t expire while you download and set up
+                the app.
               </p>
-              <div className="flex flex-col sm:flex-row items-center gap-6">
-                {telegramQR && (
-                  <div className="bg-bb-black border border-bb-border rounded-xl p-4 flex-shrink-0">
-                    <img
-                      src={telegramQR}
-                      alt="Scan to connect Telegram"
-                      width={160}
-                      height={160}
-                      className="rounded"
-                    />
-                  </div>
-                )}
-                <div className="flex flex-col items-center sm:items-start gap-3 text-center sm:text-left">
-                  <div className="space-y-1">
-                    <p className="text-sm text-bb-muted font-medium">
-                      Scan with your phone camera
-                    </p>
-                    <p className="text-xs text-bb-dim">
-                      Or open Telegram and scan the QR code to connect your account
-                      for real-time notifications and support.
-                    </p>
-                  </div>
+
+              {/* Step 1: Download */}
+              <div className="bg-bb-black border border-bb-border rounded-lg p-4 space-y-3">
+                <p className="text-sm text-white font-medium">
+                  Step 1: Download Telegram
+                </p>
+                <p className="text-xs text-bb-dim">
+                  If you don&apos;t have Telegram yet, download it first:
+                </p>
+                <div className="flex flex-wrap gap-2">
                   <a
-                    href={telegramLink}
+                    href="https://apps.apple.com/app/telegram-messenger/id686449807"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#29B6F6] hover:bg-[#039BE5] text-white font-medium rounded-lg transition-colors text-sm"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-bb-surface border border-bb-border rounded-lg text-xs text-white hover:border-bb-dim transition-colors"
                   >
-                    <MessageCircle size={16} />
-                    Open in Telegram
+                    App Store (iPhone)
                   </a>
-                  <p className="text-[10px] text-bb-dim">
-                    Optional — you can always connect later
-                  </p>
+                  <a
+                    href="https://play.google.com/store/apps/details?id=org.telegram.messenger"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-bb-surface border border-bb-border rounded-lg text-xs text-white hover:border-bb-dim transition-colors"
+                  >
+                    Google Play (Android)
+                  </a>
+                  <a
+                    href="https://desktop.telegram.org/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-bb-surface border border-bb-border rounded-lg text-xs text-white hover:border-bb-dim transition-colors"
+                  >
+                    Desktop App
+                  </a>
+                </div>
+                <p className="text-[10px] text-bb-dim">
+                  Already have Telegram? Skip to Step 2.
+                </p>
+              </div>
+
+              {/* Step 2: Connect */}
+              <div className="bg-bb-black border border-bb-border rounded-lg p-4 space-y-3">
+                <p className="text-sm text-white font-medium">
+                  Step 2: Connect your account
+                </p>
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  {telegramQR && (
+                    <div className="border border-bb-border rounded-xl p-3 flex-shrink-0">
+                      <img
+                        src={telegramQR}
+                        alt="Scan to connect Telegram"
+                        width={140}
+                        height={140}
+                        className="rounded"
+                      />
+                    </div>
+                  )}
+                  <div className="flex flex-col items-center sm:items-start gap-3 text-center sm:text-left">
+                    <div className="space-y-1">
+                      <p className="text-xs text-bb-muted font-medium">
+                        Scan the QR code with your phone camera
+                      </p>
+                      <p className="text-xs text-bb-dim">
+                        Or tap the button below to open directly in Telegram and
+                        press &quot;Start&quot; to connect.
+                      </p>
+                    </div>
+                    <a
+                      href={telegramLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#29B6F6] hover:bg-[#039BE5] text-white font-medium rounded-lg transition-colors text-sm"
+                    >
+                      <MessageCircle size={16} />
+                      Open in Telegram
+                    </a>
+                  </div>
                 </div>
               </div>
+
+              <p className="text-[10px] text-bb-dim text-center">
+                Optional — you can always connect later
+              </p>
             </section>
           )}
 
