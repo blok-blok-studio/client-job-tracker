@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Plus, Trash2, Check, Loader2, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Check, Loader2, ChevronDown, MessageCircle } from "lucide-react";
+import QRCode from "qrcode";
 
 interface Contact {
   name: string;
@@ -182,6 +183,8 @@ export default function OnboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [clientName, setClientName] = useState("");
+  const [telegramLink, setTelegramLink] = useState<string | null>(null);
+  const [telegramQR, setTelegramQR] = useState<string | null>(null);
 
   // Form state
   const [contacts, setContacts] = useState<Contact[]>([
@@ -221,6 +224,14 @@ export default function OnboardPage() {
         const data = await res.json();
         if (data.success) {
           setClientName(data.data.name);
+          if (data.data.telegramLink) {
+            setTelegramLink(data.data.telegramLink);
+            QRCode.toDataURL(data.data.telegramLink, {
+              width: 200,
+              margin: 2,
+              color: { dark: "#FFFFFF", light: "#00000000" },
+            }).then(setTelegramQR).catch(() => {});
+          }
         } else {
           setError(data.error || "Invalid onboarding link");
         }
@@ -784,6 +795,59 @@ export default function OnboardPage() {
               </div>
             ))}
           </section>
+
+          {/* Telegram Setup */}
+          {telegramLink && (
+            <section className="bg-bb-surface border border-bb-border rounded-xl p-4 sm:p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <MessageCircle size={20} className="text-[#29B6F6]" />
+                <h2 className="text-lg font-display font-semibold text-white">
+                  Connect Telegram
+                </h2>
+              </div>
+              <p className="text-xs text-bb-dim">
+                Get instant updates and direct support through Telegram. Scan the
+                QR code or tap the button below to connect. Take your time — this
+                link won&apos;t expire while you download and set up the app.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                {telegramQR && (
+                  <div className="bg-bb-black border border-bb-border rounded-xl p-4 flex-shrink-0">
+                    <img
+                      src={telegramQR}
+                      alt="Scan to connect Telegram"
+                      width={160}
+                      height={160}
+                      className="rounded"
+                    />
+                  </div>
+                )}
+                <div className="flex flex-col items-center sm:items-start gap-3 text-center sm:text-left">
+                  <div className="space-y-1">
+                    <p className="text-sm text-bb-muted font-medium">
+                      Scan with your phone camera
+                    </p>
+                    <p className="text-xs text-bb-dim">
+                      Or open Telegram and scan the QR code to connect your account
+                      for real-time notifications and support.
+                    </p>
+                  </div>
+                  <a
+                    href={telegramLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#29B6F6] hover:bg-[#039BE5] text-white font-medium rounded-lg transition-colors text-sm"
+                  >
+                    <MessageCircle size={16} />
+                    Open in Telegram
+                  </a>
+                  <p className="text-[10px] text-bb-dim">
+                    Optional — you can always connect later
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* Additional Info */}
           <section className="bg-bb-surface border border-bb-border rounded-xl p-4 sm:p-6 space-y-4">

@@ -46,8 +46,21 @@ export async function GET(
       );
     }
 
+    // Build Telegram deep link if bot username is configured
+    const botUsername = process.env.TELEGRAM_BOT_USERNAME || null;
+    const telegramLink = botUsername
+      ? `https://t.me/${botUsername}?start=${token}`
+      : null;
+
     return NextResponse.json(
-      { success: true, data: { name: client.name, company: client.company } },
+      {
+        success: true,
+        data: {
+          name: client.name,
+          company: client.company,
+          telegramLink,
+        },
+      },
       { headers: corsHeaders(request) }
     );
   } catch (error) {
