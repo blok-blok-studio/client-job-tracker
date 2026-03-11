@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { sendToOpenClaw } from "@/lib/openclaw/client";
+import { respondToTicket } from "@/lib/agent/ticket-responder";
 
 interface TelegramUpdate {
   message?: {
@@ -102,13 +103,10 @@ export async function POST(request: NextRequest) {
       data: { updatedAt: new Date() },
     });
 
-    // Auto-acknowledge if it's a new ticket
-    if (ticket.status === "OPEN") {
-      await sendTelegramMessage(
-        chatId,
-        `Got it, ${client.name}! Your message has been received. Our team will get back to you shortly.`
-      );
-    }
+    // Trigger instant agent response (non-blocking so Telegram doesn't timeout)
+    respondToTicket(ticket.id).catch((err) =>
+      console.error("[Webhook] Agent response failed:", err)
+    );
 
     return NextResponse.json({ ok: true });
   } catch (error) {
