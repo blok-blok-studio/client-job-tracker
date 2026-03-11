@@ -65,7 +65,7 @@ export default function ClientDetailPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDescription, setPaymentDescription] = useState("");
-  const [paymentCurrency, setPaymentCurrency] = useState<"usd" | "eur" | "gbp">("usd");
+  const [paymentCurrency, setPaymentCurrency] = useState<"usd" | "eur">("usd");
   const [paymentRecurring, setPaymentRecurring] = useState(false);
   const [paymentInterval, setPaymentInterval] = useState<"month" | "year">("month");
   const [generatingPayment, setGeneratingPayment] = useState(false);
@@ -812,7 +812,7 @@ export default function ClientDetailPage() {
           <div>
             <label className="block text-sm font-medium text-white mb-1.5">Currency</label>
             <div className="flex gap-2">
-              {([["usd", "USD ($)"], ["eur", "EUR (\u20AC)"], ["gbp", "GBP (\u00A3)"]] as const).map(([code, label]) => (
+              {([["usd", "USD ($)"], ["eur", "EUR (€)"]] as const).map(([code, label]) => (
                 <button
                   key={code}
                   type="button"
@@ -832,7 +832,7 @@ export default function ClientDetailPage() {
             <label className="block text-sm font-medium text-white mb-1.5">Amount *</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim text-sm">
-                {paymentCurrency === "usd" ? "$" : paymentCurrency === "eur" ? "\u20AC" : "\u00A3"}
+                {paymentCurrency === "usd" ? "$" : "€"}
               </span>
               <input
                 type="number"

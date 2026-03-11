@@ -22,10 +22,11 @@ model Client {
   monthlyRetainer Decimal?   @db.Decimal(10, 2)
   contractStart   DateTime?
   contractEnd     DateTime?
-  timezone        String?    @default("Europe/Berlin")
+  timezone        String?
   avatarUrl       String?
   onboardToken    String?    @unique
   telegramChatId  String?    @unique
+  stripeCustomerId String?   @unique
 
   credentials      Credential[]
   tasks            Task[]

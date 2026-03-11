@@ -1,10 +1,26 @@
 // Contract template system for Blok Blok Studio
 // Auto-generates contract text based on selected packages
 
+export type PackageCategory =
+  | "ai-agents"
+  | "web-brand"
+  | "social-setup"
+  | "social-management"
+  | "social-addons"
+  | "youtube"
+  | "marketing-retainers"
+  | "custom-development"
+  | "dev-retainers"
+  | "general-addons"
+  | "dev-addons";
+
 export interface ServicePackage {
   id: string;
   name: string;
+  category: PackageCategory;
   price: number;
+  /** Monthly recurring packages use this flag */
+  recurring?: boolean;
   description: string;
   deliverables: string[];
   timeline: string;
@@ -16,13 +32,30 @@ export interface CustomLineItem {
   price: number;
 }
 
+export const PACKAGE_CATEGORIES: { id: PackageCategory; label: string }[] = [
+  { id: "ai-agents", label: "AI Agents" },
+  { id: "web-brand", label: "Web & Brand" },
+  { id: "social-setup", label: "Social Setup" },
+  { id: "social-management", label: "Social Management" },
+  { id: "social-addons", label: "Social Add-Ons" },
+  { id: "youtube", label: "YouTube Management" },
+  { id: "marketing-retainers", label: "Monthly Retainers" },
+  { id: "custom-development", label: "Custom Development" },
+  { id: "dev-retainers", label: "Dev Retainers" },
+  { id: "general-addons", label: "General Add-Ons" },
+  { id: "dev-addons", label: "Development Add-Ons" },
+];
+
+// ─── AI Agent Packages ───────────────────────────────────────────────
+
 export const SERVICE_PACKAGES: ServicePackage[] = [
+  // AI Agents
   {
     id: "single-agent",
     name: "Single Agent Build",
+    category: "ai-agents",
     price: 5000,
-    description:
-      "One custom AI agent tailored to your business needs.",
+    description: "One custom AI agent tailored to your business needs.",
     deliverables: [
       "1 custom AI agent (voice, email, web scraping, PDF generation, customer support, lead qualification, appointment booking, data processing, content generation, or social monitoring)",
       "Agent training with up to 50 data points",
@@ -36,9 +69,9 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
   {
     id: "agent-team",
     name: "Agent Team",
+    category: "ai-agents",
     price: 8500,
-    description:
-      "Three interconnected AI agents working as a coordinated system.",
+    description: "Three interconnected AI agents working as a coordinated system.",
     deliverables: [
       "3 custom AI agents working as a coordinated team",
       "Workflow orchestration between agents",
@@ -52,9 +85,9 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
   {
     id: "ai-operations",
     name: "AI Operations",
+    category: "ai-agents",
     price: 15000,
-    description:
-      "Five or more custom AI agents covering multiple departments.",
+    description: "Five or more custom AI agents covering multiple departments.",
     deliverables: [
       "5+ custom AI agents across departments (sales, support, marketing, operations, data)",
       "Central orchestration layer",
@@ -66,12 +99,415 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     timeline: "4 to 8 weeks",
     supportPeriod: "90 days active monitoring",
   },
+
+  // ─── Web & Brand Packages ──────────────────────────────────────────
+
+  {
+    id: "starter-launch",
+    name: "Starter Launch",
+    category: "web-brand",
+    price: 4500,
+    description: "Everything you need to launch your brand online.",
+    deliverables: [
+      "Custom website (up to 5 pages)",
+      "Mobile-responsive design",
+      "Basic SEO setup",
+      "Contact form integration",
+      "Logo and brand identity kit",
+      "Social media profile setup (up to 3 platforms)",
+    ],
+    timeline: "2 to 3 weeks",
+    supportPeriod: "30 days post-launch support",
+  },
+  {
+    id: "growth-accelerator",
+    name: "Growth Accelerator",
+    category: "web-brand",
+    price: 9500,
+    description: "A complete digital presence built for growth and conversions.",
+    deliverables: [
+      "Custom website (up to 10 pages)",
+      "Advanced SEO and analytics setup",
+      "CMS integration for self-managed content",
+      "Email marketing setup and first campaign",
+      "Full brand identity (logo, colors, typography, guidelines)",
+      "Social media profile setup (up to 5 platforms)",
+      "Lead capture and CRM integration",
+    ],
+    timeline: "3 to 5 weeks",
+    supportPeriod: "60 days post-launch support",
+  },
+  {
+    id: "total-domination",
+    name: "Total Domination",
+    category: "web-brand",
+    price: 18000,
+    description: "End-to-end digital ecosystem for maximum market impact.",
+    deliverables: [
+      "Custom website (up to 20 pages)",
+      "E-commerce or booking system integration",
+      "Advanced SEO, analytics, and conversion tracking",
+      "Full CMS with custom content workflows",
+      "Complete brand identity and brand guidelines document",
+      "Social media setup across all platforms",
+      "Email marketing automation with drip sequences",
+      "Lead qualification and CRM pipeline setup",
+      "Ad campaign setup (Google Ads and/or Meta Ads)",
+    ],
+    timeline: "6 to 10 weeks",
+    supportPeriod: "90 days post-launch support",
+  },
+
+  // ─── Social Setup Packages ────────────────────────────────────────
+
+  {
+    id: "social-starter-setup",
+    name: "Social Starter Setup",
+    category: "social-setup",
+    price: 1200,
+    description: "Get your social media profiles set up and ready to go.",
+    deliverables: [
+      "Profile setup on up to 3 platforms",
+      "Profile and cover image design",
+      "Bio and description copywriting",
+      "Initial content calendar (1 month)",
+    ],
+    timeline: "3 to 5 days",
+    supportPeriod: "14 days post-launch support",
+  },
+  {
+    id: "social-growth-setup",
+    name: "Social Growth Setup",
+    category: "social-setup",
+    price: 2200,
+    description: "Professional social presence with content strategy.",
+    deliverables: [
+      "Profile setup on up to 5 platforms",
+      "Custom graphics and templates",
+      "Bio and description copywriting",
+      "Content strategy and 2-month content calendar",
+      "Hashtag research and strategy",
+      "Competitor analysis",
+    ],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "30 days post-launch support",
+  },
+  {
+    id: "social-domination-setup",
+    name: "Social Domination Setup",
+    category: "social-setup",
+    price: 3500,
+    description: "Complete social media infrastructure for serious brands.",
+    deliverables: [
+      "Profile setup on all relevant platforms",
+      "Full brand kit adapted for each platform",
+      "Content strategy and 3-month content calendar",
+      "Hashtag and keyword research",
+      "Competitor and audience analysis",
+      "Influencer outreach template kit",
+      "Paid social ad account setup",
+    ],
+    timeline: "2 to 3 weeks",
+    supportPeriod: "30 days post-launch support",
+  },
+
+  // ─── Social Management (Monthly) ─────────────────────────────────
+
+  {
+    id: "social-starter-mgmt",
+    name: "Social Starter",
+    category: "social-management",
+    price: 1500,
+    recurring: true,
+    description: "Consistent social media presence with managed posting.",
+    deliverables: [
+      "Content creation and posting (3x per week per platform)",
+      "Up to 2 platforms managed",
+      "Monthly content calendar",
+      "Basic engagement monitoring",
+      "Monthly performance report",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "social-growth-mgmt",
+    name: "Social Growth",
+    category: "social-management",
+    price: 2500,
+    recurring: true,
+    description: "Active social growth with engagement and strategy.",
+    deliverables: [
+      "Content creation and posting (5x per week per platform)",
+      "Up to 4 platforms managed",
+      "Weekly content calendar with approval workflow",
+      "Active community engagement and replies",
+      "Hashtag and trend optimization",
+      "Bi-weekly performance reports with insights",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "social-domination-mgmt",
+    name: "Social Domination",
+    category: "social-management",
+    price: 4500,
+    recurring: true,
+    description: "Full-service social media management and growth.",
+    deliverables: [
+      "Content creation and posting (daily across all platforms)",
+      "Unlimited platforms managed",
+      "Real-time engagement and community management",
+      "Influencer collaboration outreach",
+      "Paid social ad management",
+      "Weekly strategy calls",
+      "Weekly performance reports with optimization recommendations",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+
+  // ─── YouTube Management (Monthly) ────────────────────────────────
+
+  {
+    id: "youtube-starter",
+    name: "YouTube Starter",
+    category: "youtube",
+    price: 1500,
+    recurring: true,
+    description: "Channel setup and basic video optimization.",
+    deliverables: [
+      "Channel setup and branding",
+      "SEO optimization for up to 4 videos/month",
+      "Thumbnail design",
+      "Title and description copywriting",
+      "Monthly analytics report",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "youtube-growth",
+    name: "YouTube Growth",
+    category: "youtube",
+    price: 2000,
+    recurring: true,
+    description: "Active YouTube growth with content strategy.",
+    deliverables: [
+      "Full channel management",
+      "SEO optimization for up to 8 videos/month",
+      "Custom thumbnail design",
+      "Content strategy and scripting support",
+      "Community tab management",
+      "Competitor analysis",
+      "Bi-weekly analytics reports",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "youtube-domination",
+    name: "YouTube Domination",
+    category: "youtube",
+    price: 3000,
+    recurring: true,
+    description: "Full-service YouTube management and production.",
+    deliverables: [
+      "End-to-end video production support",
+      "Unlimited video optimization",
+      "Custom thumbnails and channel art",
+      "Full content strategy with scripting",
+      "Community and comment management",
+      "YouTube Ads setup and management",
+      "Weekly analytics and growth strategy calls",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+
+  // ─── Monthly Marketing Retainers ─────────────────────────────────
+
+  {
+    id: "maintain-monitor",
+    name: "Maintain & Monitor",
+    category: "marketing-retainers",
+    price: 1500,
+    recurring: true,
+    description: "Keep your digital presence running smoothly.",
+    deliverables: [
+      "Website maintenance and updates",
+      "Monthly security and performance checks",
+      "Analytics monitoring and monthly report",
+      "Up to 5 hours of content updates",
+      "Email and chat support",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "growth-engine",
+    name: "Growth Engine",
+    category: "marketing-retainers",
+    price: 3500,
+    recurring: true,
+    description: "Continuous marketing optimization for growing businesses.",
+    deliverables: [
+      "Everything in Maintain & Monitor",
+      "SEO optimization and content updates",
+      "Email marketing campaigns (up to 4/month)",
+      "Social media strategy adjustments",
+      "A/B testing and conversion optimization",
+      "Up to 15 hours of development and design work",
+      "Bi-weekly strategy calls",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "full-partnership",
+    name: "Full Partnership",
+    category: "marketing-retainers",
+    price: 7500,
+    recurring: true,
+    description: "Your dedicated digital team for maximum growth.",
+    deliverables: [
+      "Everything in Growth Engine",
+      "Dedicated account manager",
+      "Full-service marketing execution",
+      "Ad campaign management (Google + Meta)",
+      "Advanced analytics and attribution",
+      "Unlimited development and design hours",
+      "Weekly strategy calls",
+      "Priority support with same-day response",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+
+  // ─── Custom Development ──────────────────────────────────────────
+
+  {
+    id: "discovery-sprint",
+    name: "Discovery Sprint",
+    category: "custom-development",
+    price: 2500,
+    description: "Define your project scope, architecture, and roadmap.",
+    deliverables: [
+      "Requirements gathering and analysis",
+      "Technical architecture document",
+      "Project roadmap and timeline",
+      "Technology stack recommendations",
+      "Budget estimation for full build",
+    ],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "Included in build phase",
+  },
+  {
+    id: "standard-build",
+    name: "Standard Build",
+    category: "custom-development",
+    price: 25000,
+    description: "Full custom application development from concept to launch.",
+    deliverables: [
+      "Custom web or mobile application",
+      "UI/UX design and prototyping",
+      "Frontend and backend development",
+      "Database design and implementation",
+      "Third-party API integrations",
+      "Testing and quality assurance",
+      "Deployment and launch support",
+      "Documentation and handover",
+    ],
+    timeline: "8 to 12 weeks",
+    supportPeriod: "60 days post-launch support",
+  },
+  {
+    id: "enterprise-build",
+    name: "Enterprise Build",
+    category: "custom-development",
+    price: 75000,
+    description: "Large-scale enterprise application with advanced requirements.",
+    deliverables: [
+      "Enterprise-grade custom application",
+      "Complex multi-system architecture",
+      "Advanced security and compliance implementation",
+      "Scalability and performance optimization",
+      "Multiple third-party integrations",
+      "Comprehensive testing suite",
+      "CI/CD pipeline setup",
+      "Team training and knowledge transfer",
+      "Detailed technical documentation",
+    ],
+    timeline: "16 to 24 weeks",
+    supportPeriod: "90 days post-launch support",
+  },
+
+  // ─── Dev Retainers (Monthly) ──────────────────────────────────────
+
+  {
+    id: "dev-support",
+    name: "Dev Support",
+    category: "dev-retainers",
+    price: 1500,
+    recurring: true,
+    description: "Ongoing technical support and minor development work.",
+    deliverables: [
+      "Bug fixes and issue resolution",
+      "Up to 10 hours of development work",
+      "Performance monitoring",
+      "Security updates and patches",
+      "Email and chat support",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "hourly-bank",
+    name: "Hourly Bank",
+    category: "dev-retainers",
+    price: 2500,
+    recurring: true,
+    description: "Pre-purchased development hours at a discounted rate.",
+    deliverables: [
+      "20 hours of development work per month",
+      "Feature development and enhancements",
+      "Bug fixes and optimization",
+      "Code review and technical consulting",
+      "Rollover of unused hours (up to 10 hours)",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "active-development",
+    name: "Active Development",
+    category: "dev-retainers",
+    price: 7500,
+    recurring: true,
+    description: "Dedicated development team for continuous product evolution.",
+    deliverables: [
+      "Dedicated developer allocation",
+      "Unlimited development hours",
+      "Sprint planning and agile workflow",
+      "Feature development and iteration",
+      "Performance optimization",
+      "Weekly progress reports and demos",
+      "Priority support with same-day response",
+    ],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
 ];
 
+// ─── Add-On Packages ─────────────────────────────────────────────────
+
 export const ADDON_PACKAGES: ServicePackage[] = [
+  // Individual AI Agents
   {
     id: "voice-agent",
     name: "Voice Agent",
+    category: "ai-agents",
     price: 5000,
     description: "Individual voice AI agent.",
     deliverables: ["1 custom voice AI agent", "Training and integration", "Documentation"],
@@ -81,6 +517,7 @@ export const ADDON_PACKAGES: ServicePackage[] = [
   {
     id: "email-agent",
     name: "Email Agent",
+    category: "ai-agents",
     price: 5000,
     description: "Individual email AI agent.",
     deliverables: ["1 custom email AI agent", "Training and integration", "Documentation"],
@@ -90,6 +527,7 @@ export const ADDON_PACKAGES: ServicePackage[] = [
   {
     id: "web-scraping-agent",
     name: "Web Scraping Agent",
+    category: "ai-agents",
     price: 5000,
     description: "Individual web scraping AI agent.",
     deliverables: ["1 custom web scraping AI agent", "Training and integration", "Documentation"],
@@ -99,6 +537,7 @@ export const ADDON_PACKAGES: ServicePackage[] = [
   {
     id: "pdf-generator-agent",
     name: "PDF Generator Agent",
+    category: "ai-agents",
     price: 5000,
     description: "Individual PDF generator AI agent.",
     deliverables: ["1 custom PDF generator AI agent", "Training and integration", "Documentation"],
@@ -108,6 +547,7 @@ export const ADDON_PACKAGES: ServicePackage[] = [
   {
     id: "customer-support-agent",
     name: "Customer Support Agent",
+    category: "ai-agents",
     price: 5000,
     description: "Individual customer support AI agent.",
     deliverables: ["1 custom customer support AI agent", "Training and integration", "Documentation"],
@@ -117,6 +557,7 @@ export const ADDON_PACKAGES: ServicePackage[] = [
   {
     id: "lead-qualification-agent",
     name: "Lead Qualification Agent",
+    category: "ai-agents",
     price: 5000,
     description: "Individual lead qualification AI agent.",
     deliverables: ["1 custom lead qualification AI agent", "Training and integration", "Documentation"],
@@ -126,6 +567,7 @@ export const ADDON_PACKAGES: ServicePackage[] = [
   {
     id: "appointment-booking-agent",
     name: "Appointment Booking Agent",
+    category: "ai-agents",
     price: 5000,
     description: "Individual appointment booking AI agent.",
     deliverables: ["1 custom appointment booking AI agent", "Training and integration", "Documentation"],
@@ -135,6 +577,7 @@ export const ADDON_PACKAGES: ServicePackage[] = [
   {
     id: "data-processing-agent",
     name: "Data Processing Agent",
+    category: "ai-agents",
     price: 5000,
     description: "Individual data processing AI agent.",
     deliverables: ["1 custom data processing AI agent", "Training and integration", "Documentation"],
@@ -144,6 +587,7 @@ export const ADDON_PACKAGES: ServicePackage[] = [
   {
     id: "content-generation-agent",
     name: "Content Generation Agent",
+    category: "ai-agents",
     price: 5000,
     description: "Individual content generation AI agent.",
     deliverables: ["1 custom content generation AI agent", "Training and integration", "Documentation"],
@@ -153,17 +597,172 @@ export const ADDON_PACKAGES: ServicePackage[] = [
   {
     id: "social-monitoring-agent",
     name: "Social Monitoring Agent",
+    category: "ai-agents",
     price: 5000,
     description: "Individual social monitoring AI agent.",
     deliverables: ["1 custom social monitoring AI agent", "Training and integration", "Documentation"],
     timeline: "1 to 2 weeks",
     supportPeriod: "30 days",
   },
+
+  // Social Media Add-Ons (Monthly per platform)
+  {
+    id: "addon-instagram",
+    name: "Instagram Management",
+    category: "social-addons",
+    price: 500,
+    recurring: true,
+    description: "Monthly Instagram management add-on.",
+    deliverables: ["Content creation and posting", "Story management", "Engagement and community management", "Monthly analytics"],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "addon-tiktok",
+    name: "TikTok Management",
+    category: "social-addons",
+    price: 600,
+    recurring: true,
+    description: "Monthly TikTok management add-on.",
+    deliverables: ["Short-form video content creation", "Trend monitoring and implementation", "Engagement management", "Monthly analytics"],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "addon-linkedin",
+    name: "LinkedIn Management",
+    category: "social-addons",
+    price: 500,
+    recurring: true,
+    description: "Monthly LinkedIn management add-on.",
+    deliverables: ["Professional content creation", "Network engagement", "Thought leadership positioning", "Monthly analytics"],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "addon-facebook",
+    name: "Facebook Management",
+    category: "social-addons",
+    price: 400,
+    recurring: true,
+    description: "Monthly Facebook management add-on.",
+    deliverables: ["Content creation and posting", "Community management", "Event and group management", "Monthly analytics"],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "addon-twitter",
+    name: "X (Twitter) Management",
+    category: "social-addons",
+    price: 500,
+    recurring: true,
+    description: "Monthly X (Twitter) management add-on.",
+    deliverables: ["Content creation and posting", "Real-time engagement", "Trend monitoring", "Monthly analytics"],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "addon-pinterest",
+    name: "Pinterest Management",
+    category: "social-addons",
+    price: 400,
+    recurring: true,
+    description: "Monthly Pinterest management add-on.",
+    deliverables: ["Pin design and scheduling", "Board strategy and optimization", "SEO-optimized descriptions", "Monthly analytics"],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+  {
+    id: "addon-youtube-shorts",
+    name: "YouTube Shorts Management",
+    category: "social-addons",
+    price: 700,
+    recurring: true,
+    description: "Monthly YouTube Shorts management add-on.",
+    deliverables: ["Short-form video creation", "SEO optimization", "Thumbnail design", "Monthly analytics"],
+    timeline: "Ongoing monthly",
+    supportPeriod: "Included",
+  },
+
+  // General Add-Ons
+  {
+    id: "additional-pages",
+    name: "Additional Website Pages",
+    category: "general-addons",
+    price: 500,
+    description: "Additional pages for your website (per page).",
+    deliverables: ["1 additional custom page", "Mobile-responsive design", "SEO optimization"],
+    timeline: "2 to 3 days per page",
+    supportPeriod: "Included in project support",
+  },
+  {
+    id: "ecommerce-addon",
+    name: "E-Commerce Integration",
+    category: "general-addons",
+    price: 3000,
+    description: "Full e-commerce functionality for your website.",
+    deliverables: ["Product catalog setup", "Shopping cart and checkout", "Payment processing integration", "Order management system", "Inventory tracking"],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "ai-voice-agent-addon",
+    name: "AI Voice Agent",
+    category: "general-addons",
+    price: 1500,
+    description: "Add an AI voice agent to your website or app.",
+    deliverables: ["AI voice agent setup", "Custom voice training", "Integration with existing systems"],
+    timeline: "1 week",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "ai-chatbot-addon",
+    name: "AI Chatbot",
+    category: "general-addons",
+    price: 1500,
+    description: "Add an AI chatbot to your website.",
+    deliverables: ["AI chatbot setup and training", "Custom response flows", "Website widget integration"],
+    timeline: "1 week",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "seo-audit",
+    name: "SEO Audit & Optimization",
+    category: "general-addons",
+    price: 1500,
+    description: "Comprehensive SEO audit and optimization.",
+    deliverables: ["Technical SEO audit", "Keyword research", "On-page optimization", "Competitor analysis", "Action plan and recommendations"],
+    timeline: "1 week",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "brand-guidelines",
+    name: "Brand Guidelines Document",
+    category: "general-addons",
+    price: 2000,
+    description: "Professional brand guidelines document.",
+    deliverables: ["Logo usage guidelines", "Color palette and typography", "Tone of voice guide", "Social media templates", "Brand asset library"],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "N/A",
+  },
+  {
+    id: "email-marketing-setup",
+    name: "Email Marketing Setup",
+    category: "general-addons",
+    price: 1500,
+    description: "Email marketing platform setup and first campaigns.",
+    deliverables: ["Email platform setup", "Template design", "List import and segmentation", "Welcome sequence (3-5 emails)", "Analytics setup"],
+    timeline: "1 week",
+    supportPeriod: "14 days",
+  },
+
+  // Development Add-Ons
   {
     id: "api-integration",
-    name: "API Integration Add-On",
+    name: "API Integration",
+    category: "dev-addons",
     price: 3000,
-    description: "Connect any agent to external APIs.",
+    description: "Connect your application to external APIs.",
     deliverables: [
       "API authentication setup",
       "Data mapping and transformation",
@@ -171,6 +770,56 @@ export const ADDON_PACKAGES: ServicePackage[] = [
       "Integration testing",
     ],
     timeline: "3 to 5 days",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "payment-processing",
+    name: "Payment Processing",
+    category: "dev-addons",
+    price: 4000,
+    description: "Integrate payment processing into your application.",
+    deliverables: ["Stripe or payment provider integration", "Checkout flow implementation", "Webhook handling", "Invoice generation", "Subscription management"],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "auth-system",
+    name: "Authentication System",
+    category: "dev-addons",
+    price: 3500,
+    description: "User authentication and authorization system.",
+    deliverables: ["User registration and login", "OAuth/SSO integration", "Role-based access control", "Password reset flows", "Session management"],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "database-design",
+    name: "Database Design & Migration",
+    category: "dev-addons",
+    price: 2500,
+    description: "Database architecture design and migration.",
+    deliverables: ["Schema design", "Data migration scripts", "Performance optimization", "Backup and recovery setup"],
+    timeline: "1 week",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "cicd-pipeline",
+    name: "CI/CD Pipeline Setup",
+    category: "dev-addons",
+    price: 2000,
+    description: "Automated deployment pipeline setup.",
+    deliverables: ["CI/CD pipeline configuration", "Automated testing integration", "Staging environment setup", "Deployment automation"],
+    timeline: "3 to 5 days",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "performance-optimization",
+    name: "Performance Optimization",
+    category: "dev-addons",
+    price: 3000,
+    description: "Application performance audit and optimization.",
+    deliverables: ["Performance profiling and audit", "Frontend optimization (Core Web Vitals)", "Backend optimization (query performance)", "Caching strategy implementation", "Load testing"],
+    timeline: "1 to 2 weeks",
     supportPeriod: "30 days",
   },
 ];
@@ -187,9 +836,14 @@ export function generateContractBody(
   const addons = ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id));
   const allItems = [...packages, ...addons];
 
-  const packageTotal = allItems.reduce((sum, item) => sum + item.price, 0);
+  // Split into one-time and recurring
+  const oneTimeItems = allItems.filter((i) => !i.recurring);
+  const recurringItems = allItems.filter((i) => i.recurring);
+
+  const oneTimeTotal = oneTimeItems.reduce((sum, item) => sum + item.price, 0);
+  const recurringTotal = recurringItems.reduce((sum, item) => sum + item.price, 0);
   const customTotal = customItems.reduce((sum, item) => sum + item.price, 0);
-  const grandTotal = packageTotal + customTotal;
+  const grandOneTime = oneTimeTotal + customTotal;
 
   const today = new Date().toLocaleDateString("en-US", {
     year: "numeric",
@@ -216,59 +870,103 @@ The Provider agrees to deliver the following services to the Client:
 
 `;
 
-  allItems.forEach((item, i) => {
-    contract += `   ${String.fromCharCode(65 + i)}. ${item.name}    $${item.price.toLocaleString()} USD
+  let itemIndex = 0;
+
+  if (oneTimeItems.length > 0 || customItems.length > 0) {
+    contract += `One-Time Services:\n\n`;
+    oneTimeItems.forEach((item) => {
+      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${item.price.toLocaleString()} USD
       ${item.description}
 
       What is included:
 `;
-    item.deliverables.forEach((d) => {
-      contract += `         ${d}\n`;
-    });
-    contract += `
+      item.deliverables.forEach((d) => {
+        contract += `         ${d}\n`;
+      });
+      contract += `
       Estimated timeline: ${item.timeline}
       Post-launch support: ${item.supportPeriod}
 
 `;
-  });
+      itemIndex++;
+    });
 
-  if (customItems.length > 0) {
-    const startChar = allItems.length;
-    customItems.forEach((item, i) => {
-      contract += `   ${String.fromCharCode(65 + startChar + i)}. ${item.name}    $${item.price.toLocaleString()} USD
+    customItems.forEach((item) => {
+      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${item.price.toLocaleString()} USD
 
 `;
+      itemIndex++;
+    });
+  }
+
+  if (recurringItems.length > 0) {
+    contract += `Recurring Monthly Services:\n\n`;
+    recurringItems.forEach((item) => {
+      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${item.price.toLocaleString()}/month USD
+      ${item.description}
+
+      What is included:
+`;
+      item.deliverables.forEach((d) => {
+        contract += `         ${d}\n`;
+      });
+      contract += `
+`;
+      itemIndex++;
     });
   }
 
   contract += `
 
+
 SECTION 2. TOTAL INVESTMENT
 
 `;
 
-  // Itemized breakdown
-  allItems.forEach((item) => {
-    contract += `   ${item.name}    $${item.price.toLocaleString()} USD\n`;
-  });
-  customItems.forEach((item) => {
-    contract += `   ${item.name}    $${item.price.toLocaleString()} USD\n`;
-  });
+  if (oneTimeItems.length > 0 || customItems.length > 0) {
+    contract += `One-Time Fees:\n`;
+    oneTimeItems.forEach((item) => {
+      contract += `   ${item.name}    $${item.price.toLocaleString()} USD\n`;
+    });
+    customItems.forEach((item) => {
+      contract += `   ${item.name}    $${item.price.toLocaleString()} USD\n`;
+    });
+    contract += `\n   Subtotal    $${grandOneTime.toLocaleString()} USD\n\n`;
+  }
 
-  contract += `
-   Total    $${grandTotal.toLocaleString()} USD
+  if (recurringItems.length > 0) {
+    contract += `Monthly Recurring Fees:\n`;
+    recurringItems.forEach((item) => {
+      contract += `   ${item.name}    $${item.price.toLocaleString()}/month USD\n`;
+    });
+    contract += `\n   Monthly Total    $${recurringTotal.toLocaleString()}/month USD\n\n`;
+  }
 
-Payment is due in accordance with the payment schedule outlined in Section 3 of this Agreement, unless a different arrangement has been agreed upon in writing by both Parties. Any advertising spend, third-party software licenses, API subscription fees, or external service costs are billed separately and are not included in the total above.
+  contract += `Payment is due in accordance with the payment schedule outlined in Section 3 of this Agreement, unless a different arrangement has been agreed upon in writing by both Parties. Any advertising spend, third-party software licenses, API subscription fees, or external service costs are billed separately and are not included in the total above.
 
 
 
 SECTION 3. PAYMENT TERMS
 
-A deposit equal to fifty percent (50%) of the total project investment is required before any work begins. This deposit secures the Client's position in the Provider's project schedule and allows the Provider to allocate the necessary resources.
+`;
+
+  if (grandOneTime > 0) {
+    contract += `A deposit equal to fifty percent (50%) of the total one-time project investment is required before any work begins. This deposit secures the Client's position in the Provider's project schedule and allows the Provider to allocate the necessary resources.
 
 The remaining fifty percent (50%) is due upon project completion and final delivery of all agreed-upon deliverables. The Provider will notify the Client in writing when the project is ready for final review.
 
-Payments may be made via Stripe, direct bank transfer, or any other method mutually agreed upon by both Parties. The Client is responsible for any transaction fees imposed by their chosen payment method.
+`;
+  }
+
+  if (recurringTotal > 0) {
+    contract += `Monthly recurring fees are billed on the first of each month and are due within seven (7) calendar days of the invoice date. The first month's payment is due upon signing of this Agreement.
+
+Either Party may cancel recurring services with thirty (30) calendar days' written notice. Cancellation takes effect at the end of the current billing cycle.
+
+`;
+  }
+
+  contract += `Payments may be made via Stripe, direct bank transfer, or any other method mutually agreed upon by both Parties. The Client is responsible for any transaction fees imposed by their chosen payment method.
 
 In the event that a payment is not received within fourteen (14) calendar days of the due date, a late fee of one and a half percent (1.5%) per month will be applied to the outstanding balance. This late fee compounds monthly until the balance is paid in full. The Provider reserves the right to pause or suspend all work until outstanding payments are resolved.
 

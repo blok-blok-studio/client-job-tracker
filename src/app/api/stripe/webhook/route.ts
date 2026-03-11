@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import prisma from "@/lib/prisma";
 import Stripe from "stripe";
+import { onPaymentConfirmed } from "@/lib/pipeline";
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -52,6 +53,15 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // Link Stripe customer to our client if not already linked
+        const stripeCustomer = session.customer as string | null;
+        if (stripeCustomer) {
+          await prisma.client.updateMany({
+            where: { id: record.clientId, stripeCustomerId: null },
+            data: { stripeCustomerId: stripeCustomer },
+          });
+        }
+
         // Auto-check "Payment" on client checklist
         await prisma.checklistItem.updateMany({
           where: {
@@ -64,7 +74,7 @@ export async function POST(request: NextRequest) {
 
         const amountFormatted = (record.amount / 100).toLocaleString("en-US", {
           style: "currency",
-          currency: "USD",
+          currency: record.currency.toUpperCase(),
         });
 
         await prisma.activityLog.create({
@@ -77,6 +87,11 @@ export async function POST(request: NextRequest) {
               : `Payment of ${amountFormatted} received for ${record.description}`,
           },
         });
+
+        // Trigger automated pipeline: send onboarding link
+        onPaymentConfirmed(record.clientId).catch((err) =>
+          console.error("[Pipeline] onPaymentConfirmed error:", err)
+        );
 
         break;
       }

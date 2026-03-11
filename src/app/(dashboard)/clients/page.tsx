@@ -64,7 +64,10 @@ export default function ClientsPage() {
       const res = await fetch("/api/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
       });
       const json = await res.json();
       if (res.ok && json.success) {

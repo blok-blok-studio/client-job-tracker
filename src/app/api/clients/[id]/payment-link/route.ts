@@ -2,17 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { z } from "zod";
+import { sendPaymentLinkEmail } from "@/lib/email";
 
 const CURRENCY_CONFIG: Record<string, { symbol: string; payment_methods: string[] }> = {
   usd: { symbol: "$", payment_methods: ["card", "us_bank_account"] },
-  eur: { symbol: "\u20AC", payment_methods: ["card", "sepa_debit", "bancontact", "ideal"] },
-  gbp: { symbol: "\u00A3", payment_methods: ["card"] },
+  eur: { symbol: "€", payment_methods: ["card", "sepa_debit", "bancontact", "ideal"] },
 };
 
 const createSchema = z.object({
   amount: z.number().min(1, "Amount must be at least 1"),
   description: z.string().min(1).max(500),
-  currency: z.enum(["usd", "eur", "gbp"]).default("usd"),
+  currency: z.enum(["usd", "eur"]).default("usd"),
   recurring: z.boolean().default(false),
   interval: z.enum(["month", "year"]).optional(),
 });
@@ -27,7 +27,7 @@ export async function POST(
   try {
     const client = await prisma.client.findUnique({
       where: { id },
-      select: { id: true, name: true, email: true, company: true },
+      select: { id: true, name: true, email: true, company: true, stripeCustomerId: true },
     });
 
     if (!client) {
@@ -40,6 +40,21 @@ export async function POST(
     const isRecurring = parsed.recurring && parsed.interval;
     const currency = parsed.currency;
     const currencyConfig = CURRENCY_CONFIG[currency];
+
+    // Get or create Stripe Customer for this client
+    let stripeCustomerId = client.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        name: client.name,
+        email: client.email || undefined,
+        metadata: { clientId: client.id },
+      });
+      stripeCustomerId = customer.id;
+      await prisma.client.update({
+        where: { id: client.id },
+        data: { stripeCustomerId: customer.id },
+      });
+    }
 
     // Create a Stripe product on the fly
     const product = await stripe.products.create({
@@ -105,6 +120,24 @@ export async function POST(
         details: `${isRecurring ? "Subscription" : "Payment"} link created: ${currencyConfig.symbol}${parsed.amount.toLocaleString()}${intervalLabel} for ${parsed.description}`,
       },
     });
+
+    // Auto-send payment link via email if client has email
+    if (client.email) {
+      const amountFormatted = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: currency.toUpperCase(),
+      }).format(parsed.amount);
+
+      sendPaymentLinkEmail({
+        to: client.email,
+        clientName: client.name,
+        amount: amountFormatted,
+        description: parsed.description,
+        paymentUrl: paymentLink.url,
+        recurring: !!isRecurring,
+        interval: isRecurring ? parsed.interval : null,
+      }).catch((err) => console.error("[Email] Payment link email error:", err));
+    }
 
     return NextResponse.json({
       success: true,

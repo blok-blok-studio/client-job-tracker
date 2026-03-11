@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
 import { z } from "zod";
+import { onOnboardingCompleted } from "@/lib/pipeline";
 
 const ALLOWED_ORIGINS = [
   "https://blokblokstudio.com",
@@ -242,6 +243,11 @@ export async function POST(
         details: `${client.name} completed the onboarding form`,
       },
     });
+
+    // Trigger automated pipeline: send contract
+    onOnboardingCompleted(client.id).catch((err) =>
+      console.error("[Pipeline] onOnboardingCompleted error:", err)
+    );
 
     return NextResponse.json(
       { success: true, message: "Onboarding complete" },

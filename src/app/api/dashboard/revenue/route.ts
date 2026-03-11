@@ -5,20 +5,27 @@ export async function GET() {
   const now = new Date();
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-  // Get paid invoices from the last 12 months
-  const invoices = await prisma.invoice.findMany({
-    where: {
-      status: "PAID",
-      paidAt: { gte: twelveMonthsAgo },
-    },
-    select: { amount: true, paidAt: true },
-  });
-
-  // Get current monthly retainers
-  const activeClients = await prisma.client.findMany({
-    where: { type: "ACTIVE", monthlyRetainer: { not: null } },
-    select: { monthlyRetainer: true },
-  });
+  // Get paid invoices and payment links from the last 12 months
+  const [invoices, paymentLinks, activeClients] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        status: "PAID",
+        paidAt: { gte: twelveMonthsAgo },
+      },
+      select: { amount: true, paidAt: true },
+    }),
+    prisma.paymentLink.findMany({
+      where: {
+        status: { in: ["PAID", "ACTIVE"] },
+        paidAt: { gte: twelveMonthsAgo },
+      },
+      select: { amount: true, paidAt: true },
+    }),
+    prisma.client.findMany({
+      where: { type: "ACTIVE", monthlyRetainer: { not: null } },
+      select: { monthlyRetainer: true },
+    }),
+  ]);
 
   const currentRetainer = activeClients.reduce(
     (sum, c) => sum + (c.monthlyRetainer ? Number(c.monthlyRetainer) : 0),
@@ -38,6 +45,15 @@ export async function GET() {
     const key = `${inv.paidAt.getFullYear()}-${String(inv.paidAt.getMonth() + 1).padStart(2, "0")}`;
     if (key in monthlyData) {
       monthlyData[key] += Number(inv.amount);
+    }
+  }
+
+  // Add Stripe payment link revenue
+  for (const pl of paymentLinks) {
+    if (!pl.paidAt) continue;
+    const key = `${pl.paidAt.getFullYear()}-${String(pl.paidAt.getMonth() + 1).padStart(2, "0")}`;
+    if (key in monthlyData) {
+      monthlyData[key] += pl.amount / 100; // cents to dollars
     }
   }
 

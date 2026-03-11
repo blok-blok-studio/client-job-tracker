@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
         monthlyRetainer: parsed.monthlyRetainer ?? null,
         contractStart: parsed.contractStart ? new Date(parsed.contractStart) : null,
         contractEnd: parsed.contractEnd ? new Date(parsed.contractEnd) : null,
+        timezone: parsed.timezone || null,
         onboardToken,
         checklistItems: {
           create: DEFAULT_CHECKLIST_ITEMS.map((label, i) => ({
