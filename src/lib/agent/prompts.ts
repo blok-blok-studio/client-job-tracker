@@ -10,8 +10,8 @@ YOUR ROLE:
 - You are proactive: create tasks before they're needed, flag issues before they're urgent
 
 YOUR CAPABILITIES:
-You can: create tasks, move tasks between statuses, flag overdue items, draft reminders, generate reports, manage checklists, add notes, suggest actions, and reply to client support tickets via Telegram.
-You cannot: delete anything, access credentials, make financial decisions, or change your own configuration.
+You can: create tasks, move tasks between statuses, flag overdue items, draft reminders, generate reports, manage checklists, add notes, suggest actions, reply to client support tickets via Telegram, mark invoices as overdue, send payment reminders, and close stale support tickets.
+You cannot: delete anything, access credentials, create invoices, or change your own configuration.
 
 YOUR PERSONALITY:
 - Direct and efficient (no fluff)
@@ -42,6 +42,9 @@ VALID ACTIONS:
 - SUGGEST_ACTION: { action: "SUGGEST_ACTION", suggestion, reasoning, urgency: "low"|"medium"|"high" }
 - LOG_NOTE: { action: "LOG_NOTE", clientId?, taskId?, note }
 - REPLY_SUPPORT_TICKET: { action: "REPLY_SUPPORT_TICKET", ticketId, text }
+- MARK_INVOICE_OVERDUE: { action: "MARK_INVOICE_OVERDUE", invoiceId, reason }
+- SEND_PAYMENT_REMINDER: { action: "SEND_PAYMENT_REMINDER", invoiceId, message }
+- CLOSE_STALE_TICKET: { action: "CLOSE_STALE_TICKET", ticketId, reason }
 
 RULES:
 1. Never perform more than 50 actions in one cycle
@@ -51,13 +54,17 @@ RULES:
 5. If a contract is expiring within 30 days, flag it as high urgency
 6. Generate a daily summary at the start of each day's first run
 7. For open support tickets: acknowledge the client's message, provide helpful info if you can, and escalate to Chase (via SUGGEST_ACTION) if the request requires human judgment
-8. Keep support replies professional, friendly, and concise — you represent Blok Blok Studio`;
+8. Keep support replies professional, friendly, and concise — you represent Blok Blok Studio
+9. Mark SENT invoices as OVERDUE if they are past their due date
+10. Send payment reminders for overdue invoices — be professional, not aggressive
+11. Close RESOLVED support tickets that have had no activity for 48+ hours
+12. Always generate a daily summary LOG_NOTE at the start of each cycle with: tasks completed, overdue items, invoice status, open tickets`;
 
 export async function buildContextPayload() {
   const now = new Date();
   const berlinTime = format(now, "yyyy-MM-dd HH:mm:ss 'Berlin'");
 
-  const [activeClients, openTasks, recentlyCompleted, overdueTasks, upcomingTasks, lastAgentLog, todayActionCount, openTickets] =
+  const [activeClients, openTasks, recentlyCompleted, overdueTasks, upcomingTasks, lastAgentLog, todayActionCount, openTickets, unpaidInvoices, resolvedTickets] =
     await Promise.all([
       prisma.client.findMany({
         where: { type: "ACTIVE" },
@@ -112,6 +119,17 @@ export async function buildContextPayload() {
         orderBy: { updatedAt: "desc" },
         take: 10,
       }),
+      prisma.invoice.findMany({
+        where: { status: { in: ["SENT", "OVERDUE"] } },
+        include: { client: { select: { name: true } } },
+        orderBy: { dueDate: "asc" },
+      }),
+      prisma.supportTicket.findMany({
+        where: { status: "RESOLVED" },
+        include: { client: { select: { name: true } } },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+      }),
     ]);
 
   return {
@@ -162,6 +180,19 @@ export async function buildContextPayload() {
         text: (m.text as string)?.slice(0, 200),
         createdAt: (m.createdAt as Date).toISOString(),
       })),
+    })),
+    unpaidInvoices: (unpaidInvoices as Array<Record<string, unknown>>).map((i) => ({
+      id: i.id,
+      amount: Number(i.amount),
+      status: i.status,
+      dueDate: i.dueDate ? (i.dueDate as Date).toISOString() : null,
+      clientName: (i as { client?: { name: string } }).client?.name || null,
+    })),
+    resolvedTickets: (resolvedTickets as Array<Record<string, unknown>>).map((t) => ({
+      id: t.id,
+      subject: t.subject,
+      updatedAt: (t.updatedAt as Date).toISOString(),
+      clientName: (t as { client?: { name: string } }).client?.name || null,
     })),
   };
 }

@@ -7,6 +7,7 @@ import StatsGrid from "@/components/dashboard/StatsGrid";
 import UpcomingDeadlines from "@/components/dashboard/UpcomingDeadlines";
 import AgentActivityFeed from "@/components/dashboard/AgentActivityFeed";
 import RevenueChart from "@/components/dashboard/RevenueChart";
+import { DashboardSkeleton } from "@/components/shared/Skeleton";
 
 interface Deadline {
   id: string;
@@ -31,6 +32,7 @@ interface RevenueDataPoint {
 }
 
 export default function DashboardPage() {
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     activeClients: 0,
     openTasks: 0,
@@ -63,6 +65,8 @@ export default function DashboardPage() {
       if (activityData.success) setActivities(activityData.data);
     } catch {
       // API not available — keep empty state
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -74,6 +78,7 @@ export default function DashboardPage() {
     <div>
       <TopBar title="Command Center" subtitle="Overview of all operations" />
       <div className="px-4 lg:px-6 space-y-4 lg:space-y-6 pb-8">
+        {loading ? <DashboardSkeleton /> : <>
         <StatsGrid
           activeClients={stats.activeClients}
           openTasks={stats.openTasks}
@@ -91,6 +96,7 @@ export default function DashboardPage() {
         </div>
 
         <RevenueChart data={revenueData} />
+        </>}
       </div>
     </div>
   );

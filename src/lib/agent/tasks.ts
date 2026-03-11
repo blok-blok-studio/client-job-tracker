@@ -328,6 +328,104 @@ export async function replySupportTicket(params: {
   return { success: true, message: `Replied to support ticket` };
 }
 
+export async function markInvoiceOverdue(params: {
+  invoiceId: string;
+  reason: string;
+}): Promise<ActionResult> {
+  const schema = z.object({ invoiceId: z.string(), reason: z.string() });
+  const parsed = schema.parse(params);
+
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: parsed.invoiceId },
+    include: { client: { select: { id: true, name: true, telegramChatId: true } } },
+  });
+  if (!invoice) return { success: false, message: "Invoice not found" };
+  if (invoice.status !== "SENT") return { success: false, message: "Only SENT invoices can be marked overdue" };
+
+  await prisma.invoice.update({ where: { id: parsed.invoiceId }, data: { status: "OVERDUE" } });
+
+  if (invoice.client.telegramChatId) {
+    await sendTelegramMessage(
+      invoice.client.telegramChatId,
+      `Reminder: Your invoice for $${Number(invoice.amount).toFixed(2)} is now past due. Please reach out if you need to discuss payment.`
+    );
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      clientId: invoice.clientId,
+      actor: "agent",
+      action: "marked_invoice_overdue",
+      details: `Invoice $${Number(invoice.amount).toFixed(2)} for ${invoice.client.name}: ${parsed.reason}`,
+    },
+  });
+
+  return { success: true, message: `Marked invoice as overdue for ${invoice.client.name}` };
+}
+
+export async function sendPaymentReminder(params: {
+  invoiceId: string;
+  message: string;
+}): Promise<ActionResult> {
+  const schema = z.object({ invoiceId: z.string(), message: z.string() });
+  const parsed = schema.parse(params);
+
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: parsed.invoiceId },
+    include: { client: { select: { id: true, name: true, telegramChatId: true } } },
+  });
+  if (!invoice) return { success: false, message: "Invoice not found" };
+
+  if (invoice.client.telegramChatId) {
+    await sendTelegramMessage(invoice.client.telegramChatId, parsed.message);
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      clientId: invoice.clientId,
+      actor: "agent",
+      action: "sent_payment_reminder",
+      details: `Payment reminder for $${Number(invoice.amount).toFixed(2)}: ${parsed.message.slice(0, 200)}`,
+    },
+  });
+
+  return { success: true, message: `Sent payment reminder to ${invoice.client.name}` };
+}
+
+export async function closeStaleTicket(params: {
+  ticketId: string;
+  reason: string;
+}): Promise<ActionResult> {
+  const schema = z.object({ ticketId: z.string(), reason: z.string() });
+  const parsed = schema.parse(params);
+
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: parsed.ticketId },
+    include: { client: { select: { name: true, telegramChatId: true } } },
+  });
+  if (!ticket) return { success: false, message: "Ticket not found" };
+
+  await prisma.supportTicket.update({ where: { id: parsed.ticketId }, data: { status: "CLOSED" } });
+
+  if (ticket.client.telegramChatId) {
+    await sendTelegramMessage(
+      ticket.client.telegramChatId,
+      `Your support ticket "${ticket.subject}" has been closed. Feel free to message us again if you need further help!`
+    );
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      clientId: ticket.clientId,
+      actor: "agent",
+      action: "closed_stale_ticket",
+      details: `Closed ticket "${ticket.subject}": ${parsed.reason}`,
+    },
+  });
+
+  return { success: true, message: `Closed stale ticket: ${ticket.subject}` };
+}
+
 // --- Action Dispatcher ---
 
 const actionMap: Record<string, (params: Record<string, unknown>) => Promise<ActionResult>> = {
@@ -341,6 +439,9 @@ const actionMap: Record<string, (params: Record<string, unknown>) => Promise<Act
   SUGGEST_ACTION: (p) => suggestAction(p as Parameters<typeof suggestAction>[0]),
   LOG_NOTE: (p) => logNote(p as Parameters<typeof logNote>[0]),
   REPLY_SUPPORT_TICKET: (p) => replySupportTicket(p as Parameters<typeof replySupportTicket>[0]),
+  MARK_INVOICE_OVERDUE: (p) => markInvoiceOverdue(p as Parameters<typeof markInvoiceOverdue>[0]),
+  SEND_PAYMENT_REMINDER: (p) => sendPaymentReminder(p as Parameters<typeof sendPaymentReminder>[0]),
+  CLOSE_STALE_TICKET: (p) => closeStaleTicket(p as Parameters<typeof closeStaleTicket>[0]),
 };
 
 export async function dispatchAction(

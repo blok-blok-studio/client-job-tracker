@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Trash2, Check } from "lucide-react";
+import { Trash2, Check, Loader2 } from "lucide-react";
 import { formatRelativeDate } from "@/lib/utils";
 import Badge from "@/components/shared/Badge";
+import { useToast } from "@/components/shared/Toast";
 import type { Priority } from "@/types";
 
 interface Deadline {
@@ -25,6 +26,8 @@ const priorityVariant: Record<Priority, "red" | "orange" | "blue" | "gray"> = {
 
 export default function UpcomingDeadlines({ deadlines, onRefresh }: { deadlines: Deadline[]; onRefresh?: () => void }) {
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
 
   async function handleToggleDone(taskId: string) {
     setDoneIds((prev) => new Set(prev).add(taskId));
@@ -35,20 +38,27 @@ export default function UpcomingDeadlines({ deadlines, onRefresh }: { deadlines:
         body: JSON.stringify({ status: "DONE" }),
       });
       if (!res.ok) throw new Error("Failed");
-      await new Promise((r) => setTimeout(r, 600));
+      toast("Task marked as done", "success");
+      await new Promise((r) => setTimeout(r, 1200));
       if (onRefresh) onRefresh();
     } catch {
       setDoneIds((prev) => { const next = new Set(prev); next.delete(taskId); return next; });
+      toast("Failed to mark task as done", "error");
     }
   }
 
   async function handleDeleteTask(taskId: string) {
+    if (!confirm("Delete this task? This cannot be undone.")) return;
+    setDeletingIds((prev) => new Set(prev).add(taskId));
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed");
+      toast("Task deleted", "success");
       if (onRefresh) onRefresh();
     } catch {
-      // silently fail — task stays visible
+      toast("Failed to delete task", "error");
+    } finally {
+      setDeletingIds((prev) => { const next = new Set(prev); next.delete(taskId); return next; });
     }
   }
 
@@ -69,25 +79,29 @@ export default function UpcomingDeadlines({ deadlines, onRefresh }: { deadlines:
             const relative = formatRelativeDate(date);
             const isOverdue = date < new Date();
             const isDone = doneIds.has(task.id);
+            const isDeleting = deletingIds.has(task.id);
             return (
-              <div key={task.id} className={`px-5 py-3 flex items-center gap-3 hover:bg-bb-elevated/50 transition-all ${isDone ? "opacity-50" : ""}`}>
+              <div
+                key={task.id}
+                className={`px-5 py-3 flex items-center gap-3 hover:bg-bb-elevated/50 transition-all duration-500 ${isDone ? "opacity-40 bg-green-500/5" : ""} ${isDeleting ? "opacity-30" : ""}`}
+              >
                 <button
                   onClick={() => handleToggleDone(task.id)}
-                  disabled={isDone}
-                  className={`w-4 h-4 rounded border shrink-0 transition-all flex items-center justify-center ${isDone ? "bg-bb-orange border-bb-orange" : "border-bb-border hover:border-bb-orange"}`}
+                  disabled={isDone || isDeleting}
+                  className={`w-5 h-5 rounded border-2 shrink-0 transition-all duration-300 flex items-center justify-center ${isDone ? "bg-green-500 border-green-500 scale-110" : "border-bb-border hover:border-bb-orange"}`}
                   title="Mark done"
                 >
-                  {isDone && <Check size={10} className="text-white" />}
+                  {isDone && <Check size={12} className="text-white" strokeWidth={3} />}
                 </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium truncate ${isDone ? "line-through text-bb-dim" : ""}`}>{task.title}</span>
+                    <span className={`text-sm font-medium truncate transition-all duration-500 ${isDone ? "line-through text-bb-dim" : ""}`}>{task.title}</span>
                     {task.clientName && (
                       <Badge variant="default" size="sm">{task.clientName}</Badge>
                     )}
                   </div>
-                  <span className={`text-xs ${isOverdue ? "text-red-400" : "text-bb-dim"}`}>
-                    {relative}
+                  <span className={`text-xs ${isOverdue && !isDone ? "text-red-400" : "text-bb-dim"}`}>
+                    {isDone ? "Completed" : relative}
                   </span>
                 </div>
                 <Badge variant={priorityVariant[task.priority]} size="sm">
@@ -95,10 +109,11 @@ export default function UpcomingDeadlines({ deadlines, onRefresh }: { deadlines:
                 </Badge>
                 <button
                   onClick={() => handleDeleteTask(task.id)}
-                  className="p-1 rounded hover:bg-red-500/20 text-bb-dim hover:text-red-400 transition-colors shrink-0"
+                  disabled={isDone || isDeleting}
+                  className="p-1 rounded hover:bg-red-500/20 text-bb-dim hover:text-red-400 transition-colors shrink-0 disabled:opacity-30"
                   title="Delete task"
                 >
-                  <Trash2 size={14} />
+                  {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                 </button>
               </div>
             );

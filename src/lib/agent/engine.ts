@@ -32,7 +32,7 @@ export async function runAgentCycle(dryRun = false): Promise<AgentCycleResult> {
   }
 
   const effectiveConfig = config || {
-    allowedActions: ["create_task", "move_task", "send_reminder", "generate_report", "flag_overdue"],
+    allowedActions: ["create_task", "move_task", "send_reminder", "generate_report", "flag_overdue", "update_checklist", "create_checklist_item", "log_note", "reply_support_ticket", "mark_invoice_overdue", "send_payment_reminder", "close_stale_ticket"],
     claudeModel: "claude-sonnet-4-20250514",
     maxTokens: 4096,
     systemPrompt: null,

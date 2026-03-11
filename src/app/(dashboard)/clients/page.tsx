@@ -7,6 +7,7 @@ import ClientCard from "@/components/clients/ClientCard";
 import ClientForm from "@/components/clients/ClientForm";
 import Modal from "@/components/shared/Modal";
 import { cn } from "@/lib/utils";
+import { CardSkeleton } from "@/components/shared/Skeleton";
 
 const TABS = [
   { key: "ACTIVE", label: "Active" },
@@ -27,6 +28,7 @@ interface ClientData {
 }
 
 export default function ClientsPage() {
+  const [loading, setLoading] = useState(true);
   const [clients, setClients] = useState<ClientData[]>([]);
   const [activeTab, setActiveTab] = useState("ACTIVE");
   const [search, setSearch] = useState("");
@@ -39,6 +41,7 @@ export default function ClientsPage() {
     const res = await fetch(`/api/clients?${params}`);
     const data = await res.json();
     if (data.success) setClients(data.data);
+    setLoading(false);
   }, [activeTab, search]);
 
   useEffect(() => {
@@ -107,7 +110,7 @@ export default function ClientsPage() {
 
         {/* Client Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-8">
-          {clients.map((client) => (
+          {loading ? Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />) : clients.map((client) => (
             <ClientCard
               key={client.id}
               id={client.id}
@@ -121,7 +124,7 @@ export default function ClientsPage() {
               onArchive={handleArchive}
             />
           ))}
-          {clients.length === 0 && (
+          {!loading && clients.length === 0 && (
             <div className="col-span-full text-center py-12 text-bb-dim">
               No clients found. Add your first client to get started.
             </div>

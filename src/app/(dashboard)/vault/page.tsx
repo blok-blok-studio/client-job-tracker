@@ -5,6 +5,7 @@ import { Search, Plus, Eye, EyeOff, Copy, ExternalLink, RotateCcw, Trash2 } from
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
 import { PLATFORM_OPTIONS } from "@/types";
+import { ListSkeleton } from "@/components/shared/Skeleton";
 
 interface Credential {
   id: string;
@@ -40,6 +41,7 @@ const platformColors: Record<string, string> = {
 };
 
 export default function VaultPage() {
+  const [loading, setLoading] = useState(true);
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -59,10 +61,12 @@ export default function VaultPage() {
   }, []);
 
   useEffect(() => {
-    fetchCredentials();
-    fetch("/api/clients").then((r) => r.json()).then((d) => {
-      if (d.success) setClients(d.data.map((c: Record<string, string>) => ({ id: c.id, name: c.name })));
-    }).catch(() => {});
+    Promise.all([
+      fetchCredentials(),
+      fetch("/api/clients").then((r) => r.json()).then((d) => {
+        if (d.success) setClients(d.data.map((c: Record<string, string>) => ({ id: c.id, name: c.name })));
+      }).catch(() => {}),
+    ]).finally(() => setLoading(false));
   }, [fetchCredentials]);
 
   async function handleReveal(id: string) {
@@ -166,7 +170,7 @@ export default function VaultPage() {
           </button>
         </div>
 
-        {Object.entries(grouped).map(([clientName, creds]) => (
+        {loading ? <ListSkeleton rows={4} /> : Object.entries(grouped).map(([clientName, creds]) => (
           <div key={clientName} className="space-y-2">
             <h3 className="font-display font-semibold text-white">{clientName}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -238,7 +242,7 @@ export default function VaultPage() {
           </div>
         ))}
 
-        {Object.keys(grouped).length === 0 && (
+        {!loading && Object.keys(grouped).length === 0 && (
           <div className="text-center py-12 text-bb-dim">No credentials stored yet</div>
         )}
       </div>

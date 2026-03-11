@@ -6,6 +6,7 @@ import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { ListSkeleton } from "@/components/shared/Skeleton";
 
 const TABS = [
   { key: "ALL", label: "All" },
@@ -42,6 +43,7 @@ interface Ticket {
 }
 
 export default function SupportPage() {
+  const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [activeTab, setActiveTab] = useState("ALL");
 
@@ -51,6 +53,7 @@ export default function SupportPage() {
     const res = await fetch(`/api/support?${params}`);
     const data = await res.json();
     if (data.success) setTickets(data.data);
+    setLoading(false);
   }, [activeTab]);
 
   useEffect(() => {
@@ -80,7 +83,7 @@ export default function SupportPage() {
         </div>
 
         {/* Tickets List */}
-        <div className="bg-bb-surface border border-bb-border rounded-lg divide-y divide-bb-border">
+        {loading ? <ListSkeleton rows={4} /> : <div className="bg-bb-surface border border-bb-border rounded-lg divide-y divide-bb-border">
           {tickets.length === 0 ? (
             <div className="px-5 py-12 text-center text-bb-dim text-sm">
               No support tickets yet. When clients message your Telegram bot, tickets will appear here.
@@ -125,7 +128,7 @@ export default function SupportPage() {
               </Link>
             ))
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );

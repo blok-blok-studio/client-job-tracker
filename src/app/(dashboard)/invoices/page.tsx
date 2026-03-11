@@ -5,6 +5,7 @@ import { Plus, Search, Trash2, ChevronDown } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
 import { formatCurrency } from "@/lib/utils";
+import { ListSkeleton } from "@/components/shared/Skeleton";
 
 interface Invoice {
   id: string;
@@ -19,6 +20,7 @@ interface Invoice {
 }
 
 export default function InvoicesPage() {
+  const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [search, setSearch] = useState("");
@@ -36,10 +38,12 @@ export default function InvoicesPage() {
   }, [filterStatus]);
 
   useEffect(() => {
-    fetchInvoices();
-    fetch("/api/clients").then((r) => r.json()).then((d) => {
-      if (d.success) setClients(d.data.map((c: Record<string, string>) => ({ id: c.id, name: c.name })));
-    }).catch(() => {});
+    Promise.all([
+      fetchInvoices(),
+      fetch("/api/clients").then((r) => r.json()).then((d) => {
+        if (d.success) setClients(d.data.map((c: Record<string, string>) => ({ id: c.id, name: c.name })));
+      }).catch(() => {}),
+    ]).finally(() => setLoading(false));
   }, [fetchInvoices]);
 
   async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
@@ -99,6 +103,7 @@ export default function InvoicesPage() {
     <div>
       <TopBar title="Invoices" subtitle="Track billing and payments" />
       <div className="px-4 lg:px-6 pb-8 space-y-6">
+        {loading ? <ListSkeleton rows={5} /> : <>
         {/* Summary cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
@@ -195,6 +200,7 @@ export default function InvoicesPage() {
             <div className="text-center py-12 text-bb-dim">No invoices found</div>
           )}
         </div>
+        </>}
       </div>
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="New Invoice">

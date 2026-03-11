@@ -245,7 +245,7 @@ model AgentConfig {
   autoAssign      Boolean  @default(true)
   autoRemind      Boolean  @default(true)
   autoReport      Boolean  @default(true)
-  allowedActions  String[] @default(["create_task", "move_task", "send_reminder", "generate_report", "flag_overdue"])
+  allowedActions  String[] @default(["create_task", "move_task", "send_reminder", "generate_report", "flag_overdue", "update_checklist", "create_checklist_item", "log_note", "reply_support_ticket", "mark_invoice_overdue", "send_payment_reminder", "close_stale_ticket"])
   claudeModel     String   @default("claude-sonnet-4-20250514")
   maxTokens       Int      @default(4096)
   systemPrompt    String?  @db.Text
