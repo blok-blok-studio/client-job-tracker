@@ -37,7 +37,7 @@ interface ClientDetail {
   socialLinks: Array<{ id: string; platform: string; url: string; handle: string | null }>;
   activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; createdAt: string }>;
   contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
-  paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; createdAt: string }>;
+  paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; currency: string; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; createdAt: string }>;
 }
 
 const tierVariant: Record<string, "orange" | "gray" | "blue"> = { VIP: "orange", STANDARD: "gray", TRIAL: "blue" };
@@ -65,6 +65,7 @@ export default function ClientDetailPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDescription, setPaymentDescription] = useState("");
+  const [paymentCurrency, setPaymentCurrency] = useState<"usd" | "eur" | "gbp">("usd");
   const [paymentRecurring, setPaymentRecurring] = useState(false);
   const [paymentInterval, setPaymentInterval] = useState<"month" | "year">("month");
   const [generatingPayment, setGeneratingPayment] = useState(false);
@@ -198,6 +199,7 @@ export default function ClientDetailPage() {
         body: JSON.stringify({
           amount,
           description: paymentDescription.trim(),
+          currency: paymentCurrency,
           recurring: paymentRecurring,
           interval: paymentRecurring ? paymentInterval : undefined,
         }),
@@ -207,6 +209,7 @@ export default function ClientDetailPage() {
         setShowPaymentModal(false);
         setPaymentAmount("");
         setPaymentDescription("");
+        setPaymentCurrency("usd");
         setPaymentRecurring(false);
         setPaymentInterval("month");
         fetchClient();
@@ -472,7 +475,7 @@ export default function ClientDetailPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="text-sm font-medium text-white">
-                            ${(link.amount / 100).toLocaleString()}
+                            {new Intl.NumberFormat("en-US", { style: "currency", currency: link.currency || "usd" }).format(link.amount / 100)}
                             {link.recurring && link.interval && (
                               <span className="text-bb-dim font-normal">/{link.interval === "year" ? "yr" : "mo"}</span>
                             )}
@@ -807,9 +810,30 @@ export default function ClientDetailPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-white mb-1.5">Amount (USD) *</label>
+            <label className="block text-sm font-medium text-white mb-1.5">Currency</label>
+            <div className="flex gap-2">
+              {([["usd", "USD ($)"], ["eur", "EUR (\u20AC)"], ["gbp", "GBP (\u00A3)"]] as const).map(([code, label]) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setPaymentCurrency(code)}
+                  className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                    paymentCurrency === code
+                      ? "border-bb-orange bg-bb-orange/10 text-bb-orange"
+                      : "border-bb-border bg-bb-black text-bb-muted hover:border-bb-orange/30"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white mb-1.5">Amount *</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim text-sm">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim text-sm">
+                {paymentCurrency === "usd" ? "$" : paymentCurrency === "eur" ? "\u20AC" : "\u00A3"}
+              </span>
               <input
                 type="number"
                 value={paymentAmount}
@@ -863,7 +887,7 @@ export default function ClientDetailPage() {
               <div className="flex justify-between text-sm">
                 <span className="text-bb-dim">{paymentRecurring ? "Subscription" : "Payment"} amount</span>
                 <span className="text-white font-mono font-semibold">
-                  ${Number(paymentAmount).toLocaleString()}
+                  {new Intl.NumberFormat("en-US", { style: "currency", currency: paymentCurrency }).format(Number(paymentAmount))}
                   {paymentRecurring && <span className="text-bb-dim font-normal">/{paymentInterval === "year" ? "yr" : "mo"}</span>}
                 </span>
               </div>

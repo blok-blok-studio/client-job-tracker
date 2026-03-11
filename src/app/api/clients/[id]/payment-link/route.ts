@@ -3,9 +3,16 @@ import prisma from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { z } from "zod";
 
+const CURRENCY_CONFIG: Record<string, { symbol: string; payment_methods: string[] }> = {
+  usd: { symbol: "$", payment_methods: ["card", "us_bank_account"] },
+  eur: { symbol: "\u20AC", payment_methods: ["card", "sepa_debit", "bancontact", "ideal"] },
+  gbp: { symbol: "\u00A3", payment_methods: ["card"] },
+};
+
 const createSchema = z.object({
-  amount: z.number().min(1, "Amount must be at least $1"),
+  amount: z.number().min(1, "Amount must be at least 1"),
   description: z.string().min(1).max(500),
+  currency: z.enum(["usd", "eur", "gbp"]).default("usd"),
   recurring: z.boolean().default(false),
   interval: z.enum(["month", "year"]).optional(),
 });
@@ -31,6 +38,8 @@ export async function POST(
     const parsed = createSchema.parse(body);
     const amountInCents = Math.round(parsed.amount * 100);
     const isRecurring = parsed.recurring && parsed.interval;
+    const currency = parsed.currency;
+    const currencyConfig = CURRENCY_CONFIG[currency];
 
     // Create a Stripe product on the fly
     const product = await stripe.products.create({
@@ -45,16 +54,16 @@ export async function POST(
     const price = await stripe.prices.create({
       product: product.id,
       unit_amount: amountInCents,
-      currency: "usd",
+      currency,
       ...(isRecurring
         ? { recurring: { interval: parsed.interval! } }
         : {}),
     });
 
-    // Create the payment link with card/bank payment methods
+    // Create the payment link with region-appropriate payment methods
     const paymentLink = await stripe.paymentLinks.create({
       line_items: [{ price: price.id, quantity: 1 }],
-      payment_method_types: ["card", "us_bank_account"],
+      payment_method_types: currencyConfig.payment_methods as never[],
       metadata: {
         clientId: client.id,
         clientName: client.name,
@@ -77,7 +86,7 @@ export async function POST(
         stripePaymentLink: paymentLink.id,
         stripeUrl: paymentLink.url,
         amount: amountInCents,
-        currency: "usd",
+        currency,
         description: parsed.description,
         recurring: !!isRecurring,
         interval: isRecurring ? parsed.interval : null,
@@ -93,7 +102,7 @@ export async function POST(
         clientId: client.id,
         actor: "chase",
         action: "payment_link_created",
-        details: `${isRecurring ? "Subscription" : "Payment"} link created: $${parsed.amount.toLocaleString()}${intervalLabel} for ${parsed.description}`,
+        details: `${isRecurring ? "Subscription" : "Payment"} link created: ${currencyConfig.symbol}${parsed.amount.toLocaleString()}${intervalLabel} for ${parsed.description}`,
       },
     });
 
