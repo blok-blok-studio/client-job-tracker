@@ -29,24 +29,32 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
-  const { token } = await params;
+  try {
+    const { token } = await params;
 
-  const client = await prisma.client.findUnique({
-    where: { onboardToken: token },
-    select: { id: true, name: true, company: true, type: true },
-  });
+    const client = await prisma.client.findUnique({
+      where: { onboardToken: token },
+      select: { id: true, name: true, company: true, type: true },
+    });
 
-  if (!client) {
+    if (!client) {
+      return NextResponse.json(
+        { success: false, error: "Invalid or expired onboarding link" },
+        { status: 404, headers: corsHeaders(request) }
+      );
+    }
+
     return NextResponse.json(
-      { success: false, error: "Invalid or expired onboarding link" },
-      { status: 404, headers: corsHeaders(request) }
+      { success: true, data: { name: client.name, company: client.company } },
+      { headers: corsHeaders(request) }
+    );
+  } catch (error) {
+    console.error("Onboard GET error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch onboarding data" },
+      { status: 500, headers: corsHeaders(request) }
     );
   }
-
-  return NextResponse.json(
-    { success: true, data: { name: client.name, company: client.company } },
-    { headers: corsHeaders(request) }
-  );
 }
 
 // POST — Submit onboarding data from the client-facing form
