@@ -256,11 +256,11 @@ export default function ClientDetailPage() {
                 <p className="text-xs text-bb-dim mb-3">Send this to your client to collect their info, contacts, and credentials.</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 text-xs bg-bb-black px-3 py-2 rounded border border-bb-border text-bb-muted truncate">
-                    blokblokstudio.com/onboard/{client.onboardToken}
+                    {window.location.origin}/onboard/{client.onboardToken}
                   </code>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(`https://blokblokstudio.com/onboard/${client.onboardToken}`);
+                      navigator.clipboard.writeText(`${window.location.origin}/onboard/${client.onboardToken}`);
                       setCopied(true);
                       setTimeout(() => setCopied(false), 2000);
                     }}
