@@ -35,6 +35,7 @@ model Client {
   checklistItems   ChecklistItem[]
   supportTickets   SupportTicket[]
   socialLinks      SocialLink[]
+  contracts        ContractSignature[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -235,6 +236,29 @@ model SocialLink {
   handle   String?
 
   createdAt DateTime @default(now())
+}
+
+// --- CONTRACT SIGNATURES ---
+model ContractSignature {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  token         String   @unique
+  contractBody  String   @db.Text
+  signedName    String?
+  signedAt      DateTime?
+  ipAddress     String?
+  userAgent     String?  @db.Text
+  status        ContractStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ContractStatus {
+  PENDING
+  SIGNED
+  EXPIRED
 }
 
 // --- AGENT CONFIG ---

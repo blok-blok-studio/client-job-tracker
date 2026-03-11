@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2 } from "lucide-react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -11,6 +11,7 @@ import EditClientForm from "@/components/clients/EditClientForm";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
 import { PLATFORM_OPTIONS } from "@/types";
 import { getFlagFromPhone, LiveClock } from "@/lib/client-utils";
+import { SERVICE_PACKAGES, ADDON_PACKAGES } from "@/lib/contract-templates";
 
 interface ClientDetail {
   id: string;
@@ -35,6 +36,7 @@ interface ClientDetail {
   invoices: Array<{ id: string; amount: string | number; status: string; createdAt: string }>;
   socialLinks: Array<{ id: string; platform: string; url: string; handle: string | null }>;
   activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; createdAt: string }>;
+  contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
 }
 
 const tierVariant: Record<string, "orange" | "gray" | "blue"> = { VIP: "orange", STANDARD: "gray", TRIAL: "blue" };
@@ -52,6 +54,12 @@ export default function ClientDetailPage() {
   const [newSocial, setNewSocial] = useState(false);
   const [socialForm, setSocialForm] = useState({ platform: "", url: "", handle: "" });
   const [customPlatform, setCustomPlatform] = useState("");
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [customTerms, setCustomTerms] = useState("");
+  const [generatingContract, setGeneratingContract] = useState(false);
+  const [contractCopied, setContractCopied] = useState<string | null>(null);
 
   const fetchClient = useCallback(async () => {
     const res = await fetch(`/api/clients/${id}`);
@@ -132,6 +140,37 @@ export default function ClientDetailPage() {
       setCustomPlatform("");
       fetchClient();
     } catch { /* stay on form */ }
+  }
+
+  async function handleGenerateContract() {
+    if (selectedPackages.length === 0) return;
+    setGeneratingContract(true);
+    try {
+      const res = await fetch(`/api/clients/${id}/contract`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packages: selectedPackages,
+          addons: selectedAddons,
+          customTerms: customTerms.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowContractModal(false);
+        setSelectedPackages([]);
+        setSelectedAddons([]);
+        setCustomTerms("");
+        fetchClient();
+      }
+    } catch { /* stay on modal */ }
+    finally { setGeneratingContract(false); }
+  }
+
+  function handleCopyContractLink(token: string) {
+    navigator.clipboard.writeText(`${window.location.origin}/contract/${token}`);
+    setContractCopied(token);
+    setTimeout(() => setContractCopied(null), 2000);
   }
 
   async function handleDeleteSocial(linkId: string) {
@@ -313,6 +352,61 @@ export default function ClientDetailPage() {
 
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
+                <h3 className="font-display font-semibold flex items-center gap-2">
+                  <FileText size={16} className="text-bb-orange" /> Contracts
+                </h3>
+                <button
+                  onClick={() => setShowContractModal(true)}
+                  className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1"
+                >
+                  <Plus size={14} /> New
+                </button>
+              </div>
+              <div className="space-y-2">
+                {client.contracts && client.contracts.length > 0 ? (
+                  client.contracts.map((contract) => (
+                    <div key={contract.id} className="p-3 rounded-lg bg-bb-black border border-bb-border space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-bb-dim">
+                          {new Date(contract.createdAt).toLocaleDateString()}
+                        </span>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          contract.status === "SIGNED"
+                            ? "bg-green-500/10 text-green-400"
+                            : "bg-yellow-500/10 text-yellow-400"
+                        }`}>
+                          {contract.status === "SIGNED" ? "Signed" : "Pending"}
+                        </span>
+                      </div>
+                      {contract.status === "SIGNED" && contract.signedName && (
+                        <p className="text-xs text-bb-muted">
+                          Signed by {contract.signedName} on {new Date(contract.signedAt!).toLocaleString()}
+                        </p>
+                      )}
+                      {contract.status === "PENDING" && (
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 text-xs bg-bb-surface px-2 py-1.5 rounded border border-bb-border text-bb-dim truncate">
+                            {window.location.origin}/contract/{contract.token}
+                          </code>
+                          <button
+                            onClick={() => handleCopyContractLink(contract.token)}
+                            className="p-1.5 rounded bg-bb-elevated hover:bg-bb-border text-bb-muted hover:text-white transition-colors shrink-0"
+                            title="Copy link"
+                          >
+                            {contractCopied === contract.token ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-bb-dim">No contracts generated</p>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display font-semibold">Credentials</h3>
                 <Link href="/vault" className="text-bb-orange hover:text-bb-orange-light text-sm">Manage</Link>
               </div>
@@ -418,6 +512,115 @@ export default function ClientDetailPage() {
           onCancel={() => setEditOpen(false)}
           submitLabel="Save Changes"
         />
+      </Modal>
+
+      {/* Generate Contract Modal */}
+      <Modal open={showContractModal} onClose={() => setShowContractModal(false)} title="Generate Contract" className="max-w-2xl">
+        <div className="space-y-6">
+          <div>
+            <h4 className="text-sm font-medium text-white mb-3">Select Package *</h4>
+            <div className="space-y-2">
+              {SERVICE_PACKAGES.map((pkg) => (
+                <label key={pkg.id} className="flex items-start gap-3 p-3 rounded-lg border border-bb-border hover:border-bb-orange/30 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={selectedPackages.includes(pkg.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedPackages([...selectedPackages, pkg.id]);
+                      } else {
+                        setSelectedPackages(selectedPackages.filter((p) => p !== pkg.id));
+                      }
+                    }}
+                    className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-white">{pkg.name}</span>
+                    <span className="text-sm text-bb-orange ml-2">${pkg.price.toLocaleString()}</span>
+                    <p className="text-xs text-bb-dim mt-0.5">{pkg.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-medium text-white mb-3">Add-Ons (Optional)</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+              {ADDON_PACKAGES.map((addon) => (
+                <label key={addon.id} className="flex items-center gap-2 p-2 rounded border border-bb-border hover:border-bb-orange/30 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={selectedAddons.includes(addon.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedAddons([...selectedAddons, addon.id]);
+                      } else {
+                        setSelectedAddons(selectedAddons.filter((a) => a !== addon.id));
+                      }
+                    }}
+                    className="w-3.5 h-3.5 rounded border-bb-border bg-bb-black accent-bb-orange"
+                  />
+                  <div>
+                    <span className="text-xs font-medium text-white">{addon.name}</span>
+                    <span className="text-xs text-bb-orange ml-1">${addon.price.toLocaleString()}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {(selectedPackages.length > 0 || selectedAddons.length > 0) && (
+            <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
+              <div className="flex justify-between text-sm">
+                <span className="text-bb-dim">Total</span>
+                <span className="text-white font-mono font-semibold">
+                  ${[...SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id)),
+                    ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id))]
+                    .reduce((sum, item) => sum + item.price, 0)
+                    .toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-white mb-1.5">Custom Terms (Optional)</label>
+            <textarea
+              value={customTerms}
+              onChange={(e) => setCustomTerms(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+              placeholder="Any additional terms or conditions..."
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setShowContractModal(false)}
+              className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleGenerateContract}
+              disabled={selectedPackages.length === 0 || generatingContract}
+              className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+            >
+              {generatingContract ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <FileText size={14} />
+                  Generate Contract
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

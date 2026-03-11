@@ -18,6 +18,7 @@ export async function GET(
       invoices: { orderBy: { createdAt: "desc" }, take: 10 },
       socialLinks: { orderBy: { createdAt: "asc" } },
       activityLogs: { orderBy: { createdAt: "desc" }, take: 20 },
+      contracts: { orderBy: { createdAt: "desc" }, select: { id: true, token: true, status: true, signedName: true, signedAt: true, createdAt: true } },
     },
   });
 
