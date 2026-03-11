@@ -369,10 +369,10 @@ export default function OnboardPage() {
           <p className="text-bb-dim text-xs">
             If you think this is a mistake, please contact us at{" "}
             <a
-              href="mailto:hello@blokblokstudio.com"
+              href="mailto:chase@blokblokstudio.com"
               className="text-bb-orange hover:underline"
             >
-              hello@blokblokstudio.com
+              chase@blokblokstudio.com
             </a>
           </p>
         </div>
