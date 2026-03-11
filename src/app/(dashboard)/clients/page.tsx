@@ -167,7 +167,7 @@ export default function ClientsPage() {
 
       {/* Add Client Modal */}
       <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add Client">
-        <ClientForm compact onSubmit={handleAddClient} onCancel={() => setShowAddModal(false)} />
+        <ClientForm onSubmit={handleAddClient} onCancel={() => setShowAddModal(false)} />
       </Modal>
 
       {/* Onboarding Link Modal */}

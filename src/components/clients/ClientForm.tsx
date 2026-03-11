@@ -3,54 +3,28 @@
 import { useState } from "react";
 
 interface ClientFormProps {
-  initialData?: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    company?: string;
-    type?: string;
-    tier?: string;
-    source?: string;
-    industry?: string;
-    notes?: string;
-    monthlyRetainer?: number | null;
-    contractStart?: string | null;
-    contractEnd?: string | null;
-    timezone?: string;
-  };
   onSubmit: (data: Record<string, unknown>) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
-  /** When true, shows only essential fields (name, company, type, tier) */
-  compact?: boolean;
 }
 
 export default function ClientForm({
-  initialData = {},
   onSubmit,
   onCancel,
   submitLabel = "Create Client",
-  compact = false,
 }: ClientFormProps) {
   const [loading, setLoading] = useState(false);
-  const [showMore, setShowMore] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     const formData = new FormData(e.currentTarget);
-    const data: Record<string, unknown> = {};
-
-    for (const [key, value] of formData.entries()) {
-      if (key === "monthlyRetainer") {
-        data[key] = value ? Number(value) : null;
-      } else {
-        data[key] = value || undefined;
-      }
-    }
+    const firstName = (formData.get("firstName") as string)?.trim() || "";
+    const lastName = (formData.get("lastName") as string)?.trim() || "";
+    const name = `${firstName} ${lastName}`.trim();
 
     try {
-      await onSubmit(data);
+      await onSubmit({ name });
     } finally {
       setLoading(false);
     }
@@ -64,92 +38,14 @@ export default function ClientForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className={labelClass}>Name *</label>
-          <input name="name" defaultValue={initialData.name} required className={inputClass} placeholder="Client name" />
+          <label className={labelClass}>First Name *</label>
+          <input name="firstName" required className={inputClass} placeholder="First name" />
         </div>
         <div>
-          <label className={labelClass}>Company</label>
-          <input name="company" defaultValue={initialData.company} className={inputClass} placeholder="Company" />
+          <label className={labelClass}>Last Name *</label>
+          <input name="lastName" required className={inputClass} placeholder="Last name" />
         </div>
       </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass}>Type</label>
-          <select name="type" defaultValue={initialData.type || "ACTIVE"} className={inputClass}>
-            <option value="PROSPECT">Prospect</option>
-            <option value="ACTIVE">Active</option>
-            <option value="PAST">Past</option>
-          </select>
-        </div>
-        <div>
-          <label className={labelClass}>Tier</label>
-          <select name="tier" defaultValue={initialData.tier || "STANDARD"} className={inputClass}>
-            <option value="VIP">VIP</option>
-            <option value="STANDARD">Standard</option>
-            <option value="TRIAL">Trial</option>
-          </select>
-        </div>
-      </div>
-
-      {compact && !showMore && (
-        <button
-          type="button"
-          onClick={() => setShowMore(true)}
-          className="text-sm text-bb-dim hover:text-bb-muted transition-colors"
-        >
-          + More details (optional)
-        </button>
-      )}
-
-      {(!compact || showMore || Object.keys(initialData).length > 0) && (
-        <div className="space-y-4">
-          {compact && <div className="border-t border-bb-border" />}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Email</label>
-              <input name="email" type="email" defaultValue={initialData.email} className={inputClass} placeholder="email@example.com" />
-            </div>
-            <div>
-              <label className={labelClass}>Phone</label>
-              <input name="phone" defaultValue={initialData.phone} className={inputClass} placeholder="+1 234 567 8900" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Source</label>
-              <input name="source" defaultValue={initialData.source} className={inputClass} placeholder="Referral, Instagram, etc." />
-            </div>
-            <div>
-              <label className={labelClass}>Industry</label>
-              <input name="industry" defaultValue={initialData.industry} className={inputClass} placeholder="Tech, Fitness, etc." />
-            </div>
-          </div>
-
-          <div>
-            <label className={labelClass}>Monthly Retainer ($)</label>
-            <input name="monthlyRetainer" type="number" step="0.01" defaultValue={initialData.monthlyRetainer ?? ""} className={inputClass} placeholder="0.00" />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Contract Start</label>
-              <input name="contractStart" type="date" defaultValue={initialData.contractStart?.split("T")[0]} className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Contract End</label>
-              <input name="contractEnd" type="date" defaultValue={initialData.contractEnd?.split("T")[0]} className={inputClass} />
-            </div>
-          </div>
-
-          <div>
-            <label className={labelClass}>Notes</label>
-            <textarea name="notes" defaultValue={initialData.notes} rows={3} className={inputClass} placeholder="Free-form notes..." />
-          </div>
-        </div>
-      )}
 
       <div className="flex justify-end gap-3 pt-2">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors">

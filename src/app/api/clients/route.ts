@@ -49,10 +49,12 @@ export async function POST(request: NextRequest) {
 
     const client = await prisma.client.create({
       data: {
-        ...parsed,
+        name: parsed.name,
         email: parsed.email || null,
         phone: parsed.phone || null,
         company: parsed.company || null,
+        type: parsed.type || undefined,
+        tier: parsed.tier || undefined,
         source: parsed.source || null,
         industry: parsed.industry || null,
         notes: parsed.notes || null,
@@ -83,6 +85,8 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.name === "ZodError") {
       return NextResponse.json({ success: false, error: "Validation failed" }, { status: 400 });
     }
-    return NextResponse.json({ success: false, error: "Failed to create client" }, { status: 500 });
+    console.error("Failed to create client:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ success: false, error: "Failed to create client", debug: message }, { status: 500 });
   }
 }

@@ -7,7 +7,7 @@ import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
 import Modal from "@/components/shared/Modal";
-import ClientForm from "@/components/clients/ClientForm";
+import EditClientForm from "@/components/clients/EditClientForm";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
 import { PLATFORM_OPTIONS } from "@/types";
 
@@ -362,7 +362,7 @@ export default function ClientDetailPage() {
       </div>
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Client" className="max-w-2xl">
-        <ClientForm
+        <EditClientForm
           initialData={{
             name: client.name,
             email: client.email || "",
