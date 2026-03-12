@@ -37,7 +37,7 @@ interface ClientDetail {
   socialLinks: Array<{ id: string; platform: string; url: string; handle: string | null }>;
   activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; createdAt: string }>;
   contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
-  paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; currency: string; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; createdAt: string }>;
+  paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; currency: string; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; milestone: string | null; contractId: string | null; createdAt: string }>;
 }
 
 const tierVariant: Record<string, "orange" | "gray" | "blue"> = { VIP: "orange", STANDARD: "gray", TRIAL: "blue" };
@@ -84,6 +84,8 @@ export default function ClientDetailPage() {
   const [paymentCustomizations, setPaymentCustomizations] = useState<Record<string, PackageCustomization>>({});
   const [paymentExpandedPkgs, setPaymentExpandedPkgs] = useState<string[]>([]);
   const [providerSignedName, setProviderSignedName] = useState("Chase Haynes");
+  const [contractCountry, setContractCountry] = useState("DE");
+  const [contractSchedule, setContractSchedule] = useState<"none" | "50/50" | "50/25/25">("50/50");
 
   const fetchClient = useCallback(async () => {
     const res = await fetch(`/api/clients/${id}`);
@@ -183,6 +185,12 @@ export default function ClientDetailPage() {
           customTerms: customTerms.trim() || undefined,
           packageCustomizations: Object.keys(contractCustomizations).length > 0 ? contractCustomizations : undefined,
           providerSignedName,
+          country: contractCountry,
+          paymentSchedule: contractSchedule === "50/50"
+            ? [{ label: "deposit", percent: 50 }, { label: "completion", percent: 50 }]
+            : contractSchedule === "50/25/25"
+            ? [{ label: "deposit", percent: 50 }, { label: "milestone", percent: 25 }, { label: "completion", percent: 25 }]
+            : undefined,
         }),
       });
       const data = await res.json();
@@ -194,6 +202,8 @@ export default function ClientDetailPage() {
         setCustomTerms("");
         setContractCustomizations({});
         setContractExpandedPkgs([]);
+        setContractCountry("DE");
+        setContractSchedule("50/50");
         fetchClient();
       }
     } catch { /* stay on modal */ }
@@ -649,6 +659,17 @@ export default function ClientDetailPage() {
                               <span className="text-bb-dim font-normal">/{link.interval === "year" ? "yr" : "mo"}</span>
                             )}
                           </span>
+                          {link.milestone && (
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ml-1 ${
+                              link.milestone === "deposit"
+                                ? "bg-orange-500/10 text-orange-400"
+                                : link.milestone === "milestone"
+                                ? "bg-purple-500/10 text-purple-400"
+                                : "bg-blue-500/10 text-blue-400"
+                            }`}>
+                              {link.milestone === "deposit" ? "Deposit" : link.milestone === "milestone" ? "Milestone" : "Completion"}
+                            </span>
+                          )}
                           <span className="text-xs text-bb-dim ml-2">{link.description}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1236,6 +1257,141 @@ export default function ClientDetailPage() {
               </div>
             );
           })()}
+
+          {/* Payment Schedule */}
+          <div>
+            <h4 className="text-sm font-medium text-white mb-3">Payment Schedule</h4>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {([
+                ["none", "No Split", "Manual payment links"],
+                ["50/50", "50 / 50", "Deposit + Completion"],
+                ["50/25/25", "50 / 25 / 25", "Deposit + Milestone + Completion"],
+              ] as const).map(([value, label, desc]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setContractSchedule(value as "none" | "50/50" | "50/25/25")}
+                  className={`p-2.5 rounded-lg border text-left transition-colors ${
+                    contractSchedule === value
+                      ? "border-bb-orange bg-bb-orange/5"
+                      : "border-bb-border hover:border-bb-orange/30"
+                  }`}
+                >
+                  <span className="text-sm font-medium text-white block">{label}</span>
+                  <span className="text-[10px] text-bb-dim">{desc}</span>
+                </button>
+              ))}
+            </div>
+            {contractSchedule !== "none" && (() => {
+              const allSelected = [
+                ...SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id)),
+                ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id)),
+              ];
+              const validCustom = customItems.filter(i => i.name.trim() && Number(i.price) > 0);
+              const getEffectivePrice = (i: { id: string; price: number }) => contractCustomizations[i.id]?.priceOverride ?? i.price;
+              const oneTimeTotal = allSelected.filter((i) => !i.recurring).reduce((s, i) => s + getEffectivePrice(i), 0)
+                + validCustom.filter(i => !i.recurring).reduce((s, i) => s + Number(i.price), 0);
+              if (oneTimeTotal <= 0) return null;
+              const splits = contractSchedule === "50/50"
+                ? [{ label: "Deposit", percent: 50 }, { label: "Completion", percent: 50 }]
+                : [{ label: "Deposit", percent: 50 }, { label: "Milestone", percent: 25 }, { label: "Completion", percent: 25 }];
+              return (
+                <div className="p-3 bg-bb-black rounded-lg border border-bb-border space-y-1.5">
+                  {splits.map((s, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span className="text-bb-muted">{s.label} ({s.percent}%)</span>
+                      <span className="text-bb-orange font-mono">${Math.round((oneTimeTotal * s.percent) / 100).toLocaleString()}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-xs pt-1 border-t border-bb-border/30">
+                    <span className="text-bb-dim font-medium">Total</span>
+                    <span className="text-white font-mono font-semibold">${oneTimeTotal.toLocaleString()}</span>
+                  </div>
+                  <p className="text-[10px] text-bb-dim pt-1">Deposit link will be auto-sent to the client. Other milestones can be sent manually.</p>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Country for payment links */}
+          {contractSchedule !== "none" && (
+            <div>
+              <label className="block text-sm font-medium text-white mb-1.5">Client Country</label>
+              <select
+                value={contractCountry}
+                onChange={(e) => setContractCountry(e.target.value)}
+                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              >
+                <optgroup label="North America">
+                  <option value="US">{"\uD83C\uDDFA\uD83C\uDDF8"} United States</option>
+                  <option value="CA">{"\uD83C\uDDE8\uD83C\uDDE6"} Canada</option>
+                  <option value="MX">{"\uD83C\uDDF2\uD83C\uDDFD"} Mexico</option>
+                </optgroup>
+                <optgroup label="Europe (EUR)">
+                  <option value="DE">{"\uD83C\uDDE9\uD83C\uDDEA"} Germany</option>
+                  <option value="AT">{"\uD83C\uDDE6\uD83C\uDDF9"} Austria</option>
+                  <option value="NL">{"\uD83C\uDDF3\uD83C\uDDF1"} Netherlands</option>
+                  <option value="BE">{"\uD83C\uDDE7\uD83C\uDDEA"} Belgium</option>
+                  <option value="FR">{"\uD83C\uDDEB\uD83C\uDDF7"} France</option>
+                  <option value="ES">{"\uD83C\uDDEA\uD83C\uDDF8"} Spain</option>
+                  <option value="IT">{"\uD83C\uDDEE\uD83C\uDDF9"} Italy</option>
+                  <option value="IE">{"\uD83C\uDDEE\uD83C\uDDEA"} Ireland</option>
+                  <option value="PT">{"\uD83C\uDDF5\uD83C\uDDF9"} Portugal</option>
+                  <option value="FI">{"\uD83C\uDDEB\uD83C\uDDEE"} Finland</option>
+                  <option value="GR">{"\uD83C\uDDEC\uD83C\uDDF7"} Greece</option>
+                  <option value="LU">{"\uD83C\uDDF1\uD83C\uDDFA"} Luxembourg</option>
+                  <option value="SE">{"\uD83C\uDDF8\uD83C\uDDEA"} Sweden</option>
+                  <option value="DK">{"\uD83C\uDDE9\uD83C\uDDF0"} Denmark</option>
+                  <option value="PL">{"\uD83C\uDDF5\uD83C\uDDF1"} Poland</option>
+                  <option value="CZ">{"\uD83C\uDDE8\uD83C\uDDFF"} Czech Republic</option>
+                  <option value="HU">{"\uD83C\uDDED\uD83C\uDDFA"} Hungary</option>
+                  <option value="RO">{"\uD83C\uDDF7\uD83C\uDDF4"} Romania</option>
+                  <option value="HR">{"\uD83C\uDDED\uD83C\uDDF7"} Croatia</option>
+                  <option value="SK">{"\uD83C\uDDF8\uD83C\uDDF0"} Slovakia</option>
+                  <option value="SI">{"\uD83C\uDDF8\uD83C\uDDEE"} Slovenia</option>
+                  <option value="BG">{"\uD83C\uDDE7\uD83C\uDDEC"} Bulgaria</option>
+                  <option value="EE">{"\uD83C\uDDEA\uD83C\uDDEA"} Estonia</option>
+                  <option value="LV">{"\uD83C\uDDF1\uD83C\uDDFB"} Latvia</option>
+                  <option value="LT">{"\uD83C\uDDF1\uD83C\uDDF9"} Lithuania</option>
+                  <option value="CY">{"\uD83C\uDDE8\uD83C\uDDFE"} Cyprus</option>
+                  <option value="MT">{"\uD83C\uDDF2\uD83C\uDDF9"} Malta</option>
+                </optgroup>
+                <optgroup label="Europe (Non-EU)">
+                  <option value="GB">{"\uD83C\uDDEC\uD83C\uDDE7"} United Kingdom</option>
+                  <option value="CH">{"\uD83C\uDDE8\uD83C\uDDED"} Switzerland</option>
+                  <option value="NO">{"\uD83C\uDDF3\uD83C\uDDF4"} Norway</option>
+                </optgroup>
+                <optgroup label="Africa">
+                  <option value="ZA">{"\uD83C\uDDFF\uD83C\uDDE6"} South Africa</option>
+                  <option value="NG">{"\uD83C\uDDF3\uD83C\uDDEC"} Nigeria</option>
+                  <option value="KE">{"\uD83C\uDDF0\uD83C\uDDEA"} Kenya</option>
+                  <option value="GH">{"\uD83C\uDDEC\uD83C\uDDED"} Ghana</option>
+                  <option value="EG">{"\uD83C\uDDEA\uD83C\uDDEC"} Egypt</option>
+                </optgroup>
+                <optgroup label="Asia & Pacific">
+                  <option value="AU">{"\uD83C\uDDE6\uD83C\uDDFA"} Australia</option>
+                  <option value="NZ">{"\uD83C\uDDF3\uD83C\uDDFF"} New Zealand</option>
+                  <option value="JP">{"\uD83C\uDDEF\uD83C\uDDF5"} Japan</option>
+                  <option value="SG">{"\uD83C\uDDF8\uD83C\uDDEC"} Singapore</option>
+                  <option value="IN">{"\uD83C\uDDEE\uD83C\uDDF3"} India</option>
+                  <option value="AE">{"\uD83C\uDDE6\uD83C\uDDEA"} UAE</option>
+                  <option value="IL">{"\uD83C\uDDEE\uD83C\uDDF1"} Israel</option>
+                  <option value="PH">{"\uD83C\uDDF5\uD83C\uDDED"} Philippines</option>
+                </optgroup>
+                <optgroup label="South America">
+                  <option value="BR">{"\uD83C\uDDE7\uD83C\uDDF7"} Brazil</option>
+                  <option value="CO">{"\uD83C\uDDE8\uD83C\uDDF4"} Colombia</option>
+                  <option value="AR">{"\uD83C\uDDE6\uD83C\uDDF7"} Argentina</option>
+                  <option value="CL">{"\uD83C\uDDE8\uD83C\uDDF1"} Chile</option>
+                </optgroup>
+              </select>
+              <p className="text-[10px] text-bb-dim mt-1">
+                {["DE","AT","NL","BE","FR","IT","ES","PT","IE","FI","SE","DK","PL","CZ","GR","HU","RO","BG","HR","SK","SI","LT","LV","EE","CY","MT","LU"].includes(contractCountry)
+                  ? "Currency: EUR — EU invoice template"
+                  : "Currency: USD — US invoice template"}
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-white mb-1.5">Custom Terms (Optional)</label>

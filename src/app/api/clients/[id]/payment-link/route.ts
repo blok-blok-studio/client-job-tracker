@@ -1,28 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { stripe } from "@/lib/stripe";
+import { createCheckoutSession, CURRENCY_CONFIG } from "@/lib/stripe";
 import { z } from "zod";
 import { sendPaymentLinkEmail } from "@/lib/email";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app";
-
-const CURRENCY_CONFIG: Record<string, { symbol: string; payment_methods: string[] }> = {
-  usd: { symbol: "$", payment_methods: ["card", "us_bank_account"] },
-  eur: { symbol: "€", payment_methods: ["card", "sepa_debit", "bancontact", "ideal"] },
-};
-
-// Stripe invoice rendering templates (Settings → Templates)
-const INVOICE_TEMPLATES: Record<string, string> = {
-  US: "inrtem_1SWN2gHopSQoCng0Ro3G4UOb",
-  DE: "inrtem_1SWN0iHopSQoCng0CphLnCW1",
-};
-
-function getInvoiceTemplate(country: string): string {
-  // EU countries use the DE template, US uses US template
-  const EU_COUNTRIES = ["DE", "AT", "NL", "BE", "FR", "IT", "ES", "PT", "IE", "FI", "SE", "DK", "PL", "CZ", "GR", "HU", "RO", "BG", "HR", "SK", "SI", "LT", "LV", "EE", "CY", "MT", "LU"];
-  if (EU_COUNTRIES.includes(country)) return INVOICE_TEMPLATES.DE;
-  return INVOICE_TEMPLATES.US;
-}
 
 const createSchema = z.object({
   amount: z.number().min(1, "Amount must be at least 1"),
@@ -31,6 +11,7 @@ const createSchema = z.object({
   country: z.string().length(2).default("US"),
   recurring: z.boolean().default(false),
   interval: z.enum(["month", "year"]).optional(),
+  milestone: z.string().optional(),
 });
 
 // POST — Create a Stripe Checkout Session for a client
@@ -52,127 +33,22 @@ export async function POST(
 
     const body = await request.json();
     const parsed = createSchema.parse(body);
-    const amountInCents = Math.round(parsed.amount * 100);
     const isRecurring = parsed.recurring && parsed.interval;
     const currency = parsed.currency;
     const currencyConfig = CURRENCY_CONFIG[currency];
 
-    // Get or create Stripe Customer for this client
-    const invoiceTemplate = getInvoiceTemplate(parsed.country);
-    let stripeCustomerId = client.stripeCustomerId;
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        name: client.name,
-        email: client.email || undefined,
-        address: { country: parsed.country },
-        invoice_settings: {
-          rendering_options: { template: invoiceTemplate },
-        },
-        metadata: { clientId: client.id },
-      });
-      stripeCustomerId = customer.id;
-      await prisma.client.update({
-        where: { id: client.id },
-        data: { stripeCustomerId: customer.id },
-      });
-    } else {
-      // Update existing customer's default invoice template + country
-      await stripe.customers.update(stripeCustomerId, {
-        address: { country: parsed.country },
-        invoice_settings: {
-          rendering_options: { template: invoiceTemplate },
-        },
-      });
-    }
-
-    // Create a Stripe product on the fly
-    const product = await stripe.products.create({
-      name: parsed.description,
-      metadata: {
-        clientId: client.id,
-        clientName: client.name,
-      },
-    });
-
-    // Create price (one-time or recurring)
-    const price = await stripe.prices.create({
-      product: product.id,
-      unit_amount: amountInCents,
+    const result = await createCheckoutSession({
+      clientId: client.id,
+      clientName: client.name,
+      clientEmail: client.email,
+      stripeCustomerId: client.stripeCustomerId,
+      amount: parsed.amount,
+      description: parsed.description,
       currency,
-      ...(isRecurring
-        ? { recurring: { interval: parsed.interval! } }
-        : {}),
-    });
-
-    const firstName = client.name.split(" ")[0];
-
-    // Create a Checkout Session (not a Payment Link) so we can:
-    // 1. Link to existing Stripe Customer (no more "Guest")
-    // 2. Auto-generate Stripe invoice for one-time payments
-    // 3. Use the customer's invoice template (DE/US with Steuernummer)
-    const sessionParams: Record<string, unknown> = {
-      customer: stripeCustomerId,
-      line_items: [{ price: price.id, quantity: 1 }],
-      payment_method_types: currencyConfig.payment_methods,
-      mode: isRecurring ? "subscription" : "payment",
-      success_url: `${APP_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}&name=${encodeURIComponent(firstName)}`,
-      cancel_url: `${APP_URL}/payment/cancelled`,
-      metadata: {
-        clientId: client.id,
-        clientName: client.name,
-        recurring: isRecurring ? "true" : "false",
-      },
-      billing_address_collection: "auto",
-      customer_update: {
-        name: "auto",
-        address: "auto",
-      },
-    };
-
-    // For one-time payments, auto-generate a Stripe invoice with template
-    if (!isRecurring) {
-      sessionParams.invoice_creation = {
-        enabled: true,
-        invoice_data: {
-          description: parsed.description,
-          rendering_options: { template: invoiceTemplate },
-          metadata: {
-            clientId: client.id,
-            clientName: client.name,
-          },
-        },
-      };
-    } else {
-      // For subscriptions, set the template on subscription invoices
-      sessionParams.subscription_data = {
-        invoice_settings: {
-          rendering_options: { template: invoiceTemplate },
-        },
-      };
-    }
-
-    const session = await stripe.checkout.sessions.create(
-      sessionParams as Parameters<typeof stripe.checkout.sessions.create>[0]
-    );
-
-    const checkoutUrl = session.url!;
-
-    // Save to our database
-    const record = await prisma.paymentLink.create({
-      data: {
-        clientId: client.id,
-        stripePaymentLink: session.id, // Store session ID instead of payment link ID
-        stripeUrl: checkoutUrl,
-        amount: amountInCents,
-        currency,
-        country: parsed.country,
-        description: parsed.description,
-        recurring: !!isRecurring,
-        interval: isRecurring ? parsed.interval : null,
-        stripePriceId: price.id,
-        stripeProductId: product.id,
-        stripeSessionId: session.id,
-      },
+      country: parsed.country,
+      recurring: parsed.recurring,
+      interval: parsed.interval,
+      milestone: parsed.milestone,
     });
 
     // Log activity
@@ -198,7 +74,7 @@ export async function POST(
         clientName: client.name,
         amount: amountFormatted,
         description: parsed.description,
-        paymentUrl: checkoutUrl,
+        paymentUrl: result.url,
         recurring: !!isRecurring,
         interval: isRecurring ? parsed.interval : null,
       }).catch((err) => console.error("[Email] Payment link email error:", err));
@@ -207,14 +83,14 @@ export async function POST(
     return NextResponse.json({
       success: true,
       data: {
-        id: record.id,
-        url: checkoutUrl,
-        amount: amountInCents,
+        id: result.paymentLinkId,
+        url: result.url,
+        amount: Math.round(parsed.amount * 100),
         description: parsed.description,
-        recurring: record.recurring,
-        interval: record.interval,
-        status: record.status,
-        createdAt: record.createdAt,
+        recurring: !!isRecurring,
+        interval: isRecurring ? parsed.interval : null,
+        status: "PENDING",
+        createdAt: new Date(),
       },
     });
   } catch (error) {
@@ -253,6 +129,8 @@ export async function GET(
         interval: true,
         status: true,
         paidAt: true,
+        milestone: true,
+        contractId: true,
         createdAt: true,
       },
     });

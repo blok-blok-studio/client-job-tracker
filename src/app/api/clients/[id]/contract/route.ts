@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { randomBytes, createHash } from "crypto";
-import { generateContractBody } from "@/lib/contract-templates";
+import { generateContractBody, SERVICE_PACKAGES, ADDON_PACKAGES } from "@/lib/contract-templates";
+import { createCheckoutSession, getCurrencyForCountry, CURRENCY_CONFIG } from "@/lib/stripe";
+import { sendPaymentLinkEmail } from "@/lib/email";
 import { z } from "zod";
+
+const milestoneSchema = z.object({
+  label: z.string(), // "deposit" | "milestone" | "completion"
+  percent: z.number().min(1).max(100),
+});
 
 const generateSchema = z.object({
   packages: z.array(z.string()).default([]),
@@ -18,6 +25,9 @@ const generateSchema = z.object({
     excludedDeliverables: z.array(z.number().int().min(0)).optional(),
   })).optional(),
   providerSignedName: z.string().min(1).max(200),
+  // Payment schedule
+  country: z.string().length(2).default("US"),
+  paymentSchedule: z.array(milestoneSchema).optional(), // e.g. [{label:"deposit",percent:50},{label:"completion",percent:50}]
 });
 
 // POST — Generate a new contract for a client
@@ -30,7 +40,7 @@ export async function POST(
   try {
     const client = await prisma.client.findUnique({
       where: { id },
-      select: { id: true, name: true, company: true },
+      select: { id: true, name: true, email: true, company: true, stripeCustomerId: true },
     });
 
     if (!client) {
@@ -39,6 +49,17 @@ export async function POST(
 
     const body = await request.json();
     const parsed = generateSchema.parse(body);
+
+    // Validate payment schedule adds up to 100%
+    if (parsed.paymentSchedule && parsed.paymentSchedule.length > 0) {
+      const totalPercent = parsed.paymentSchedule.reduce((s, m) => s + m.percent, 0);
+      if (totalPercent !== 100) {
+        return NextResponse.json(
+          { success: false, error: `Payment schedule must add up to 100% (got ${totalPercent}%)` },
+          { status: 400 }
+        );
+      }
+    }
 
     const token = randomBytes(32).toString("hex");
     const contractBody = generateContractBody(
@@ -106,6 +127,89 @@ export async function POST(
       },
     });
 
+    // --- Auto-create split payment links if schedule provided ---
+    const paymentLinksCreated: Array<{ milestone: string; url: string; amount: number }> = [];
+
+    if (parsed.paymentSchedule && parsed.paymentSchedule.length > 0) {
+      // Calculate total one-time amount from selected packages
+      const allItems = [
+        ...SERVICE_PACKAGES.filter((p) => parsed.packages.includes(p.id)),
+        ...ADDON_PACKAGES.filter((a) => (parsed.addons || []).includes(a.id)),
+      ];
+      const getPrice = (item: { id: string; price: number }) =>
+        parsed.packageCustomizations?.[item.id]?.priceOverride ?? item.price;
+      const oneTimeTotal = allItems.filter((i) => !i.recurring).reduce((s, i) => s + getPrice(i), 0)
+        + (parsed.customItems || []).filter(i => !i.recurring).reduce((s, i) => s + i.price, 0);
+
+      if (oneTimeTotal > 0) {
+        const currency = getCurrencyForCountry(parsed.country);
+        const currencyConfig = CURRENCY_CONFIG[currency];
+        let latestStripeCustomerId = client.stripeCustomerId;
+
+        for (const milestone of parsed.paymentSchedule) {
+          const milestoneAmount = Math.round((oneTimeTotal * milestone.percent) / 100);
+          if (milestoneAmount <= 0) continue;
+
+          const milestoneLabel = milestone.label === "deposit" ? "Deposit"
+            : milestone.label === "milestone" ? "Milestone"
+            : "Completion";
+          const description = `${milestoneLabel} (${milestone.percent}%) — ${client.name}`;
+
+          const result = await createCheckoutSession({
+            clientId: client.id,
+            clientName: client.name,
+            clientEmail: client.email,
+            stripeCustomerId: latestStripeCustomerId,
+            amount: milestoneAmount,
+            description,
+            currency,
+            country: parsed.country,
+            contractId: contract.id,
+            milestone: milestone.label,
+          });
+
+          // Reuse the Stripe customer for subsequent milestones
+          latestStripeCustomerId = result.stripeCustomerId;
+
+          paymentLinksCreated.push({
+            milestone: milestone.label,
+            url: result.url,
+            amount: milestoneAmount,
+          });
+
+          // Log each payment link
+          await prisma.activityLog.create({
+            data: {
+              clientId: client.id,
+              actor: "chase",
+              action: "payment_link_created",
+              details: `${milestoneLabel} payment link created: ${currencyConfig.symbol}${milestoneAmount.toLocaleString()} (${milestone.percent}%) for contract`,
+            },
+          });
+        }
+
+        // Auto-send deposit link via email (first milestone only)
+        const depositLink = paymentLinksCreated.find((l) => l.milestone === "deposit");
+        if (depositLink && client.email) {
+          const currency = getCurrencyForCountry(parsed.country);
+          const amountFormatted = new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: currency.toUpperCase(),
+          }).format(depositLink.amount);
+
+          sendPaymentLinkEmail({
+            to: client.email,
+            clientName: client.name,
+            amount: amountFormatted,
+            description: `Deposit — ${client.name}`,
+            paymentUrl: depositLink.url,
+            recurring: false,
+            interval: null,
+          }).catch((err) => console.error("[Email] Deposit payment link email error:", err));
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -113,6 +217,7 @@ export async function POST(
         token: contract.token,
         status: contract.status,
         createdAt: contract.createdAt,
+        paymentLinks: paymentLinksCreated,
       },
     });
   } catch (error) {

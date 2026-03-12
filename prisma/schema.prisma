@@ -349,6 +349,7 @@ model PaymentLink {
   paidAt              DateTime?
   contractId          String?
   contract            ContractSignature? @relation(fields: [contractId], references: [id])
+  milestone           String?           // "deposit" | "completion" | null
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
