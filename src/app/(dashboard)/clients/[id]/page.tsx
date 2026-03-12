@@ -1552,56 +1552,86 @@ export default function ClientDetailPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-white mb-1.5">Currency</label>
-              <div className="flex gap-2">
-                {([["usd", "USD ($)"], ["eur", "EUR (\u20AC)"]] as const).map(([code, label]) => (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => {
-                      setPaymentCurrency(code);
-                      setPaymentCountry(code === "usd" ? "US" : "DE");
-                    }}
-                    className={`flex-1 py-2 text-xs font-medium rounded-lg border transition-colors ${
-                      paymentCurrency === code
-                        ? "border-bb-orange bg-bb-orange/10 text-bb-orange"
-                        : "border-bb-border bg-bb-black text-bb-muted hover:border-bb-orange/30"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
               <label className="block text-sm font-medium text-white mb-1.5">Country</label>
               <select
                 value={paymentCountry}
-                onChange={(e) => setPaymentCountry(e.target.value)}
+                onChange={(e) => {
+                  const country = e.target.value;
+                  setPaymentCountry(country);
+                  const EU_COUNTRIES = ["DE", "AT", "NL", "BE", "FR", "IT", "ES", "PT", "IE", "FI", "SE", "DK", "PL", "CZ", "GR", "HU", "RO", "BG", "HR", "SK", "SI", "LT", "LV", "EE", "CY", "MT", "LU"];
+                  setPaymentCurrency(EU_COUNTRIES.includes(country) ? "eur" : "usd");
+                }}
                 className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
               >
-                {paymentCurrency === "usd" ? (
-                  <>
-                    <option value="US">{"\uD83C\uDDFA\uD83C\uDDF8"} United States</option>
-                    <option value="CA">{"\uD83C\uDDE8\uD83C\uDDE6"} Canada</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="DE">{"\uD83C\uDDE9\uD83C\uDDEA"} Germany</option>
-                    <option value="AT">{"\uD83C\uDDE6\uD83C\uDDF9"} Austria</option>
-                    <option value="NL">{"\uD83C\uDDF3\uD83C\uDDF1"} Netherlands</option>
-                    <option value="BE">{"\uD83C\uDDE7\uD83C\uDDEA"} Belgium</option>
-                    <option value="FR">{"\uD83C\uDDEB\uD83C\uDDF7"} France</option>
-                    <option value="ES">{"\uD83C\uDDEA\uD83C\uDDF8"} Spain</option>
-                    <option value="IT">{"\uD83C\uDDEE\uD83C\uDDF9"} Italy</option>
-                    <option value="IE">{"\uD83C\uDDEE\uD83C\uDDEA"} Ireland</option>
-                    <option value="PT">{"\uD83C\uDDF5\uD83C\uDDF9"} Portugal</option>
-                    <option value="FI">{"\uD83C\uDDEB\uD83C\uDDEE"} Finland</option>
-                    <option value="GR">{"\uD83C\uDDEC\uD83C\uDDF7"} Greece</option>
-                    <option value="LU">{"\uD83C\uDDF1\uD83C\uDDFA"} Luxembourg</option>
-                  </>
-                )}
+                <optgroup label="North America">
+                  <option value="US">{"\uD83C\uDDFA\uD83C\uDDF8"} United States</option>
+                  <option value="CA">{"\uD83C\uDDE8\uD83C\uDDE6"} Canada</option>
+                  <option value="MX">{"\uD83C\uDDF2\uD83C\uDDFD"} Mexico</option>
+                </optgroup>
+                <optgroup label="Europe (EUR)">
+                  <option value="DE">{"\uD83C\uDDE9\uD83C\uDDEA"} Germany</option>
+                  <option value="AT">{"\uD83C\uDDE6\uD83C\uDDF9"} Austria</option>
+                  <option value="NL">{"\uD83C\uDDF3\uD83C\uDDF1"} Netherlands</option>
+                  <option value="BE">{"\uD83C\uDDE7\uD83C\uDDEA"} Belgium</option>
+                  <option value="FR">{"\uD83C\uDDEB\uD83C\uDDF7"} France</option>
+                  <option value="ES">{"\uD83C\uDDEA\uD83C\uDDF8"} Spain</option>
+                  <option value="IT">{"\uD83C\uDDEE\uD83C\uDDF9"} Italy</option>
+                  <option value="IE">{"\uD83C\uDDEE\uD83C\uDDEA"} Ireland</option>
+                  <option value="PT">{"\uD83C\uDDF5\uD83C\uDDF9"} Portugal</option>
+                  <option value="FI">{"\uD83C\uDDEB\uD83C\uDDEE"} Finland</option>
+                  <option value="GR">{"\uD83C\uDDEC\uD83C\uDDF7"} Greece</option>
+                  <option value="LU">{"\uD83C\uDDF1\uD83C\uDDFA"} Luxembourg</option>
+                  <option value="SE">{"\uD83C\uDDF8\uD83C\uDDEA"} Sweden</option>
+                  <option value="DK">{"\uD83C\uDDE9\uD83C\uDDF0"} Denmark</option>
+                  <option value="PL">{"\uD83C\uDDF5\uD83C\uDDF1"} Poland</option>
+                  <option value="CZ">{"\uD83C\uDDE8\uD83C\uDDFF"} Czech Republic</option>
+                  <option value="HU">{"\uD83C\uDDED\uD83C\uDDFA"} Hungary</option>
+                  <option value="RO">{"\uD83C\uDDF7\uD83C\uDDF4"} Romania</option>
+                  <option value="HR">{"\uD83C\uDDED\uD83C\uDDF7"} Croatia</option>
+                  <option value="SK">{"\uD83C\uDDF8\uD83C\uDDF0"} Slovakia</option>
+                  <option value="SI">{"\uD83C\uDDF8\uD83C\uDDEE"} Slovenia</option>
+                  <option value="BG">{"\uD83C\uDDE7\uD83C\uDDEC"} Bulgaria</option>
+                  <option value="EE">{"\uD83C\uDDEA\uD83C\uDDEA"} Estonia</option>
+                  <option value="LV">{"\uD83C\uDDF1\uD83C\uDDFB"} Latvia</option>
+                  <option value="LT">{"\uD83C\uDDF1\uD83C\uDDF9"} Lithuania</option>
+                  <option value="CY">{"\uD83C\uDDE8\uD83C\uDDFE"} Cyprus</option>
+                  <option value="MT">{"\uD83C\uDDF2\uD83C\uDDF9"} Malta</option>
+                </optgroup>
+                <optgroup label="Europe (Non-EU)">
+                  <option value="GB">{"\uD83C\uDDEC\uD83C\uDDE7"} United Kingdom</option>
+                  <option value="CH">{"\uD83C\uDDE8\uD83C\uDDED"} Switzerland</option>
+                  <option value="NO">{"\uD83C\uDDF3\uD83C\uDDF4"} Norway</option>
+                </optgroup>
+                <optgroup label="Africa">
+                  <option value="ZA">{"\uD83C\uDDFF\uD83C\uDDE6"} South Africa</option>
+                  <option value="NG">{"\uD83C\uDDF3\uD83C\uDDEC"} Nigeria</option>
+                  <option value="KE">{"\uD83C\uDDF0\uD83C\uDDEA"} Kenya</option>
+                  <option value="GH">{"\uD83C\uDDEC\uD83C\uDDED"} Ghana</option>
+                  <option value="EG">{"\uD83C\uDDEA\uD83C\uDDEC"} Egypt</option>
+                </optgroup>
+                <optgroup label="Asia & Pacific">
+                  <option value="AU">{"\uD83C\uDDE6\uD83C\uDDFA"} Australia</option>
+                  <option value="NZ">{"\uD83C\uDDF3\uD83C\uDDFF"} New Zealand</option>
+                  <option value="JP">{"\uD83C\uDDEF\uD83C\uDDF5"} Japan</option>
+                  <option value="SG">{"\uD83C\uDDF8\uD83C\uDDEC"} Singapore</option>
+                  <option value="IN">{"\uD83C\uDDEE\uD83C\uDDF3"} India</option>
+                  <option value="AE">{"\uD83C\uDDE6\uD83C\uDDEA"} UAE</option>
+                  <option value="IL">{"\uD83C\uDDEE\uD83C\uDDF1"} Israel</option>
+                  <option value="PH">{"\uD83C\uDDF5\uD83C\uDDED"} Philippines</option>
+                </optgroup>
+                <optgroup label="South America">
+                  <option value="BR">{"\uD83C\uDDE7\uD83C\uDDF7"} Brazil</option>
+                  <option value="CO">{"\uD83C\uDDE8\uD83C\uDDF4"} Colombia</option>
+                  <option value="AR">{"\uD83C\uDDE6\uD83C\uDDF7"} Argentina</option>
+                  <option value="CL">{"\uD83C\uDDE8\uD83C\uDDF1"} Chile</option>
+                </optgroup>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-bb-muted mb-1.5">Currency (auto)</label>
+              <div className="px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white text-sm">
+                {paymentCurrency === "eur" ? "\u20AC EUR" : "$ USD"}
+              </div>
             </div>
           </div>
           <div>
