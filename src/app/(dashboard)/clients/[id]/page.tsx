@@ -205,8 +205,15 @@ export default function ClientDetailPage() {
         setContractCountry("DE");
         setContractSchedule("50/50");
         fetchClient();
+        if (data.data?.paymentLinkError) {
+          alert(`Contract created, but payment links failed: ${data.data.paymentLinkError}\n\nYou can create them manually from the Payments section.`);
+        } else if (data.data?.paymentLinks?.length > 0) {
+          alert(`Contract generated with ${data.data.paymentLinks.length} payment link(s). Deposit link sent to client.`);
+        }
+      } else {
+        alert(data.error || "Failed to generate contract");
       }
-    } catch { /* stay on modal */ }
+    } catch { alert("Network error generating contract"); }
     finally { setGeneratingContract(false); }
   }
 

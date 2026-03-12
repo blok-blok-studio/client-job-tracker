@@ -128,85 +128,99 @@ export async function POST(
     });
 
     // --- Auto-create split payment links if schedule provided ---
+    // Wrapped in its own try/catch so the contract always succeeds even if Stripe fails
     const paymentLinksCreated: Array<{ milestone: string; url: string; amount: number }> = [];
+    let paymentLinkError: string | null = null;
 
     if (parsed.paymentSchedule && parsed.paymentSchedule.length > 0) {
-      // Calculate total one-time amount from selected packages
-      const allItems = [
-        ...SERVICE_PACKAGES.filter((p) => parsed.packages.includes(p.id)),
-        ...ADDON_PACKAGES.filter((a) => (parsed.addons || []).includes(a.id)),
-      ];
-      const getPrice = (item: { id: string; price: number }) =>
-        parsed.packageCustomizations?.[item.id]?.priceOverride ?? item.price;
-      const oneTimeTotal = allItems.filter((i) => !i.recurring).reduce((s, i) => s + getPrice(i), 0)
-        + (parsed.customItems || []).filter(i => !i.recurring).reduce((s, i) => s + i.price, 0);
+      try {
+        // Calculate total one-time amount from selected packages
+        const allItems = [
+          ...SERVICE_PACKAGES.filter((p) => parsed.packages.includes(p.id)),
+          ...ADDON_PACKAGES.filter((a) => (parsed.addons || []).includes(a.id)),
+        ];
+        const getPrice = (item: { id: string; price: number }) =>
+          parsed.packageCustomizations?.[item.id]?.priceOverride ?? item.price;
+        const oneTimeTotal = allItems.filter((i) => !i.recurring).reduce((s, i) => s + getPrice(i), 0)
+          + (parsed.customItems || []).filter(i => !i.recurring).reduce((s, i) => s + i.price, 0);
 
-      if (oneTimeTotal > 0) {
-        const currency = getCurrencyForCountry(parsed.country);
-        const currencyConfig = CURRENCY_CONFIG[currency];
-        let latestStripeCustomerId = client.stripeCustomerId;
-
-        for (const milestone of parsed.paymentSchedule) {
-          const milestoneAmount = Math.round((oneTimeTotal * milestone.percent) / 100);
-          if (milestoneAmount <= 0) continue;
-
-          const milestoneLabel = milestone.label === "deposit" ? "Deposit"
-            : milestone.label === "milestone" ? "Milestone"
-            : "Completion";
-          const description = `${milestoneLabel} (${milestone.percent}%) — ${client.name}`;
-
-          const result = await createCheckoutSession({
-            clientId: client.id,
-            clientName: client.name,
-            clientEmail: client.email,
-            stripeCustomerId: latestStripeCustomerId,
-            amount: milestoneAmount,
-            description,
-            currency,
-            country: parsed.country,
-            contractId: contract.id,
-            milestone: milestone.label,
-          });
-
-          // Reuse the Stripe customer for subsequent milestones
-          latestStripeCustomerId = result.stripeCustomerId;
-
-          paymentLinksCreated.push({
-            milestone: milestone.label,
-            url: result.url,
-            amount: milestoneAmount,
-          });
-
-          // Log each payment link
-          await prisma.activityLog.create({
-            data: {
-              clientId: client.id,
-              actor: "chase",
-              action: "payment_link_created",
-              details: `${milestoneLabel} payment link created: ${currencyConfig.symbol}${milestoneAmount.toLocaleString()} (${milestone.percent}%) for contract`,
-            },
-          });
-        }
-
-        // Auto-send deposit link via email (first milestone only)
-        const depositLink = paymentLinksCreated.find((l) => l.milestone === "deposit");
-        if (depositLink && client.email) {
+        if (oneTimeTotal > 0) {
           const currency = getCurrencyForCountry(parsed.country);
-          const amountFormatted = new Intl.NumberFormat("en-US", {
-            style: "currency",
-            currency: currency.toUpperCase(),
-          }).format(depositLink.amount);
+          const currencyConfig = CURRENCY_CONFIG[currency];
+          let latestStripeCustomerId = client.stripeCustomerId;
 
-          sendPaymentLinkEmail({
-            to: client.email,
-            clientName: client.name,
-            amount: amountFormatted,
-            description: `Deposit — ${client.name}`,
-            paymentUrl: depositLink.url,
-            recurring: false,
-            interval: null,
-          }).catch((err) => console.error("[Email] Deposit payment link email error:", err));
+          for (const milestone of parsed.paymentSchedule) {
+            const milestoneAmount = Math.round((oneTimeTotal * milestone.percent) / 100);
+            if (milestoneAmount <= 0) continue;
+
+            const milestoneLabel = milestone.label === "deposit" ? "Deposit"
+              : milestone.label === "milestone" ? "Milestone"
+              : "Completion";
+            const description = `${milestoneLabel} (${milestone.percent}%) — ${client.name}`;
+
+            const result = await createCheckoutSession({
+              clientId: client.id,
+              clientName: client.name,
+              clientEmail: client.email,
+              stripeCustomerId: latestStripeCustomerId,
+              amount: milestoneAmount,
+              description,
+              currency,
+              country: parsed.country,
+              contractId: contract.id,
+              milestone: milestone.label,
+            });
+
+            // Reuse the Stripe customer for subsequent milestones
+            latestStripeCustomerId = result.stripeCustomerId;
+
+            paymentLinksCreated.push({
+              milestone: milestone.label,
+              url: result.url,
+              amount: milestoneAmount,
+            });
+
+            // Log each payment link
+            await prisma.activityLog.create({
+              data: {
+                clientId: client.id,
+                actor: "chase",
+                action: "payment_link_created",
+                details: `${milestoneLabel} payment link created: ${currencyConfig.symbol}${milestoneAmount.toLocaleString()} (${milestone.percent}%) for contract`,
+              },
+            });
+          }
+
+          // Auto-send deposit link via email (first milestone only)
+          const depositLink = paymentLinksCreated.find((l) => l.milestone === "deposit");
+          if (depositLink && client.email) {
+            const amountFormatted = new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: currency.toUpperCase(),
+            }).format(depositLink.amount);
+
+            sendPaymentLinkEmail({
+              to: client.email,
+              clientName: client.name,
+              amount: amountFormatted,
+              description: `Deposit — ${client.name}`,
+              paymentUrl: depositLink.url,
+              recurring: false,
+              interval: null,
+            }).catch((err) => console.error("[Email] Deposit payment link email error:", err));
+          }
         }
+      } catch (err) {
+        console.error("[Contract] Failed to create payment links:", err);
+        paymentLinkError = err instanceof Error ? err.message : "Failed to create payment links";
+        await prisma.activityLog.create({
+          data: {
+            clientId: client.id,
+            actor: "agent",
+            action: "pipeline_error",
+            details: `Contract created but payment links failed: ${paymentLinkError}`,
+          },
+        });
       }
     }
 
@@ -218,6 +232,7 @@ export async function POST(
         status: contract.status,
         createdAt: contract.createdAt,
         paymentLinks: paymentLinksCreated,
+        paymentLinkError,
       },
     });
   } catch (error) {
