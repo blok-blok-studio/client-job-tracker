@@ -238,7 +238,7 @@ export default function ClientDetailPage() {
       } else {
         alert(data.error || "Failed to create payment link");
       }
-    } catch (err) { alert("Network error creating payment link"); }
+    } catch { alert("Network error creating payment link"); }
     finally { setGeneratingPayment(false); }
   }
 
