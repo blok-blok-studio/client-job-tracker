@@ -11,14 +11,15 @@ const ALLOWED_ORIGINS = [
   ...(process.env.NODE_ENV === "development" ? ["http://localhost:3000", "http://localhost:3001"] : []),
 ];
 
-function corsHeaders(request: NextRequest) {
+function corsHeaders(request: NextRequest): Record<string, string> {
   const origin = request.headers.get("origin") || "";
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowed,
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : null;
+  const headers: Record<string, string> = {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
+  if (allowed) headers["Access-Control-Allow-Origin"] = allowed;
+  return headers;
 }
 
 // Handle CORS preflight
@@ -65,9 +66,8 @@ export async function GET(
     );
   } catch (error) {
     console.error("Onboard GET error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: "Failed to fetch onboarding data", debug: message },
+      { success: false, error: "Failed to fetch onboarding data" },
       { status: 500, headers: corsHeaders(request) }
     );
   }
@@ -231,21 +231,6 @@ export async function POST(
       }
     }
 
-    // Mark relevant checklist items as done
-    step = "updating checklist";
-    const checklistLabels = ["Credentials received"];
-    if (parsed.contacts && parsed.contacts.length > 0) {
-      checklistLabels.push("Onboarding call completed");
-    }
-
-    await prisma.checklistItem.updateMany({
-      where: {
-        clientId: client.id,
-        label: { in: checklistLabels },
-      },
-      data: { checked: true },
-    });
-
     // Log the activity
     step = "logging activity";
     await prisma.activityLog.create({
@@ -274,9 +259,8 @@ export async function POST(
       );
     }
     console.error(`Onboard POST error at step "${step}":`, error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: `Failed at: ${step}`, debug: message },
+      { success: false, error: "Failed to complete onboarding" },
       { status: 500, headers: corsHeaders(request) }
     );
   }

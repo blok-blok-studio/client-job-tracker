@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import { onContractSigned } from "@/lib/pipeline";
 
 const ALLOWED_ORIGINS = [
   "https://blokblokstudio.com",
@@ -9,14 +10,15 @@ const ALLOWED_ORIGINS = [
   ...(process.env.NODE_ENV === "development" ? ["http://localhost:3000", "http://localhost:3001"] : []),
 ];
 
-function corsHeaders(request: NextRequest) {
+function corsHeaders(request: NextRequest): Record<string, string> {
   const origin = request.headers.get("origin") || "";
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowed,
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : null;
+  const headers: Record<string, string> = {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
+  if (allowed) headers["Access-Control-Allow-Origin"] = allowed;
+  return headers;
 }
 
 export async function OPTIONS(request: NextRequest) {
@@ -124,14 +126,10 @@ export async function POST(
       },
     });
 
-    // Auto-check "Contract signed" on the client's checklist
-    await prisma.checklistItem.updateMany({
-      where: {
-        clientId: contract.client.id,
-        label: "Contract signed",
-      },
-      data: { checked: true },
-    });
+    // Trigger pipeline: auto-check checklist + create content calendar task
+    onContractSigned(contract.client.id).catch((err) =>
+      console.error("[Pipeline] onContractSigned error:", err)
+    );
 
     // Log the activity
     await prisma.activityLog.create({

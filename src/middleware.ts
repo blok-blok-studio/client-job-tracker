@@ -2,7 +2,26 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-const PUBLIC_PATHS = ["/login", "/onboard", "/contract", "/api/auth/login", "/api/openclaw/webhook", "/api/onboard", "/api/contract", "/api/telegram/webhook", "/api/stripe/webhook"];
+const PUBLIC_PATHS = ["/login", "/onboard", "/contract", "/api/auth/login", "/api/openclaw/webhook", "/api/onboard", "/api/contract", "/api/telegram/webhook", "/api/stripe/webhook", "/api/cron"];
+
+// In-memory rate limiter for middleware (Edge runtime compatible)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 120; // requests per window
+const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX) return false;
+  entry.count++;
+  return true;
+}
 
 function getSecret() {
   const secret = process.env.AUTH_SECRET;
@@ -10,13 +29,14 @@ function getSecret() {
   return new TextEncoder().encode(secret);
 }
 
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return request.headers.get("x-real-ip") || "unknown";
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // Allow public paths
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
-  }
 
   // Allow static assets and Next.js internals
   if (
@@ -25,6 +45,22 @@ export async function middleware(request: NextRequest) {
     pathname.endsWith(".png") ||
     pathname.endsWith(".ico")
   ) {
+    return NextResponse.next();
+  }
+
+  // Rate limit all API requests
+  if (pathname.startsWith("/api/")) {
+    const ip = getClientIp(request);
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429, headers: { "Retry-After": "60" } }
+      );
+    }
+  }
+
+  // Allow public paths
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 

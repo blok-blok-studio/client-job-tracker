@@ -4,12 +4,12 @@ import prisma from "@/lib/prisma";
 import { clientSchema } from "@/lib/validations";
 
 const DEFAULT_CHECKLIST_ITEMS = [
+  "Discovery call completed",
+  "Payment confirmed",
+  "Onboarding completed",
   "Contract signed",
-  "Onboarding call completed",
-  "Credentials received",
   "Content calendar created",
   "First deliverable sent",
-  "Payment method confirmed",
 ];
 
 export async function GET(request: NextRequest) {
@@ -87,7 +87,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Validation failed" }, { status: 400 });
     }
     console.error("Failed to create client:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ success: false, error: "Failed to create client", debug: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Failed to create client" }, { status: 500 });
   }
 }

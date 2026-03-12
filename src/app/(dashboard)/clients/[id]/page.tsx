@@ -351,15 +351,92 @@ export default function ClientDetailPage() {
           {/* RIGHT COLUMN */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
-              <h3 className="font-display font-semibold mb-4">Onboarding Checklist</h3>
-              <div className="space-y-2">
-                {client.checklistItems.map((item) => (
-                  <label key={item.id} className="flex items-center gap-3 p-1.5 rounded hover:bg-bb-elevated cursor-pointer">
-                    <input type="checkbox" checked={item.checked} onChange={() => handleToggleChecklist(item.id, item.checked)} className="w-4 h-4 rounded border-bb-border bg-bb-black accent-bb-orange" />
-                    <span className={`text-sm ${item.checked ? "text-bb-dim line-through" : "text-bb-muted"}`}>{item.label}</span>
-                  </label>
-                ))}
+              <h3 className="font-display font-semibold mb-5">Onboarding Pipeline</h3>
+              <div className="relative">
+                {(() => {
+                  // Find the first unchecked step for "next up" label
+                  const firstUncheckedIdx = client.checklistItems.findIndex(i => !i.checked);
+                  // Detect out-of-order: any checked item after an unchecked one
+                  const hasOutOfOrder = client.checklistItems.some((item, idx) =>
+                    item.checked && idx > firstUncheckedIdx && firstUncheckedIdx !== -1
+                  );
+
+                  return client.checklistItems.map((item, idx) => {
+                    const isCompleted = item.checked;
+                    // A step is "active" (actionable) if unchecked AND either:
+                    // - it's the first unchecked step, OR
+                    // - the step before it is checked (even if earlier steps are unchecked — out-of-order flow)
+                    const isActive = !isCompleted && (
+                      idx === 0 ||
+                      client.checklistItems[idx - 1]?.checked ||
+                      idx === firstUncheckedIdx
+                    );
+                    // "Skipped" = unchecked but a later step IS checked (out-of-order warning)
+                    const isSkipped = !isCompleted && hasOutOfOrder &&
+                      client.checklistItems.slice(idx + 1).some(i => i.checked);
+                    const isLast = idx === client.checklistItems.length - 1;
+                    const stepNum = idx + 1;
+                    // Line between steps: green if both this AND next are done
+                    const nextCompleted = client.checklistItems[idx + 1]?.checked;
+                    const lineColor = isCompleted && nextCompleted ? "bg-green-500" :
+                      isCompleted ? "bg-green-500/40" : "bg-bb-border";
+
+                    return (
+                      <div key={item.id} className="flex gap-4 group">
+                        <div className="flex flex-col items-center">
+                          <button
+                            onClick={() => handleToggleChecklist(item.id, item.checked)}
+                            className={`relative w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all shrink-0 ${
+                              isCompleted
+                                ? "bg-green-500 border-green-500 text-white"
+                                : isSkipped
+                                ? "bg-yellow-500/20 border-yellow-500 text-yellow-400"
+                                : isActive
+                                ? "bg-bb-orange/20 border-bb-orange text-bb-orange animate-pulse"
+                                : "bg-bb-black border-bb-border text-bb-dim"
+                            }`}
+                          >
+                            {isCompleted ? <Check size={16} /> : stepNum}
+                          </button>
+                          {!isLast && (
+                            <div className={`w-0.5 h-8 ${lineColor}`} />
+                          )}
+                        </div>
+
+                        <div className="pt-2 pb-4">
+                          <span className={`text-sm font-medium ${
+                            isCompleted ? "text-green-400" :
+                            isSkipped ? "text-yellow-400" :
+                            isActive ? "text-white" : "text-bb-dim"
+                          }`}>
+                            {item.label}
+                          </span>
+                          {isActive && idx === firstUncheckedIdx && (
+                            <span className="ml-2 text-xs text-bb-orange font-medium">Next up</span>
+                          )}
+                          {isSkipped && (
+                            <span className="ml-2 text-xs text-yellow-400 font-medium">Skipped</span>
+                          )}
+                          {isActive && idx !== firstUncheckedIdx && !isSkipped && (
+                            <span className="ml-2 text-xs text-bb-orange font-medium">Ready</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
+              {client.checklistItems.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-bb-border">
+                  <div className="flex items-center justify-between text-xs text-bb-dim">
+                    <span>{client.checklistItems.filter(i => i.checked).length} of {client.checklistItems.length} complete</span>
+                    <span className="font-medium text-bb-orange">
+                      {client.checklistItems.every(i => i.checked) ? "Fully onboarded" :
+                       `${client.checklistItems.filter(i => !i.checked).length} remaining`}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-bb-surface border border-bb-orange/30 rounded-lg p-5">

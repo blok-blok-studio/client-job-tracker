@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { format } from "date-fns";
+import { getBookings, isCalComConfigured } from "@/lib/calcom";
 
 export const SYSTEM_PROMPT = `You are the Blok Blok Studio Operations Agent — an autonomous AI worker managing client operations for a creative tech studio.
 
@@ -10,8 +11,33 @@ YOUR ROLE:
 - You are proactive: create tasks before they're needed, flag issues before they're urgent
 
 YOUR CAPABILITIES:
-You can: create tasks, move tasks between statuses, flag overdue items, draft reminders, generate reports, manage checklists, add notes, suggest actions, reply to client support tickets via Telegram, mark invoices as overdue, send payment reminders, and close stale support tickets.
+You can: create tasks, move tasks between statuses, flag overdue items, draft reminders, generate reports, manage checklists, add notes, suggest actions, reply to client support tickets via Telegram, mark invoices as overdue, send payment reminders, close stale support tickets, and send meeting reminders.
 You cannot: delete anything, access credentials, create invoices, or change your own configuration.
+
+MEETING AWARENESS:
+- You have access to upcoming Cal.com bookings (synced with Google Calendar)
+- If a meeting is happening within 30 minutes, send Chase a SEND_REMINDER with channel "telegram" about it
+- If a meeting is in the next 2 hours, include it in your daily summary
+- Always mention who the meeting is with (attendee names) and include the meeting link if available
+- Match meeting attendees to client names when possible for context
+
+PIPELINE MANAGEMENT:
+The onboarding pipeline has 6 steps per client:
+1. Discovery call completed — Auto-check after detecting a completed Cal.com booking with the client
+2. Payment confirmed — Auto-checked by Stripe webhook
+3. Onboarding completed — Auto-checked when client submits onboarding form
+4. Contract signed — Auto-checked when client signs contract
+5. Content calendar created — Auto-created as a task after contract is signed
+6. First deliverable sent — Flag when the first task for this client is marked DONE
+
+Your pipeline duties:
+- If a Cal.com meeting has ended with an attendee matching a client name/email, auto-check "Discovery call completed" via UPDATE_CHECKLIST
+- If a client is stuck on a pipeline step for 48+ hours, flag it with SUGGEST_ACTION (urgency: high)
+- If onboarding form hasn't been completed within 24h of payment, send a follow-up reminder via SEND_REMINDER
+- If contract hasn't been signed within 48h of onboarding, send a follow-up reminder
+- If "Content calendar created" is still unchecked 5+ days after contract signing, escalate via SUGGEST_ACTION
+- When a client's first task is moved to DONE, auto-check "First deliverable sent" via UPDATE_CHECKLIST
+- Proactively create tasks for new clients who have completed onboarding but have no tasks yet
 
 YOUR PERSONALITY:
 - Direct and efficient (no fluff)
@@ -64,12 +90,29 @@ export async function buildContextPayload() {
   const now = new Date();
   const berlinTime = format(now, "yyyy-MM-dd HH:mm:ss 'Berlin'");
 
+  // Fetch Cal.com meetings: upcoming (next 24h) and recent (past 24h)
+  const [calBookings, recentMeetings] = isCalComConfigured()
+    ? await Promise.all([
+        getBookings({
+          afterStart: now.toISOString(),
+          beforeEnd: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+          status: "upcoming",
+        }).catch(() => []),
+        getBookings({
+          afterStart: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+          beforeEnd: now.toISOString(),
+          status: "past",
+        }).catch(() => []),
+      ])
+    : [[], []];
+
   const [activeClients, openTasks, recentlyCompleted, overdueTasks, upcomingTasks, lastAgentLog, todayActionCount, openTickets, unpaidInvoices, resolvedTickets] =
     await Promise.all([
       prisma.client.findMany({
         where: { type: "ACTIVE" },
         include: {
           _count: { select: { tasks: { where: { status: { notIn: ["DONE"] } } } } },
+          checklistItems: { orderBy: { sortOrder: "asc" }, select: { label: true, checked: true } },
         },
       }),
       prisma.task.findMany({
@@ -142,6 +185,14 @@ export async function buildContextPayload() {
       retainer: c.monthlyRetainer ? Number(c.monthlyRetainer as number) : null,
       contractEnd: c.contractEnd ? (c.contractEnd as Date).toISOString() : null,
       openTaskCount: (c._count as { tasks: number })?.tasks ?? 0,
+      pipelineState: (c as { checklistItems?: Array<{ label: string; checked: boolean }> }).checklistItems?.map((ci) => ({
+        step: ci.label,
+        done: ci.checked,
+      })) || [],
+      currentStep: ((items: Array<{ label: string; checked: boolean }>) => {
+        const idx = items.findIndex((i) => !i.checked);
+        return idx === -1 ? "Fully onboarded" : `Step ${idx + 1}: ${items[idx].label}`;
+      })((c as { checklistItems?: Array<{ label: string; checked: boolean }> }).checklistItems || []),
     })),
     openTasks: (openTasks as Array<Record<string, unknown>>).map((t) => ({
       id: t.id,
@@ -193,6 +244,21 @@ export async function buildContextPayload() {
       subject: t.subject,
       updatedAt: (t.updatedAt as Date).toISOString(),
       clientName: (t as { client?: { name: string } }).client?.name || null,
+    })),
+    upcomingMeetings: calBookings.map((b) => ({
+      title: b.title,
+      start: b.start,
+      end: b.end,
+      duration: b.duration,
+      attendees: b.attendees?.map((a) => a.name).join(", ") || "Unknown",
+      meetingUrl: b.meetingUrl || b.location || null,
+      minutesUntilStart: Math.round((new Date(b.start).getTime() - Date.now()) / 60000),
+    })),
+    recentlyCompletedMeetings: recentMeetings.map((b) => ({
+      title: b.title,
+      start: b.start,
+      end: b.end,
+      attendees: b.attendees?.map((a) => ({ name: a.name, email: a.email })) || [],
     })),
   };
 }

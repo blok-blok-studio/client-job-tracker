@@ -858,6 +858,7 @@ export default function OnboardPage() {
                 <div className="flex flex-col sm:flex-row items-center gap-6">
                   {telegramQR && (
                     <div className="border border-bb-border rounded-xl p-3 flex-shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={telegramQR}
                         alt="Scan to connect Telegram"

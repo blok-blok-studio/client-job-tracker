@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         await prisma.checklistItem.updateMany({
           where: {
             clientId: record.clientId,
-            label: { contains: "Payment", mode: "insensitive" },
+            label: "Payment confirmed",
             checked: false,
           },
           data: { checked: true },

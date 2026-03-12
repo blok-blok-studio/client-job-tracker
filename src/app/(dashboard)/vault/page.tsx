@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Search, Plus, Eye, EyeOff, Copy, ExternalLink, RotateCcw, Trash2 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { PLATFORM_OPTIONS } from "@/types";
 import { ListSkeleton } from "@/components/shared/Skeleton";
 
@@ -49,6 +50,7 @@ export default function VaultPage() {
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const fetchCredentials = useCallback(async () => {
     try {
@@ -78,14 +80,24 @@ export default function VaultPage() {
       });
       return;
     }
+    // Require password re-authentication
+    const password = prompt("Enter your password to reveal credentials:");
+    if (!password) return;
+
     try {
-      const res = await fetch(`/api/vault/${id}/reveal`, { method: "POST" });
+      const res = await fetch(`/api/vault/${id}/reveal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
       const data = await res.json();
       if (data.success) {
         setRevealed((prev) => ({ ...prev, [id]: data.data }));
+      } else {
+        alert(data.error || "Failed to reveal credentials");
       }
     } catch {
-      // silently fail
+      alert("Failed to reveal credentials");
     }
   }
 
@@ -125,13 +137,12 @@ export default function VaultPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this credential? This cannot be undone.")) return;
     try {
       const res = await fetch(`/api/vault/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed");
       fetchCredentials();
     } catch {
-      // silently fail
+      alert("Failed to delete credential");
     }
   }
 
@@ -189,7 +200,7 @@ export default function VaultPage() {
                             <ExternalLink size={14} />
                           </a>
                         )}
-                        <button onClick={() => handleDelete(cred.id)} className="p-1 text-bb-dim hover:text-red-400">
+                        <button onClick={() => setDeleteTarget(cred.id)} className="p-1 text-bb-dim hover:text-red-400">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -297,6 +308,18 @@ export default function VaultPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) handleDelete(deleteTarget);
+        }}
+        title="Delete Credential"
+        message="Are you sure you want to delete this credential? This action cannot be undone and the encrypted data will be permanently removed."
+        confirmLabel="Delete"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

@@ -25,7 +25,7 @@ export async function onPaymentConfirmed(clientId: string) {
     const onboardingItems = await prisma.checklistItem.findMany({
       where: {
         clientId,
-        label: { contains: "Onboarding", mode: "insensitive" },
+        label: "Onboarding completed",
       },
       select: { checked: true },
     });
@@ -147,7 +147,7 @@ export async function onOnboardingCompleted(clientId: string) {
     await prisma.checklistItem.updateMany({
       where: {
         clientId,
-        label: { contains: "Onboarding", mode: "insensitive" },
+        label: "Onboarding completed",
         checked: false,
       },
       data: { checked: true },
@@ -169,6 +169,70 @@ export async function onOnboardingCompleted(clientId: string) {
         actor: "agent",
         action: "pipeline_error",
         details: `Failed to send contract: ${error instanceof Error ? error.message : "Unknown error"}`,
+      },
+    });
+  }
+}
+
+/**
+ * Called after contract is signed — auto-creates content calendar task
+ * and checks the "Contract signed" checklist item.
+ */
+export async function onContractSigned(clientId: string) {
+  try {
+    // Auto-check "Contract signed" checklist item
+    await prisma.checklistItem.updateMany({
+      where: {
+        clientId,
+        label: "Contract signed",
+        checked: false,
+      },
+      data: { checked: true },
+    });
+
+    // Auto-create "Content calendar" task if one doesn't already exist
+    const existingCalendarTask = await prisma.task.findFirst({
+      where: {
+        clientId,
+        title: { contains: "content calendar", mode: "insensitive" },
+        status: { notIn: ["DONE"] },
+      },
+    });
+
+    if (!existingCalendarTask) {
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 3); // 3 days from now
+
+      await prisma.task.create({
+        data: {
+          clientId,
+          title: "Create content calendar",
+          description: "Auto-generated after contract signed. Set up the content calendar for this client.",
+          priority: "HIGH",
+          category: "CONTENT_CREATION",
+          status: "TODO",
+          assignedTo: "chase",
+          dueDate,
+        },
+      });
+
+      await prisma.activityLog.create({
+        data: {
+          clientId,
+          actor: "agent",
+          action: "pipeline_task_created",
+          details: "Auto-created content calendar task after contract signed",
+        },
+      });
+    }
+  } catch (error) {
+    console.error("[Pipeline] Failed to process contract signed:", error);
+    await prisma.activityLog.create({
+      data: {
+        clientId,
+        actor: "agent",
+        action: "pipeline_error",
+        details: `Failed to process contract signed: ${error instanceof Error ? error.message : "Unknown error"}`,
       },
     });
   }
