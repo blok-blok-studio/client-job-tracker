@@ -4,6 +4,8 @@ import { stripe } from "@/lib/stripe";
 import { z } from "zod";
 import { sendPaymentLinkEmail } from "@/lib/email";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app";
+
 const CURRENCY_CONFIG: Record<string, { symbol: string; payment_methods: string[] }> = {
   usd: { symbol: "$", payment_methods: ["card", "us_bank_account"] },
   eur: { symbol: "€", payment_methods: ["card", "sepa_debit", "bancontact", "ideal"] },
@@ -17,7 +19,7 @@ const createSchema = z.object({
   interval: z.enum(["month", "year"]).optional(),
 });
 
-// POST — Create a Stripe payment link for a client
+// POST — Create a Stripe Checkout Session for a client
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -75,31 +77,56 @@ export async function POST(
         : {}),
     });
 
-    // Create the payment link with region-appropriate payment methods
-    const paymentLink = await stripe.paymentLinks.create({
+    const firstName = client.name.split(" ")[0];
+
+    // Create a Checkout Session (not a Payment Link) so we can:
+    // 1. Link to existing Stripe Customer (no more "Guest")
+    // 2. Auto-generate Stripe invoice for one-time payments
+    // 3. Use the customer's invoice template (DE/US with Steuernummer)
+    const sessionParams: Record<string, unknown> = {
+      customer: stripeCustomerId,
       line_items: [{ price: price.id, quantity: 1 }],
-      payment_method_types: currencyConfig.payment_methods as never[],
+      payment_method_types: currencyConfig.payment_methods,
+      mode: isRecurring ? "subscription" : "payment",
+      success_url: `${APP_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}&name=${encodeURIComponent(firstName)}`,
+      cancel_url: `${APP_URL}/payment/cancelled`,
       metadata: {
         clientId: client.id,
         clientName: client.name,
         recurring: isRecurring ? "true" : "false",
       },
-      after_completion: {
-        type: "hosted_confirmation",
-        hosted_confirmation: {
-          custom_message: isRecurring
-            ? `Thank you, ${client.name.split(" ")[0]}! Your subscription is now active. You'll be billed ${parsed.interval === "year" ? "annually" : "monthly"}.`
-            : `Thank you for your payment, ${client.name.split(" ")[0]}! We'll be in touch shortly to get started.`,
-        },
+      customer_update: {
+        name: "auto",
+        address: "auto",
       },
-    });
+    };
+
+    // For one-time payments, auto-generate a Stripe invoice
+    if (!isRecurring) {
+      sessionParams.invoice_creation = {
+        enabled: true,
+        invoice_data: {
+          description: parsed.description,
+          metadata: {
+            clientId: client.id,
+            clientName: client.name,
+          },
+        },
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(
+      sessionParams as Parameters<typeof stripe.checkout.sessions.create>[0]
+    );
+
+    const checkoutUrl = session.url!;
 
     // Save to our database
     const record = await prisma.paymentLink.create({
       data: {
         clientId: client.id,
-        stripePaymentLink: paymentLink.id,
-        stripeUrl: paymentLink.url,
+        stripePaymentLink: session.id, // Store session ID instead of payment link ID
+        stripeUrl: checkoutUrl,
         amount: amountInCents,
         currency,
         description: parsed.description,
@@ -107,6 +134,7 @@ export async function POST(
         interval: isRecurring ? parsed.interval : null,
         stripePriceId: price.id,
         stripeProductId: product.id,
+        stripeSessionId: session.id,
       },
     });
 
@@ -133,7 +161,7 @@ export async function POST(
         clientName: client.name,
         amount: amountFormatted,
         description: parsed.description,
-        paymentUrl: paymentLink.url,
+        paymentUrl: checkoutUrl,
         recurring: !!isRecurring,
         interval: isRecurring ? parsed.interval : null,
       }).catch((err) => console.error("[Email] Payment link email error:", err));
@@ -143,7 +171,7 @@ export async function POST(
       success: true,
       data: {
         id: record.id,
-        url: paymentLink.url,
+        url: checkoutUrl,
         amount: amountInCents,
         description: parsed.description,
         recurring: record.recurring,

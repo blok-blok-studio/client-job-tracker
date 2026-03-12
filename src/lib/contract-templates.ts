@@ -30,6 +30,7 @@ export interface ServicePackage {
 export interface CustomLineItem {
   name: string;
   price: number;
+  recurring?: boolean;
 }
 
 export const PACKAGE_CATEGORIES: { id: PackageCategory; label: string }[] = [
@@ -840,10 +841,15 @@ export function generateContractBody(
   const oneTimeItems = allItems.filter((i) => !i.recurring);
   const recurringItems = allItems.filter((i) => i.recurring);
 
+  const customOneTime = customItems.filter((i) => !i.recurring);
+  const customRecurring = customItems.filter((i) => i.recurring);
+
   const oneTimeTotal = oneTimeItems.reduce((sum, item) => sum + item.price, 0);
   const recurringTotal = recurringItems.reduce((sum, item) => sum + item.price, 0);
-  const customTotal = customItems.reduce((sum, item) => sum + item.price, 0);
-  const grandOneTime = oneTimeTotal + customTotal;
+  const customOneTimeTotal = customOneTime.reduce((sum, item) => sum + item.price, 0);
+  const customRecurringTotal = customRecurring.reduce((sum, item) => sum + item.price, 0);
+  const grandOneTime = oneTimeTotal + customOneTimeTotal;
+  const grandRecurring = recurringTotal + customRecurringTotal;
 
   const today = new Date().toLocaleDateString("en-US", {
     year: "numeric",
@@ -872,7 +878,7 @@ The Provider agrees to deliver the following services to the Client:
 
   let itemIndex = 0;
 
-  if (oneTimeItems.length > 0 || customItems.length > 0) {
+  if (oneTimeItems.length > 0 || customOneTime.length > 0) {
     contract += `One-Time Services:\n\n`;
     oneTimeItems.forEach((item) => {
       contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${item.price.toLocaleString()} USD
@@ -891,7 +897,7 @@ The Provider agrees to deliver the following services to the Client:
       itemIndex++;
     });
 
-    customItems.forEach((item) => {
+    customOneTime.forEach((item) => {
       contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${item.price.toLocaleString()} USD
 
 `;
@@ -899,7 +905,7 @@ The Provider agrees to deliver the following services to the Client:
     });
   }
 
-  if (recurringItems.length > 0) {
+  if (recurringItems.length > 0 || customRecurring.length > 0) {
     contract += `Recurring Monthly Services:\n\n`;
     recurringItems.forEach((item) => {
       contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${item.price.toLocaleString()}/month USD
@@ -914,6 +920,13 @@ The Provider agrees to deliver the following services to the Client:
 `;
       itemIndex++;
     });
+
+    customRecurring.forEach((item) => {
+      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${item.price.toLocaleString()}/month USD
+
+`;
+      itemIndex++;
+    });
   }
 
   contract += `
@@ -923,23 +936,26 @@ SECTION 2. TOTAL INVESTMENT
 
 `;
 
-  if (oneTimeItems.length > 0 || customItems.length > 0) {
+  if (oneTimeItems.length > 0 || customOneTime.length > 0) {
     contract += `One-Time Fees:\n`;
     oneTimeItems.forEach((item) => {
       contract += `   ${item.name}    $${item.price.toLocaleString()} USD\n`;
     });
-    customItems.forEach((item) => {
+    customOneTime.forEach((item) => {
       contract += `   ${item.name}    $${item.price.toLocaleString()} USD\n`;
     });
     contract += `\n   Subtotal    $${grandOneTime.toLocaleString()} USD\n\n`;
   }
 
-  if (recurringItems.length > 0) {
+  if (recurringItems.length > 0 || customRecurring.length > 0) {
     contract += `Monthly Recurring Fees:\n`;
     recurringItems.forEach((item) => {
       contract += `   ${item.name}    $${item.price.toLocaleString()}/month USD\n`;
     });
-    contract += `\n   Monthly Total    $${recurringTotal.toLocaleString()}/month USD\n\n`;
+    customRecurring.forEach((item) => {
+      contract += `   ${item.name}    $${item.price.toLocaleString()}/month USD\n`;
+    });
+    contract += `\n   Monthly Total    $${grandRecurring.toLocaleString()}/month USD\n\n`;
   }
 
   contract += `Payment is due in accordance with the payment schedule outlined in Section 3 of this Agreement, unless a different arrangement has been agreed upon in writing by both Parties. Any advertising spend, third-party software licenses, API subscription fees, or external service costs are billed separately and are not included in the total above.

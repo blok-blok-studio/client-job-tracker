@@ -31,13 +31,20 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const paymentLinkId = session.payment_link as string | null;
 
-        if (!paymentLinkId) break;
-
-        const record = await prisma.paymentLink.findUnique({
-          where: { stripePaymentLink: paymentLinkId },
+        // Look up by session ID first (Checkout Sessions), then by payment link ID (legacy)
+        let record = await prisma.paymentLink.findFirst({
+          where: { stripeSessionId: session.id },
         });
+
+        if (!record) {
+          const paymentLinkId = session.payment_link as string | null;
+          if (paymentLinkId) {
+            record = await prisma.paymentLink.findUnique({
+              where: { stripePaymentLink: paymentLinkId },
+            });
+          }
+        }
 
         if (!record) break;
 

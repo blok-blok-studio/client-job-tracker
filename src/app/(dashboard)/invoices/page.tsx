@@ -12,6 +12,7 @@ interface Invoice {
   amount: string | number;
   currency: string;
   status: string;
+  region: string;
   dueDate: string | null;
   paidAt: string | null;
   notes: string | null;
@@ -26,6 +27,7 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState<"US" | "EU">("US");
 
   const fetchInvoices = useCallback(async () => {
     try {
@@ -56,13 +58,16 @@ export default function InvoicesPage() {
         body: JSON.stringify({
           clientId: fd.get("clientId"),
           amount: Number(fd.get("amount")),
+          currency: selectedRegion === "EU" ? "EUR" : "USD",
           status: fd.get("status") || "DRAFT",
+          region: selectedRegion,
           dueDate: fd.get("dueDate") || undefined,
           notes: fd.get("notes") || undefined,
         }),
       });
       if (!res.ok) throw new Error("Failed");
       setShowAdd(false);
+      setSelectedRegion("US");
       fetchInvoices();
     } catch { /* stay on form */ }
   }
@@ -156,9 +161,10 @@ export default function InvoicesPage() {
           <div className="hidden sm:grid grid-cols-12 gap-4 px-4 py-3 border-b border-bb-border text-xs text-bb-dim font-medium uppercase">
             <div className="col-span-3">Client</div>
             <div className="col-span-2">Amount</div>
+            <div className="col-span-1">Region</div>
             <div className="col-span-2">Status</div>
             <div className="col-span-2">Due Date</div>
-            <div className="col-span-2">Created</div>
+            <div className="col-span-1">Created</div>
             <div className="col-span-1"></div>
           </div>
           {filtered.map((inv) => (
@@ -168,7 +174,18 @@ export default function InvoicesPage() {
                 {inv.notes && <p className="text-xs text-bb-dim line-clamp-1 mt-0.5">{inv.notes}</p>}
               </div>
               <div className="sm:col-span-2">
-                <span className="text-sm font-mono text-white">{formatCurrency(Number(inv.amount))}</span>
+                <span className="text-sm font-mono text-white">
+                  {inv.currency === "EUR" ? "\u20AC" : "$"}{Number(inv.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="sm:col-span-1">
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                  (inv.region || "US") === "EU"
+                    ? "bg-blue-500/10 text-blue-400"
+                    : "bg-green-500/10 text-green-400"
+                }`}>
+                  {(inv.region || "US") === "EU" ? "EU" : "US"}
+                </span>
               </div>
               <div className="sm:col-span-2">
                 <select
@@ -186,8 +203,8 @@ export default function InvoicesPage() {
               <div className="sm:col-span-2">
                 <span className="text-sm text-bb-dim">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "\u2014"}</span>
               </div>
-              <div className="sm:col-span-2">
-                <span className="text-sm text-bb-dim">{new Date(inv.createdAt).toLocaleDateString()}</span>
+              <div className="sm:col-span-1">
+                <span className="text-xs text-bb-dim">{new Date(inv.createdAt).toLocaleDateString()}</span>
               </div>
               <div className="sm:col-span-1 flex justify-end">
                 <button onClick={() => handleDelete(inv.id)} className="p-1 text-bb-dim hover:text-red-400">
@@ -205,6 +222,37 @@ export default function InvoicesPage() {
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="New Invoice">
         <form onSubmit={handleAdd} className="space-y-4">
+          {/* Region / Template selector */}
+          <div>
+            <label className="block text-sm text-bb-muted mb-2">Invoice Template *</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedRegion("US")}
+                className={`flex-1 py-2.5 text-sm font-medium rounded-lg border transition-colors ${
+                  selectedRegion === "US"
+                    ? "border-green-500 bg-green-500/10 text-green-400"
+                    : "border-bb-border bg-bb-black text-bb-muted hover:border-green-500/30"
+                }`}
+              >
+                <span className="block text-base">US Template</span>
+                <span className="block text-[10px] text-bb-dim mt-0.5">USD &middot; US format</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedRegion("EU")}
+                className={`flex-1 py-2.5 text-sm font-medium rounded-lg border transition-colors ${
+                  selectedRegion === "EU"
+                    ? "border-blue-500 bg-blue-500/10 text-blue-400"
+                    : "border-bb-border bg-bb-black text-bb-muted hover:border-blue-500/30"
+                }`}
+              >
+                <span className="block text-base">EU Template</span>
+                <span className="block text-[10px] text-bb-dim mt-0.5">EUR &middot; EU format</span>
+              </button>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm text-bb-muted mb-1">Client *</label>
             <select name="clientId" required className={inputClass}>
@@ -214,8 +262,13 @@ export default function InvoicesPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-bb-muted mb-1">Amount *</label>
-              <input name="amount" type="number" step="0.01" min="0" required className={inputClass} placeholder="0.00" />
+              <label className="block text-sm text-bb-muted mb-1">Amount * <span className="text-xs text-bb-dim">({selectedRegion === "EU" ? "EUR" : "USD"})</span></label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim text-sm">
+                  {selectedRegion === "EU" ? "\u20AC" : "$"}
+                </span>
+                <input name="amount" type="number" step="0.01" min="0" required className={`${inputClass} pl-7`} placeholder="0.00" />
+              </div>
             </div>
             <div>
               <label className="block text-sm text-bb-muted mb-1">Status</label>

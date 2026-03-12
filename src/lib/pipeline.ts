@@ -2,183 +2,125 @@ import prisma from "@/lib/prisma";
 import { sendOnboardingLinkEmail, sendContractEmail } from "@/lib/email";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { randomBytes } from "crypto";
-import { generateContractBody } from "@/lib/contract-templates";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app";
 
 /**
- * Automated onboarding pipeline:
- * Payment confirmed → send onboarding link
- * Onboarding completed → auto-generate and send contract
+ * Flexible onboarding pipeline:
+ * - Payment and Contract can happen in ANY order
+ * - Once BOTH are done → auto-send onboarding link
+ * - After onboarding completed → send signed contract copy to client email + Telegram
  *
  * All steps are fire-and-forget with logging.
  */
 
-export async function onPaymentConfirmed(clientId: string) {
-  try {
-    const client = await prisma.client.findUnique({
+/**
+ * Helper: check whether both payment and contract are done for a client.
+ * If so, auto-send the onboarding link.
+ */
+async function maybeSendOnboardingLink(clientId: string) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+  });
+  if (!client) return;
+
+  // Check if payment is confirmed
+  const paymentItems = await prisma.checklistItem.findMany({
+    where: {
+      clientId,
+      label: { in: ["Payment confirmed", "Payment method confirmed"] },
+    },
+    select: { checked: true },
+  });
+  const paymentDone = paymentItems.some((i) => i.checked);
+
+  // Check if contract is signed
+  const contractItems = await prisma.checklistItem.findMany({
+    where: {
+      clientId,
+      label: "Contract signed",
+    },
+    select: { checked: true },
+  });
+  const contractDone = contractItems.some((i) => i.checked);
+
+  if (!paymentDone || !contractDone) return; // Not both done yet
+
+  // Check if onboarding is already done
+  const onboardingItems = await prisma.checklistItem.findMany({
+    where: {
+      clientId,
+      label: { in: ["Onboarding completed", "Onboarding call completed"] },
+    },
+    select: { checked: true },
+  });
+  const alreadyOnboarded = onboardingItems.some((i) => i.checked);
+  if (alreadyOnboarded) return;
+
+  // Both payment + contract are done → send onboarding link
+  let onboardToken = client.onboardToken;
+  if (!onboardToken) {
+    onboardToken = randomBytes(24).toString("hex");
+    await prisma.client.update({
       where: { id: clientId },
-    });
-
-    if (!client) return;
-
-    // Check if onboarding is already done (handle both old and new labels)
-    const onboardingItems = await prisma.checklistItem.findMany({
-      where: {
-        clientId,
-        label: { in: ["Onboarding completed", "Onboarding call completed"] },
-      },
-      select: { checked: true },
-    });
-
-    const alreadyOnboarded = onboardingItems.some((c) => c.checked);
-    if (alreadyOnboarded) return;
-
-    // Generate a new onboard token if none exists (it gets cleared after use)
-    let onboardToken = client.onboardToken;
-    if (!onboardToken) {
-      onboardToken = randomBytes(24).toString("hex");
-      await prisma.client.update({
-        where: { id: clientId },
-        data: { onboardToken },
-      });
-    }
-
-    const onboardUrl = `${APP_URL}/onboard/${onboardToken}`;
-
-    // Send via email if available
-    if (client.email) {
-      await sendOnboardingLinkEmail({
-        to: client.email,
-        clientName: client.name,
-        onboardUrl,
-      });
-    }
-
-    // Also send via Telegram if connected
-    if (client.telegramChatId) {
-      await sendTelegramMessage(
-        client.telegramChatId,
-        `✅ Payment received! Next step: please complete your onboarding form so we can get started.\n\n${onboardUrl}`
-      );
-    }
-
-    await prisma.activityLog.create({
-      data: {
-        clientId,
-        actor: "agent",
-        action: "pipeline_onboard_sent",
-        details: `Auto-sent onboarding link to ${client.name}${client.email ? ` (${client.email})` : ""}`,
-      },
-    });
-  } catch (error) {
-    console.error("[Pipeline] Failed to send onboarding link:", error);
-    await prisma.activityLog.create({
-      data: {
-        clientId,
-        actor: "agent",
-        action: "pipeline_error",
-        details: `Failed to send onboarding link: ${error instanceof Error ? error.message : "Unknown error"}`,
-      },
+      data: { onboardToken },
     });
   }
+
+  const onboardUrl = `${APP_URL}/onboard/${onboardToken}`;
+
+  if (client.email) {
+    await sendOnboardingLinkEmail({
+      to: client.email,
+      clientName: client.name,
+      onboardUrl,
+    });
+  }
+
+  if (client.telegramChatId) {
+    await sendTelegramMessage(
+      client.telegramChatId,
+      `✅ Payment and contract are all set! Last step: please complete your onboarding form so we can get started.\n\n${onboardUrl}`
+    );
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      clientId,
+      actor: "agent",
+      action: "pipeline_onboard_sent",
+      details: `Auto-sent onboarding link to ${client.name}${client.email ? ` (${client.email})` : ""} (both payment + contract confirmed)`,
+    },
+  });
 }
 
-export async function onOnboardingCompleted(clientId: string) {
+export async function onPaymentConfirmed(clientId: string) {
   try {
-    const client = await prisma.client.findUnique({
-      where: { id: clientId },
-    });
-
-    if (!client) return;
-
-    // Check if there's already a pending contract
-    const existingContracts = await prisma.contractSignature.findMany({
-      where: { clientId, status: "PENDING" },
-      select: { id: true, token: true },
-      take: 1,
-    });
-
-    let contractToken: string;
-    if (existingContracts.length > 0) {
-      contractToken = existingContracts[0].token;
-    } else {
-      // Auto-generate a contract
-      contractToken = randomBytes(24).toString("hex");
-
-      // Use a default contract body — Chase can customize later
-      await prisma.contractSignature.create({
-        data: {
-          clientId,
-          token: contractToken,
-          contractBody: getDefaultContractBody(client.name, client.company),
-        },
-      });
-
-      await prisma.activityLog.create({
-        data: {
-          clientId,
-          actor: "agent",
-          action: "pipeline_contract_created",
-          details: `Auto-generated service agreement for ${client.name}`,
-        },
-      });
-    }
-
-    const contractUrl = `${APP_URL}/contract/${contractToken}`;
-
-    // Send via email
-    if (client.email) {
-      await sendContractEmail({
-        to: client.email,
-        clientName: client.name,
-        contractUrl,
-      });
-    }
-
-    // Also send via Telegram
-    if (client.telegramChatId) {
-      await sendTelegramMessage(
-        client.telegramChatId,
-        `📋 Onboarding complete! Last step: please review and sign your service agreement.\n\n${contractUrl}`
-      );
-    }
-
-    // Auto-check onboarding checklist item (handle both old and new labels)
+    // Auto-check "Payment confirmed" checklist item
     await prisma.checklistItem.updateMany({
       where: {
         clientId,
-        label: { in: ["Onboarding completed", "Onboarding call completed"] },
+        label: { in: ["Payment confirmed", "Payment method confirmed"] },
         checked: false,
       },
       data: { checked: true },
     });
 
-    await prisma.activityLog.create({
-      data: {
-        clientId,
-        actor: "agent",
-        action: "pipeline_contract_sent",
-        details: `Auto-sent contract to ${client.name}${client.email ? ` (${client.email})` : ""}`,
-      },
-    });
+    // Check if both payment + contract are done → send onboarding if so
+    await maybeSendOnboardingLink(clientId);
   } catch (error) {
-    console.error("[Pipeline] Failed to send contract:", error);
+    console.error("[Pipeline] Failed to process payment confirmed:", error);
     await prisma.activityLog.create({
       data: {
         clientId,
         actor: "agent",
         action: "pipeline_error",
-        details: `Failed to send contract: ${error instanceof Error ? error.message : "Unknown error"}`,
+        details: `Failed to process payment confirmed: ${error instanceof Error ? error.message : "Unknown error"}`,
       },
     });
   }
 }
 
-/**
- * Called after contract is signed — auto-creates content calendar task
- * and checks the "Contract signed" checklist item.
- */
 export async function onContractSigned(clientId: string) {
   try {
     // Auto-check "Contract signed" checklist item
@@ -191,41 +133,8 @@ export async function onContractSigned(clientId: string) {
       data: { checked: true },
     });
 
-    // Auto-create "Content calendar" task if one doesn't already exist
-    const existingCalendarTask = await prisma.task.findFirst({
-      where: {
-        clientId,
-        title: { contains: "content calendar", mode: "insensitive" },
-        status: { notIn: ["DONE"] },
-      },
-    });
-
-    if (!existingCalendarTask) {
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 3); // 3 days from now
-
-      await prisma.task.create({
-        data: {
-          clientId,
-          title: "Create content calendar",
-          description: "Auto-generated after contract signed. Set up the content calendar for this client.",
-          priority: "HIGH",
-          category: "CONTENT_CREATION",
-          status: "TODO",
-          assignedTo: "chase",
-          dueDate,
-        },
-      });
-
-      await prisma.activityLog.create({
-        data: {
-          clientId,
-          actor: "agent",
-          action: "pipeline_task_created",
-          details: "Auto-created content calendar task after contract signed",
-        },
-      });
-    }
+    // Check if both payment + contract are done → send onboarding if so
+    await maybeSendOnboardingLink(clientId);
   } catch (error) {
     console.error("[Pipeline] Failed to process contract signed:", error);
     await prisma.activityLog.create({
@@ -239,14 +148,111 @@ export async function onContractSigned(clientId: string) {
   }
 }
 
-function getDefaultContractBody(clientName: string, company: string | null): string {
-  // Generate a real formatted contract using the template system
-  // Default to social media management package if no specific package is known
-  return generateContractBody(
-    clientName,
-    company,
-    ["social-starter-mgmt"], // Default starter package — Chase can customize from the portal
-    [],
-    [],
-  );
+export async function onOnboardingCompleted(clientId: string) {
+  try {
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+    });
+    if (!client) return;
+
+    // Auto-check onboarding checklist item
+    await prisma.checklistItem.updateMany({
+      where: {
+        clientId,
+        label: { in: ["Onboarding completed", "Onboarding call completed"] },
+        checked: false,
+      },
+      data: { checked: true },
+    });
+
+    // Send the signed contract copy to the client via email + Telegram
+    const signedContract = await prisma.contractSignature.findFirst({
+      where: { clientId, status: "SIGNED" },
+      orderBy: { signedAt: "desc" },
+    });
+
+    if (signedContract) {
+      const contractUrl = `${APP_URL}/contract/${signedContract.token}`;
+
+      if (client.email) {
+        await sendContractEmail({
+          to: client.email,
+          clientName: client.name,
+          contractUrl,
+        });
+      }
+
+      if (client.telegramChatId) {
+        await sendTelegramMessage(
+          client.telegramChatId,
+          `📋 Onboarding complete! Here's your signed service agreement for your records:\n\n${contractUrl}`
+        );
+      }
+
+      await prisma.activityLog.create({
+        data: {
+          clientId,
+          actor: "agent",
+          action: "pipeline_contract_copy_sent",
+          details: `Sent signed contract copy to ${client.name} after onboarding completed`,
+        },
+      });
+    }
+
+    // Auto-create "Content calendar" task if one doesn't already exist
+    const existingCalendarTask = await prisma.task.findFirst({
+      where: {
+        clientId,
+        title: { contains: "content calendar", mode: "insensitive" },
+        status: { notIn: ["DONE"] },
+      },
+    });
+
+    if (!existingCalendarTask) {
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 3);
+
+      await prisma.task.create({
+        data: {
+          clientId,
+          title: "Create content calendar",
+          description: "Auto-generated after onboarding completed. Set up the content calendar for this client.",
+          priority: "HIGH",
+          category: "CONTENT_CREATION",
+          status: "TODO",
+          assignedTo: "chase",
+          dueDate,
+        },
+      });
+
+      await prisma.activityLog.create({
+        data: {
+          clientId,
+          actor: "agent",
+          action: "pipeline_task_created",
+          details: "Auto-created content calendar task after onboarding completed",
+        },
+      });
+    }
+
+    await prisma.activityLog.create({
+      data: {
+        clientId,
+        actor: "agent",
+        action: "pipeline_onboarding_processed",
+        details: `Processed onboarding completion for ${client.name}`,
+      },
+    });
+  } catch (error) {
+    console.error("[Pipeline] Failed to process onboarding completed:", error);
+    await prisma.activityLog.create({
+      data: {
+        clientId,
+        actor: "agent",
+        action: "pipeline_error",
+        details: `Failed to process onboarding completed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      },
+    });
+  }
 }
+

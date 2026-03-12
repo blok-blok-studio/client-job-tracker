@@ -58,7 +58,7 @@ export default function ClientDetailPage() {
   const [showContractModal, setShowContractModal] = useState(false);
   const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
-  const [customItems, setCustomItems] = useState<{ name: string; price: string }[]>([]);
+  const [customItems, setCustomItems] = useState<{ name: string; price: string; recurring: boolean }[]>([]);
   const [customTerms, setCustomTerms] = useState("");
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractCopied, setContractCopied] = useState<string | null>(null);
@@ -157,7 +157,7 @@ export default function ClientDetailPage() {
     setGeneratingContract(true);
     const validCustomItems = customItems
       .filter(i => i.name.trim() && Number(i.price) > 0)
-      .map(i => ({ name: i.name.trim(), price: Number(i.price) }));
+      .map(i => ({ name: i.name.trim(), price: Number(i.price), recurring: i.recurring }));
     try {
       const res = await fetch(`/api/clients/${id}/contract`, {
         method: "POST",
@@ -354,32 +354,62 @@ export default function ClientDetailPage() {
               <h3 className="font-display font-semibold mb-5">Onboarding Pipeline</h3>
               <div className="relative">
                 {(() => {
-                  // Find the first unchecked step for "next up" label
-                  const firstUncheckedIdx = client.checklistItems.findIndex(i => !i.checked);
-                  // Detect out-of-order: any checked item after an unchecked one
-                  const hasOutOfOrder = client.checklistItems.some((item, idx) =>
-                    item.checked && idx > firstUncheckedIdx && firstUncheckedIdx !== -1
-                  );
+                  // Parallel-aware pipeline: "Payment confirmed" and "Contract signed"
+                  // can happen in any order. "Onboarding completed" requires both.
+                  const PARALLEL_LABELS = ["Payment confirmed", "Payment method confirmed", "Contract signed"];
+                  const ONBOARDING_LABELS = ["Onboarding completed", "Onboarding call completed"];
+
+                  const isParallelStep = (label: string) =>
+                    PARALLEL_LABELS.some(p => label.toLowerCase() === p.toLowerCase());
+                  const isOnboardingStep = (label: string) =>
+                    ONBOARDING_LABELS.some(o => label.toLowerCase() === o.toLowerCase());
+
+                  // Check if both parallel steps are done (for gating onboarding)
+                  const parallelItems = client.checklistItems.filter(i => isParallelStep(i.label));
+                  const bothParallelDone = parallelItems.length > 0 && parallelItems.every(i => i.checked);
 
                   return client.checklistItems.map((item, idx) => {
                     const isCompleted = item.checked;
-                    // A step is "active" (actionable) if unchecked AND either:
-                    // - it's the first unchecked step, OR
-                    // - the step before it is checked (even if earlier steps are unchecked — out-of-order flow)
-                    const isActive = !isCompleted && (
-                      idx === 0 ||
-                      client.checklistItems[idx - 1]?.checked ||
-                      idx === firstUncheckedIdx
-                    );
-                    // "Skipped" = unchecked but a later step IS checked (out-of-order warning)
-                    const isSkipped = !isCompleted && hasOutOfOrder &&
-                      client.checklistItems.slice(idx + 1).some(i => i.checked);
                     const isLast = idx === client.checklistItems.length - 1;
                     const stepNum = idx + 1;
-                    // Line between steps: green if both this AND next are done
+                    const isParallel = isParallelStep(item.label);
+                    const isOnboarding = isOnboardingStep(item.label);
+
+                    // Determine if step is active (actionable)
+                    let isActive = false;
+                    if (!isCompleted) {
+                      if (idx === 0) {
+                        // First step is always actionable
+                        isActive = true;
+                      } else if (isParallel) {
+                        // Payment/Contract are active if step 1 (discovery) is done
+                        const discoveryDone = client.checklistItems[0]?.checked;
+                        isActive = !!discoveryDone;
+                      } else if (isOnboarding) {
+                        // Onboarding only active when BOTH payment + contract are done
+                        isActive = bothParallelDone;
+                      } else {
+                        // Later steps (content calendar, first deliverable): active if previous is done
+                        isActive = !!client.checklistItems[idx - 1]?.checked;
+                      }
+                    }
+
+                    // Line color between steps
                     const nextCompleted = client.checklistItems[idx + 1]?.checked;
                     const lineColor = isCompleted && nextCompleted ? "bg-green-500" :
                       isCompleted ? "bg-green-500/40" : "bg-bb-border";
+
+                    // Badge text for parallel steps
+                    let badge = "";
+                    if (isActive && isParallel) {
+                      badge = "Either order";
+                    } else if (isActive && isOnboarding && !bothParallelDone) {
+                      badge = "Waiting";
+                    } else if (isActive) {
+                      badge = "Next up";
+                    }
+                    // Waiting state for onboarding when parallel steps aren't both done
+                    const isWaiting = isOnboarding && !isCompleted && !bothParallelDone;
 
                     return (
                       <div key={item.id} className="flex gap-4 group">
@@ -389,8 +419,8 @@ export default function ClientDetailPage() {
                             className={`relative w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all shrink-0 ${
                               isCompleted
                                 ? "bg-green-500 border-green-500 text-white"
-                                : isSkipped
-                                ? "bg-yellow-500/20 border-yellow-500 text-yellow-400"
+                                : isWaiting
+                                ? "bg-bb-black border-bb-border text-bb-dim opacity-50"
                                 : isActive
                                 ? "bg-bb-orange/20 border-bb-orange text-bb-orange animate-pulse"
                                 : "bg-bb-black border-bb-border text-bb-dim"
@@ -406,19 +436,24 @@ export default function ClientDetailPage() {
                         <div className="pt-2 pb-4">
                           <span className={`text-sm font-medium ${
                             isCompleted ? "text-green-400" :
-                            isSkipped ? "text-yellow-400" :
+                            isWaiting ? "text-bb-dim opacity-50" :
                             isActive ? "text-white" : "text-bb-dim"
                           }`}>
                             {item.label}
                           </span>
-                          {isActive && idx === firstUncheckedIdx && (
-                            <span className="ml-2 text-xs text-bb-orange font-medium">Next up</span>
+                          {badge && (
+                            <span className={`ml-2 text-xs font-medium ${
+                              badge === "Waiting" ? "text-bb-dim" :
+                              badge === "Either order" ? "text-blue-400" :
+                              "text-bb-orange"
+                            }`}>
+                              {badge}
+                            </span>
                           )}
-                          {isSkipped && (
-                            <span className="ml-2 text-xs text-yellow-400 font-medium">Skipped</span>
-                          )}
-                          {isActive && idx !== firstUncheckedIdx && !isSkipped && (
-                            <span className="ml-2 text-xs text-bb-orange font-medium">Ready</span>
+                          {isOnboarding && !isCompleted && !bothParallelDone && (
+                            <p className="text-xs text-bb-dim mt-0.5">
+                              Requires both payment &amp; contract
+                            </p>
                           )}
                         </div>
                       </div>
@@ -855,51 +890,85 @@ export default function ClientDetailPage() {
               <h4 className="text-sm font-medium text-white">Custom Line Items</h4>
               <button
                 type="button"
-                onClick={() => setCustomItems([...customItems, { name: "", price: "" }])}
+                onClick={() => setCustomItems([...customItems, { name: "", price: "", recurring: false }])}
                 className="text-bb-orange hover:text-bb-orange-light text-xs flex items-center gap-1"
               >
                 <Plus size={12} /> Add Item
               </button>
             </div>
             {customItems.length === 0 && (
-              <p className="text-xs text-bb-dim">Use this for discounted or custom-priced services.</p>
+              <p className="text-xs text-bb-dim">Use this for discounted or custom-priced services (one-time or monthly).</p>
             )}
             <div className="space-y-2">
               {customItems.map((item, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={item.name}
-                    onChange={(e) => {
-                      const updated = [...customItems];
-                      updated[i].name = e.target.value;
-                      setCustomItems(updated);
-                    }}
-                    className="flex-1 px-3 py-1.5 bg-bb-black border border-bb-border rounded text-sm text-white placeholder:text-bb-dim"
-                    placeholder="Service name"
-                  />
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-bb-dim text-sm">$</span>
+                <div key={i} className="space-y-1.5 p-2.5 rounded-lg border border-bb-border bg-bb-black">
+                  <div className="flex items-center gap-2">
                     <input
-                      type="number"
-                      value={item.price}
+                      type="text"
+                      value={item.name}
                       onChange={(e) => {
                         const updated = [...customItems];
-                        updated[i].price = e.target.value;
+                        updated[i].name = e.target.value;
                         setCustomItems(updated);
                       }}
-                      className="w-28 pl-6 pr-3 py-1.5 bg-bb-black border border-bb-border rounded text-sm text-white placeholder:text-bb-dim"
-                      placeholder="0"
-                      min="0"
+                      className="flex-1 px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white placeholder:text-bb-dim"
+                      placeholder="Service name"
                     />
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-bb-dim text-sm">$</span>
+                      <input
+                        type="number"
+                        value={item.price}
+                        onChange={(e) => {
+                          const updated = [...customItems];
+                          updated[i].price = e.target.value;
+                          setCustomItems(updated);
+                        }}
+                        className="w-28 pl-6 pr-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white placeholder:text-bb-dim"
+                        placeholder="0"
+                        min="0"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCustomItems(customItems.filter((_, idx) => idx !== i))}
+                      className="p-1 text-bb-dim hover:text-red-400"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setCustomItems(customItems.filter((_, idx) => idx !== i))}
-                    className="p-1 text-bb-dim hover:text-red-400"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = [...customItems];
+                        updated[i].recurring = false;
+                        setCustomItems(updated);
+                      }}
+                      className={`flex-1 py-1 text-xs font-medium rounded border transition-colors ${
+                        !item.recurring
+                          ? "border-green-500 bg-green-500/10 text-green-400"
+                          : "border-bb-border bg-bb-surface text-bb-dim hover:border-green-500/30"
+                      }`}
+                    >
+                      One-time
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = [...customItems];
+                        updated[i].recurring = true;
+                        setCustomItems(updated);
+                      }}
+                      className={`flex-1 py-1 text-xs font-medium rounded border transition-colors ${
+                        item.recurring
+                          ? "border-blue-500 bg-blue-500/10 text-blue-400"
+                          : "border-bb-border bg-bb-surface text-bb-dim hover:border-blue-500/30"
+                      }`}
+                    >
+                      Monthly
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -910,30 +979,66 @@ export default function ClientDetailPage() {
               ...SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id)),
               ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id)),
             ];
-            const oneTimeTotal = allSelected.filter((i) => !i.recurring).reduce((sum, i) => sum + i.price, 0)
-              + customItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
-            const recurringTotal = allSelected.filter((i) => i.recurring).reduce((sum, i) => sum + i.price, 0);
+            const validCustom = customItems.filter(i => i.name.trim() && Number(i.price) > 0);
+            const oneTimeItems = [
+              ...allSelected.filter((i) => !i.recurring).map(i => ({ name: i.name, price: i.price })),
+              ...validCustom.filter(i => !i.recurring).map(i => ({ name: i.name, price: Number(i.price) })),
+            ];
+            const recurringItems = [
+              ...allSelected.filter((i) => i.recurring).map(i => ({ name: i.name, price: i.price })),
+              ...validCustom.filter(i => i.recurring).map(i => ({ name: i.name, price: Number(i.price) })),
+            ];
+            const oneTimeTotal = oneTimeItems.reduce((sum, i) => sum + i.price, 0);
+            const recurringTotal = recurringItems.reduce((sum, i) => sum + i.price, 0);
             return (
-              <div className="p-3 bg-bb-black rounded-lg border border-bb-border space-y-1.5">
-                {oneTimeTotal > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-bb-dim flex items-center gap-1.5">
-                      One-time <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
-                    </span>
-                    <span className="text-bb-orange font-mono font-semibold">${oneTimeTotal.toLocaleString()}</span>
+              <div className="p-3 bg-bb-black rounded-lg border border-bb-border space-y-2">
+                {oneTimeItems.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+                      <span className="text-[10px] uppercase tracking-wider text-bb-dim font-medium">One-time</span>
+                    </div>
+                    <div className="space-y-0.5 pl-3">
+                      {oneTimeItems.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-xs">
+                          <span className="text-bb-muted">{item.name}</span>
+                          <span className="text-bb-orange font-mono">${item.price.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      {oneTimeItems.length > 1 && (
+                        <div className="flex justify-between text-sm pt-1 border-t border-bb-border/30">
+                          <span className="text-bb-dim text-xs font-medium">Subtotal</span>
+                          <span className="text-bb-orange font-mono font-semibold">${oneTimeTotal.toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
-                {recurringTotal > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-bb-dim flex items-center gap-1.5">
-                      Monthly <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
-                    </span>
-                    <span className="text-blue-400 font-mono font-semibold">${recurringTotal.toLocaleString()}/mo</span>
+                {recurringItems.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
+                      <span className="text-[10px] uppercase tracking-wider text-bb-dim font-medium">Monthly</span>
+                    </div>
+                    <div className="space-y-0.5 pl-3">
+                      {recurringItems.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-xs">
+                          <span className="text-bb-muted">{item.name}</span>
+                          <span className="text-blue-400 font-mono">${item.price.toLocaleString()}/mo</span>
+                        </div>
+                      ))}
+                      {recurringItems.length > 1 && (
+                        <div className="flex justify-between text-sm pt-1 border-t border-bb-border/30">
+                          <span className="text-bb-dim text-xs font-medium">Subtotal</span>
+                          <span className="text-blue-400 font-mono font-semibold">${recurringTotal.toLocaleString()}/mo</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
                 {oneTimeTotal > 0 && recurringTotal > 0 && (
-                  <div className="flex justify-between text-sm pt-1.5 border-t border-bb-border/50">
-                    <span className="text-bb-dim font-medium">Combined</span>
+                  <div className="flex justify-between text-sm pt-2 border-t border-bb-border/50">
+                    <span className="text-white text-xs font-semibold">Total</span>
                     <span className="text-white font-mono font-semibold">
                       ${oneTimeTotal.toLocaleString()} + ${recurringTotal.toLocaleString()}/mo
                     </span>

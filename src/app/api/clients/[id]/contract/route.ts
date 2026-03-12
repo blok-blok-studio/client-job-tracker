@@ -10,6 +10,7 @@ const generateSchema = z.object({
   customItems: z.array(z.object({
     name: z.string().min(1).max(200),
     price: z.number().min(0),
+    recurring: z.boolean().optional().default(false),
   })).optional().default([]),
   customTerms: z.string().max(5000).optional(),
 });

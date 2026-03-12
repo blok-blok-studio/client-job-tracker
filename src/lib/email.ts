@@ -97,7 +97,7 @@ export async function sendOnboardingLinkEmail(params: {
           Hi ${params.clientName.split(" ")[0]},
         </p>
         <p style="color: #333; font-size: 16px; line-height: 1.6;">
-          Thank you for your payment! To get started, please fill out our onboarding form. This helps us set everything up for you.
+          Everything is set on our end! The final step is to fill out our onboarding form so we can get started on your project.
         </p>
         <div style="text-align: center; margin: 32px 0;">
           <a href="${params.onboardUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
@@ -137,7 +137,7 @@ export async function sendContractEmail(params: {
   const { data, error } = await resend.emails.send({
     from: FROM_EMAIL,
     to: params.to,
-    subject: "Your Service Agreement — Blok Blok Studio",
+    subject: "Your Signed Agreement — Blok Blok Studio",
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <div style="text-align: center; margin-bottom: 32px;">
@@ -148,15 +148,15 @@ export async function sendContractEmail(params: {
           Hi ${params.clientName.split(" ")[0]},
         </p>
         <p style="color: #333; font-size: 16px; line-height: 1.6;">
-          Thank you for completing your onboarding! The last step is to review and sign your service agreement.
+          Thank you for completing your onboarding! Here's a copy of your signed service agreement for your records.
         </p>
         <div style="text-align: center; margin: 32px 0;">
           <a href="${params.contractUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
-            Review & Sign Contract
+            View Signed Agreement
           </a>
         </div>
         <p style="color: #666; font-size: 14px; line-height: 1.6;">
-          Please review the agreement carefully. Once signed, we'll begin work right away.
+          We're excited to get started on your project. Our team will be in touch shortly!
         </p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
         <p style="color: #999; font-size: 12px; text-align: center;">

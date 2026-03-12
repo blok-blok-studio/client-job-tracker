@@ -8,6 +8,7 @@ const invoiceSchema = z.object({
   amount: z.number().positive(),
   currency: z.string().max(10).default("USD"),
   status: z.enum(["DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED"]).default("DRAFT"),
+  region: z.enum(["US", "EU"]).default("US"),
   dueDate: z.string().optional(),
   notes: z.string().max(2000).optional(),
 });
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
         amount: parsed.amount,
         currency: parsed.currency,
         status: parsed.status,
+        region: parsed.region,
         notes: parsed.notes || undefined,
         dueDate: parsed.dueDate ? new Date(parsed.dueDate) : undefined,
         paidAt: parsed.status === "PAID" ? new Date() : undefined,

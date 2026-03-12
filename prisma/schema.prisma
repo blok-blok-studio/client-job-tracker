@@ -181,6 +181,7 @@ model Invoice {
   amount   Decimal       @db.Decimal(10, 2)
   currency String        @default("USD")
   status   InvoiceStatus @default(DRAFT)
+  region   String        @default("US")
   dueDate  DateTime?
   paidAt   DateTime?
   notes    String?

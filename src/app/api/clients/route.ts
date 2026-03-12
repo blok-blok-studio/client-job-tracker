@@ -6,8 +6,8 @@ import { clientSchema } from "@/lib/validations";
 const DEFAULT_CHECKLIST_ITEMS = [
   "Discovery call completed",
   "Payment confirmed",
-  "Onboarding completed",
   "Contract signed",
+  "Onboarding completed",
   "Content calendar created",
   "First deliverable sent",
 ];

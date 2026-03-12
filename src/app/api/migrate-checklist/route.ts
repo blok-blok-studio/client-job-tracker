@@ -17,8 +17,8 @@ const LABEL_MAP: Record<string, string> = {
 const NEW_PIPELINE_ORDER = [
   "Discovery call completed",
   "Payment confirmed",
-  "Onboarding completed",
   "Contract signed",
+  "Onboarding completed",
   "Content calendar created",
   "First deliverable sent",
 ];
