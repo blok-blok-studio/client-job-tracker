@@ -1,6 +1,8 @@
 import Sidebar from "@/components/layout/Sidebar";
 import AgentStatusBar from "@/components/layout/AgentStatusBar";
 import { ToastProvider } from "@/components/shared/Toast";
+import { SidebarProvider } from "@/components/layout/SidebarContext";
+import DashboardContent from "@/components/layout/DashboardContent";
 
 export default function DashboardLayout({
   children,
@@ -9,13 +11,15 @@ export default function DashboardLayout({
 }) {
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-bb-black">
-        <Sidebar />
-        <div className="lg:ml-[260px] flex flex-col min-h-screen">
-          <AgentStatusBar />
-          <main className="flex-1">{children}</main>
+      <SidebarProvider>
+        <div className="min-h-screen bg-bb-black">
+          <Sidebar />
+          <DashboardContent>
+            <AgentStatusBar />
+            <main className="flex-1">{children}</main>
+          </DashboardContent>
         </div>
-      </div>
+      </SidebarProvider>
     </ToastProvider>
   );
 }

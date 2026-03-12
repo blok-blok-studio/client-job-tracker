@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useSidebar } from "./SidebarContext";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -39,7 +40,7 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, toggle: toggleCollapsed } = useSidebar();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Close mobile drawer on route change
@@ -78,7 +79,7 @@ export default function Sidebar() {
         )}
         {/* Desktop collapse button */}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={toggleCollapsed}
           className="hidden lg:block p-1.5 rounded-md hover:bg-bb-elevated text-bb-muted hover:text-white transition-colors"
         >
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
