@@ -57,6 +57,13 @@ async function maybeSendOnboardingLink(clientId: string) {
   const alreadyOnboarded = onboardingItems.some((i) => i.checked);
   if (alreadyOnboarded) return;
 
+  // Idempotency: check if we already sent the onboarding link (prevents duplicates on webhook retries)
+  const alreadySent = await prisma.activityLog.findFirst({
+    where: { clientId, action: "pipeline_onboard_sent" },
+    select: { id: true },
+  });
+  if (alreadySent) return;
+
   // Both payment + contract are done → send onboarding link
   let onboardToken = client.onboardToken;
   if (!onboardToken) {

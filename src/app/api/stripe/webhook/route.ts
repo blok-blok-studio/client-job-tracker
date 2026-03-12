@@ -69,16 +69,7 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Auto-check "Payment" on client checklist (handle both old and new labels)
-        await prisma.checklistItem.updateMany({
-          where: {
-            clientId: record.clientId,
-            label: { in: ["Payment confirmed", "Payment method confirmed"] },
-            checked: false,
-          },
-          data: { checked: true },
-        });
-
+        // Note: checklist update is handled by onPaymentConfirmed in pipeline.ts
         const amountFormatted = (record.amount / 100).toLocaleString("en-US", {
           style: "currency",
           currency: record.currency.toUpperCase(),
@@ -151,6 +142,15 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        break;
+      }
+
+      case "checkout.session.expired": {
+        const expiredSession = event.data.object as Stripe.Checkout.Session;
+        await prisma.paymentLink.updateMany({
+          where: { stripeSessionId: expiredSession.id, status: "PENDING" },
+          data: { status: "EXPIRED" },
+        });
         break;
       }
 

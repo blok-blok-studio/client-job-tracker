@@ -53,7 +53,13 @@ export async function POST(request: NextRequest) {
     syncEvent({ type: "invoice_created", clientId: parsed.clientId, amount: parsed.amount, status: parsed.status }).catch(() => {});
 
     return NextResponse.json({ success: true, data: invoice });
-  } catch {
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { success: false, error: "Validation failed", details: error.issues },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ success: false, error: "Failed to create invoice" }, { status: 500 });
   }
 }

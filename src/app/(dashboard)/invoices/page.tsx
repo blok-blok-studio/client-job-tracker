@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Search, Trash2, ChevronDown } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
-import { formatCurrency } from "@/lib/utils";
+
 import { ListSkeleton } from "@/components/shared/Skeleton";
 
 interface Invoice {
@@ -96,11 +96,19 @@ export default function InvoicesPage() {
     return inv.client.name.toLowerCase().includes(search.toLowerCase());
   });
 
-  const totals = {
-    all: filtered.reduce((s, i) => s + Number(i.amount), 0),
-    paid: filtered.filter((i) => i.status === "PAID").reduce((s, i) => s + Number(i.amount), 0),
-    outstanding: filtered.filter((i) => ["SENT", "OVERDUE"].includes(i.status)).reduce((s, i) => s + Number(i.amount), 0),
-  };
+  // Group totals by currency to avoid mixing USD + EUR
+  const currencies = [...new Set(filtered.map(i => i.currency || "USD"))];
+  const totalsByCurrency = currencies.map(currency => {
+    const items = filtered.filter(i => (i.currency || "USD") === currency);
+    return {
+      currency,
+      all: items.reduce((s, i) => s + Number(i.amount), 0),
+      paid: items.filter(i => i.status === "PAID").reduce((s, i) => s + Number(i.amount), 0),
+      outstanding: items.filter(i => ["SENT", "OVERDUE"].includes(i.status)).reduce((s, i) => s + Number(i.amount), 0),
+    };
+  });
+  const formatAmount = (amount: number, currency: string) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
 
   const inputClass = "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
 
@@ -113,15 +121,30 @@ export default function InvoicesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
             <p className="text-sm text-bb-dim">Total Invoiced</p>
-            <p className="text-2xl font-display font-bold text-white">{formatCurrency(totals.all)}</p>
+            {totalsByCurrency.map(t => (
+              <p key={t.currency} className="text-2xl font-display font-bold text-white">
+                {formatAmount(t.all, t.currency)}
+              </p>
+            ))}
+            {totalsByCurrency.length === 0 && <p className="text-2xl font-display font-bold text-white">$0.00</p>}
           </div>
           <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
             <p className="text-sm text-bb-dim">Paid</p>
-            <p className="text-2xl font-display font-bold text-green-400">{formatCurrency(totals.paid)}</p>
+            {totalsByCurrency.filter(t => t.paid > 0).map(t => (
+              <p key={t.currency} className="text-2xl font-display font-bold text-green-400">
+                {formatAmount(t.paid, t.currency)}
+              </p>
+            ))}
+            {totalsByCurrency.every(t => t.paid === 0) && <p className="text-2xl font-display font-bold text-green-400">$0.00</p>}
           </div>
           <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
             <p className="text-sm text-bb-dim">Outstanding</p>
-            <p className="text-2xl font-display font-bold text-bb-orange">{formatCurrency(totals.outstanding)}</p>
+            {totalsByCurrency.filter(t => t.outstanding > 0).map(t => (
+              <p key={t.currency} className="text-2xl font-display font-bold text-bb-orange">
+                {formatAmount(t.outstanding, t.currency)}
+              </p>
+            ))}
+            {totalsByCurrency.every(t => t.outstanding === 0) && <p className="text-2xl font-display font-bold text-bb-orange">$0.00</p>}
           </div>
         </div>
 
