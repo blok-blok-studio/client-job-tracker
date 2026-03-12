@@ -11,6 +11,19 @@ const CURRENCY_CONFIG: Record<string, { symbol: string; payment_methods: string[
   eur: { symbol: "€", payment_methods: ["card", "sepa_debit", "bancontact", "ideal"] },
 };
 
+// Stripe invoice rendering templates (Settings → Templates)
+const INVOICE_TEMPLATES: Record<string, string> = {
+  US: "inrtem_1SWN2gHopSQoCng0Ro3G4UOb",
+  DE: "inrtem_1SWN0iHopSQoCng0CphLnCW1",
+};
+
+function getInvoiceTemplate(country: string): string {
+  // EU countries use the DE template, US uses US template
+  const EU_COUNTRIES = ["DE", "AT", "NL", "BE", "FR", "IT", "ES", "PT", "IE", "FI", "SE", "DK", "PL", "CZ", "GR", "HU", "RO", "BG", "HR", "SK", "SI", "LT", "LV", "EE", "CY", "MT", "LU"];
+  if (EU_COUNTRIES.includes(country)) return INVOICE_TEMPLATES.DE;
+  return INVOICE_TEMPLATES.US;
+}
+
 const createSchema = z.object({
   amount: z.number().min(1, "Amount must be at least 1"),
   description: z.string().min(1).max(500),
@@ -104,16 +117,26 @@ export async function POST(
       },
     };
 
-    // For one-time payments, auto-generate a Stripe invoice
+    const invoiceTemplate = getInvoiceTemplate(parsed.country);
+
+    // For one-time payments, auto-generate a Stripe invoice with template
     if (!isRecurring) {
       sessionParams.invoice_creation = {
         enabled: true,
         invoice_data: {
           description: parsed.description,
+          rendering: { template: invoiceTemplate },
           metadata: {
             clientId: client.id,
             clientName: client.name,
           },
+        },
+      };
+    } else {
+      // For subscriptions, set the template on subscription invoices
+      sessionParams.subscription_data = {
+        invoice_settings: {
+          rendering: { template: invoiceTemplate },
         },
       };
     }
