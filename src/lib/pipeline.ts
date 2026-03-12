@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { sendOnboardingLinkEmail, sendContractEmail } from "@/lib/email";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { randomBytes } from "crypto";
+import { generateContractBody } from "@/lib/contract-templates";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app";
 
@@ -110,7 +111,7 @@ export async function onOnboardingCompleted(clientId: string) {
         data: {
           clientId,
           token: contractToken,
-          contractBody: getDefaultContractBody(client.name),
+          contractBody: getDefaultContractBody(client.name, client.company),
         },
       });
 
@@ -238,12 +239,14 @@ export async function onContractSigned(clientId: string) {
   }
 }
 
-function getDefaultContractBody(clientName: string): string {
-  return JSON.stringify({
-    packages: ["social-media-management"],
-    addons: [],
-    customItems: [],
+function getDefaultContractBody(clientName: string, company: string | null): string {
+  // Generate a real formatted contract using the template system
+  // Default to social media management package if no specific package is known
+  return generateContractBody(
     clientName,
-    generatedAt: new Date().toISOString(),
-  });
+    company,
+    ["social-starter-mgmt"], // Default starter package — Chase can customize from the portal
+    [],
+    [],
+  );
 }

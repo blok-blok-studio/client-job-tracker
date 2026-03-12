@@ -16,6 +16,29 @@ interface ContractData {
 }
 
 function ContractRenderer({ body }: { body: string }) {
+  // Handle legacy JSON contract bodies from auto-generation
+  // Try to parse as JSON — if it is, show a placeholder notice
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed && typeof parsed === "object") {
+      return (
+        <div className="space-y-4 text-center py-8">
+          <h2 className="text-2xl font-display font-bold text-white">SERVICE AGREEMENT</h2>
+          <p className="text-sm text-bb-muted leading-relaxed max-w-lg mx-auto">
+            This Service Agreement is between <span className="text-white font-medium">Blok Blok Studio</span> (&quot;Provider&quot;) and <span className="text-white font-medium">{parsed.clientName || "Client"}</span> (&quot;Client&quot;).
+          </p>
+          <div className="bg-bb-orange/10 border border-bb-orange/30 rounded-lg p-4 mt-4">
+            <p className="text-sm text-bb-orange">
+              A detailed contract is being prepared. You will receive an updated link once the full agreement is ready for review.
+            </p>
+          </div>
+        </div>
+      );
+    }
+  } catch {
+    // Not JSON — proceed with normal text rendering
+  }
+
   const lines = body.split("\n");
 
   return (
