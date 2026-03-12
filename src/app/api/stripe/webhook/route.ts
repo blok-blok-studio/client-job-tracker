@@ -62,11 +62,11 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Auto-check "Payment" on client checklist
+        // Auto-check "Payment" on client checklist (handle both old and new labels)
         await prisma.checklistItem.updateMany({
           where: {
             clientId: record.clientId,
-            label: "Payment confirmed",
+            label: { in: ["Payment confirmed", "Payment method confirmed"] },
             checked: false,
           },
           data: { checked: true },

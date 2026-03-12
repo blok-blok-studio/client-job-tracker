@@ -21,11 +21,11 @@ export async function onPaymentConfirmed(clientId: string) {
 
     if (!client) return;
 
-    // Check if onboarding is already done
+    // Check if onboarding is already done (handle both old and new labels)
     const onboardingItems = await prisma.checklistItem.findMany({
       where: {
         clientId,
-        label: "Onboarding completed",
+        label: { in: ["Onboarding completed", "Onboarding call completed"] },
       },
       select: { checked: true },
     });
@@ -143,11 +143,11 @@ export async function onOnboardingCompleted(clientId: string) {
       );
     }
 
-    // Auto-check onboarding checklist item
+    // Auto-check onboarding checklist item (handle both old and new labels)
     await prisma.checklistItem.updateMany({
       where: {
         clientId,
-        label: "Onboarding completed",
+        label: { in: ["Onboarding completed", "Onboarding call completed"] },
         checked: false,
       },
       data: { checked: true },
