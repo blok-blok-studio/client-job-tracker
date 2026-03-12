@@ -3,6 +3,7 @@
 
 export type PackageCategory =
   | "ai-agents"
+  | "ai-agent-retainers"
   | "web-brand"
   | "social-setup"
   | "social-management"
@@ -35,22 +36,23 @@ export interface CustomLineItem {
 
 export const PACKAGE_CATEGORIES: { id: PackageCategory; label: string }[] = [
   { id: "ai-agents", label: "AI Agents" },
+  { id: "ai-agent-retainers", label: "AI Agent Retainers" },
   { id: "web-brand", label: "Web & Brand" },
   { id: "social-setup", label: "Social Setup" },
   { id: "social-management", label: "Social Management" },
   { id: "social-addons", label: "Social Add-Ons" },
   { id: "youtube", label: "YouTube Management" },
-  { id: "marketing-retainers", label: "Monthly Retainers" },
+  { id: "marketing-retainers", label: "Marketing Retainers" },
   { id: "custom-development", label: "Custom Development" },
   { id: "dev-retainers", label: "Dev Retainers" },
   { id: "general-addons", label: "General Add-Ons" },
   { id: "dev-addons", label: "Development Add-Ons" },
 ];
 
-// ─── AI Agent Packages ───────────────────────────────────────────────
+// ─── ONE-TIME PROJECTS ──────────────────────────────────────────────
 
 export const SERVICE_PACKAGES: ServicePackage[] = [
-  // AI Agents
+  // ─── AI Agent Builds (One-Time) ─────────────────────────────────
   {
     id: "single-agent",
     name: "Single Agent Build",
@@ -58,11 +60,12 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     price: 5000,
     description: "One custom AI agent tailored to your business needs.",
     deliverables: [
-      "1 custom AI agent (voice, email, web scraping, PDF generation, customer support, lead qualification, appointment booking, data processing, content generation, or social monitoring)",
-      "Agent training with up to 50 data points",
-      "Integration with 1 external system",
-      "Testing and quality assurance",
-      "Documentation and handover",
+      "1 custom AI agent (voice, email, scraping, PDF, chatbot, lead qual, data processing, booking, etc.)",
+      "Training with up to 50 data points",
+      "1 external system integration",
+      "API key security: encrypted env variables, secrets manager, never hardcoded — you own all credentials",
+      "Testing & deployment with staging environment",
+      "Documentation & handoff",
     ],
     timeline: "1 to 2 weeks",
     supportPeriod: "30 days post-launch support",
@@ -74,11 +77,11 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     price: 8500,
     description: "Three interconnected AI agents working as a coordinated system.",
     deliverables: [
-      "3 custom AI agents working as a coordinated team",
-      "Workflow orchestration between agents",
-      "3 external system integrations",
-      "Training on up to 75 data points per agent",
-      "Up to 25 training updates per agent during support period",
+      "3 interconnected AI agents with workflow orchestration",
+      "3 external system integrations included",
+      "API key security: encrypted, isolated per agent — you own all credentials",
+      "Training with 75 data points per agent",
+      "Full end-to-end testing",
     ],
     timeline: "2 to 4 weeks",
     supportPeriod: "60 days post-launch support",
@@ -90,18 +93,76 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     price: 15000,
     description: "Five or more custom AI agents covering multiple departments.",
     deliverables: [
-      "5+ custom AI agents across departments (sales, support, marketing, operations, data)",
-      "Central orchestration layer",
-      "6 external system integrations",
-      "Security and compliance protocols",
-      "Team training and onboarding",
-      "Weekly performance reviews during support period",
+      "5+ custom AI agents as a complete operational layer",
+      "AI orchestration layer (routing, queues, agent-to-agent communication, retry logic)",
+      "6 external system integrations included",
+      "Security & compliance: encrypted env variables, enterprise secrets management, credential isolation, encryption at rest + in transit, RBAC, audit logging, PII handling, data retention policies",
+      "Training with 150 data points per agent",
+      "Recorded Loom walkthroughs and runbooks",
     ],
     timeline: "4 to 8 weeks",
     supportPeriod: "90 days active monitoring",
   },
 
-  // ─── Web & Brand Packages ──────────────────────────────────────────
+  // ─── AI Agent Retainers (Monthly) ───────────────────────────────
+  {
+    id: "agent-maintenance",
+    name: "Agent Maintenance",
+    category: "ai-agent-retainers",
+    price: 1500,
+    recurring: true,
+    description: "Live agents that need to stay accurate and online.",
+    deliverables: [
+      "24/7 monitoring of up to 3 agents",
+      "15 training data updates per month",
+      "API & integration health checks monthly — all keys stored securely",
+      "Monthly performance report",
+      "Text/email support, 48hr response, 8 requests/mo (beyond 8: $200/hr)",
+    ],
+    timeline: "Ongoing monthly (3-month minimum)",
+    supportPeriod: "Included",
+  },
+  {
+    id: "agent-growth",
+    name: "Agent Growth",
+    category: "ai-agent-retainers",
+    price: 3500,
+    recurring: true,
+    description: "Businesses actively expanding AI capabilities.",
+    deliverables: [
+      "Everything in Agent Maintenance with expanded limits",
+      "Monitoring up to 6 agents (4hr resolution)",
+      "40 training updates per month",
+      "1 new automation workflow per month",
+      "Monthly Loom strategy update + 1 optional live call (30 min)",
+      "API key security & credential rotation reminders",
+      "Priority support: 24hr response, 15 requests/mo",
+    ],
+    timeline: "Ongoing monthly (6-month minimum)",
+    supportPeriod: "Included",
+  },
+  {
+    id: "agent-command-center",
+    name: "Agent Command Center",
+    category: "ai-agent-retainers",
+    price: 7500,
+    recurring: true,
+    description: "Businesses running AI as core operations.",
+    deliverables: [
+      "Everything in Agent Growth with expanded limits",
+      "Unlimited agent monitoring (2hr resolution)",
+      "Unlimited training data updates",
+      "3 new automation workflows per month",
+      "Monthly strategy meeting (60 min) + weekly Loom updates",
+      "Enterprise security: secrets management, credential isolation, audit logging, monthly security review, PII protocols",
+      "1 new agent build per month included (additional agents $2,000 each vs $5,000 standalone)",
+      "Quarterly AI audit",
+    ],
+    timeline: "Ongoing monthly (6-month minimum)",
+    supportPeriod: "Included",
+  },
+
+  // ─── Web & Brand Packages ──────────────────────────────────────
 
   {
     id: "starter-launch",
@@ -110,15 +171,17 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     price: 4500,
     description: "Everything you need to launch your brand online.",
     deliverables: [
-      "Custom website (up to 5 pages)",
-      "Mobile-responsive design",
-      "Basic SEO setup",
-      "Contact form integration",
-      "Logo and brand identity kit",
-      "Social media profile setup (up to 3 platforms)",
+      "Custom website (5 pages) — fully custom-designed, mobile-responsive, built in Next.js (Home, About, Services, Contact, +1)",
+      "SEO meta titles and descriptions for all 5 pages",
+      "SSL and hosting on Vercel included",
+      "Brand identity: 2 logo concepts (PNG, SVG, PDF), 1 color palette (5 colors), 1 font pairing",
+      "AI chat widget: 1 chatbot, 25 Q&A pairs, lead capture form",
+      "CRM setup (GoHighLevel): 1 pipeline with 5 stages, 5 automations, contact import (500 max)",
+      "Analytics & tracking: GA4, 1 conversion goal, Google Search Console, CTA event tracking",
+      "2 design revision rounds per page within 5 business days",
     ],
-    timeline: "2 to 3 weeks",
-    supportPeriod: "30 days post-launch support",
+    timeline: "4 to 6 weeks",
+    supportPeriod: "30 days post-launch monitoring",
   },
   {
     id: "growth-accelerator",
@@ -127,16 +190,19 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     price: 9500,
     description: "A complete digital presence built for growth and conversions.",
     deliverables: [
-      "Custom website (up to 10 pages)",
-      "Advanced SEO and analytics setup",
-      "CMS integration for self-managed content",
-      "Email marketing setup and first campaign",
-      "Full brand identity (logo, colors, typography, guidelines)",
-      "Social media profile setup (up to 5 platforms)",
-      "Lead capture and CRM integration",
+      "Custom website (10 pages + CMS) — Next.js with blog/portfolio CMS, 3 custom animations, full on-page SEO",
+      "SSL + Vercel hosting",
+      "Full brand identity: 3 logo concepts, 10-page brand guidelines PDF, 5 social media templates",
+      "AI chatbot: 50 Q&A pairs, appointment booking, lead capture, embedded on 3 pages",
+      "AI voice agent: 1 inbound voice agent, 1 call script, 500 voice minutes first month, call recordings in CRM",
+      "Workflow automation: 8 GoHighLevel automations, up to 5 steps each",
+      "Google Ads setup: 1 campaign, 3 ad groups, 6 ad variations, 1 landing page, conversion tracking (ad spend billed separately)",
+      "Real-time client dashboard with 6 widgets",
+      "3 design revision rounds per deliverable",
+      "Homepage + services page copy included (1,500 words)",
     ],
-    timeline: "3 to 5 weeks",
-    supportPeriod: "60 days post-launch support",
+    timeline: "6 to 8 weeks",
+    supportPeriod: "30 days post-launch (ad management, AI monitoring, bug fixes)",
   },
   {
     id: "total-domination",
@@ -145,71 +211,76 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     price: 18000,
     description: "End-to-end digital ecosystem for maximum market impact.",
     deliverables: [
-      "Custom website (up to 20 pages)",
-      "E-commerce or booking system integration",
-      "Advanced SEO, analytics, and conversion tracking",
-      "Full CMS with custom content workflows",
-      "Complete brand identity and brand guidelines document",
-      "Social media setup across all platforms",
-      "Email marketing automation with drip sequences",
-      "Lead qualification and CRM pipeline setup",
-      "Ad campaign setup (Google Ads and/or Meta Ads)",
+      "Premium website (15 pages + e-commerce) — Next.js with headless CMS, 6 custom animations, e-commerce (20 products with Shopify/Stripe), full SEO, CDN optimization",
+      "Complete brand system: 5 logo concepts, 20-page brand guidelines, stationery design, pitch deck (15 slides), 10 social templates",
+      "AI agent ecosystem: 3 interconnected agents with decision tree and CRM integration",
+      "Conversational AI suite: chatbot (100 Q&A), voice agent (2 scripts, 1,000 minutes), 5 SMS sequences",
+      "Workflow automation: 15 automations, up to 7 steps with conditional logic",
+      "Google + Meta Ads full setup: Google (5 ad groups, 10 variations), Meta (3 ad sets), retargeting, 2 landing pages, ad creative (ad spend separate)",
+      "AI content system: video-to-clips workflow, blog generation, social scheduling — first month: 4 blogs + 12 social posts",
+      "Executive dashboard: 10 widgets, weekly summary email to 3 recipients",
+      "3 design revision rounds per deliverable",
+      "Full copy for 10 pages + all ad copy included",
     ],
-    timeline: "6 to 10 weeks",
-    supportPeriod: "90 days post-launch support",
+    timeline: "8 to 12 weeks",
+    supportPeriod: "45 days post-launch monitoring",
   },
 
-  // ─── Social Setup Packages ────────────────────────────────────────
+  // ─── Social Setup (One-Time) ────────────────────────────────────
 
   {
-    id: "social-starter-setup",
-    name: "Social Starter Setup",
+    id: "single-platform-setup",
+    name: "Single Platform Setup",
     category: "social-setup",
     price: 1200,
-    description: "Get your social media profiles set up and ready to go.",
+    description: "Start fresh on a single platform with a professional presence.",
     deliverables: [
-      "Profile setup on up to 3 platforms",
-      "Profile and cover image design",
-      "Bio and description copywriting",
-      "Initial content calendar (1 month)",
+      "1 platform of choice — profile optimization",
+      "Visual identity assets (profile photo + cover image)",
+      "3 content templates",
+      "Hashtag strategy (3 sets)",
+      "4 launch posts",
+      "Platform guide PDF",
     ],
     timeline: "3 to 5 days",
-    supportPeriod: "14 days post-launch support",
+    supportPeriod: "Post-delivery: $175/hr",
   },
   {
-    id: "social-growth-setup",
-    name: "Social Growth Setup",
+    id: "multi-platform-launch",
+    name: "Multi-Platform Launch",
     category: "social-setup",
-    price: 2200,
-    description: "Professional social presence with content strategy.",
+    price: 2000,
+    description: "Launch or refresh your social presence across 3 platforms.",
     deliverables: [
-      "Profile setup on up to 5 platforms",
-      "Custom graphics and templates",
-      "Bio and description copywriting",
-      "Content strategy and 2-month content calendar",
-      "Hashtag research and strategy",
-      "Competitor analysis",
+      "3 platforms — profile optimization on all 3",
+      "Cohesive visual identity across platforms",
+      "15 content templates (5 per platform)",
+      "Hashtag strategy (15 sets)",
+      "18 launch posts (6 per platform)",
+      "30-day content calendar",
+      "3 platform guides",
+      "Link-in-bio page",
     ],
     timeline: "1 to 2 weeks",
-    supportPeriod: "30 days post-launch support",
+    supportPeriod: "Post-delivery: $175/hr",
   },
   {
-    id: "social-domination-setup",
-    name: "Social Domination Setup",
+    id: "full-social-rebrand",
+    name: "Full Social Rebrand",
     category: "social-setup",
     price: 3500,
-    description: "Complete social media infrastructure for serious brands.",
+    description: "Complete overhaul for established businesses with outdated social presence.",
     deliverables: [
-      "Profile setup on all relevant platforms",
-      "Full brand kit adapted for each platform",
-      "Content strategy and 3-month content calendar",
-      "Hashtag and keyword research",
-      "Competitor and audience analysis",
-      "Influencer outreach template kit",
-      "Paid social ad account setup",
+      "5 platforms — full audit and profile overhaul",
+      "Complete social brand kit: 50 templates + story templates + IG highlight icons",
+      "Hashtag/SEO strategy (50 sets)",
+      "40 launch posts + 4 videos",
+      "60-day content calendar",
+      "Link-in-bio page",
+      "YouTube setup if included",
     ],
     timeline: "2 to 3 weeks",
-    supportPeriod: "30 days post-launch support",
+    supportPeriod: "Post-delivery: $175/hr",
   },
 
   // ─── Social Management (Monthly) ─────────────────────────────────
@@ -220,15 +291,16 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     category: "social-management",
     price: 1500,
     recurring: true,
-    description: "Consistent social media presence with managed posting.",
+    description: "Consistent presence on 1-2 channels.",
     deliverables: [
-      "Content creation and posting (3x per week per platform)",
-      "Up to 2 platforms managed",
-      "Monthly content calendar",
-      "Basic engagement monitoring",
+      "2 platforms managed",
+      "16 posts per month (8 per platform)",
+      "Scheduling and basic engagement (30 min/day M-F)",
       "Monthly performance report",
+      "1 revision round",
+      "Hashtag strategy (updated quarterly)",
     ],
-    timeline: "Ongoing monthly",
+    timeline: "Ongoing monthly (3-month minimum)",
     supportPeriod: "Included",
   },
   {
@@ -237,16 +309,17 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     category: "social-management",
     price: 2500,
     recurring: true,
-    description: "Active social growth with engagement and strategy.",
+    description: "Growing audience and engagement across multiple platforms.",
     deliverables: [
-      "Content creation and posting (5x per week per platform)",
-      "Up to 4 platforms managed",
-      "Weekly content calendar with approval workflow",
-      "Active community engagement and replies",
-      "Hashtag and trend optimization",
-      "Bi-weekly performance reports with insights",
+      "4 platforms managed",
+      "48 posts + 4 videos per month",
+      "Active engagement (1 hr/day M-F)",
+      "Monthly report + Loom walkthrough + 1 optional call (30 min)",
+      "Video production (4 short-form)",
+      "2 revision rounds",
+      "Monthly content strategy",
     ],
-    timeline: "Ongoing monthly",
+    timeline: "Ongoing monthly (6-month minimum)",
     supportPeriod: "Included",
   },
   {
@@ -255,35 +328,37 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     category: "social-management",
     price: 4500,
     recurring: true,
-    description: "Full-service social media management and growth.",
+    description: "Full social dominance across all channels.",
     deliverables: [
-      "Content creation and posting (daily across all platforms)",
-      "Unlimited platforms managed",
-      "Real-time engagement and community management",
-      "Influencer collaboration outreach",
-      "Paid social ad management",
-      "Weekly strategy calls",
-      "Weekly performance reports with optimization recommendations",
+      "6 platforms managed",
+      "120 posts + 8 videos per month",
+      "YouTube management (2 long-form videos per month)",
+      "Full community management (2 hrs/day M-F)",
+      "Weekly analytics + monthly deep-dive + Loom + 1 optional call (30 min)",
+      "Video production (8 short + 2 long)",
+      "2 revision rounds",
+      "Quarterly social strategy",
+      "Influencer coordination (5 micro-influencers per month)",
     ],
-    timeline: "Ongoing monthly",
+    timeline: "Ongoing monthly (6-month minimum)",
     supportPeriod: "Included",
   },
 
   // ─── YouTube Management (Monthly) ────────────────────────────────
 
   {
-    id: "youtube-starter",
-    name: "YouTube Starter",
+    id: "youtube-essentials",
+    name: "YouTube Essentials",
     category: "youtube",
     price: 1500,
     recurring: true,
-    description: "Channel setup and basic video optimization.",
+    description: "Core YouTube management with video optimization.",
     deliverables: [
-      "Channel setup and branding",
-      "SEO optimization for up to 4 videos/month",
-      "Thumbnail design",
-      "Title and description copywriting",
+      "4 videos per month",
+      "Custom thumbnail design",
+      "SEO optimization (titles, descriptions, tags)",
       "Monthly analytics report",
+      "1 revision round",
     ],
     timeline: "Ongoing monthly",
     supportPeriod: "Included",
@@ -292,42 +367,22 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     id: "youtube-growth",
     name: "YouTube Growth",
     category: "youtube",
-    price: 2000,
-    recurring: true,
-    description: "Active YouTube growth with content strategy.",
-    deliverables: [
-      "Full channel management",
-      "SEO optimization for up to 8 videos/month",
-      "Custom thumbnail design",
-      "Content strategy and scripting support",
-      "Community tab management",
-      "Competitor analysis",
-      "Bi-weekly analytics reports",
-    ],
-    timeline: "Ongoing monthly",
-    supportPeriod: "Included",
-  },
-  {
-    id: "youtube-domination",
-    name: "YouTube Domination",
-    category: "youtube",
     price: 3000,
     recurring: true,
-    description: "Full-service YouTube management and production.",
+    description: "Full YouTube growth with Shorts and channel strategy.",
     deliverables: [
-      "End-to-end video production support",
-      "Unlimited video optimization",
-      "Custom thumbnails and channel art",
-      "Full content strategy with scripting",
-      "Community and comment management",
-      "YouTube Ads setup and management",
-      "Weekly analytics and growth strategy calls",
+      "8 videos + 2 Shorts per month",
+      "A/B thumbnail testing",
+      "Channel strategy development",
+      "Community tab management",
+      "Monthly Loom walkthrough",
+      "2 revision rounds",
     ],
     timeline: "Ongoing monthly",
     supportPeriod: "Included",
   },
 
-  // ─── Monthly Marketing Retainers ─────────────────────────────────
+  // ─── Marketing Retainers (Monthly) ────────────────────────────────
 
   {
     id: "maintain-monitor",
@@ -335,15 +390,16 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     category: "marketing-retainers",
     price: 1500,
     recurring: true,
-    description: "Keep your digital presence running smoothly.",
+    description: "Peace of mind after launch.",
     deliverables: [
       "Website maintenance and updates",
-      "Monthly security and performance checks",
-      "Analytics monitoring and monthly report",
-      "Up to 5 hours of content updates",
-      "Email and chat support",
+      "AI chatbot monitoring (10 Q&A updates per month)",
+      "Monthly performance report",
+      "Design updates (2 hrs/mo, roll over to 4 max)",
+      "CRM pipeline management (3 automation adjustments per month)",
+      "Text/email support (48hr response, 10 requests per month)",
     ],
-    timeline: "Ongoing monthly",
+    timeline: "Ongoing monthly (3-month minimum)",
     supportPeriod: "Included",
   },
   {
@@ -352,17 +408,17 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     category: "marketing-retainers",
     price: 3500,
     recurring: true,
-    description: "Continuous marketing optimization for growing businesses.",
+    description: "Actively scaling revenue with ads and AI content.",
     deliverables: [
       "Everything in Maintain & Monitor",
-      "SEO optimization and content updates",
-      "Email marketing campaigns (up to 4/month)",
-      "Social media strategy adjustments",
-      "A/B testing and conversion optimization",
-      "Up to 15 hours of development and design work",
-      "Bi-weekly strategy calls",
+      "Google Ads management (2 campaigns, up to $5K ad spend managed)",
+      "Meta Ads management (2 campaigns, 1 creative refresh per month)",
+      "AI content production (4 blogs + 12 social posts per month)",
+      "AI system optimization (15 Q&A updates, 1 voice script revision per month)",
+      "Monthly Loom strategy video + 1 optional live call (30 min)",
+      "Design & development (5 hrs/mo, no rollover)",
     ],
-    timeline: "Ongoing monthly",
+    timeline: "Ongoing monthly (6-month minimum)",
     supportPeriod: "Included",
   },
   {
@@ -371,38 +427,39 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     category: "marketing-retainers",
     price: 7500,
     recurring: true,
-    description: "Your dedicated digital team for maximum growth.",
+    description: "Your dedicated digital team for businesses investing $5K+/mo in ads.",
     deliverables: [
       "Everything in Growth Engine",
-      "Dedicated account manager",
-      "Full-service marketing execution",
-      "Ad campaign management (Google + Meta)",
-      "Advanced analytics and attribution",
-      "Unlimited development and design hours",
-      "Weekly strategy calls",
-      "Priority support with same-day response",
+      "Dedicated strategist (M-F 9-5, 4hr response during business hours)",
+      "Unlimited ad campaigns, up to $20K ad spend managed",
+      "AI ecosystem management: 5 agents managed, 2 new workflows per month",
+      "Content system: 8 blogs, 20 social posts, 4 short-form videos per month",
+      "Monthly strategy meeting (60 min) + weekly Loom updates",
+      "Design & development (15 hrs/mo, roll over to 30 max)",
+      "Quarterly brand refresh (5 new creative assets)",
     ],
-    timeline: "Ongoing monthly",
+    timeline: "Ongoing monthly (6-month minimum)",
     supportPeriod: "Included",
   },
 
-  // ─── Custom Development ──────────────────────────────────────────
+  // ─── Custom Development (One-Time) ─────────────────────────────
 
   {
-    id: "discovery-sprint",
-    name: "Discovery Sprint",
+    id: "discovery-scoping",
+    name: "Discovery & Scoping",
     category: "custom-development",
     price: 2500,
     description: "Define your project scope, architecture, and roadmap.",
     deliverables: [
-      "Requirements gathering and analysis",
+      "Kickoff questionnaire + recorded Loom workshop",
+      "User flow mapping (5 flows)",
       "Technical architecture document",
-      "Project roadmap and timeline",
-      "Technology stack recommendations",
-      "Budget estimation for full build",
+      "Wireframes (10 screens)",
+      "Scope of Work document",
+      "Fixed-price build quote",
     ],
     timeline: "1 to 2 weeks",
-    supportPeriod: "Included in build phase",
+    supportPeriod: "Discovery fee credited toward build if you proceed within 30 days",
   },
   {
     id: "standard-build",
@@ -411,17 +468,18 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     price: 25000,
     description: "Full custom application development from concept to launch.",
     deliverables: [
-      "Custom web or mobile application",
-      "UI/UX design and prototyping",
-      "Frontend and backend development",
-      "Database design and implementation",
-      "Third-party API integrations",
-      "Testing and quality assurance",
-      "Deployment and launch support",
+      "Full UI/UX design (15-30 screens)",
+      "Frontend development (Next.js/React/TypeScript)",
+      "Backend development (Node.js, PostgreSQL/MongoDB)",
+      "Core features per Scope of Work",
+      "3 third-party integrations",
+      "Hosting & deployment (Vercel + Railway/Render/AWS)",
+      "Testing & QA",
       "Documentation and handover",
+      "Full code ownership transferred",
     ],
-    timeline: "8 to 12 weeks",
-    supportPeriod: "60 days post-launch support",
+    timeline: "6 to 12 weeks",
+    supportPeriod: "30 days post-launch bug fixes",
   },
   {
     id: "enterprise-build",
@@ -430,21 +488,22 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     price: 75000,
     description: "Large-scale enterprise application with advanced requirements.",
     deliverables: [
-      "Enterprise-grade custom application",
-      "Complex multi-system architecture",
-      "Advanced security and compliance implementation",
-      "Scalability and performance optimization",
-      "Multiple third-party integrations",
-      "Comprehensive testing suite",
-      "CI/CD pipeline setup",
-      "Team training and knowledge transfer",
-      "Detailed technical documentation",
+      "Everything in Standard Build expanded (30-60+ screens)",
+      "Advanced architecture (microservices, caching, queues)",
+      "AI-powered features",
+      "Mobile app (React Native, if included)",
+      "6 third-party integrations",
+      "Advanced security & compliance",
+      "Multi-tenant architecture",
+      "Phased delivery (3-4 phases)",
+      "Weekly status updates, bi-weekly demo videos, 1 optional call per month",
+      "Full code ownership transferred",
     ],
-    timeline: "16 to 24 weeks",
-    supportPeriod: "90 days post-launch support",
+    timeline: "12 to 24 weeks",
+    supportPeriod: "45 days post-launch bug fixes per phase",
   },
 
-  // ─── Dev Retainers (Monthly) ──────────────────────────────────────
+  // ─── Software Retainers (Monthly) ──────────────────────────────
 
   {
     id: "dev-support",
@@ -452,15 +511,16 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     category: "dev-retainers",
     price: 1500,
     recurring: true,
-    description: "Ongoing technical support and minor development work.",
+    description: "Stable apps needing security, monitoring, and patching.",
     deliverables: [
-      "Bug fixes and issue resolution",
-      "Up to 10 hours of development work",
-      "Performance monitoring",
-      "Security updates and patches",
-      "Email and chat support",
+      "24/7 uptime monitoring",
+      "Security maintenance: monthly dependency updates, vulnerability scanning, SSL renewal, backup verification",
+      "Bug fixes (5 hrs/mo)",
+      "Database management",
+      "Monthly health report",
+      "Email support (24hr response, 8 requests per month)",
     ],
-    timeline: "Ongoing monthly",
+    timeline: "Ongoing monthly (3-month minimum)",
     supportPeriod: "Included",
   },
   {
@@ -471,13 +531,13 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     recurring: true,
     description: "Pre-purchased development hours at a discounted rate.",
     deliverables: [
-      "20 hours of development work per month",
-      "Feature development and enhancements",
-      "Bug fixes and optimization",
-      "Code review and technical consulting",
-      "Rollover of unused hours (up to 10 hours)",
+      "10 hrs/mo at $250/hr (20 hrs = $4,500 at $225/hr, 30 hrs = $6,000 at $200/hr, 40+ custom)",
+      "Tasks via shared board, time tracked and reported weekly",
+      "Unused hours do not roll over",
+      "Response: acknowledged within 1 business day",
+      "Covers: bug fixes, minor features, UI/UX, database, API, integrations, performance, security, consulting",
     ],
-    timeline: "Ongoing monthly",
+    timeline: "Ongoing monthly (month-to-month, no minimum)",
     supportPeriod: "Included",
   },
   {
@@ -486,17 +546,18 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
     category: "dev-retainers",
     price: 7500,
     recurring: true,
-    description: "Dedicated development team for continuous product evolution.",
+    description: "Growing platforms shipping new features monthly.",
     deliverables: [
-      "Dedicated developer allocation",
-      "Unlimited development hours",
-      "Sprint planning and agile workflow",
-      "Feature development and iteration",
-      "Performance optimization",
-      "Weekly progress reports and demos",
-      "Priority support with same-day response",
+      "Everything in Dev Support",
+      "Feature development (35 hrs/mo, rollover to 52 max)",
+      "Monthly Loom roadmap review + 1 optional call (60 min)",
+      "Shared task board",
+      "Design included (3 hrs/mo)",
+      "Bi-weekly Loom demo videos",
+      "Priority support: 4hr response, 15 requests per month",
+      "Quarterly performance review",
     ],
-    timeline: "Ongoing monthly",
+    timeline: "Ongoing monthly (6-month minimum)",
     supportPeriod: "Included",
   },
 ];
@@ -504,7 +565,7 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
 // ─── Add-On Packages ─────────────────────────────────────────────────
 
 export const ADDON_PACKAGES: ServicePackage[] = [
-  // Individual AI Agents
+  // ─── Individual AI Agents (A La Carte, $5,000 each) ────────────
   {
     id: "voice-agent",
     name: "Voice Agent",
@@ -606,14 +667,14 @@ export const ADDON_PACKAGES: ServicePackage[] = [
     supportPeriod: "30 days",
   },
 
-  // Social Media Add-Ons (Monthly per platform)
+  // ─── Social Media Add-Ons (Monthly per platform — retainer pricing) ──
   {
     id: "addon-instagram",
     name: "Instagram Management",
     category: "social-addons",
-    price: 500,
+    price: 600,
     recurring: true,
-    description: "Monthly Instagram management add-on.",
+    description: "Monthly Instagram management add-on ($950 standalone).",
     deliverables: ["Content creation and posting", "Story management", "Engagement and community management", "Monthly analytics"],
     timeline: "Ongoing monthly",
     supportPeriod: "Included",
@@ -622,9 +683,9 @@ export const ADDON_PACKAGES: ServicePackage[] = [
     id: "addon-tiktok",
     name: "TikTok Management",
     category: "social-addons",
-    price: 600,
+    price: 700,
     recurring: true,
-    description: "Monthly TikTok management add-on.",
+    description: "Monthly TikTok management add-on ($1,100 standalone).",
     deliverables: ["Short-form video content creation", "Trend monitoring and implementation", "Engagement management", "Monthly analytics"],
     timeline: "Ongoing monthly",
     supportPeriod: "Included",
@@ -633,9 +694,9 @@ export const ADDON_PACKAGES: ServicePackage[] = [
     id: "addon-linkedin",
     name: "LinkedIn Management",
     category: "social-addons",
-    price: 500,
+    price: 650,
     recurring: true,
-    description: "Monthly LinkedIn management add-on.",
+    description: "Monthly LinkedIn management add-on ($1,050 standalone).",
     deliverables: ["Professional content creation", "Network engagement", "Thought leadership positioning", "Monthly analytics"],
     timeline: "Ongoing monthly",
     supportPeriod: "Included",
@@ -644,9 +705,9 @@ export const ADDON_PACKAGES: ServicePackage[] = [
     id: "addon-facebook",
     name: "Facebook Management",
     category: "social-addons",
-    price: 400,
+    price: 450,
     recurring: true,
-    description: "Monthly Facebook management add-on.",
+    description: "Monthly Facebook management add-on ($750 standalone).",
     deliverables: ["Content creation and posting", "Community management", "Event and group management", "Monthly analytics"],
     timeline: "Ongoing monthly",
     supportPeriod: "Included",
@@ -655,9 +716,9 @@ export const ADDON_PACKAGES: ServicePackage[] = [
     id: "addon-twitter",
     name: "X (Twitter) Management",
     category: "social-addons",
-    price: 500,
+    price: 450,
     recurring: true,
-    description: "Monthly X (Twitter) management add-on.",
+    description: "Monthly X (Twitter) management add-on ($750 standalone).",
     deliverables: ["Content creation and posting", "Real-time engagement", "Trend monitoring", "Monthly analytics"],
     timeline: "Ongoing monthly",
     supportPeriod: "Included",
@@ -668,7 +729,7 @@ export const ADDON_PACKAGES: ServicePackage[] = [
     category: "social-addons",
     price: 400,
     recurring: true,
-    description: "Monthly Pinterest management add-on.",
+    description: "Monthly Pinterest management add-on ($650 standalone).",
     deliverables: ["Pin design and scheduling", "Board strategy and optimization", "SEO-optimized descriptions", "Monthly analytics"],
     timeline: "Ongoing monthly",
     supportPeriod: "Included",
@@ -677,15 +738,15 @@ export const ADDON_PACKAGES: ServicePackage[] = [
     id: "addon-youtube-shorts",
     name: "YouTube Shorts Management",
     category: "social-addons",
-    price: 700,
+    price: 450,
     recurring: true,
-    description: "Monthly YouTube Shorts management add-on.",
+    description: "Monthly YouTube Shorts management add-on ($750 standalone).",
     deliverables: ["Short-form video creation", "SEO optimization", "Thumbnail design", "Monthly analytics"],
     timeline: "Ongoing monthly",
     supportPeriod: "Included",
   },
 
-  // General Add-Ons
+  // ─── General Add-Ons ───────────────────────────────────────────
   {
     id: "additional-pages",
     name: "Additional Website Pages",
@@ -698,10 +759,10 @@ export const ADDON_PACKAGES: ServicePackage[] = [
   },
   {
     id: "ecommerce-addon",
-    name: "E-Commerce Integration",
+    name: "E-Commerce (Shopify)",
     category: "general-addons",
     price: 3000,
-    description: "Full e-commerce functionality for your website.",
+    description: "Full e-commerce functionality via Shopify integration.",
     deliverables: ["Product catalog setup", "Shopping cart and checkout", "Payment processing integration", "Order management system", "Inventory tracking"],
     timeline: "1 to 2 weeks",
     supportPeriod: "30 days",
@@ -717,111 +778,246 @@ export const ADDON_PACKAGES: ServicePackage[] = [
     supportPeriod: "30 days",
   },
   {
-    id: "ai-chatbot-addon",
-    name: "AI Chatbot",
+    id: "email-sequences-addon",
+    name: "Email Sequences",
     category: "general-addons",
-    price: 1500,
-    description: "Add an AI chatbot to your website.",
-    deliverables: ["AI chatbot setup and training", "Custom response flows", "Website widget integration"],
-    timeline: "1 week",
-    supportPeriod: "30 days",
-  },
-  {
-    id: "seo-audit",
-    name: "SEO Audit & Optimization",
-    category: "general-addons",
-    price: 1500,
-    description: "Comprehensive SEO audit and optimization.",
-    deliverables: ["Technical SEO audit", "Keyword research", "On-page optimization", "Competitor analysis", "Action plan and recommendations"],
-    timeline: "1 week",
-    supportPeriod: "30 days",
-  },
-  {
-    id: "brand-guidelines",
-    name: "Brand Guidelines Document",
-    category: "general-addons",
-    price: 2000,
-    description: "Professional brand guidelines document.",
-    deliverables: ["Logo usage guidelines", "Color palette and typography", "Tone of voice guide", "Social media templates", "Brand asset library"],
-    timeline: "1 to 2 weeks",
-    supportPeriod: "N/A",
-  },
-  {
-    id: "email-marketing-setup",
-    name: "Email Marketing Setup",
-    category: "general-addons",
-    price: 1500,
-    description: "Email marketing platform setup and first campaigns.",
-    deliverables: ["Email platform setup", "Template design", "List import and segmentation", "Welcome sequence (3-5 emails)", "Analytics setup"],
+    price: 1200,
+    description: "Automated email sequence setup.",
+    deliverables: ["Email sequence strategy", "Copywriting for sequence", "Platform setup and automation", "A/B testing setup"],
     timeline: "1 week",
     supportPeriod: "14 days",
   },
+  {
+    id: "brand-video-addon",
+    name: "Brand Video (30s)",
+    category: "general-addons",
+    price: 1800,
+    description: "Professional 30-second brand video.",
+    deliverables: ["Script development", "Video production", "Professional editing", "Music and graphics"],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "1 revision round",
+  },
+  {
+    id: "pitch-deck-addon",
+    name: "Pitch Deck",
+    category: "general-addons",
+    price: 1500,
+    description: "Professional pitch deck design.",
+    deliverables: ["Pitch deck design (up to 15 slides)", "Custom graphics and charts", "Presentation-ready format"],
+    timeline: "1 week",
+    supportPeriod: "1 revision round",
+  },
+  {
+    id: "landing-page-addon",
+    name: "Landing Page",
+    category: "general-addons",
+    price: 1400,
+    description: "High-converting landing page design and build.",
+    deliverables: ["Custom landing page design", "Mobile-responsive build", "CTA optimization", "Analytics tracking"],
+    timeline: "3 to 5 days",
+    supportPeriod: "Included in project support",
+  },
+  {
+    id: "sms-campaign-addon",
+    name: "SMS Campaign",
+    category: "general-addons",
+    price: 1000,
+    description: "SMS marketing campaign setup.",
+    deliverables: ["SMS campaign strategy", "Message copywriting", "Platform setup and automation", "Compliance setup"],
+    timeline: "3 to 5 days",
+    supportPeriod: "14 days",
+  },
+  {
+    id: "crm-migration-addon",
+    name: "CRM Migration",
+    category: "general-addons",
+    price: 1800,
+    description: "Migrate your data between CRM platforms.",
+    deliverables: ["Data mapping and export", "Import to new CRM", "Pipeline and automation recreation", "Data verification"],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "strategy-session-addon",
+    name: "Strategy Session",
+    category: "general-addons",
+    price: 500,
+    description: "1-hour strategy consultation session.",
+    deliverables: ["60-minute strategy session", "Recorded Loom summary", "Action items document"],
+    timeline: "Scheduled within 1 week",
+    supportPeriod: "N/A",
+  },
+  {
+    id: "copywriting-addon",
+    name: "Copywriting",
+    category: "general-addons",
+    price: 200,
+    description: "Professional copywriting per page.",
+    deliverables: ["SEO-optimized copy for 1 page", "1 revision round"],
+    timeline: "2 to 3 days",
+    supportPeriod: "Included",
+  },
 
-  // Development Add-Ons
+  // ─── Development Add-Ons ──────────────────────────────────────
   {
     id: "api-integration",
     name: "API Integration",
     category: "dev-addons",
     price: 3000,
     description: "Connect your application to external APIs.",
-    deliverables: [
-      "API authentication setup",
-      "Data mapping and transformation",
-      "Error handling and retry logic",
-      "Integration testing",
-    ],
+    deliverables: ["API authentication setup", "Data mapping and transformation", "Error handling and retry logic", "Integration testing"],
     timeline: "3 to 5 days",
     supportPeriod: "30 days",
   },
   {
     id: "payment-processing",
-    name: "Payment Processing",
+    name: "Payment Processing (Stripe)",
     category: "dev-addons",
     price: 4000,
-    description: "Integrate payment processing into your application.",
-    deliverables: ["Stripe or payment provider integration", "Checkout flow implementation", "Webhook handling", "Invoice generation", "Subscription management"],
+    description: "Integrate Stripe payment processing into your application.",
+    deliverables: ["Stripe integration", "Checkout flow implementation", "Webhook handling", "Invoice generation", "Subscription management"],
     timeline: "1 to 2 weeks",
     supportPeriod: "30 days",
   },
   {
     id: "auth-system",
-    name: "Authentication System",
+    name: "User Auth & Roles",
     category: "dev-addons",
-    price: 3500,
-    description: "User authentication and authorization system.",
+    price: 3000,
+    description: "User authentication and role-based authorization system.",
     deliverables: ["User registration and login", "OAuth/SSO integration", "Role-based access control", "Password reset flows", "Session management"],
     timeline: "1 to 2 weeks",
     supportPeriod: "30 days",
   },
   {
-    id: "database-design",
-    name: "Database Design & Migration",
+    id: "email-sms-notifications",
+    name: "Email/SMS Notifications",
+    category: "dev-addons",
+    price: 1500,
+    description: "Automated email and SMS notification system.",
+    deliverables: ["Email notification system", "SMS notification integration", "Template management", "Delivery tracking"],
+    timeline: "3 to 5 days",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "file-upload-system",
+    name: "File Upload System",
+    category: "dev-addons",
+    price: 2000,
+    description: "Secure file upload and management system.",
+    deliverables: ["File upload interface", "Cloud storage integration", "File type validation", "Access control"],
+    timeline: "3 to 5 days",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "search-filtering",
+    name: "Search & Filtering",
     category: "dev-addons",
     price: 2500,
-    description: "Database architecture design and migration.",
-    deliverables: ["Schema design", "Data migration scripts", "Performance optimization", "Backup and recovery setup"],
+    description: "Advanced search and filtering capabilities.",
+    deliverables: ["Full-text search implementation", "Faceted filtering", "Sort and pagination", "Search analytics"],
     timeline: "1 week",
     supportPeriod: "30 days",
+  },
+  {
+    id: "analytics-dashboard",
+    name: "Analytics Dashboard",
+    category: "dev-addons",
+    price: 5000,
+    description: "Custom analytics and reporting dashboard.",
+    deliverables: ["Dashboard design and build", "Data visualization widgets", "Report generation", "Export capabilities"],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "ai-chat-agent-addon",
+    name: "AI Chat Agent",
+    category: "dev-addons",
+    price: 5000,
+    description: "AI-powered chat agent integrated into your application.",
+    deliverables: ["AI chat agent development", "Training and fine-tuning", "Application integration", "Admin panel"],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "mobile-app-addon",
+    name: "Mobile App (React Native)",
+    category: "dev-addons",
+    price: 30000,
+    description: "Cross-platform mobile application built with React Native.",
+    deliverables: ["iOS and Android app", "UI/UX design", "API integration", "App store deployment", "Push notifications"],
+    timeline: "8 to 12 weeks",
+    supportPeriod: "45 days",
+  },
+  {
+    id: "database-migration",
+    name: "Database Migration",
+    category: "dev-addons",
+    price: 5000,
+    description: "Database architecture migration and optimization.",
+    deliverables: ["Schema design", "Data migration scripts", "Performance optimization", "Backup and recovery setup", "Zero-downtime migration"],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "performance-audit",
+    name: "Performance Audit",
+    category: "dev-addons",
+    price: 2000,
+    description: "Application performance profiling and optimization.",
+    deliverables: ["Performance profiling", "Frontend optimization (Core Web Vitals)", "Backend optimization (query performance)", "Caching strategy", "Load testing"],
+    timeline: "1 week",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "security-audit",
+    name: "Security Audit",
+    category: "dev-addons",
+    price: 4000,
+    description: "Comprehensive application security audit.",
+    deliverables: ["Vulnerability assessment", "Code review for security issues", "OWASP compliance check", "Security recommendations report"],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "pen-test-coordination",
+    name: "Third-Party Pen Test Coordination",
+    category: "dev-addons",
+    price: 5000,
+    description: "Coordinate and manage third-party penetration testing.",
+    deliverables: ["Pen test vendor coordination", "Scope definition", "Remediation support", "Final report review"],
+    timeline: "2 to 4 weeks",
+    supportPeriod: "30 days",
+  },
+  {
+    id: "white-label-multi-tenant",
+    name: "White-Label / Multi-Tenant",
+    category: "dev-addons",
+    price: 15000,
+    description: "White-label or multi-tenant architecture implementation.",
+    deliverables: ["Multi-tenant data isolation", "Tenant-specific branding", "Admin portal", "Tenant management system"],
+    timeline: "4 to 6 weeks",
+    supportPeriod: "45 days",
   },
   {
     id: "cicd-pipeline",
     name: "CI/CD Pipeline Setup",
     category: "dev-addons",
-    price: 2000,
+    price: 2500,
     description: "Automated deployment pipeline setup.",
     deliverables: ["CI/CD pipeline configuration", "Automated testing integration", "Staging environment setup", "Deployment automation"],
     timeline: "3 to 5 days",
     supportPeriod: "30 days",
   },
   {
-    id: "performance-optimization",
-    name: "Performance Optimization",
+    id: "strategy-consulting-dev",
+    name: "Strategy / Consulting",
     category: "dev-addons",
-    price: 3000,
-    description: "Application performance audit and optimization.",
-    deliverables: ["Performance profiling and audit", "Frontend optimization (Core Web Vitals)", "Backend optimization (query performance)", "Caching strategy implementation", "Load testing"],
-    timeline: "1 to 2 weeks",
-    supportPeriod: "30 days",
+    price: 300,
+    description: "Technical strategy and consulting (per hour).",
+    deliverables: ["1 hour of expert technical consulting", "Written recommendations"],
+    timeline: "Scheduled within 1 week",
+    supportPeriod: "N/A",
   },
 ];
 
@@ -854,323 +1050,236 @@ export function generateContractBody(
     return item.deliverables.filter((_, i) => !excluded.includes(i));
   };
 
-  // Split into one-time and recurring
-  const oneTimeItems = allItems.filter((i) => !i.recurring);
-  const recurringItems = allItems.filter((i) => i.recurring);
-
-  const customOneTime = customItems.filter((i) => !i.recurring);
-  const customRecurring = customItems.filter((i) => i.recurring);
-
-  const oneTimeTotal = oneTimeItems.reduce((sum, item) => sum + getPrice(item), 0);
-  const recurringTotal = recurringItems.reduce((sum, item) => sum + getPrice(item), 0);
-  const customOneTimeTotal = customOneTime.reduce((sum, item) => sum + item.price, 0);
-  const customRecurringTotal = customRecurring.reduce((sum, item) => sum + item.price, 0);
-  const grandOneTime = oneTimeTotal + customOneTimeTotal;
-  const grandRecurring = recurringTotal + customRecurringTotal;
-
-  const today = new Date().toLocaleDateString("en-US", {
+  const today = new Date();
+  const dateStr = today.toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 
-  const clientLabel = companyName
-    ? `${clientName} on behalf of ${companyName}`
-    : clientName;
-
   let contract = `SERVICE AGREEMENT
 
-
-This Service Agreement ("Agreement") is entered into as of ${today} by and between Blok Blok Studio ("Provider") and ${clientLabel} ("Client"). Together referred to as the "Parties."
+This Service Agreement ("Agreement") is entered into as of ${dateStr} by and between Blok Blok Studio ("Provider") and ${clientName}${companyName ? ` / ${companyName}` : ""} ("Client"). Together referred to as the "Parties."
 
 This Agreement outlines the terms and conditions under which the Provider will deliver the services described below. By signing this Agreement, both Parties acknowledge and accept the obligations set forth herein.
 
+`;
 
+  // ─── SECTION 1: Scope of Services ──────────────────────────────
 
-SECTION 1. SCOPE OF SERVICES
+  contract += `SECTION 1. SCOPE OF SERVICES
 
 The Provider agrees to deliver the following services to the Client:
 
 `;
 
-  let itemIndex = 0;
+  allItems.forEach((item, idx) => {
+    const letter = String.fromCharCode(65 + idx);
+    const price = getPrice(item);
+    const deliverables = getDeliverables(item);
+    const priceStr = item.recurring
+      ? `$${price.toLocaleString()} USD/mo`
+      : `$${price.toLocaleString()} USD`;
 
-  if (oneTimeItems.length > 0 || customOneTime.length > 0) {
-    contract += `One-Time Services:\n\n`;
+    contract += `${letter}. ${item.name}    ${priceStr}
+   ${item.description}
+
+`;
+
+    if (deliverables.length > 0) {
+      contract += `What is included:
+`;
+      deliverables.forEach((d) => {
+        contract += `        • ${d}
+`;
+      });
+      contract += `
+`;
+    }
+
+    if (item.timeline) {
+      contract += `   Estimated timeline: ${item.timeline}
+`;
+    }
+    if (item.supportPeriod) {
+      contract += `   Post-launch support: ${item.supportPeriod}
+`;
+    }
+    contract += `
+`;
+  });
+
+  // Custom line items
+  if (customItems.length > 0) {
+    customItems.forEach((item, idx) => {
+      const letter = String.fromCharCode(65 + allItems.length + idx);
+      const priceStr = item.recurring
+        ? `$${item.price.toLocaleString()} USD/mo`
+        : `$${item.price.toLocaleString()} USD`;
+      contract += `${letter}. ${item.name}    ${priceStr}
+`;
+    });
+    contract += `
+`;
+  }
+
+  // ─── SECTION 2: Total Investment ───────────────────────────────
+
+  contract += `SECTION 2. TOTAL INVESTMENT
+
+`;
+
+  // One-time items
+  const oneTimeItems = allItems.filter((i) => !i.recurring);
+  const oneTimeCustom = customItems.filter((i) => !i.recurring);
+  if (oneTimeItems.length > 0 || oneTimeCustom.length > 0) {
+    contract += `One-Time Services:
+`;
     oneTimeItems.forEach((item) => {
       const price = getPrice(item);
-      const deliverables = getDeliverables(item);
-      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${price.toLocaleString()} USD
-      ${item.description}
-
-      What is included:
+      contract += `   ${item.name}    $${price.toLocaleString()} USD
 `;
-      deliverables.forEach((d) => {
-        contract += `         ${d}\n`;
-      });
-      contract += `
-      Estimated timeline: ${item.timeline}
-      Post-launch support: ${item.supportPeriod}
-
-`;
-      itemIndex++;
     });
-
-    customOneTime.forEach((item) => {
-      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${item.price.toLocaleString()} USD
-
+    oneTimeCustom.forEach((item) => {
+      contract += `   ${item.name}    $${item.price.toLocaleString()} USD
 `;
-      itemIndex++;
     });
+    contract += `
+`;
   }
 
-  if (recurringItems.length > 0 || customRecurring.length > 0) {
-    contract += `Recurring Monthly Services:\n\n`;
+  // Recurring items
+  const recurringItems = allItems.filter((i) => i.recurring);
+  const recurringCustom = customItems.filter((i) => i.recurring);
+  if (recurringItems.length > 0 || recurringCustom.length > 0) {
+    contract += `Recurring Monthly Services:
+`;
     recurringItems.forEach((item) => {
       const price = getPrice(item);
-      const deliverables = getDeliverables(item);
-      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${price.toLocaleString()}/month USD
-      ${item.description}
-
-      What is included:
+      contract += `   ${item.name}    $${price.toLocaleString()} USD/mo
 `;
-      deliverables.forEach((d) => {
-        contract += `         ${d}\n`;
-      });
-      contract += `
-`;
-      itemIndex++;
     });
-
-    customRecurring.forEach((item) => {
-      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${item.price.toLocaleString()}/month USD
-
+    recurringCustom.forEach((item) => {
+      contract += `   ${item.name}    $${item.price.toLocaleString()} USD/mo
 `;
-      itemIndex++;
     });
+    contract += `
+`;
   }
+
+  // Totals
+  const oneTimeTotal =
+    oneTimeItems.reduce((sum, i) => sum + getPrice(i), 0) +
+    oneTimeCustom.reduce((sum, i) => sum + i.price, 0);
+  const recurringTotal =
+    recurringItems.reduce((sum, i) => sum + getPrice(i), 0) +
+    recurringCustom.reduce((sum, i) => sum + i.price, 0);
+
+  if (oneTimeTotal > 0) {
+    contract += `Total    $${oneTimeTotal.toLocaleString()} USD
+`;
+  }
+  if (recurringTotal > 0) {
+    contract += `Total    $${recurringTotal.toLocaleString()} USD/mo
+`;
+  }
+
+  // ─── SECTION 3: Payment Terms ──────────────────────────────────
 
   contract += `
-
-
-SECTION 2. TOTAL INVESTMENT
-
-`;
-
-  if (oneTimeItems.length > 0 || customOneTime.length > 0) {
-    contract += `One-Time Fees:\n`;
-    oneTimeItems.forEach((item) => {
-      contract += `   ${item.name}    $${getPrice(item).toLocaleString()} USD\n`;
-    });
-    customOneTime.forEach((item) => {
-      contract += `   ${item.name}    $${item.price.toLocaleString()} USD\n`;
-    });
-    contract += `\n   Subtotal    $${grandOneTime.toLocaleString()} USD\n\n`;
-  }
-
-  if (recurringItems.length > 0 || customRecurring.length > 0) {
-    contract += `Monthly Recurring Fees:\n`;
-    recurringItems.forEach((item) => {
-      contract += `   ${item.name}    $${getPrice(item).toLocaleString()}/month USD\n`;
-    });
-    customRecurring.forEach((item) => {
-      contract += `   ${item.name}    $${item.price.toLocaleString()}/month USD\n`;
-    });
-    contract += `\n   Monthly Total    $${grandRecurring.toLocaleString()}/month USD\n\n`;
-  }
-
-  contract += `Payment is due in accordance with the payment schedule outlined in Section 3 of this Agreement, unless a different arrangement has been agreed upon in writing by both Parties. Any advertising spend, third-party software licenses, API subscription fees, or external service costs are billed separately and are not included in the total above.
-
-
 
 SECTION 3. PAYMENT TERMS
 
 `;
 
-  if (grandOneTime > 0) {
-    contract += `A deposit equal to fifty percent (50%) of the total one-time project investment is required before any work begins. This deposit secures the Client's position in the Provider's project schedule and allows the Provider to allocate the necessary resources.
-
-The remaining fifty percent (50%) is due upon project completion and final delivery of all agreed-upon deliverables. The Provider will notify the Client in writing when the project is ready for final review.
+  if (oneTimeTotal > 0) {
+    contract += `One-time project payments are structured as follows:
+- 50% deposit due upon signing of this Agreement to initiate work.
+- Remaining balance due upon project completion (Net 7).
 
 `;
   }
 
   if (recurringTotal > 0) {
-    contract += `Monthly recurring fees are billed on the first of each month and are due within seven (7) calendar days of the invoice date. The first month's payment is due upon signing of this Agreement.
-
-Either Party may cancel recurring services with thirty (30) calendar days' written notice. Cancellation takes effect at the end of the current billing cycle.
+    contract += `Recurring services are billed monthly. The first payment is due upon signing of this Agreement. Subsequent invoices will be issued on the 1st of each month and are due within 7 days of receipt (Net 7).
 
 `;
   }
 
-  contract += `Payments may be made via Stripe, direct bank transfer, or any other method mutually agreed upon by both Parties. The Client is responsible for any transaction fees imposed by their chosen payment method.
-
-In the event that a payment is not received within fourteen (14) calendar days of the due date, a late fee of one and a half percent (1.5%) per month will be applied to the outstanding balance. This late fee compounds monthly until the balance is paid in full. The Provider reserves the right to pause or suspend all work until outstanding payments are resolved.
-
-If the Client fails to make payment within thirty (30) days of the due date, the Provider reserves the right to terminate this Agreement and retain all work product completed to date. The Client will remain liable for all amounts owed.
-
-
-
-SECTION 4. TIMELINE AND DELIVERY
-
-The estimated project timelines provided in this Agreement are offered in good faith and represent the Provider's best assessment based on the agreed scope of work. Actual timelines may vary depending on the complexity of the project, the responsiveness of the Client, and any changes to the original scope.
-
-The Provider commits to communicating any anticipated delays to the Client as promptly as possible and will work collaboratively to adjust the schedule as needed.
-
-The Client acknowledges that timely delivery depends on the Client providing all necessary materials, data, access credentials, feedback, and approvals within a reasonable timeframe. Delays caused by the Client's failure to provide these items in a timely manner may result in extended project timelines, and the Provider shall not be held responsible for such delays.
-
-Final deliverables will be presented to the Client for review before the project is considered complete. The Client will have a reasonable period, not to exceed seven (7) business days, to review and request any final adjustments within the agreed scope.
-
-
-
-SECTION 5. REVISIONS AND SCOPE CHANGES
-
-Minor adjustments and refinements that fall within the originally agreed scope of work are included at no additional cost. The Provider is committed to ensuring the Client is satisfied with the final product.
-
-Any requests that fall outside the original scope of work, including but not limited to new features, additional agents, expanded integrations, or changes to previously approved specifications, will be treated as scope changes. The Provider will prepare a written quote for any scope changes, and work on the additional items will not begin until the Client provides written approval and any required additional payment.
-
-Training updates, data point adjustments, and configuration changes during the post-launch support period are included as specified in the package details above. Requests beyond the included allotment will be quoted separately.
-
-The Provider reserves the right to suggest alternative approaches that may better serve the Client's objectives. Any such suggestions will be discussed with the Client before implementation.
-
-
-
-SECTION 6. INTELLECTUAL PROPERTY RIGHTS
-
-Upon receipt of full and final payment for all services rendered under this Agreement, all intellectual property rights in the custom-built deliverables, including but not limited to AI agents, custom code, workflow configurations, and documentation created specifically for the Client, shall transfer to and become the sole property of the Client.
-
-The Provider retains the right to use general knowledge, techniques, skills, and experience gained during the project for future engagements. The Provider also retains the right to reference the project in an anonymized capacity for portfolio, case study, and marketing purposes, unless the Client provides written notice opting out of this provision within thirty (30) days of project completion.
-
-Third-party tools, platforms, application programming interfaces (APIs), libraries, and frameworks utilized in the delivery of services remain subject to their respective license agreements. The Client is responsible for maintaining any required subscriptions or licenses for third-party services after the support period concludes.
-
-No open-source components will be incorporated into the deliverables without prior disclosure to the Client.
-
-
-
-SECTION 7. CONFIDENTIALITY AND DATA PROTECTION
-
-Both Parties agree to treat all information shared during the course of this engagement as strictly confidential. This includes, but is not limited to, business strategies, financial information, customer data, technical specifications, login credentials, API keys, proprietary processes, and any other information that is not publicly available.
-
-The Provider will not disclose, share, sell, or otherwise make available any confidential information belonging to the Client to any third party without the Client's prior written consent. The Provider will implement reasonable security measures to protect all Client data and credentials in its possession.
-
-The Client agrees not to disclose the Provider's proprietary methods, pricing structures, internal processes, or trade secrets to any third party.
-
-These confidentiality obligations shall survive the termination or expiration of this Agreement and shall remain in effect for a period of three (3) years following the date of termination or completion, whichever occurs later.
-
-In the event that either Party is required by law, regulation, or court order to disclose confidential information, the disclosing Party shall provide the other Party with prompt written notice to allow the other Party an opportunity to seek a protective order or other appropriate remedy.
-
-
-
-SECTION 8. WARRANTIES AND REPRESENTATIONS
-
-The Provider warrants that all services will be performed in a professional and workmanlike manner, consistent with generally accepted industry standards. The Provider further warrants that the deliverables will substantially conform to the specifications agreed upon by both Parties.
-
-If any deliverable fails to conform to the agreed specifications within the post-launch support period, the Provider will, at no additional cost, correct the non-conforming deliverable. This warranty does not extend to issues arising from the Client's modifications, misuse, or failure to follow the Provider's documented instructions.
-
-Except as expressly stated in this Agreement, the Provider makes no other warranties, whether express, implied, statutory, or otherwise, including but not limited to implied warranties of merchantability, fitness for a particular purpose, or non-infringement. The Provider does not guarantee specific business outcomes, revenue increases, or performance metrics as a result of the services provided.
-
-The Client represents and warrants that it has the authority to enter into this Agreement and that the materials provided to the Provider do not infringe on any third party's intellectual property rights.
-
-
-
-SECTION 9. LIMITATION OF LIABILITY
-
-To the maximum extent permitted by applicable law, the Provider's total cumulative liability under this Agreement, whether arising from contract, tort (including negligence), strict liability, or any other legal theory, shall not exceed the total amount actually paid by the Client to the Provider under this Agreement.
-
-In no event shall the Provider be liable for any indirect, incidental, special, consequential, punitive, or exemplary damages, including but not limited to damages for loss of profits, revenue, data, business opportunities, goodwill, or anticipated savings, even if the Provider has been advised of the possibility of such damages.
-
-The Provider shall not be held liable for any damages, losses, or service interruptions arising from the acts or omissions of third-party service providers, platforms, APIs, hosting services, or any other external systems that are beyond the Provider's reasonable control.
-
-The Client acknowledges that AI-based systems may produce unexpected outputs and that the Provider cannot guarantee that AI agents will perform flawlessly in all circumstances. The Client assumes responsibility for reviewing and validating AI outputs before relying on them for business decisions.
-
-
-
-SECTION 10. INDEMNIFICATION
-
-The Client agrees to indemnify, defend, and hold harmless the Provider, its owners, employees, contractors, and agents from and against any and all claims, damages, losses, liabilities, costs, and expenses (including reasonable attorney's fees) arising out of or related to (a) the Client's use of the deliverables, (b) the Client's breach of this Agreement, (c) the Client's violation of any applicable law, regulation, or third-party right, or (d) any claim that materials provided by the Client to the Provider infringe on any third party's intellectual property or proprietary rights.
-
-The Provider agrees to indemnify, defend, and hold harmless the Client from and against any claims arising directly from the Provider's gross negligence or willful misconduct in the performance of services under this Agreement.
-
-
-
-SECTION 11. SUPPORT AND MAINTENANCE
-
-Post-launch support is included as specified for each package in Section 1 of this Agreement. During the support period, the Provider will address bugs, errors, and technical issues related to the delivered agents and systems.
-
-Critical issues that prevent the normal operation of delivered agents will be prioritized and addressed within twenty-four (24) hours of being reported. Non-critical issues will be addressed within a reasonable timeframe based on their severity and complexity.
-
-After the conclusion of the post-launch support period, the Client may request ongoing maintenance, updates, or enhancements under a separate maintenance agreement. The terms and pricing for ongoing support will be discussed and agreed upon separately.
-
-The Provider is not responsible for issues arising from changes made by the Client or third parties to the delivered systems, infrastructure changes outside the Provider's control, or failures in third-party services.
-
-
-
-SECTION 12. TERMINATION
-
-Either Party may terminate this Agreement with fourteen (14) calendar days' written notice to the other Party. Written notice may be delivered via email to the contact addresses on file for each Party.
-
-In the event of termination by the Client, the Client shall pay for all work completed and expenses incurred up to the effective date of termination. The initial deposit is non-refundable once the Provider has commenced work, as it compensates the Provider for scheduling, resource allocation, and preliminary work.
-
-In the event of termination by the Provider, the Provider will deliver all completed work product to the Client and will refund any payments received for services not yet rendered.
-
-Either Party may terminate this Agreement immediately and without notice if the other Party commits a material breach of this Agreement and fails to cure such breach within seven (7) calendar days of receiving written notice of the breach.
-
-Upon termination, all confidentiality obligations shall survive and remain in full effect as specified in Section 7.
-
-
-
-SECTION 13. FORCE MAJEURE
-
-Neither Party shall be held liable for any delay or failure to perform its obligations under this Agreement if such delay or failure results from circumstances beyond the Party's reasonable control, including but not limited to natural disasters, acts of government, pandemic, epidemic, war, terrorism, riots, civil unrest, widespread internet outages, cyberattacks, or failure of third-party infrastructure.
-
-The affected Party shall provide prompt written notice to the other Party of the force majeure event and shall use commercially reasonable efforts to resume performance as soon as practicable. If a force majeure event continues for more than sixty (60) calendar days, either Party may terminate this Agreement without further liability.
-
-
-
-SECTION 14. DISPUTE RESOLUTION
-
-In the event of any dispute, controversy, or claim arising out of or relating to this Agreement, the Parties agree to first attempt to resolve the matter through good-faith negotiation. Either Party may initiate this process by providing written notice of the dispute to the other Party.
-
-If the dispute cannot be resolved through negotiation within thirty (30) calendar days, either Party may pursue mediation administered by a mutually agreed-upon mediator. The costs of mediation shall be shared equally between the Parties.
-
-If mediation is unsuccessful, either Party may pursue binding arbitration or litigation in a court of competent jurisdiction. The prevailing Party in any arbitration or litigation shall be entitled to recover its reasonable attorney's fees and costs from the non-prevailing Party.
-
-
-
-SECTION 15. NON-SOLICITATION
-
-During the term of this Agreement and for a period of twelve (12) months following its termination or expiration, neither Party shall directly solicit, recruit, or hire any employee, contractor, or agent of the other Party who was involved in the performance of services under this Agreement, without the prior written consent of the other Party.
-
-
-
-SECTION 16. INDEPENDENT CONTRACTOR
-
-The Provider is an independent contractor and nothing in this Agreement shall be construed to create a partnership, joint venture, agency, or employment relationship between the Parties. The Provider retains full control over the manner and means by which the services are performed, subject to the specifications agreed upon in this Agreement.
-
-The Provider is solely responsible for its own taxes, insurance, benefits, and compliance with applicable employment laws. The Client shall not be required to withhold taxes or provide benefits on behalf of the Provider.
-
-
-
-SECTION 17. ENTIRE AGREEMENT AND AMENDMENTS
-
-This Agreement constitutes the entire agreement between the Parties with respect to the subject matter hereof and supersedes all prior or contemporaneous agreements, understandings, negotiations, and discussions, whether oral or written.
-
-No amendment, modification, or waiver of any provision of this Agreement shall be effective unless made in writing and signed by both Parties. A waiver of any provision or breach of this Agreement shall not constitute a waiver of any other provision or any subsequent breach.
-
-If any provision of this Agreement is held to be invalid, illegal, or unenforceable, the remaining provisions shall continue in full force and effect.
-
-
-
-SECTION 18. GOVERNING LAW
-
-This Agreement shall be governed by and construed in accordance with the laws of the jurisdiction in which the Provider maintains its principal place of business, without regard to conflict of law principles. Both Parties consent to the exclusive jurisdiction of the courts in that jurisdiction for the resolution of any disputes arising under this Agreement.
+  contract += `Late payments may incur a 1.5% monthly fee on outstanding balances after 14 days.
 
 `;
 
-  if (customTerms) {
-    contract += `
+  // ─── SECTION 4: Revisions & Change Orders ─────────────────────
 
-SECTION 19. ADDITIONAL TERMS
+  contract += `SECTION 4. REVISIONS AND CHANGE ORDERS
+
+Each deliverable includes the revision rounds specified in its scope above. Additional revisions or out-of-scope requests will be handled as change orders at the Provider's standard rate. Change orders require written approval before work begins.
+
+`;
+
+  // ─── SECTION 5: Timeline & Delivery ───────────────────────────
+
+  contract += `SECTION 5. TIMELINE AND DELIVERY
+
+Estimated timelines are provided for each service above. Timelines begin upon receipt of the initial deposit and all required materials from the Client. Delays caused by the Client (including late feedback, missing assets, or scope changes) may extend timelines without additional cost to the Provider.
+
+`;
+
+  // ─── SECTION 6: Client Responsibilities ───────────────────────
+
+  contract += `SECTION 6. CLIENT RESPONSIBILITIES
+
+The Client agrees to:
+- Provide all necessary content, assets, and access credentials in a timely manner.
+- Respond to requests for feedback or approval within 5 business days.
+- Designate a primary point of contact for the duration of this engagement.
+
+Failure to meet these responsibilities may result in project delays and/or additional charges.
+
+`;
+
+  // ─── SECTION 7: Intellectual Property ─────────────────────────
+
+  contract += `SECTION 7. INTELLECTUAL PROPERTY
+
+Upon receipt of final payment, all custom work product created under this Agreement — including code, designs, and content — becomes the sole property of the Client, unless otherwise stated.
+
+The Provider retains the right to display the work in its portfolio and marketing materials unless the Client requests otherwise in writing.
+
+`;
+
+  // ─── SECTION 8: Confidentiality ───────────────────────────────
+
+  contract += `SECTION 8. CONFIDENTIALITY
+
+Both Parties agree to keep confidential any proprietary information shared during the course of this engagement. This includes but is not limited to business strategies, technical architecture, customer data, API credentials, and financial information.
+
+`;
+
+  // ─── SECTION 9: Termination ───────────────────────────────────
+
+  contract += `SECTION 9. TERMINATION
+
+Either Party may terminate this Agreement with 30 days written notice. In the event of termination:
+- The Client is responsible for payment for all work completed up to the termination date.
+- Any deposits paid for unstarted work will be refunded within 14 business days.
+- For recurring services, cancellation takes effect at the end of the current billing period.
+
+`;
+
+  // ─── SECTION 10: Limitation of Liability ──────────────────────
+
+  contract += `SECTION 10. LIMITATION OF LIABILITY
+
+The Provider's total liability under this Agreement shall not exceed the total fees paid by the Client under this Agreement. The Provider shall not be liable for any indirect, incidental, special, or consequential damages.
+
+`;
+
+  // ─── Custom Terms ────────────────────────────────────────────
+
+  if (customTerms) {
+    contract += `SECTION 11. ADDITIONAL TERMS
 
 ${customTerms}
 
