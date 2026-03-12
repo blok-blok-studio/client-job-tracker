@@ -278,17 +278,48 @@ model ContractSignature {
   client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   token         String   @unique
   contractBody  String   @db.Text
+
+  // Provider (Chase) counter-signature
+  providerSignedName  String?
+  providerSignedAt    DateTime?
+  providerIpAddress   String?
+  providerUserAgent   String?  @db.Text
+
+  // Client signature
   signedName    String?
+  signatureData String?  @db.Text  // Base64 PNG of drawn signature
   signedAt      DateTime?
   ipAddress     String?
   userAgent     String?  @db.Text
+
+  // Document integrity (SHA-256)
+  documentHash        String?
+  signedDocumentHash  String?
+
   status        ContractStatus @default(PENDING)
   expiresAt     DateTime?
 
   paymentLinks     PaymentLink[]
+  auditLogs        ContractAuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// --- CONTRACT AUDIT LOG ---
+model ContractAuditLog {
+  id          String   @id @default(cuid())
+  contractId  String
+  contract    ContractSignature @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  event       String   // "created", "provider_signed", "viewed", "client_signed"
+  actor       String   // "provider", "client", "system"
+  ipAddress   String?
+  userAgent   String?  @db.Text
+  metadata    String?  @db.Text
+
+  createdAt   DateTime @default(now())
+
+  @@index([contractId])
 }
 
 enum ContractStatus {

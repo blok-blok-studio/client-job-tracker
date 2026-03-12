@@ -83,6 +83,7 @@ export default function ClientDetailPage() {
   const [contractExpandedPkgs, setContractExpandedPkgs] = useState<string[]>([]);
   const [paymentCustomizations, setPaymentCustomizations] = useState<Record<string, PackageCustomization>>({});
   const [paymentExpandedPkgs, setPaymentExpandedPkgs] = useState<string[]>([]);
+  const [providerSignedName, setProviderSignedName] = useState("Chase Haynes");
 
   const fetchClient = useCallback(async () => {
     const res = await fetch(`/api/clients/${id}`);
@@ -181,6 +182,7 @@ export default function ClientDetailPage() {
           customItems: validCustomItems.length > 0 ? validCustomItems : undefined,
           customTerms: customTerms.trim() || undefined,
           packageCustomizations: Object.keys(contractCustomizations).length > 0 ? contractCustomizations : undefined,
+          providerSignedName,
         }),
       });
       const data = await res.json();
@@ -577,9 +579,17 @@ export default function ClientDetailPage() {
                         </div>
                       </div>
                       {contract.status === "SIGNED" && contract.signedName && (
-                        <p className="text-xs text-bb-muted">
-                          Signed by {contract.signedName} on {new Date(contract.signedAt!).toLocaleString()}
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-bb-muted">
+                            Signed by {contract.signedName} on {new Date(contract.signedAt!).toLocaleString()}
+                          </p>
+                          <button
+                            onClick={() => window.open(`/api/contract/${contract.token}/certificate`, "_blank")}
+                            className="text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                          >
+                            View Certificate
+                          </button>
+                        </div>
                       )}
                       {contract.status === "PENDING" && (
                         <div className="flex items-center gap-2">
@@ -1236,6 +1246,19 @@ export default function ClientDetailPage() {
             />
           </div>
 
+          {/* Provider Counter-Signature */}
+          <div>
+            <label className="block text-sm font-medium text-bb-muted mb-1">Your Full Legal Name (Counter-Signature)</label>
+            <input
+              type="text"
+              value={providerSignedName}
+              onChange={(e) => setProviderSignedName(e.target.value)}
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+              placeholder="Your full legal name"
+            />
+            <p className="text-xs text-bb-dim mt-1">By generating this contract, you are counter-signing it with your full legal name, IP address, and timestamp.</p>
+          </div>
+
           <div className="flex gap-3 justify-end">
             <button
               onClick={() => setShowContractModal(false)}
@@ -1245,7 +1268,7 @@ export default function ClientDetailPage() {
             </button>
             <button
               onClick={handleGenerateContract}
-              disabled={(selectedPackages.length === 0 && !customItems.some(i => i.name.trim())) || generatingContract}
+              disabled={(selectedPackages.length === 0 && !customItems.some(i => i.name.trim())) || generatingContract || !providerSignedName.trim()}
               className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {generatingContract ? (

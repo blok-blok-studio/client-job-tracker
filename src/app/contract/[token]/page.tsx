@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Check, Loader2, Shield } from "lucide-react";
+import { Check, Loader2, Shield, Pen, Type, RotateCcw } from "lucide-react";
 
 interface ContractData {
   clientName: string;
@@ -11,8 +11,121 @@ interface ContractData {
   contractBody: string;
   status: string;
   signedName: string | null;
+  signatureData: string | null;
   signedAt: string | null;
+  providerSignedName: string | null;
+  providerSignedAt: string | null;
   createdAt: string;
+}
+
+function SignatureCanvas({ onSignatureChange }: { onSignatureChange: (data: string | null) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasDrawn, setHasDrawn] = useState(false);
+
+  const getPos = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ("touches" in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  }, []);
+
+  const startDraw = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  }, [getPos]);
+
+  const draw = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = getPos(e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    setHasDrawn(true);
+  }, [isDrawing, getPos]);
+
+  const endDraw = useCallback(() => {
+    setIsDrawing(false);
+    if (hasDrawn && canvasRef.current) {
+      onSignatureChange(canvasRef.current.toDataURL("image/png"));
+    }
+  }, [hasDrawn, onSignatureChange]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+  }, []);
+
+  const clear = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!ctx || !canvas) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    setHasDrawn(false);
+    onSignatureChange(null);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="relative bg-bb-black rounded-lg border border-bb-border overflow-hidden">
+        <canvas
+          ref={canvasRef}
+          width={600}
+          height={200}
+          className="w-full h-[150px] cursor-crosshair touch-none"
+          onMouseDown={startDraw}
+          onMouseMove={draw}
+          onMouseUp={endDraw}
+          onMouseLeave={endDraw}
+          onTouchStart={startDraw}
+          onTouchMove={draw}
+          onTouchEnd={endDraw}
+        />
+        {!hasDrawn && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <p className="text-bb-dim text-sm">Sign here with your finger or mouse</p>
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={clear}
+        className="flex items-center gap-1.5 text-xs text-bb-dim hover:text-bb-muted transition-colors"
+      >
+        <RotateCcw size={12} /> Clear
+      </button>
+    </div>
+  );
 }
 
 function ContractRenderer({ body }: { body: string }) {
@@ -171,6 +284,8 @@ export default function ContractSignPage() {
   const [contract, setContract] = useState<ContractData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signedName, setSignedName] = useState("");
+  const [signatureMode, setSignatureMode] = useState<"type" | "draw">("type");
+  const [signatureData, setSignatureData] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [signed, setSigned] = useState(false);
@@ -200,6 +315,7 @@ export default function ContractSignPage() {
   async function handleSign(e: React.FormEvent) {
     e.preventDefault();
     if (!agreed || !signedName.trim()) return;
+    if (signatureMode === "draw" && !signatureData) return;
 
     setSubmitting(true);
     setError(null);
@@ -208,7 +324,10 @@ export default function ContractSignPage() {
       const res = await fetch(`/api/contract/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signedName: signedName.trim() }),
+        body: JSON.stringify({
+          signedName: signedName.trim(),
+          signatureData: signatureMode === "draw" ? signatureData : undefined,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -287,26 +406,54 @@ export default function ContractSignPage() {
             Thank you, {contract?.clientName?.split(" ")[0]}! Your agreement has been recorded.
             We&apos;ll be in touch to get started.
           </p>
-          {contract?.signedAt && (
-            <div className="bg-bb-surface border border-bb-border rounded-lg p-4 text-left space-y-2 text-sm">
+          <div className="bg-bb-surface border border-bb-border rounded-lg p-4 text-left space-y-3 text-sm">
+            {contract?.providerSignedName && (
+              <div className="space-y-2 pb-3 border-b border-bb-border/50">
+                <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">Provider</p>
+                <div className="flex justify-between">
+                  <span className="text-bb-dim">Signed by</span>
+                  <span className="text-white">{contract.providerSignedName}</span>
+                </div>
+                {contract.providerSignedAt && (
+                  <div className="flex justify-between">
+                    <span className="text-bb-dim">Date</span>
+                    <span className="text-white">
+                      {new Date(contract.providerSignedAt).toLocaleDateString("en-US", {
+                        year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">Client</p>
+              {(contract?.signatureData || signatureData) && (
+                <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={contract?.signatureData || signatureData || ""}
+                    alt="Client signature"
+                    className="h-16 object-contain"
+                  />
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-bb-dim">Signed by</span>
-                <span className="text-white">{contract.signedName || signedName}</span>
+                <span className="text-white">{contract?.signedName || signedName}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-bb-dim">Date</span>
-                <span className="text-white">
-                  {new Date(contract.signedAt).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
+              {contract?.signedAt && (
+                <div className="flex justify-between">
+                  <span className="text-bb-dim">Date</span>
+                  <span className="text-white">
+                    {new Date(contract.signedAt).toLocaleDateString("en-US", {
+                      year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -336,6 +483,32 @@ export default function ContractSignPage() {
           <ContractRenderer body={contract.contractBody} />
         </div>
 
+        {/* Provider Signature Block */}
+        {contract.providerSignedName && (
+          <div className="bg-bb-surface border border-bb-border rounded-xl p-6 mb-8 space-y-3">
+            <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">Provider Signature</p>
+            <div className="p-4 bg-bb-black rounded-lg border border-bb-border">
+              <p className="text-3xl font-serif italic text-white">{contract.providerSignedName}</p>
+            </div>
+            <div className="flex gap-6 text-sm">
+              <div>
+                <span className="text-bb-dim">Signed by </span>
+                <span className="text-white">{contract.providerSignedName}</span>
+              </div>
+              {contract.providerSignedAt && (
+                <div>
+                  <span className="text-bb-dim">on </span>
+                  <span className="text-white">
+                    {new Date(contract.providerSignedAt).toLocaleDateString("en-US", {
+                      year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Signing Section */}
         <form onSubmit={handleSign} className="space-y-6">
           <div className="bg-bb-surface border border-bb-orange/30 rounded-xl p-6 space-y-4">
@@ -351,9 +524,35 @@ export default function ContractSignPage() {
               timestamp will be recorded as part of this legally binding digital signature.
             </p>
 
+            {/* Type / Draw tabs */}
+            <div className="flex gap-1 bg-bb-black rounded-lg p-1 border border-bb-border">
+              <button
+                type="button"
+                onClick={() => setSignatureMode("type")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                  signatureMode === "type"
+                    ? "bg-bb-surface text-white"
+                    : "text-bb-dim hover:text-bb-muted"
+                }`}
+              >
+                <Type size={14} /> Type
+              </button>
+              <button
+                type="button"
+                onClick={() => setSignatureMode("draw")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                  signatureMode === "draw"
+                    ? "bg-bb-surface text-white"
+                    : "text-bb-dim hover:text-bb-muted"
+                }`}
+              >
+                <Pen size={14} /> Draw
+              </button>
+            </div>
+
             <div>
               <label className="block text-sm text-bb-muted mb-1.5 font-medium">
-                Type your full legal name *
+                Your full legal name *
               </label>
               <input
                 type="text"
@@ -363,15 +562,25 @@ export default function ContractSignPage() {
                 placeholder="e.g. John Smith"
                 required
               />
-              {signedName && (
-                <div className="mt-3 p-4 bg-bb-black rounded-lg border border-bb-border">
+            </div>
+
+            {signatureMode === "type" ? (
+              signedName && (
+                <div className="p-4 bg-bb-black rounded-lg border border-bb-border">
                   <p className="text-xs text-bb-dim mb-1">Signature preview</p>
                   <p className="text-3xl font-serif italic text-white">
                     {signedName}
                   </p>
                 </div>
-              )}
-            </div>
+              )
+            ) : (
+              <div>
+                <label className="block text-sm text-bb-muted mb-1.5 font-medium">
+                  Draw your signature *
+                </label>
+                <SignatureCanvas onSignatureChange={setSignatureData} />
+              </div>
+            )}
 
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -394,7 +603,7 @@ export default function ContractSignPage() {
 
           <button
             type="submit"
-            disabled={submitting || !agreed || !signedName.trim()}
+            disabled={submitting || !agreed || !signedName.trim() || (signatureMode === "draw" && !signatureData)}
             className="w-full py-3 bg-bb-orange hover:bg-bb-orange-light text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
           >
             {submitting ? (

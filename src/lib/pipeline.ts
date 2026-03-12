@@ -179,6 +179,12 @@ async function sendContractSignedEmails(
   });
   if (!client) return;
 
+  // Fetch contract for hash data
+  const contract = await prisma.contractSignature.findUnique({
+    where: { token: details.token },
+    select: { documentHash: true, signedDocumentHash: true, providerSignedName: true },
+  });
+
   const contractUrl = `${APP_URL}/contract/${details.token}`;
   const signedAt = new Date();
 
@@ -190,6 +196,9 @@ async function sendContractSignedEmails(
     contractUrl,
     signedAt,
     ipAddress: details.ipAddress,
+    documentHash: contract?.documentHash,
+    signedDocumentHash: contract?.signedDocumentHash,
+    providerSignedName: contract?.providerSignedName,
   }).catch((err) => console.error("[Email] Admin contract notification error:", err));
 
   // Send client confirmation if email exists

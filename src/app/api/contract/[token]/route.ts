@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import { createHash } from "crypto";
 import { onContractSigned } from "@/lib/pipeline";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -72,6 +73,19 @@ export async function GET(
       );
     }
 
+    // Audit log: contract viewed
+    const viewIp = ip;
+    const viewUa = request.headers.get("user-agent") || "unknown";
+    await prisma.contractAuditLog.create({
+      data: {
+        contractId: contract.id,
+        event: "viewed",
+        actor: "client",
+        ipAddress: viewIp,
+        userAgent: viewUa,
+      },
+    }).catch(() => {}); // non-blocking
+
     return NextResponse.json(
       {
         success: true,
@@ -81,7 +95,10 @@ export async function GET(
           contractBody: contract.contractBody,
           status: contract.status,
           signedName: contract.signedName,
+          signatureData: contract.signatureData,
           signedAt: contract.signedAt,
+          providerSignedName: contract.providerSignedName,
+          providerSignedAt: contract.providerSignedAt,
           createdAt: contract.createdAt,
         },
       },
@@ -98,6 +115,7 @@ export async function GET(
 
 const signSchema = z.object({
   signedName: z.string().min(2, "Please type your full legal name").max(200),
+  signatureData: z.string().max(500000).optional(), // Base64 PNG of drawn signature
 });
 
 // POST — Sign the contract
@@ -147,17 +165,47 @@ export async function POST(
     const ipAddress = forwarded ? forwarded.split(",")[0].trim() : request.headers.get("x-real-ip") || "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
 
+    // Tamper detection: verify document hash hasn't changed since creation
+    if (contract.documentHash) {
+      const currentHash = createHash("sha256").update(contract.contractBody).digest("hex");
+      if (currentHash !== contract.documentHash) {
+        return NextResponse.json(
+          { success: false, error: "Contract integrity check failed. The document may have been tampered with." },
+          { status: 409, headers: corsHeaders(request) }
+        );
+      }
+    }
+
+    // Compute signed document hash (proves both signatures are bound to exact same document)
+    const signedDocumentHash = createHash("sha256")
+      .update(contract.contractBody + "|" + (contract.providerSignedName || "") + "|" + parsed.signedName)
+      .digest("hex");
+
     // Sign the contract
     await prisma.contractSignature.update({
       where: { token },
       data: {
         signedName: parsed.signedName,
+        signatureData: parsed.signatureData || null,
         signedAt: new Date(),
         ipAddress,
         userAgent,
+        signedDocumentHash,
         status: "SIGNED",
       },
     });
+
+    // Audit log: client signed
+    await prisma.contractAuditLog.create({
+      data: {
+        contractId: contract.id,
+        event: "client_signed",
+        actor: "client",
+        ipAddress,
+        userAgent,
+        metadata: JSON.stringify({ signedName: parsed.signedName, signedDocumentHash }),
+      },
+    }).catch(() => {});
 
     // Trigger pipeline: auto-check checklist, send emails to client + Chase, cascade onboarding
     onContractSigned(contract.client.id, {

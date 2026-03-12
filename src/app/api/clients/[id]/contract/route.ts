@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 import { generateContractBody } from "@/lib/contract-templates";
 import { z } from "zod";
 
@@ -17,6 +17,7 @@ const generateSchema = z.object({
     priceOverride: z.number().min(0).optional(),
     excludedDeliverables: z.array(z.number().int().min(0)).optional(),
   })).optional(),
+  providerSignedName: z.string().min(1).max(200),
 });
 
 // POST — Generate a new contract for a client
@@ -50,13 +51,49 @@ export async function POST(
       parsed.packageCustomizations
     );
 
+    // SHA-256 hash of the contract body for tamper detection
+    const documentHash = createHash("sha256").update(contractBody).digest("hex");
+
+    // Capture provider's IP and user agent
+    const providerIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || request.headers.get("x-real-ip")
+      || "unknown";
+    const providerUa = request.headers.get("user-agent") || "unknown";
+
     const contract = await prisma.contractSignature.create({
       data: {
         clientId: client.id,
         token,
         contractBody,
+        documentHash,
+        providerSignedName: parsed.providerSignedName,
+        providerSignedAt: new Date(),
+        providerIpAddress: providerIp,
+        providerUserAgent: providerUa,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
+    });
+
+    // Create audit log entries
+    await prisma.contractAuditLog.createMany({
+      data: [
+        {
+          contractId: contract.id,
+          event: "created",
+          actor: "system",
+          ipAddress: providerIp,
+          userAgent: providerUa,
+          metadata: JSON.stringify({ documentHash }),
+        },
+        {
+          contractId: contract.id,
+          event: "provider_signed",
+          actor: "provider",
+          ipAddress: providerIp,
+          userAgent: providerUa,
+          metadata: JSON.stringify({ signedName: parsed.providerSignedName }),
+        },
+      ],
     });
 
     // Log the activity
@@ -65,7 +102,7 @@ export async function POST(
         clientId: client.id,
         actor: "chase",
         action: "contract_generated",
-        details: `Contract generated for ${client.name}`,
+        details: `Contract generated and counter-signed by ${parsed.providerSignedName} for ${client.name}`,
       },
     });
 

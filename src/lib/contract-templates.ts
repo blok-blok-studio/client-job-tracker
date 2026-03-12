@@ -1183,6 +1183,14 @@ ACKNOWLEDGMENT AND ACCEPTANCE
 
 By signing below, both Parties acknowledge that they have read this Agreement in its entirety, understand its terms and conditions, and agree to be bound by them. Both Parties confirm that they have the authority to enter into this Agreement and that they do so voluntarily.
 
+PROVIDER:
+Name: ____________________
+Date: ____________________
+
+CLIENT:
+Name: ____________________
+Date: ____________________
+
 `;
 
   return contract;

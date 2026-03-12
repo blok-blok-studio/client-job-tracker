@@ -492,6 +492,9 @@ export async function sendContractSignedAdminEmail(params: {
   contractUrl: string;
   signedAt: Date;
   ipAddress: string;
+  documentHash?: string | null;
+  signedDocumentHash?: string | null;
+  providerSignedName?: string | null;
 }) {
   const resend = getResend();
   if (!resend) {
@@ -529,6 +532,18 @@ export async function sendContractSignedAdminEmail(params: {
             <td style="padding: 8px 0; color: #666;">IP Address</td>
             <td style="padding: 8px 0; color: #111; font-family: monospace;">${params.ipAddress}</td>
           </tr>
+          ${params.providerSignedName ? `<tr>
+            <td style="padding: 8px 0; color: #666;">Counter-signed</td>
+            <td style="padding: 8px 0; color: #111; font-weight: 500;">${params.providerSignedName}</td>
+          </tr>` : ""}
+          ${params.documentHash ? `<tr>
+            <td style="padding: 8px 0; color: #666;">Document Hash</td>
+            <td style="padding: 8px 0; color: #111; font-family: monospace; font-size: 11px; word-break: break-all;">${params.documentHash}</td>
+          </tr>` : ""}
+          ${params.signedDocumentHash ? `<tr>
+            <td style="padding: 8px 0; color: #666;">Signed Hash</td>
+            <td style="padding: 8px 0; color: #111; font-family: monospace; font-size: 11px; word-break: break-all;">${params.signedDocumentHash}</td>
+          </tr>` : ""}
         </table>
         <div style="text-align: center; margin: 32px 0;">
           <a href="${params.contractUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
