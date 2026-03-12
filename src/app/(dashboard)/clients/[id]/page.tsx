@@ -11,7 +11,7 @@ import EditClientForm from "@/components/clients/EditClientForm";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
 import { PLATFORM_OPTIONS } from "@/types";
 import { getFlagFromPhone, LiveClock } from "@/lib/client-utils";
-import { SERVICE_PACKAGES, ADDON_PACKAGES } from "@/lib/contract-templates";
+import { SERVICE_PACKAGES, ADDON_PACKAGES, PACKAGE_CATEGORIES } from "@/lib/contract-templates";
 
 interface ClientDetail {
   id: string;
@@ -757,29 +757,64 @@ export default function ClientDetailPage() {
       <Modal open={showContractModal} onClose={() => setShowContractModal(false)} title="Generate Contract" className="max-w-2xl">
         <div className="space-y-6">
           <div>
-            <h4 className="text-sm font-medium text-white mb-3">Select Package *</h4>
-            <div className="space-y-2">
-              {SERVICE_PACKAGES.map((pkg) => (
-                <label key={pkg.id} className="flex items-start gap-3 p-3 rounded-lg border border-bb-border hover:border-bb-orange/30 cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={selectedPackages.includes(pkg.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedPackages([...selectedPackages, pkg.id]);
-                      } else {
-                        setSelectedPackages(selectedPackages.filter((p) => p !== pkg.id));
-                      }
-                    }}
-                    className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-white">{pkg.name}</span>
-                    <span className="text-sm text-bb-orange ml-2">${pkg.price.toLocaleString()}</span>
-                    <p className="text-xs text-bb-dim mt-0.5">{pkg.description}</p>
+            <h4 className="text-sm font-medium text-white mb-3">Select Services *</h4>
+            <div className="space-y-5 max-h-[400px] overflow-y-auto pr-1">
+              {PACKAGE_CATEGORIES.map((cat) => {
+                const catPackages = SERVICE_PACKAGES.filter((p) => p.category === cat.id);
+                if (catPackages.length === 0) return null;
+                const hasRecurring = catPackages.some((p) => p.recurring);
+                const hasOneTime = catPackages.some((p) => !p.recurring);
+                return (
+                  <div key={cat.id}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h5 className="text-xs font-semibold text-bb-muted uppercase tracking-wider">{cat.label}</h5>
+                      {hasRecurring && hasOneTime ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-bb-elevated text-bb-dim">Mixed</span>
+                      ) : hasRecurring ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">Monthly</span>
+                      ) : (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400">One-time</span>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      {catPackages.map((pkg) => (
+                        <label key={pkg.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selectedPackages.includes(pkg.id)
+                            ? "border-bb-orange bg-bb-orange/5"
+                            : "border-bb-border hover:border-bb-orange/30"
+                        }`}>
+                          <input
+                            type="checkbox"
+                            checked={selectedPackages.includes(pkg.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedPackages([...selectedPackages, pkg.id]);
+                              } else {
+                                setSelectedPackages(selectedPackages.filter((p) => p !== pkg.id));
+                              }
+                            }}
+                            className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium text-white">{pkg.name}</span>
+                              <span className={`text-sm font-mono font-semibold ${pkg.recurring ? "text-blue-400" : "text-bb-orange"}`}>
+                                ${pkg.price.toLocaleString()}{pkg.recurring ? "/mo" : ""}
+                              </span>
+                              {pkg.recurring ? (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-medium">Recurring</span>
+                              ) : (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 font-medium">One-time</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-bb-dim mt-0.5">{pkg.description}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </label>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -787,7 +822,11 @@ export default function ClientDetailPage() {
             <h4 className="text-sm font-medium text-white mb-3">Add-Ons (Optional)</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
               {ADDON_PACKAGES.map((addon) => (
-                <label key={addon.id} className="flex items-center gap-2 p-2 rounded border border-bb-border hover:border-bb-orange/30 cursor-pointer transition-colors">
+                <label key={addon.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
+                  selectedAddons.includes(addon.id)
+                    ? "border-bb-orange bg-bb-orange/5"
+                    : "border-bb-border hover:border-bb-orange/30"
+                }`}>
                   <input
                     type="checkbox"
                     checked={selectedAddons.includes(addon.id)}
@@ -802,7 +841,9 @@ export default function ClientDetailPage() {
                   />
                   <div>
                     <span className="text-xs font-medium text-white">{addon.name}</span>
-                    <span className="text-xs text-bb-orange ml-1">${addon.price.toLocaleString()}</span>
+                    <span className={`text-xs ml-1 font-mono ${addon.recurring ? "text-blue-400" : "text-bb-orange"}`}>
+                      ${addon.price.toLocaleString()}{addon.recurring ? "/mo" : ""}
+                    </span>
                   </div>
                 </label>
               ))}
@@ -864,20 +905,43 @@ export default function ClientDetailPage() {
             </div>
           </div>
 
-          {(selectedPackages.length > 0 || selectedAddons.length > 0 || customItems.some(i => i.name.trim() && Number(i.price) > 0)) && (
-            <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
-              <div className="flex justify-between text-sm">
-                <span className="text-bb-dim">Total</span>
-                <span className="text-white font-mono font-semibold">
-                  ${([...SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id)),
-                    ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id))]
-                    .reduce((sum, item) => sum + item.price, 0)
-                    + customItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0))
-                    .toLocaleString()}
-                </span>
+          {(selectedPackages.length > 0 || selectedAddons.length > 0 || customItems.some(i => i.name.trim() && Number(i.price) > 0)) && (() => {
+            const allSelected = [
+              ...SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id)),
+              ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id)),
+            ];
+            const oneTimeTotal = allSelected.filter((i) => !i.recurring).reduce((sum, i) => sum + i.price, 0)
+              + customItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+            const recurringTotal = allSelected.filter((i) => i.recurring).reduce((sum, i) => sum + i.price, 0);
+            return (
+              <div className="p-3 bg-bb-black rounded-lg border border-bb-border space-y-1.5">
+                {oneTimeTotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-bb-dim flex items-center gap-1.5">
+                      One-time <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+                    </span>
+                    <span className="text-bb-orange font-mono font-semibold">${oneTimeTotal.toLocaleString()}</span>
+                  </div>
+                )}
+                {recurringTotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-bb-dim flex items-center gap-1.5">
+                      Monthly <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
+                    </span>
+                    <span className="text-blue-400 font-mono font-semibold">${recurringTotal.toLocaleString()}/mo</span>
+                  </div>
+                )}
+                {oneTimeTotal > 0 && recurringTotal > 0 && (
+                  <div className="flex justify-between text-sm pt-1.5 border-t border-bb-border/50">
+                    <span className="text-bb-dim font-medium">Combined</span>
+                    <span className="text-white font-mono font-semibold">
+                      ${oneTimeTotal.toLocaleString()} + ${recurringTotal.toLocaleString()}/mo
+                    </span>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <div>
             <label className="block text-sm font-medium text-white mb-1.5">Custom Terms (Optional)</label>
