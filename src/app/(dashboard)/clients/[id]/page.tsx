@@ -498,13 +498,28 @@ export default function ClientDetailPage() {
                         <span className="text-xs text-bb-dim">
                           {new Date(contract.createdAt).toLocaleDateString()}
                         </span>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          contract.status === "SIGNED"
-                            ? "bg-green-500/10 text-green-400"
-                            : "bg-yellow-500/10 text-yellow-400"
-                        }`}>
-                          {contract.status === "SIGNED" ? "Signed" : "Pending"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            contract.status === "SIGNED"
+                              ? "bg-green-500/10 text-green-400"
+                              : "bg-yellow-500/10 text-yellow-400"
+                          }`}>
+                            {contract.status === "SIGNED" ? "Signed" : "Pending"}
+                          </span>
+                          <button
+                            onClick={async () => {
+                              if (!confirm("Delete this contract? This cannot be undone.")) return;
+                              try {
+                                await fetch(`/api/clients/${id}/contract/${contract.id}`, { method: "DELETE" });
+                                fetchClient();
+                              } catch { /* silently fail */ }
+                            }}
+                            className="p-1 text-bb-dim hover:text-red-400 transition-colors"
+                            title="Delete contract"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                       {contract.status === "SIGNED" && contract.signedName && (
                         <p className="text-xs text-bb-muted">
@@ -559,15 +574,30 @@ export default function ClientDetailPage() {
                           </span>
                           <span className="text-xs text-bb-dim ml-2">{link.description}</span>
                         </div>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          link.status === "PAID" || link.status === "ACTIVE"
-                            ? "bg-green-500/10 text-green-400"
-                            : link.status === "CANCELLED"
-                            ? "bg-red-500/10 text-red-400"
-                            : "bg-yellow-500/10 text-yellow-400"
-                        }`}>
-                          {link.status === "ACTIVE" ? "Active" : link.status === "PAID" ? "Paid" : link.status === "CANCELLED" ? "Cancelled" : "Pending"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            link.status === "PAID" || link.status === "ACTIVE"
+                              ? "bg-green-500/10 text-green-400"
+                              : link.status === "CANCELLED"
+                              ? "bg-red-500/10 text-red-400"
+                              : "bg-yellow-500/10 text-yellow-400"
+                          }`}>
+                            {link.status === "ACTIVE" ? "Active" : link.status === "PAID" ? "Paid" : link.status === "CANCELLED" ? "Cancelled" : "Pending"}
+                          </span>
+                          <button
+                            onClick={async () => {
+                              if (!confirm("Delete this payment link? This cannot be undone.")) return;
+                              try {
+                                await fetch(`/api/clients/${id}/payment-link/${link.id}`, { method: "DELETE" });
+                                fetchClient();
+                              } catch { /* silently fail */ }
+                            }}
+                            className="p-1 text-bb-dim hover:text-red-400 transition-colors"
+                            title="Delete payment link"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                       {(link.status === "PAID" || link.status === "ACTIVE") && link.paidAt && (
                         <p className="text-xs text-bb-muted">
