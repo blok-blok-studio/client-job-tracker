@@ -58,18 +58,30 @@ export async function POST(
     const currencyConfig = CURRENCY_CONFIG[currency];
 
     // Get or create Stripe Customer for this client
+    const invoiceTemplate = getInvoiceTemplate(parsed.country);
     let stripeCustomerId = client.stripeCustomerId;
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         name: client.name,
         email: client.email || undefined,
         address: { country: parsed.country },
+        invoice_settings: {
+          rendering_options: { template: invoiceTemplate },
+        },
         metadata: { clientId: client.id },
       });
       stripeCustomerId = customer.id;
       await prisma.client.update({
         where: { id: client.id },
         data: { stripeCustomerId: customer.id },
+      });
+    } else {
+      // Update existing customer's default invoice template + country
+      await stripe.customers.update(stripeCustomerId, {
+        address: { country: parsed.country },
+        invoice_settings: {
+          rendering_options: { template: invoiceTemplate },
+        },
       });
     }
 
@@ -116,8 +128,6 @@ export async function POST(
         address: "auto",
       },
     };
-
-    const invoiceTemplate = getInvoiceTemplate(parsed.country);
 
     // For one-time payments, auto-generate a Stripe invoice with template
     if (!isRecurring) {
