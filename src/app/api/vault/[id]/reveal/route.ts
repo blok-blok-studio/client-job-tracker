@@ -42,7 +42,16 @@ export async function POST(
   }
 
   try {
-    const ivData = JSON.parse(credential.iv);
+    let ivData: Record<string, string | null>;
+    try {
+      ivData = JSON.parse(credential.iv);
+    } catch {
+      return NextResponse.json({ success: false, error: "Credential data corrupted" }, { status: 500 });
+    }
+
+    if (!ivData.username || !ivData.password) {
+      return NextResponse.json({ success: false, error: "Credential data corrupted" }, { status: 500 });
+    }
 
     const username = decrypt(credential.username, ivData.username);
     const password_decrypted = decrypt(credential.password, ivData.password);

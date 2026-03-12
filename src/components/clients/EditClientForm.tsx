@@ -210,8 +210,8 @@ export default function EditClientForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className={labelClass}>Email</label>
-          <input name="email" type="email" defaultValue={initialData.email} className={inputClass} placeholder="email@example.com" />
+          <label className={labelClass}>Email *</label>
+          <input name="email" type="email" required defaultValue={initialData.email} className={inputClass} placeholder="email@example.com" />
         </div>
         <div>
           <label className={labelClass}>Phone</label>

@@ -22,9 +22,10 @@ export default function ClientForm({
     const firstName = (formData.get("firstName") as string)?.trim() || "";
     const lastName = (formData.get("lastName") as string)?.trim() || "";
     const name = `${firstName} ${lastName}`.trim();
+    const email = (formData.get("email") as string)?.trim() || "";
 
     try {
-      await onSubmit({ name });
+      await onSubmit({ name, email });
     } finally {
       setLoading(false);
     }
@@ -45,6 +46,11 @@ export default function ClientForm({
           <label className={labelClass}>Last Name *</label>
           <input name="lastName" required className={inputClass} placeholder="Last name" />
         </div>
+      </div>
+
+      <div>
+        <label className={labelClass}>Email *</label>
+        <input name="email" type="email" required className={inputClass} placeholder="client@company.com" />
       </div>
 
       <div className="flex justify-end gap-3 pt-2">

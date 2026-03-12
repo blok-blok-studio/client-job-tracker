@@ -3,6 +3,72 @@ import prisma from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
 import { z } from "zod";
 import { onOnboardingCompleted } from "@/lib/pipeline";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+
+function getTaxIdType(country: string, taxId: string): string | null {
+  // EU VAT
+  const euCountries = ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"];
+  if (euCountries.includes(country)) return "eu_vat";
+
+  // US EIN
+  if (country === "US") return "us_ein";
+
+  // UK VAT
+  if (country === "GB") return "gb_vat";
+
+  // Canada
+  if (country === "CA") {
+    if (taxId.length === 15) return "ca_bn"; // Business Number
+    return "ca_gst_hst"; // GST/HST
+  }
+
+  // Australia
+  if (country === "AU") return "au_abn";
+
+  // Switzerland
+  if (country === "CH") return "ch_vat";
+
+  // Brazil
+  if (country === "BR") return "br_cnpj";
+
+  // India
+  if (country === "IN") return "in_gst";
+
+  // Japan
+  if (country === "JP") return "jp_cn";
+
+  // South Korea
+  if (country === "KR") return "kr_brn";
+
+  // Mexico
+  if (country === "MX") return "mx_rfc";
+
+  // New Zealand
+  if (country === "NZ") return "nz_gst";
+
+  // Singapore
+  if (country === "SG") return "sg_gst";
+
+  // South Africa
+  if (country === "ZA") return "za_vat";
+
+  // Norway
+  if (country === "NO") return "no_vat";
+
+  // Israel
+  if (country === "IL") return "il_vat";
+
+  // Turkey
+  if (country === "TR") return "tr_tin";
+
+  // UAE
+  if (country === "AE") return "ae_trn";
+
+  // Saudi Arabia
+  if (country === "SA") return "sa_vat";
+
+  return null; // Unknown — skip tax ID creation
+}
 
 const ALLOWED_ORIGINS = [
   "https://blokblokstudio.com",
@@ -32,6 +98,16 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  // Rate limit onboard token lookups — 20/min per IP
+  const ip = getClientIp(request);
+  const rl = rateLimit(ip, { max: 20, prefix: "onboard-get" });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "Too many requests. Please try again later." },
+      { status: 429, headers: corsHeaders(request) }
+    );
+  }
+
   try {
     const { token } = await params;
 
@@ -102,6 +178,12 @@ const onboardSchema = z.object({
   timezone: z.string().max(50).optional(),
   company: z.string().max(200).optional(),
   companyWebsite: z.string().max(500).optional(),
+  companyAddress: z.string().max(500).optional(),
+  companyCity: z.string().max(100).optional(),
+  companyState: z.string().max(100).optional(),
+  companyZip: z.string().max(20).optional(),
+  companyCountry: z.string().max(2).optional(),
+  taxId: z.string().max(50).optional(),
   source: z.string().max(200).optional(),
   industry: z.string().max(200).optional(),
   telegramChatId: z.string().max(30).optional(),
@@ -120,6 +202,16 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  // Rate limit onboard submissions — 5/min per IP
+  const postIp = getClientIp(request);
+  const postRl = rateLimit(postIp, { max: 5, prefix: "onboard-post" });
+  if (!postRl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "Too many requests. Please try again later." },
+      { status: 429, headers: corsHeaders(request) }
+    );
+  }
+
   const { token } = await params;
 
   const client = await prisma.client.findUnique({
@@ -146,6 +238,12 @@ export async function POST(
     if (parsed.company) updates.company = parsed.company;
     if (parsed.source) updates.source = parsed.source;
     if (parsed.industry) updates.industry = parsed.industry;
+    if (parsed.companyAddress) updates.companyAddress = parsed.companyAddress;
+    if (parsed.companyCity) updates.companyCity = parsed.companyCity;
+    if (parsed.companyState) updates.companyState = parsed.companyState;
+    if (parsed.companyZip) updates.companyZip = parsed.companyZip;
+    if (parsed.companyCountry) updates.companyCountry = parsed.companyCountry;
+    if (parsed.taxId) updates.taxId = parsed.taxId;
     if (parsed.telegramChatId) updates.telegramChatId = parsed.telegramChatId;
     if (parsed.contractStart) updates.contractStart = new Date(parsed.contractStart);
     if (parsed.contractEnd) updates.contractEnd = new Date(parsed.contractEnd);
@@ -170,6 +268,55 @@ export async function POST(
       where: { id: client.id },
       data: updates,
     });
+
+    // Sync address and tax info to Stripe customer
+    step = "syncing to Stripe";
+    const updatedClient = await prisma.client.findUnique({
+      where: { id: client.id },
+      select: { stripeCustomerId: true, name: true, email: true, company: true },
+    });
+
+    if (updatedClient?.stripeCustomerId) {
+      try {
+        const { stripe } = await import("@/lib/stripe");
+
+        // Update customer address
+        const stripeUpdate: Record<string, unknown> = {};
+        if (parsed.company) stripeUpdate.name = parsed.company;
+
+        const address: Record<string, string> = {};
+        if (parsed.companyAddress) address.line1 = parsed.companyAddress;
+        if (parsed.companyCity) address.city = parsed.companyCity;
+        if (parsed.companyState) address.state = parsed.companyState;
+        if (parsed.companyZip) address.postal_code = parsed.companyZip;
+        if (parsed.companyCountry) address.country = parsed.companyCountry;
+
+        if (Object.keys(address).length > 0) {
+          stripeUpdate.address = address;
+        }
+
+        if (Object.keys(stripeUpdate).length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await stripe.customers.update(updatedClient.stripeCustomerId, stripeUpdate as any);
+        }
+
+        // Add tax ID if provided
+        if (parsed.taxId && parsed.companyCountry) {
+          // Map country to Stripe tax ID type
+          const taxType = getTaxIdType(parsed.companyCountry, parsed.taxId);
+          if (taxType) {
+            await stripe.customers.createTaxId(updatedClient.stripeCustomerId, {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              type: taxType as any,
+              value: parsed.taxId,
+            });
+          }
+        }
+      } catch (stripeError) {
+        // Don't fail onboarding if Stripe sync fails — log and continue
+        console.error("[Stripe] Failed to sync customer data:", stripeError);
+      }
+    }
 
     // Create contacts and populate client email/phone from primary contact
     if (parsed.contacts && parsed.contacts.length > 0) {

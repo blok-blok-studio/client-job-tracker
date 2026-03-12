@@ -3,6 +3,11 @@ import { stripe } from "@/lib/stripe";
 import prisma from "@/lib/prisma";
 import Stripe from "stripe";
 import { onPaymentConfirmed } from "@/lib/pipeline";
+import {
+  sendPaymentReceivedEmail,
+  sendPaymentFailedEmail,
+  sendSubscriptionCancelledEmail,
+} from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -86,6 +91,42 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // Send payment received email
+        if (record.clientId) {
+          const paidClient = await prisma.client.findUnique({
+            where: { id: record.clientId },
+            select: { email: true, name: true },
+          });
+          if (paidClient?.email) {
+            const amtStr = (record.amount / 100).toLocaleString("en-US", {
+              style: "currency",
+              currency: record.currency.toUpperCase(),
+            });
+            sendPaymentReceivedEmail({
+              to: paidClient.email,
+              clientName: paidClient.name,
+              amount: amtStr,
+              description: record.description,
+              currency: record.currency,
+              paidAt: new Date().toLocaleDateString("en-US", { dateStyle: "long" }),
+            }).catch((err) => console.error("[Email] Payment received email error:", err));
+          }
+        }
+
+        // Auto-generate invoice record
+        await prisma.invoice.create({
+          data: {
+            clientId: record.clientId,
+            amount: record.amount / 100,
+            currency: record.currency.toUpperCase(),
+            status: "PAID",
+            country: record.country || "US",
+            region: ["DE","AT","NL","BE","FR","ES","IT","IE","PT","FI","GR","LU"].includes(record.country || "") ? "EU" : "US",
+            paidAt: new Date(),
+            notes: record.description,
+          },
+        });
+
         // Trigger automated pipeline: send onboarding link
         onPaymentConfirmed(record.clientId).catch((err) =>
           console.error("[Pipeline] onPaymentConfirmed error:", err)
@@ -115,6 +156,17 @@ export async function POST(request: NextRequest) {
               details: `Subscription cancelled: ${cancelledRecord.description}`,
             },
           });
+
+          const cancelClient = await prisma.client.findUnique({
+            where: { id: cancelledRecord.clientId },
+            select: { name: true },
+          });
+          if (cancelClient) {
+            sendSubscriptionCancelledEmail({
+              clientName: cancelClient.name,
+              description: cancelledRecord.description,
+            }).catch((err) => console.error("[Email] Subscription cancelled email error:", err));
+          }
         }
 
         break;
@@ -140,6 +192,22 @@ export async function POST(request: NextRequest) {
               details: `Subscription payment failed for ${failedRecord.description}`,
             },
           });
+
+          const failedClient = await prisma.client.findUnique({
+            where: { id: failedRecord.clientId },
+            select: { name: true },
+          });
+          if (failedClient) {
+            const amtStr = (failedRecord.amount / 100).toLocaleString("en-US", {
+              style: "currency",
+              currency: failedRecord.currency.toUpperCase(),
+            });
+            sendPaymentFailedEmail({
+              clientName: failedClient.name,
+              description: failedRecord.description,
+              amount: amtStr,
+            }).catch((err) => console.error("[Email] Payment failed email error:", err));
+          }
         }
 
         break;
@@ -151,6 +219,42 @@ export async function POST(request: NextRequest) {
           where: { stripeSessionId: expiredSession.id, status: "PENDING" },
           data: { status: "EXPIRED" },
         });
+        break;
+      }
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+
+        const subRecord = await prisma.paymentLink.findFirst({
+          where: { stripeSubscriptionId: subscription.id },
+        });
+
+        if (!subRecord) break;
+
+        const item = subscription.items.data[0];
+        if (item && item.price.id !== subRecord.stripePriceId) {
+          const newAmount = item.price.unit_amount ?? subRecord.amount;
+          const oldAmount = subRecord.amount;
+
+          await prisma.paymentLink.update({
+            where: { id: subRecord.id },
+            data: {
+              amount: newAmount,
+              stripePriceId: item.price.id,
+            },
+          });
+
+          const symbol = subRecord.currency === "eur" ? "€" : "$";
+          await prisma.activityLog.create({
+            data: {
+              clientId: subRecord.clientId,
+              actor: "stripe",
+              action: "subscription_price_changed",
+              details: `Subscription price updated: ${symbol}${(oldAmount / 100).toFixed(2)} → ${symbol}${(newAmount / 100).toFixed(2)}/${subRecord.interval} for ${subRecord.description}`,
+            },
+          });
+        }
+
         break;
       }
 

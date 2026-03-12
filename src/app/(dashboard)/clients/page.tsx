@@ -196,7 +196,7 @@ export default function ClientsPage() {
                 <h3 className="text-sm font-semibold text-white">Onboarding Link</h3>
               </div>
               <p className="text-xs text-bb-dim">
-                Send this link to your client. They&apos;ll fill in their contacts, credentials, and social profiles.
+                This link is auto-sent once payment and contract are confirmed. You can also share it early if needed.
               </p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 text-xs bg-bb-surface px-3 py-2 rounded border border-bb-border text-bb-muted truncate">

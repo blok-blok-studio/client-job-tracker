@@ -27,7 +27,8 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [selectedRegion, setSelectedRegion] = useState<"US" | "EU">("US");
+  const [selectedRegion, setSelectedRegion] = useState<"US" | "EU">("EU");
+  const [selectedCountry, setSelectedCountry] = useState<string>("DE");
 
   const fetchInvoices = useCallback(async () => {
     try {
@@ -61,6 +62,7 @@ export default function InvoicesPage() {
           currency: selectedRegion === "EU" ? "EUR" : "USD",
           status: fd.get("status") || "DRAFT",
           region: selectedRegion,
+          country: selectedCountry,
           dueDate: fd.get("dueDate") || undefined,
           notes: fd.get("notes") || undefined,
         }),
@@ -68,6 +70,7 @@ export default function InvoicesPage() {
       if (!res.ok) throw new Error("Failed");
       setShowAdd(false);
       setSelectedRegion("US");
+      setSelectedCountry("US");
       fetchInvoices();
     } catch { /* stay on form */ }
   }
@@ -251,7 +254,7 @@ export default function InvoicesPage() {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setSelectedRegion("US")}
+                onClick={() => { setSelectedRegion("US"); setSelectedCountry("US"); }}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-lg border transition-colors ${
                   selectedRegion === "US"
                     ? "border-green-500 bg-green-500/10 text-green-400"
@@ -263,7 +266,7 @@ export default function InvoicesPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedRegion("EU")}
+                onClick={() => { setSelectedRegion("EU"); setSelectedCountry("DE"); }}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-lg border transition-colors ${
                   selectedRegion === "EU"
                     ? "border-blue-500 bg-blue-500/10 text-blue-400"
@@ -274,6 +277,36 @@ export default function InvoicesPage() {
                 <span className="block text-[10px] text-bb-dim mt-0.5">EUR &middot; EU format</span>
               </button>
             </div>
+          </div>
+          <div>
+            <label className="block text-sm text-bb-muted mb-1">Country</label>
+            <select
+              value={selectedCountry}
+              onChange={(e) => setSelectedCountry(e.target.value)}
+              className={inputClass}
+            >
+              {selectedRegion === "US" ? (
+                <>
+                  <option value="US">{"\uD83C\uDDFA\uD83C\uDDF8"} United States</option>
+                  <option value="CA">{"\uD83C\uDDE8\uD83C\uDDE6"} Canada</option>
+                </>
+              ) : (
+                <>
+                  <option value="DE">{"\uD83C\uDDE9\uD83C\uDDEA"} Germany</option>
+                  <option value="AT">{"\uD83C\uDDE6\uD83C\uDDF9"} Austria</option>
+                  <option value="NL">{"\uD83C\uDDF3\uD83C\uDDF1"} Netherlands</option>
+                  <option value="BE">{"\uD83C\uDDE7\uD83C\uDDEA"} Belgium</option>
+                  <option value="FR">{"\uD83C\uDDEB\uD83C\uDDF7"} France</option>
+                  <option value="ES">{"\uD83C\uDDEA\uD83C\uDDF8"} Spain</option>
+                  <option value="IT">{"\uD83C\uDDEE\uD83C\uDDF9"} Italy</option>
+                  <option value="IE">{"\uD83C\uDDEE\uD83C\uDDEA"} Ireland</option>
+                  <option value="PT">{"\uD83C\uDDF5\uD83C\uDDF9"} Portugal</option>
+                  <option value="FI">{"\uD83C\uDDEB\uD83C\uDDEE"} Finland</option>
+                  <option value="GR">{"\uD83C\uDDEC\uD83C\uDDF7"} Greece</option>
+                  <option value="LU">{"\uD83C\uDDF1\uD83C\uDDFA"} Luxembourg</option>
+                </>
+              )}
+            </select>
           </div>
 
           <div>

@@ -40,7 +40,12 @@ export async function PATCH(
     const existing = await prisma.credential.findUnique({ where: { id } });
     if (!existing) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
-    const ivData = JSON.parse(existing.iv);
+    let ivData: Record<string, string | null>;
+    try {
+      ivData = JSON.parse(existing.iv);
+    } catch {
+      return NextResponse.json({ success: false, error: "Credential data corrupted" }, { status: 500 });
+    }
 
     if (body.username) {
       const enc = encrypt(body.username);
@@ -80,6 +85,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  await prisma.credential.delete({ where: { id } });
-  return NextResponse.json({ success: true });
+  try {
+    const existing = await prisma.credential.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
+    }
+    await prisma.credential.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ success: false, error: "Failed to delete" }, { status: 500 });
+  }
 }

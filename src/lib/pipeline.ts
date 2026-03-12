@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { sendOnboardingLinkEmail, sendContractEmail } from "@/lib/email";
+import { sendOnboardingLinkEmail, sendContractEmail, sendContractSignedClientEmail, sendContractSignedAdminEmail } from "@/lib/email";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { randomBytes } from "crypto";
 
@@ -128,7 +128,10 @@ export async function onPaymentConfirmed(clientId: string) {
   }
 }
 
-export async function onContractSigned(clientId: string) {
+export async function onContractSigned(
+  clientId: string,
+  signingDetails?: { signedName: string; ipAddress: string; token: string }
+) {
   try {
     // Auto-check "Contract signed" checklist item
     await prisma.checklistItem.updateMany({
@@ -140,6 +143,11 @@ export async function onContractSigned(clientId: string) {
       data: { checked: true },
     });
 
+    // Send contract-signed emails (to client + Chase)
+    if (signingDetails) {
+      await sendContractSignedEmails(clientId, signingDetails);
+    }
+
     // Check if both payment + contract are done → send onboarding if so
     await maybeSendOnboardingLink(clientId);
   } catch (error) {
@@ -150,6 +158,65 @@ export async function onContractSigned(clientId: string) {
         actor: "agent",
         action: "pipeline_error",
         details: `Failed to process contract signed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      },
+    });
+  }
+}
+
+/**
+ * Helper: send contract-signed notification emails.
+ * - Client gets a confirmation email with link to their signed contract
+ * - Chase gets a notification email with signing details
+ * - If client has no email yet, defers client email until onboarding completes
+ */
+async function sendContractSignedEmails(
+  clientId: string,
+  details: { signedName: string; ipAddress: string; token: string }
+) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { name: true, email: true, company: true },
+  });
+  if (!client) return;
+
+  const contractUrl = `${APP_URL}/contract/${details.token}`;
+  const signedAt = new Date();
+
+  // Always notify Chase immediately
+  sendContractSignedAdminEmail({
+    clientName: client.name,
+    company: client.company,
+    signedName: details.signedName,
+    contractUrl,
+    signedAt,
+    ipAddress: details.ipAddress,
+  }).catch((err) => console.error("[Email] Admin contract notification error:", err));
+
+  // Send client confirmation if email exists
+  if (client.email) {
+    await sendContractSignedClientEmail({
+      to: client.email,
+      clientName: client.name,
+      contractUrl,
+      signedAt,
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        clientId,
+        actor: "agent",
+        action: "pipeline_contract_signed_emails_sent",
+        details: `Sent contract-signed confirmation to ${client.name} (${client.email}) and admin notification`,
+      },
+    });
+  } else {
+    // No client email yet — log that it's deferred until onboarding
+    await prisma.activityLog.create({
+      data: {
+        clientId,
+        actor: "agent",
+        action: "pipeline_contract_signed_admin_only",
+        details: `Admin notified of contract signing by ${client.name}. Client email deferred — no email on file yet.`,
       },
     });
   }
@@ -180,6 +247,31 @@ export async function onOnboardingCompleted(clientId: string) {
 
     if (signedContract) {
       const contractUrl = `${APP_URL}/contract/${signedContract.token}`;
+
+      // Check if the contract-signed confirmation email was deferred (client had no email at signing time)
+      const alreadySentContractConfirmation = await prisma.activityLog.findFirst({
+        where: { clientId, action: "pipeline_contract_signed_emails_sent" },
+        select: { id: true },
+      });
+
+      if (!alreadySentContractConfirmation && client.email) {
+        // Client now has an email — send the deferred contract-signed confirmation
+        await sendContractSignedClientEmail({
+          to: client.email,
+          clientName: client.name,
+          contractUrl,
+          signedAt: signedContract.signedAt || new Date(),
+        });
+
+        await prisma.activityLog.create({
+          data: {
+            clientId,
+            actor: "agent",
+            action: "pipeline_contract_signed_emails_sent",
+            details: `Sent deferred contract-signed confirmation to ${client.name} (${client.email}) after onboarding provided email`,
+          },
+        });
+      }
 
       if (client.email) {
         await sendContractEmail({

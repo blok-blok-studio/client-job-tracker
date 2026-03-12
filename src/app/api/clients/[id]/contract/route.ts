@@ -13,6 +13,10 @@ const generateSchema = z.object({
     recurring: z.boolean().optional().default(false),
   })).optional().default([]),
   customTerms: z.string().max(5000).optional(),
+  packageCustomizations: z.record(z.string(), z.object({
+    priceOverride: z.number().min(0).optional(),
+    excludedDeliverables: z.array(z.number().int().min(0)).optional(),
+  })).optional(),
 });
 
 // POST — Generate a new contract for a client
@@ -42,7 +46,8 @@ export async function POST(
       parsed.packages,
       parsed.addons,
       parsed.customItems,
-      parsed.customTerms
+      parsed.customTerms,
+      parsed.packageCustomizations
     );
 
     const contract = await prisma.contractSignature.create({
@@ -50,6 +55,7 @@ export async function POST(
         clientId: client.id,
         token,
         contractBody,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });
 

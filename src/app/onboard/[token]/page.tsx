@@ -199,6 +199,12 @@ export default function OnboardPage() {
   );
   const [company, setCompany] = useState("");
   const [companyWebsite, setCompanyWebsite] = useState("");
+  const [companyAddress, setCompanyAddress] = useState("");
+  const [companyCity, setCompanyCity] = useState("");
+  const [companyState, setCompanyState] = useState("");
+  const [companyZip, setCompanyZip] = useState("");
+  const [companyCountry, setCompanyCountry] = useState("");
+  const [taxId, setTaxId] = useState("");
   const [source, setSource] = useState("");
   const [industry, setIndustry] = useState("");
   const [sourceOpen, setSourceOpen] = useState(false);
@@ -279,6 +285,12 @@ export default function OnboardPage() {
           timezone: timezone || undefined,
           company: company.trim() || undefined,
           companyWebsite: companyWebsite.trim() ? `https://www.${companyWebsite.trim()}` : undefined,
+          companyAddress: companyAddress.trim() || undefined,
+          companyCity: companyCity.trim() || undefined,
+          companyState: companyState.trim() || undefined,
+          companyZip: companyZip.trim() || undefined,
+          companyCountry: companyCountry || undefined,
+          taxId: taxId.trim() || undefined,
           source: source.trim() || undefined,
           industry: industry.trim() || undefined,
           notes: notes.trim() || undefined,
@@ -565,6 +577,73 @@ export default function OnboardPage() {
                     placeholder="example.com"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Company Address */}
+            <div>
+              <label className={labelClass}>Street Address</label>
+              <input
+                value={companyAddress}
+                onChange={(e) => setCompanyAddress(e.target.value)}
+                className={inputClass}
+                placeholder="123 Main St, Suite 100"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className={labelClass}>City</label>
+                <input
+                  value={companyCity}
+                  onChange={(e) => setCompanyCity(e.target.value)}
+                  className={inputClass}
+                  placeholder="New York"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>State / Region</label>
+                <input
+                  value={companyState}
+                  onChange={(e) => setCompanyState(e.target.value)}
+                  className={inputClass}
+                  placeholder="NY"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Zip / Postal Code</label>
+                <input
+                  value={companyZip}
+                  onChange={(e) => setCompanyZip(e.target.value)}
+                  className={inputClass}
+                  placeholder="10001"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="relative">
+                <label className={labelClass}>Country</label>
+                <select
+                  value={companyCountry}
+                  onChange={(e) => setCompanyCountry(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Select country...</option>
+                  {COUNTRY_CODES.map((c, idx) => (
+                    <option key={`country-${c.name}-${idx}`} value={c.name}>
+                      {c.flag} {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Tax ID (VAT/EIN)</label>
+                <input
+                  value={taxId}
+                  onChange={(e) => setTaxId(e.target.value)}
+                  className={inputClass}
+                  placeholder="e.g. US12-3456789"
+                />
+                <p className="text-xs text-bb-dim mt-1">VAT number, EIN, or local tax ID (if applicable)</p>
               </div>
             </div>
 

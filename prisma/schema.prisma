@@ -27,6 +27,12 @@ model Client {
   onboardToken    String?    @unique
   telegramChatId  String?    @unique
   stripeCustomerId String?   @unique
+  companyAddress  String?   @db.Text
+  companyCity     String?
+  companyState    String?
+  companyZip      String?
+  companyCountry  String?
+  taxId           String?
 
   credentials      Credential[]
   tasks            Task[]
@@ -182,6 +188,7 @@ model Invoice {
   currency String        @default("USD")
   status   InvoiceStatus @default(DRAFT)
   region   String        @default("US")
+  country  String        @default("US")
   dueDate  DateTime?
   paidAt   DateTime?
   notes    String?
@@ -276,6 +283,9 @@ model ContractSignature {
   ipAddress     String?
   userAgent     String?  @db.Text
   status        ContractStatus @default(PENDING)
+  expiresAt     DateTime?
+
+  paymentLinks     PaymentLink[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -299,12 +309,15 @@ model PaymentLink {
   description         String
   recurring           Boolean       @default(false)
   interval            String?       // "month" | "year"
+  country             String        @default("US")
   status              PaymentStatus @default(PENDING)
   stripePriceId       String?
   stripeProductId     String?
   stripeSessionId     String?
   stripeSubscriptionId String?
   paidAt              DateTime?
+  contractId          String?
+  contract            ContractSignature? @relation(fields: [contractId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

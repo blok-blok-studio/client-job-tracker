@@ -15,6 +15,7 @@ const createSchema = z.object({
   amount: z.number().min(1, "Amount must be at least 1"),
   description: z.string().min(1).max(500),
   currency: z.enum(["usd", "eur"]).default("usd"),
+  country: z.string().length(2).default("US"),
   recurring: z.boolean().default(false),
   interval: z.enum(["month", "year"]).optional(),
 });
@@ -49,6 +50,7 @@ export async function POST(
       const customer = await stripe.customers.create({
         name: client.name,
         email: client.email || undefined,
+        address: { country: parsed.country },
         metadata: { clientId: client.id },
       });
       stripeCustomerId = customer.id;
@@ -95,6 +97,7 @@ export async function POST(
         clientName: client.name,
         recurring: isRecurring ? "true" : "false",
       },
+      billing_address_collection: "auto",
       customer_update: {
         name: "auto",
         address: "auto",
@@ -129,6 +132,7 @@ export async function POST(
         stripeUrl: checkoutUrl,
         amount: amountInCents,
         currency,
+        country: parsed.country,
         description: parsed.description,
         recurring: !!isRecurring,
         interval: isRecurring ? parsed.interval : null,

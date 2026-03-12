@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -11,7 +11,7 @@ import EditClientForm from "@/components/clients/EditClientForm";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
 import { PLATFORM_OPTIONS } from "@/types";
 import { getFlagFromPhone, LiveClock } from "@/lib/client-utils";
-import { SERVICE_PACKAGES, ADDON_PACKAGES, PACKAGE_CATEGORIES } from "@/lib/contract-templates";
+import { SERVICE_PACKAGES, ADDON_PACKAGES, PACKAGE_CATEGORIES, type PackageCustomization } from "@/lib/contract-templates";
 
 interface ClientDetail {
   id: string;
@@ -65,11 +65,24 @@ export default function ClientDetailPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDescription, setPaymentDescription] = useState("");
-  const [paymentCurrency, setPaymentCurrency] = useState<"usd" | "eur">("usd");
+  const [paymentSelectedPkgs, setPaymentSelectedPkgs] = useState<string[]>([]);
+  const [paymentSelectedAddons, setPaymentSelectedAddons] = useState<string[]>([]);
+  const [paymentCurrency, setPaymentCurrency] = useState<"usd" | "eur">("eur");
+  const [paymentCountry, setPaymentCountry] = useState<string>("DE");
   const [paymentRecurring, setPaymentRecurring] = useState(false);
   const [paymentInterval, setPaymentInterval] = useState<"month" | "year">("month");
   const [generatingPayment, setGeneratingPayment] = useState(false);
   const [paymentCopied, setPaymentCopied] = useState<string | null>(null);
+  const [showUpdatePriceModal, setShowUpdatePriceModal] = useState(false);
+  const [updatePriceLink, setUpdatePriceLink] = useState<{ id: string; amount: number; currency: string; description: string; interval: string | null } | null>(null);
+  const [updatePriceAmount, setUpdatePriceAmount] = useState("");
+  const [updatePriceProrate, setUpdatePriceProrate] = useState(true);
+  const [updatingPrice, setUpdatingPrice] = useState(false);
+  // Package customizations (price overrides + deliverable toggling)
+  const [contractCustomizations, setContractCustomizations] = useState<Record<string, PackageCustomization>>({});
+  const [contractExpandedPkgs, setContractExpandedPkgs] = useState<string[]>([]);
+  const [paymentCustomizations, setPaymentCustomizations] = useState<Record<string, PackageCustomization>>({});
+  const [paymentExpandedPkgs, setPaymentExpandedPkgs] = useState<string[]>([]);
 
   const fetchClient = useCallback(async () => {
     const res = await fetch(`/api/clients/${id}`);
@@ -167,6 +180,7 @@ export default function ClientDetailPage() {
           addons: selectedAddons,
           customItems: validCustomItems.length > 0 ? validCustomItems : undefined,
           customTerms: customTerms.trim() || undefined,
+          packageCustomizations: Object.keys(contractCustomizations).length > 0 ? contractCustomizations : undefined,
         }),
       });
       const data = await res.json();
@@ -176,6 +190,8 @@ export default function ClientDetailPage() {
         setSelectedAddons([]);
         setCustomItems([]);
         setCustomTerms("");
+        setContractCustomizations({});
+        setContractExpandedPkgs([]);
         fetchClient();
       }
     } catch { /* stay on modal */ }
@@ -200,6 +216,7 @@ export default function ClientDetailPage() {
           amount,
           description: paymentDescription.trim(),
           currency: paymentCurrency,
+          country: paymentCountry,
           recurring: paymentRecurring,
           interval: paymentRecurring ? paymentInterval : undefined,
         }),
@@ -209,9 +226,12 @@ export default function ClientDetailPage() {
         setShowPaymentModal(false);
         setPaymentAmount("");
         setPaymentDescription("");
-        setPaymentCurrency("usd");
+        setPaymentCurrency("eur");
+        setPaymentCountry("DE");
         setPaymentRecurring(false);
         setPaymentInterval("month");
+        setPaymentSelectedPkgs([]);
+        setPaymentSelectedAddons([]);
         fetchClient();
       }
     } catch { /* stay on modal */ }
@@ -585,9 +605,19 @@ export default function ClientDetailPage() {
 
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-display font-semibold flex items-center gap-2">
-                  <CreditCard size={16} className="text-bb-orange" /> Payments
-                </h3>
+                <div className="flex items-center gap-3">
+                  <h3 className="font-display font-semibold flex items-center gap-2">
+                    <CreditCard size={16} className="text-bb-orange" /> Payments
+                  </h3>
+                  <a
+                    href="https://dashboard.stripe.com/settings/payouts"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-bb-dim hover:text-bb-orange flex items-center gap-0.5 transition-colors"
+                  >
+                    <ExternalLink size={9} /> Payout settings
+                  </a>
+                </div>
                 <button
                   onClick={() => setShowPaymentModal(true)}
                   className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1"
@@ -619,6 +649,20 @@ export default function ClientDetailPage() {
                           }`}>
                             {link.status === "ACTIVE" ? "Active" : link.status === "PAID" ? "Paid" : link.status === "CANCELLED" ? "Cancelled" : "Pending"}
                           </span>
+                          {link.status === "ACTIVE" && link.recurring && (
+                            <button
+                              onClick={() => {
+                                setUpdatePriceLink({ id: link.id, amount: link.amount, currency: link.currency, description: link.description, interval: link.interval });
+                                setUpdatePriceAmount((link.amount / 100).toString());
+                                setUpdatePriceProrate(true);
+                                setShowUpdatePriceModal(true);
+                              }}
+                              className="p-1 text-bb-dim hover:text-bb-orange transition-colors"
+                              title="Update subscription price"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                          )}
                           <button
                             onClick={async () => {
                               if (!confirm("Delete this payment link? This cannot be undone.")) return;
@@ -638,6 +682,27 @@ export default function ClientDetailPage() {
                         <p className="text-xs text-bb-muted">
                           {link.status === "ACTIVE" ? "Started" : "Paid"} on {new Date(link.paidAt).toLocaleString()}
                         </p>
+                      )}
+                      {link.status === "PENDING" && (
+                        <div className="flex items-center gap-1 mb-1">
+                          <button
+                            onClick={async () => {
+                              try {
+                                const res = await fetch(`/api/clients/${id}/payment-link/${link.id}`, { method: "POST" });
+                                const data = await res.json();
+                                if (data.success) {
+                                  alert("Payment link email resent!");
+                                } else {
+                                  alert(data.error || "Failed to resend");
+                                }
+                              } catch { alert("Failed to resend"); }
+                            }}
+                            className="flex items-center gap-1 text-[10px] text-bb-dim hover:text-bb-orange transition-colors"
+                            title="Resend payment link email"
+                          >
+                            <Send size={10} /> Resend email
+                          </button>
+                        </div>
                       )}
                       {link.status === "PENDING" && (
                         <div className="flex items-center gap-2">
@@ -812,20 +877,31 @@ export default function ClientDetailPage() {
                       )}
                     </div>
                     <div className="space-y-1.5">
-                      {catPackages.map((pkg) => (
-                        <label key={pkg.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                          selectedPackages.includes(pkg.id)
+                      {catPackages.map((pkg) => {
+                        const isSelected = selectedPackages.includes(pkg.id);
+                        const isExpanded = contractExpandedPkgs.includes(pkg.id);
+                        const cust = contractCustomizations[pkg.id];
+                        const displayPrice = cust?.priceOverride != null ? cust.priceOverride : pkg.price;
+                        const hasOverride = cust?.priceOverride != null || (cust?.excludedDeliverables && cust.excludedDeliverables.length > 0);
+                        return (
+                        <div key={pkg.id}>
+                        <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          isSelected
                             ? "border-bb-orange bg-bb-orange/5"
                             : "border-bb-border hover:border-bb-orange/30"
-                        }`}>
+                        } ${isSelected && isExpanded ? "rounded-b-none" : ""}`}>
                           <input
                             type="checkbox"
-                            checked={selectedPackages.includes(pkg.id)}
+                            checked={isSelected}
                             onChange={(e) => {
                               if (e.target.checked) {
                                 setSelectedPackages([...selectedPackages, pkg.id]);
                               } else {
                                 setSelectedPackages(selectedPackages.filter((p) => p !== pkg.id));
+                                setContractExpandedPkgs(contractExpandedPkgs.filter((p) => p !== pkg.id));
+                                const next = { ...contractCustomizations };
+                                delete next[pkg.id];
+                                setContractCustomizations(next);
                               }
                             }}
                             className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
@@ -834,8 +910,9 @@ export default function ClientDetailPage() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-medium text-white">{pkg.name}</span>
                               <span className={`text-sm font-mono font-semibold ${pkg.recurring ? "text-blue-400" : "text-bb-orange"}`}>
-                                ${pkg.price.toLocaleString()}{pkg.recurring ? "/mo" : ""}
+                                ${displayPrice.toLocaleString()}{pkg.recurring ? "/mo" : ""}
                               </span>
+                              {hasOverride && <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 font-medium">Modified</span>}
                               {pkg.recurring ? (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-medium">Recurring</span>
                               ) : (
@@ -844,8 +921,83 @@ export default function ClientDetailPage() {
                             </div>
                             <p className="text-xs text-bb-dim mt-0.5">{pkg.description}</p>
                           </div>
+                          {isSelected && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setContractExpandedPkgs(isExpanded
+                                  ? contractExpandedPkgs.filter((p) => p !== pkg.id)
+                                  : [...contractExpandedPkgs, pkg.id]
+                                );
+                              }}
+                              className="p-1 text-bb-dim hover:text-white shrink-0"
+                            >
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
+                          )}
                         </label>
-                      ))}
+                        {isSelected && isExpanded && (
+                          <div className="border border-t-0 border-bb-orange bg-bb-black/50 rounded-b-lg p-3 space-y-3">
+                            <div>
+                              <label className="block text-[10px] uppercase tracking-wider text-bb-dim font-medium mb-1">Price Override</label>
+                              <div className="relative w-40">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-bb-dim text-sm">$</span>
+                                <input
+                                  type="number"
+                                  value={cust?.priceOverride != null ? cust.priceOverride : pkg.price}
+                                  onChange={(e) => {
+                                    const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                    setContractCustomizations({
+                                      ...contractCustomizations,
+                                      [pkg.id]: { ...contractCustomizations[pkg.id], priceOverride: val === pkg.price ? undefined : val },
+                                    });
+                                  }}
+                                  className="w-full pl-6 pr-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white"
+                                  min="0"
+                                  step="1"
+                                />
+                              </div>
+                              {cust?.priceOverride != null && cust.priceOverride !== pkg.price && (
+                                <p className="text-[10px] text-yellow-400 mt-1">
+                                  Original: ${pkg.price.toLocaleString()} → Custom: ${cust.priceOverride.toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                            <div>
+                              <label className="block text-[10px] uppercase tracking-wider text-bb-dim font-medium mb-1.5">Included Services</label>
+                              <div className="space-y-1">
+                                {pkg.deliverables.map((d, di) => {
+                                  const excluded = cust?.excludedDeliverables || [];
+                                  const isIncluded = !excluded.includes(di);
+                                  return (
+                                    <label key={di} className="flex items-start gap-2 cursor-pointer group">
+                                      <input
+                                        type="checkbox"
+                                        checked={isIncluded}
+                                        onChange={(e) => {
+                                          const prev = contractCustomizations[pkg.id]?.excludedDeliverables || [];
+                                          const next = e.target.checked
+                                            ? prev.filter((i) => i !== di)
+                                            : [...prev, di];
+                                          setContractCustomizations({
+                                            ...contractCustomizations,
+                                            [pkg.id]: { ...contractCustomizations[pkg.id], excludedDeliverables: next.length > 0 ? next : undefined },
+                                          });
+                                        }}
+                                        className="w-3.5 h-3.5 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange shrink-0"
+                                      />
+                                      <span className={`text-xs ${isIncluded ? "text-bb-muted" : "text-bb-dim line-through"}`}>{d}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -856,7 +1008,10 @@ export default function ClientDetailPage() {
           <div>
             <h4 className="text-sm font-medium text-white mb-3">Add-Ons (Optional)</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-              {ADDON_PACKAGES.map((addon) => (
+              {ADDON_PACKAGES.map((addon) => {
+                const addonCust = contractCustomizations[addon.id];
+                const addonPrice = addonCust?.priceOverride != null ? addonCust.priceOverride : addon.price;
+                return (
                 <label key={addon.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
                   selectedAddons.includes(addon.id)
                     ? "border-bb-orange bg-bb-orange/5"
@@ -870,18 +1025,39 @@ export default function ClientDetailPage() {
                         setSelectedAddons([...selectedAddons, addon.id]);
                       } else {
                         setSelectedAddons(selectedAddons.filter((a) => a !== addon.id));
+                        const next = { ...contractCustomizations };
+                        delete next[addon.id];
+                        setContractCustomizations(next);
                       }
                     }}
                     className="w-3.5 h-3.5 rounded border-bb-border bg-bb-black accent-bb-orange"
                   />
-                  <div>
+                  <div className="flex-1">
                     <span className="text-xs font-medium text-white">{addon.name}</span>
                     <span className={`text-xs ml-1 font-mono ${addon.recurring ? "text-blue-400" : "text-bb-orange"}`}>
-                      ${addon.price.toLocaleString()}{addon.recurring ? "/mo" : ""}
+                      ${addonPrice.toLocaleString()}{addon.recurring ? "/mo" : ""}
                     </span>
+                    {addonCust?.priceOverride != null && <span className="text-[9px] ml-1 text-yellow-400">modified</span>}
                   </div>
+                  {selectedAddons.includes(addon.id) && (
+                    <input
+                      type="number"
+                      value={addonCust?.priceOverride != null ? addonCust.priceOverride : addon.price}
+                      onClick={(e) => e.preventDefault()}
+                      onChange={(e) => {
+                        const val = e.target.value === "" ? undefined : Number(e.target.value);
+                        setContractCustomizations({
+                          ...contractCustomizations,
+                          [addon.id]: { ...contractCustomizations[addon.id], priceOverride: val === addon.price ? undefined : val },
+                        });
+                      }}
+                      className="w-20 px-2 py-1 bg-bb-surface border border-bb-border rounded text-xs text-white text-right"
+                      min="0"
+                    />
+                  )}
                 </label>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -980,12 +1156,13 @@ export default function ClientDetailPage() {
               ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id)),
             ];
             const validCustom = customItems.filter(i => i.name.trim() && Number(i.price) > 0);
+            const getEffectivePrice = (i: { id: string; price: number }) => contractCustomizations[i.id]?.priceOverride ?? i.price;
             const oneTimeItems = [
-              ...allSelected.filter((i) => !i.recurring).map(i => ({ name: i.name, price: i.price })),
+              ...allSelected.filter((i) => !i.recurring).map(i => ({ name: i.name, price: getEffectivePrice(i) })),
               ...validCustom.filter(i => !i.recurring).map(i => ({ name: i.name, price: Number(i.price) })),
             ];
             const recurringItems = [
-              ...allSelected.filter((i) => i.recurring).map(i => ({ name: i.name, price: i.price })),
+              ...allSelected.filter((i) => i.recurring).map(i => ({ name: i.name, price: getEffectivePrice(i) })),
               ...validCustom.filter(i => i.recurring).map(i => ({ name: i.name, price: Number(i.price) })),
             ];
             const oneTimeTotal = oneTimeItems.reduce((sum, i) => sum + i.price, 0);
@@ -1088,11 +1265,258 @@ export default function ClientDetailPage() {
       </Modal>
 
       {/* Generate Payment Link Modal */}
-      <Modal open={showPaymentModal} onClose={() => setShowPaymentModal(false)} title="Create Payment Link">
+      <Modal open={showPaymentModal} onClose={() => setShowPaymentModal(false)} title="Create Payment Link" className="max-w-2xl">
         <div className="space-y-4">
           <p className="text-xs text-bb-dim">
-            Generate a Stripe payment link to send to {client?.name?.split(" ")[0]}. They&apos;ll be redirected to a secure Stripe checkout page.
+            Select packages or enter a custom amount. A Stripe checkout link will be generated and emailed to {client?.name?.split(" ")[0]}.
           </p>
+
+          {/* Package Selection */}
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Select Packages</label>
+            <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
+              {PACKAGE_CATEGORIES.map((cat) => {
+                const pkgs = SERVICE_PACKAGES.filter((p) => p.category === cat.id);
+                if (pkgs.length === 0) return null;
+                return (
+                  <div key={cat.id}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-[10px] font-bold text-bb-dim uppercase tracking-wider">{cat.label}</span>
+                      {pkgs[0]?.recurring && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-medium">Recurring</span>}
+                      {!pkgs[0]?.recurring && <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 font-medium">One-time</span>}
+                    </div>
+                    {pkgs.map((pkg) => {
+                      const pmtSelected = paymentSelectedPkgs.includes(pkg.id);
+                      const pmtExpanded = paymentExpandedPkgs.includes(pkg.id);
+                      const pmtCust = paymentCustomizations[pkg.id];
+                      const pmtPrice = pmtCust?.priceOverride != null ? pmtCust.priceOverride : pkg.price;
+                      const pmtHasOverride = pmtCust?.priceOverride != null || (pmtCust?.excludedDeliverables && pmtCust.excludedDeliverables.length > 0);
+
+                      const recalcPaymentTotals = (newPkgs: string[], newAddons: string[], newCust: Record<string, PackageCustomization>) => {
+                        const allSel = [
+                          ...SERVICE_PACKAGES.filter((p) => newPkgs.includes(p.id)),
+                          ...ADDON_PACKAGES.filter((a) => newAddons.includes(a.id)),
+                        ];
+                        if (allSel.length > 0) {
+                          const hasRec = allSel.some((p) => p.recurring);
+                          const getP = (p: { id: string; price: number }) => newCust[p.id]?.priceOverride ?? p.price;
+                          const ot = allSel.filter((p) => !p.recurring).reduce((s, p) => s + getP(p), 0);
+                          const rt = allSel.filter((p) => p.recurring).reduce((s, p) => s + getP(p), 0);
+                          const total = hasRec && !ot ? rt : ot + rt;
+                          setPaymentAmount(total.toString());
+                          const desc = allSel.map((p) => {
+                            const c = newCust[p.id];
+                            const modified = c?.priceOverride != null || (c?.excludedDeliverables && c.excludedDeliverables.length > 0);
+                            return modified ? `${p.name} (customized)` : p.name;
+                          }).join(" + ");
+                          setPaymentDescription(desc);
+                          if (hasRec && !paymentRecurring) setPaymentRecurring(true);
+                        }
+                      };
+
+                      return (
+                      <div key={pkg.id} className="mb-1">
+                      <label
+                        className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                          pmtSelected
+                            ? "border-bb-orange bg-bb-orange/5"
+                            : "border-bb-border bg-bb-black hover:border-bb-dim"
+                        } ${pmtSelected && pmtExpanded ? "rounded-b-none" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={pmtSelected}
+                          onChange={(e) => {
+                            const newPkgs = e.target.checked
+                              ? [...paymentSelectedPkgs, pkg.id]
+                              : paymentSelectedPkgs.filter((p) => p !== pkg.id);
+                            setPaymentSelectedPkgs(newPkgs);
+                            if (!e.target.checked) {
+                              setPaymentExpandedPkgs(paymentExpandedPkgs.filter((p) => p !== pkg.id));
+                              const next = { ...paymentCustomizations };
+                              delete next[pkg.id];
+                              setPaymentCustomizations(next);
+                              recalcPaymentTotals(newPkgs, paymentSelectedAddons, next);
+                            } else {
+                              recalcPaymentTotals(newPkgs, paymentSelectedAddons, paymentCustomizations);
+                            }
+                          }}
+                          className="w-3.5 h-3.5 rounded border-bb-border bg-bb-black accent-bb-orange shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm text-white font-medium">{pkg.name}</span>
+                          {pmtHasOverride && <span className="text-[9px] ml-1.5 px-1 py-0.5 rounded bg-yellow-500/10 text-yellow-400">modified</span>}
+                          <span className="text-xs text-bb-dim ml-2">{pkg.description}</span>
+                        </div>
+                        <span className="text-sm font-mono text-bb-orange shrink-0">
+                          ${pmtPrice.toLocaleString()}{pkg.recurring ? "/mo" : ""}
+                        </span>
+                        {pmtSelected && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setPaymentExpandedPkgs(pmtExpanded
+                                ? paymentExpandedPkgs.filter((p) => p !== pkg.id)
+                                : [...paymentExpandedPkgs, pkg.id]
+                              );
+                            }}
+                            className="p-0.5 text-bb-dim hover:text-white shrink-0"
+                          >
+                            {pmtExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          </button>
+                        )}
+                      </label>
+                      {pmtSelected && pmtExpanded && (
+                        <div className="border border-t-0 border-bb-orange bg-bb-black/50 rounded-b-lg p-3 space-y-3">
+                          <div>
+                            <label className="block text-[10px] uppercase tracking-wider text-bb-dim font-medium mb-1">Price Override</label>
+                            <div className="relative w-36">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-bb-dim text-xs">$</span>
+                              <input
+                                type="number"
+                                value={pmtCust?.priceOverride != null ? pmtCust.priceOverride : pkg.price}
+                                onChange={(e) => {
+                                  const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                  const next = {
+                                    ...paymentCustomizations,
+                                    [pkg.id]: { ...paymentCustomizations[pkg.id], priceOverride: val === pkg.price ? undefined : val },
+                                  };
+                                  setPaymentCustomizations(next);
+                                  recalcPaymentTotals(paymentSelectedPkgs, paymentSelectedAddons, next);
+                                }}
+                                className="w-full pl-5 pr-2 py-1 bg-bb-surface border border-bb-border rounded text-xs text-white"
+                                min="0"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] uppercase tracking-wider text-bb-dim font-medium mb-1">Included Services</label>
+                            <div className="space-y-1">
+                              {pkg.deliverables.map((d, di) => {
+                                const excl = pmtCust?.excludedDeliverables || [];
+                                const incl = !excl.includes(di);
+                                return (
+                                  <label key={di} className="flex items-start gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={incl}
+                                      onChange={(e) => {
+                                        const prev = paymentCustomizations[pkg.id]?.excludedDeliverables || [];
+                                        const nextExcl = e.target.checked ? prev.filter((i) => i !== di) : [...prev, di];
+                                        const next = {
+                                          ...paymentCustomizations,
+                                          [pkg.id]: { ...paymentCustomizations[pkg.id], excludedDeliverables: nextExcl.length > 0 ? nextExcl : undefined },
+                                        };
+                                        setPaymentCustomizations(next);
+                                        recalcPaymentTotals(paymentSelectedPkgs, paymentSelectedAddons, next);
+                                      }}
+                                      className="w-3 h-3 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange shrink-0"
+                                    />
+                                    <span className={`text-[11px] ${incl ? "text-bb-muted" : "text-bb-dim line-through"}`}>{d}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+
+              {/* Add-ons */}
+              {ADDON_PACKAGES.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-bold text-bb-dim uppercase tracking-wider">Add-Ons</span>
+                  {ADDON_PACKAGES.map((addon) => {
+                    const addonPmtCust = paymentCustomizations[addon.id];
+                    const addonPmtPrice = addonPmtCust?.priceOverride != null ? addonPmtCust.priceOverride : addon.price;
+                    return (
+                    <label
+                      key={addon.id}
+                      className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors mb-1 ${
+                        paymentSelectedAddons.includes(addon.id)
+                          ? "border-bb-orange bg-bb-orange/5"
+                          : "border-bb-border bg-bb-black hover:border-bb-dim"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={paymentSelectedAddons.includes(addon.id)}
+                        onChange={(e) => {
+                          const newAddons = e.target.checked
+                            ? [...paymentSelectedAddons, addon.id]
+                            : paymentSelectedAddons.filter((a) => a !== addon.id);
+                          setPaymentSelectedAddons(newAddons);
+                          if (!e.target.checked) {
+                            const next = { ...paymentCustomizations };
+                            delete next[addon.id];
+                            setPaymentCustomizations(next);
+                          }
+                          const custRef = e.target.checked ? paymentCustomizations : (() => { const n = { ...paymentCustomizations }; delete n[addon.id]; return n; })();
+                          const allSel = [
+                            ...SERVICE_PACKAGES.filter((p) => paymentSelectedPkgs.includes(p.id)),
+                            ...ADDON_PACKAGES.filter((a) => newAddons.includes(a.id)),
+                          ];
+                          if (allSel.length > 0) {
+                            const hasRec = allSel.some((p) => p.recurring);
+                            const total = allSel.reduce((s, p) => s + (custRef[p.id]?.priceOverride ?? p.price), 0);
+                            setPaymentAmount(total.toString());
+                            setPaymentDescription(allSel.map((p) => p.name).join(" + "));
+                            if (hasRec && !paymentRecurring) setPaymentRecurring(true);
+                          }
+                        }}
+                        className="w-3.5 h-3.5 rounded border-bb-border bg-bb-black accent-bb-orange shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm text-white font-medium">{addon.name}</span>
+                        {addonPmtCust?.priceOverride != null && <span className="text-[9px] ml-1 text-yellow-400">modified</span>}
+                      </div>
+                      <span className="text-sm font-mono text-bb-orange shrink-0">
+                        ${addonPmtPrice.toLocaleString()}{addon.recurring ? "/mo" : ""}
+                      </span>
+                      {paymentSelectedAddons.includes(addon.id) && (
+                        <input
+                          type="number"
+                          value={addonPmtCust?.priceOverride != null ? addonPmtCust.priceOverride : addon.price}
+                          onClick={(e) => e.preventDefault()}
+                          onChange={(e) => {
+                            const val = e.target.value === "" ? undefined : Number(e.target.value);
+                            const next = {
+                              ...paymentCustomizations,
+                              [addon.id]: { ...paymentCustomizations[addon.id], priceOverride: val === addon.price ? undefined : val },
+                            };
+                            setPaymentCustomizations(next);
+                            const allSel = [
+                              ...SERVICE_PACKAGES.filter((p) => paymentSelectedPkgs.includes(p.id)),
+                              ...ADDON_PACKAGES.filter((a) => paymentSelectedAddons.includes(a.id)),
+                            ];
+                            const total = allSel.reduce((s, p) => s + (next[p.id]?.priceOverride ?? p.price), 0);
+                            setPaymentAmount(total.toString());
+                          }}
+                          className="w-20 px-2 py-1 bg-bb-surface border border-bb-border rounded text-xs text-white text-right"
+                          min="0"
+                        />
+                      )}
+                    </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-bb-border" />
+            <span className="text-[10px] text-bb-dim uppercase">or customize below</span>
+            <div className="flex-1 h-px bg-bb-border" />
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-white mb-1.5">Description *</label>
             <input
@@ -1103,30 +1527,65 @@ export default function ClientDetailPage() {
               placeholder="e.g. Single Agent Build, AI Operations Package"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-white mb-1.5">Currency</label>
-            <div className="flex gap-2">
-              {([["usd", "USD ($)"], ["eur", "EUR (€)"]] as const).map(([code, label]) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setPaymentCurrency(code)}
-                  className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                    paymentCurrency === code
-                      ? "border-bb-orange bg-bb-orange/10 text-bb-orange"
-                      : "border-bb-border bg-bb-black text-bb-muted hover:border-bb-orange/30"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-white mb-1.5">Currency</label>
+              <div className="flex gap-2">
+                {([["usd", "USD ($)"], ["eur", "EUR (\u20AC)"]] as const).map(([code, label]) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => {
+                      setPaymentCurrency(code);
+                      setPaymentCountry(code === "usd" ? "US" : "DE");
+                    }}
+                    className={`flex-1 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                      paymentCurrency === code
+                        ? "border-bb-orange bg-bb-orange/10 text-bb-orange"
+                        : "border-bb-border bg-bb-black text-bb-muted hover:border-bb-orange/30"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-white mb-1.5">Country</label>
+              <select
+                value={paymentCountry}
+                onChange={(e) => setPaymentCountry(e.target.value)}
+                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              >
+                {paymentCurrency === "usd" ? (
+                  <>
+                    <option value="US">{"\uD83C\uDDFA\uD83C\uDDF8"} United States</option>
+                    <option value="CA">{"\uD83C\uDDE8\uD83C\uDDE6"} Canada</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="DE">{"\uD83C\uDDE9\uD83C\uDDEA"} Germany</option>
+                    <option value="AT">{"\uD83C\uDDE6\uD83C\uDDF9"} Austria</option>
+                    <option value="NL">{"\uD83C\uDDF3\uD83C\uDDF1"} Netherlands</option>
+                    <option value="BE">{"\uD83C\uDDE7\uD83C\uDDEA"} Belgium</option>
+                    <option value="FR">{"\uD83C\uDDEB\uD83C\uDDF7"} France</option>
+                    <option value="ES">{"\uD83C\uDDEA\uD83C\uDDF8"} Spain</option>
+                    <option value="IT">{"\uD83C\uDDEE\uD83C\uDDF9"} Italy</option>
+                    <option value="IE">{"\uD83C\uDDEE\uD83C\uDDEA"} Ireland</option>
+                    <option value="PT">{"\uD83C\uDDF5\uD83C\uDDF9"} Portugal</option>
+                    <option value="FI">{"\uD83C\uDDEB\uD83C\uDDEE"} Finland</option>
+                    <option value="GR">{"\uD83C\uDDEC\uD83C\uDDF7"} Greece</option>
+                    <option value="LU">{"\uD83C\uDDF1\uD83C\uDDFA"} Luxembourg</option>
+                  </>
+                )}
+              </select>
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-white mb-1.5">Amount *</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim text-sm">
-                {paymentCurrency === "usd" ? "$" : "€"}
+                {paymentCurrency === "usd" ? "$" : "\u20AC"}
               </span>
               <input
                 type="number"
@@ -1212,6 +1671,116 @@ export default function ClientDetailPage() {
               )}
             </button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Update Subscription Price Modal */}
+      <Modal open={showUpdatePriceModal} onClose={() => setShowUpdatePriceModal(false)} title="Update Subscription Price">
+        <div className="space-y-4">
+          {updatePriceLink && (
+            <>
+              <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
+                <p className="text-sm text-white font-medium">{updatePriceLink.description}</p>
+                <p className="text-xs text-bb-dim mt-1">
+                  Current: {new Intl.NumberFormat("en-US", { style: "currency", currency: updatePriceLink.currency || "usd" }).format(updatePriceLink.amount / 100)}
+                  /{updatePriceLink.interval === "year" ? "yr" : "mo"}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white mb-1.5">New Amount *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim text-sm">
+                    {updatePriceLink.currency === "eur" ? "€" : "$"}
+                  </span>
+                  <input
+                    type="number"
+                    value={updatePriceAmount}
+                    onChange={(e) => setUpdatePriceAmount(e.target.value)}
+                    className="w-full pl-7 pr-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+                    placeholder="5000"
+                    min="1"
+                    step="1"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={updatePriceProrate}
+                  onChange={(e) => setUpdatePriceProrate(e.target.checked)}
+                  className="w-4 h-4 rounded border-bb-border bg-bb-black text-bb-orange focus:ring-bb-orange/50 accent-bb-orange"
+                />
+                <div>
+                  <span className="text-sm text-white">Prorate remaining billing period</span>
+                  <p className="text-xs text-bb-dim">Charge or credit the difference for the current period</p>
+                </div>
+              </label>
+              {updatePriceAmount && Number(updatePriceAmount) > 0 && Number(updatePriceAmount) * 100 !== updatePriceLink.amount && (
+                <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-bb-dim">New price</span>
+                    <span className="text-white font-mono font-semibold">
+                      {new Intl.NumberFormat("en-US", { style: "currency", currency: updatePriceLink.currency || "usd" }).format(Number(updatePriceAmount))}
+                      /{updatePriceLink.interval === "year" ? "yr" : "mo"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs mt-1">
+                    <span className="text-bb-dim">Change</span>
+                    <span className={Number(updatePriceAmount) * 100 > updatePriceLink.amount ? "text-green-400" : "text-red-400"}>
+                      {Number(updatePriceAmount) * 100 > updatePriceLink.amount ? "↑ Upgrade" : "↓ Downgrade"}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  onClick={() => setShowUpdatePriceModal(false)}
+                  className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!updatePriceLink || !updatePriceAmount || Number(updatePriceAmount) <= 0) return;
+                    setUpdatingPrice(true);
+                    try {
+                      const res = await fetch(`/api/clients/${id}/payment-link/${updatePriceLink.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ amount: Number(updatePriceAmount), prorate: updatePriceProrate }),
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        setShowUpdatePriceModal(false);
+                        setUpdatePriceLink(null);
+                        fetchClient();
+                      } else {
+                        alert(data.error || "Failed to update price");
+                      }
+                    } catch {
+                      alert("Failed to update price");
+                    } finally {
+                      setUpdatingPrice(false);
+                    }
+                  }}
+                  disabled={!updatePriceAmount || Number(updatePriceAmount) <= 0 || Number(updatePriceAmount) * 100 === updatePriceLink.amount || updatingPrice}
+                  className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                >
+                  {updatingPrice ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard size={14} />
+                      Update Price
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

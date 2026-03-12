@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { sendReminderEmail } from "@/lib/email";
 import type { ActionResult, AgentAction } from "@/types";
 
 // --- Action Functions ---
@@ -139,10 +140,30 @@ export async function sendReminder(params: {
     clientId: z.string(),
     subject: z.string(),
     body: z.string(),
-    channel: z.enum(["email", "slack", "telegram"]),
+    channel: z.enum(["email", "telegram"]),
   });
 
   const parsed = schema.parse(params);
+
+  // This sends reminders to Chase (the admin), not to clients
+  // For client-facing reminders, use SEND_CLIENT_REMINDER
+  let sent = false;
+
+  if (parsed.channel === "telegram") {
+    // Send to Chase's Telegram — use ADMIN_TELEGRAM_CHAT_ID env var
+    const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID;
+    if (adminChatId) {
+      const result = await sendTelegramMessage(adminChatId, `📋 <b>${parsed.subject}</b>\n\n${parsed.body}`);
+      sent = result.success;
+    }
+  } else if (parsed.channel === "email") {
+    const result = await sendReminderEmail({
+      to: "chase@blokblokstudio.com",
+      subject: parsed.subject,
+      body: parsed.body,
+    });
+    sent = !!result;
+  }
 
   await prisma.activityLog.create({
     data: {
@@ -153,12 +174,70 @@ export async function sendReminder(params: {
         subject: parsed.subject,
         body: parsed.body,
         channel: parsed.channel,
-        status: "pending_review",
+        status: sent ? "sent" : "failed",
       }),
     },
   });
 
-  return { success: true, message: `Reminder drafted (${parsed.channel}): ${parsed.subject}` };
+  return { success: true, message: `Reminder ${sent ? "sent" : "queued"} (${parsed.channel}): ${parsed.subject}` };
+}
+
+export async function sendClientReminder(params: {
+  clientId: string;
+  subject: string;
+  body: string;
+  channel: string;
+}): Promise<ActionResult> {
+  const schema = z.object({
+    clientId: z.string(),
+    subject: z.string(),
+    body: z.string(),
+    channel: z.enum(["email", "telegram", "both"]),
+  });
+
+  const parsed = schema.parse(params);
+
+  const client = await prisma.client.findUnique({
+    where: { id: parsed.clientId },
+    select: { name: true, email: true, telegramChatId: true },
+  });
+
+  if (!client) return { success: false, message: "Client not found" };
+
+  const results: string[] = [];
+
+  // Send via Telegram if channel is telegram or both
+  if ((parsed.channel === "telegram" || parsed.channel === "both") && client.telegramChatId) {
+    const tgResult = await sendTelegramMessage(client.telegramChatId, parsed.body);
+    results.push(tgResult.success ? "telegram:sent" : "telegram:failed");
+  }
+
+  // Send via email if channel is email or both
+  if ((parsed.channel === "email" || parsed.channel === "both") && client.email) {
+    const emailResult = await sendReminderEmail({
+      to: client.email,
+      subject: parsed.subject,
+      body: parsed.body,
+    });
+    results.push(emailResult ? "email:sent" : "email:failed");
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      clientId: parsed.clientId,
+      actor: "agent",
+      action: "sent_client_reminder",
+      details: JSON.stringify({
+        clientName: client.name,
+        subject: parsed.subject,
+        body: parsed.body,
+        channel: parsed.channel,
+        results,
+      }),
+    },
+  });
+
+  return { success: true, message: `Client reminder sent to ${client.name}: ${results.join(", ")}` };
 }
 
 export async function generateReport(params: {
@@ -433,6 +512,7 @@ const actionMap: Record<string, (params: Record<string, unknown>) => Promise<Act
   MOVE_TASK: (p) => moveTask(p as Parameters<typeof moveTask>[0]),
   FLAG_OVERDUE: (p) => flagOverdue(p as Parameters<typeof flagOverdue>[0]),
   SEND_REMINDER: (p) => sendReminder(p as Parameters<typeof sendReminder>[0]),
+  SEND_CLIENT_REMINDER: (p) => sendClientReminder(p as Parameters<typeof sendClientReminder>[0]),
   GENERATE_REPORT: (p) => generateReport(p as Parameters<typeof generateReport>[0]),
   UPDATE_CHECKLIST: (p) => updateChecklist(p as Parameters<typeof updateChecklist>[0]),
   CREATE_CHECKLIST_ITEM: (p) => createChecklistItem(p as Parameters<typeof createChecklistItem>[0]),

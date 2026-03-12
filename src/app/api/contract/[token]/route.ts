@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { onContractSigned } from "@/lib/pipeline";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const ALLOWED_ORIGINS = [
   "https://blokblokstudio.com",
@@ -30,6 +31,16 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  // Rate limit contract token lookups — 20/min per IP
+  const ip = getClientIp(request);
+  const rl = rateLimit(ip, { max: 20, prefix: "contract-get" });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "Too many requests. Please try again later." },
+      { status: 429, headers: corsHeaders(request) }
+    );
+  }
+
   try {
     const { token } = await params;
 
@@ -46,6 +57,18 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: "Invalid or expired contract link" },
         { status: 404, headers: corsHeaders(request) }
+      );
+    }
+
+    if (contract.expiresAt && new Date() > contract.expiresAt) {
+      // Update status to EXPIRED
+      await prisma.contractSignature.update({
+        where: { id: contract.id },
+        data: { status: "EXPIRED" },
+      });
+      return NextResponse.json(
+        { success: false, error: "This contract has expired" },
+        { status: 410, headers: corsHeaders(request) }
       );
     }
 
@@ -82,6 +105,16 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  // Rate limit contract signing — 5/min per IP
+  const signIp = getClientIp(request);
+  const signRl = rateLimit(signIp, { max: 5, prefix: "contract-sign" });
+  if (!signRl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "Too many requests. Please try again later." },
+      { status: 429, headers: corsHeaders(request) }
+    );
+  }
+
   try {
     const { token } = await params;
 
@@ -126,8 +159,12 @@ export async function POST(
       },
     });
 
-    // Trigger pipeline: auto-check checklist + create content calendar task
-    onContractSigned(contract.client.id).catch((err) =>
+    // Trigger pipeline: auto-check checklist, send emails to client + Chase, cascade onboarding
+    onContractSigned(contract.client.id, {
+      signedName: parsed.signedName,
+      ipAddress,
+      token,
+    }).catch((err) =>
       console.error("[Pipeline] onContractSigned error:", err)
     );
 

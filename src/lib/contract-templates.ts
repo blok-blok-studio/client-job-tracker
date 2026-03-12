@@ -825,17 +825,34 @@ export const ADDON_PACKAGES: ServicePackage[] = [
   },
 ];
 
+export interface PackageCustomization {
+  priceOverride?: number;
+  excludedDeliverables?: number[];
+}
+
 export function generateContractBody(
   clientName: string,
   companyName: string | null,
   selectedPackages: string[],
   selectedAddons: string[],
   customItems: CustomLineItem[],
-  customTerms?: string
+  customTerms?: string,
+  packageCustomizations?: Record<string, PackageCustomization>
 ): string {
   const packages = SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id));
   const addons = ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id));
   const allItems = [...packages, ...addons];
+
+  const getPrice = (item: ServicePackage) => {
+    const c = packageCustomizations?.[item.id];
+    return c?.priceOverride != null ? c.priceOverride : item.price;
+  };
+
+  const getDeliverables = (item: ServicePackage) => {
+    const excluded = packageCustomizations?.[item.id]?.excludedDeliverables;
+    if (!excluded || excluded.length === 0) return item.deliverables;
+    return item.deliverables.filter((_, i) => !excluded.includes(i));
+  };
 
   // Split into one-time and recurring
   const oneTimeItems = allItems.filter((i) => !i.recurring);
@@ -844,8 +861,8 @@ export function generateContractBody(
   const customOneTime = customItems.filter((i) => !i.recurring);
   const customRecurring = customItems.filter((i) => i.recurring);
 
-  const oneTimeTotal = oneTimeItems.reduce((sum, item) => sum + item.price, 0);
-  const recurringTotal = recurringItems.reduce((sum, item) => sum + item.price, 0);
+  const oneTimeTotal = oneTimeItems.reduce((sum, item) => sum + getPrice(item), 0);
+  const recurringTotal = recurringItems.reduce((sum, item) => sum + getPrice(item), 0);
   const customOneTimeTotal = customOneTime.reduce((sum, item) => sum + item.price, 0);
   const customRecurringTotal = customRecurring.reduce((sum, item) => sum + item.price, 0);
   const grandOneTime = oneTimeTotal + customOneTimeTotal;
@@ -881,12 +898,14 @@ The Provider agrees to deliver the following services to the Client:
   if (oneTimeItems.length > 0 || customOneTime.length > 0) {
     contract += `One-Time Services:\n\n`;
     oneTimeItems.forEach((item) => {
-      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${item.price.toLocaleString()} USD
+      const price = getPrice(item);
+      const deliverables = getDeliverables(item);
+      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${price.toLocaleString()} USD
       ${item.description}
 
       What is included:
 `;
-      item.deliverables.forEach((d) => {
+      deliverables.forEach((d) => {
         contract += `         ${d}\n`;
       });
       contract += `
@@ -908,12 +927,14 @@ The Provider agrees to deliver the following services to the Client:
   if (recurringItems.length > 0 || customRecurring.length > 0) {
     contract += `Recurring Monthly Services:\n\n`;
     recurringItems.forEach((item) => {
-      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${item.price.toLocaleString()}/month USD
+      const price = getPrice(item);
+      const deliverables = getDeliverables(item);
+      contract += `   ${String.fromCharCode(65 + itemIndex)}. ${item.name}    $${price.toLocaleString()}/month USD
       ${item.description}
 
       What is included:
 `;
-      item.deliverables.forEach((d) => {
+      deliverables.forEach((d) => {
         contract += `         ${d}\n`;
       });
       contract += `
@@ -939,7 +960,7 @@ SECTION 2. TOTAL INVESTMENT
   if (oneTimeItems.length > 0 || customOneTime.length > 0) {
     contract += `One-Time Fees:\n`;
     oneTimeItems.forEach((item) => {
-      contract += `   ${item.name}    $${item.price.toLocaleString()} USD\n`;
+      contract += `   ${item.name}    $${getPrice(item).toLocaleString()} USD\n`;
     });
     customOneTime.forEach((item) => {
       contract += `   ${item.name}    $${item.price.toLocaleString()} USD\n`;
@@ -950,7 +971,7 @@ SECTION 2. TOTAL INVESTMENT
   if (recurringItems.length > 0 || customRecurring.length > 0) {
     contract += `Monthly Recurring Fees:\n`;
     recurringItems.forEach((item) => {
-      contract += `   ${item.name}    $${item.price.toLocaleString()}/month USD\n`;
+      contract += `   ${item.name}    $${getPrice(item).toLocaleString()}/month USD\n`;
     });
     customRecurring.forEach((item) => {
       contract += `   ${item.name}    $${item.price.toLocaleString()}/month USD\n`;
