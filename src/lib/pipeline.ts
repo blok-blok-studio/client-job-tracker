@@ -57,9 +57,21 @@ async function maybeSendOnboardingLink(clientId: string) {
   const alreadyOnboarded = onboardingItems.some((i) => i.checked);
   if (alreadyOnboarded) return;
 
-  // Idempotency: check if we already sent the onboarding link (prevents duplicates on webhook retries)
+  // Idempotency: check if we already sent the onboarding link AFTER the most recent contract was signed
+  // This allows new contract cycles to trigger fresh onboarding links
+  const latestSignedContract = await prisma.contractSignature.findFirst({
+    where: { clientId, status: "SIGNED" },
+    orderBy: { signedAt: "desc" },
+    select: { signedAt: true },
+  });
   const alreadySent = await prisma.activityLog.findFirst({
-    where: { clientId, action: "pipeline_onboard_sent" },
+    where: {
+      clientId,
+      action: "pipeline_onboard_sent",
+      ...(latestSignedContract?.signedAt
+        ? { createdAt: { gte: latestSignedContract.signedAt } }
+        : {}),
+    },
     select: { id: true },
   });
   if (alreadySent) return;
@@ -146,13 +158,17 @@ async function maybeSendContractSigningLink(clientId: string) {
   const pendingContract = await prisma.contractSignature.findFirst({
     where: { clientId, status: "PENDING" },
     orderBy: { createdAt: "desc" },
-    select: { token: true },
+    select: { token: true, createdAt: true },
   });
   if (!pendingContract) return;
 
-  // Idempotency: don't send if we already sent a signing link
+  // Idempotency: don't send if we already sent a signing link for this contract cycle
   const alreadySent = await prisma.activityLog.findFirst({
-    where: { clientId, action: "pipeline_contract_signing_sent" },
+    where: {
+      clientId,
+      action: "pipeline_contract_signing_sent",
+      createdAt: { gte: pendingContract.createdAt },
+    },
     select: { id: true },
   });
   if (alreadySent) return;

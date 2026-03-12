@@ -1026,6 +1026,11 @@ export interface PackageCustomization {
   excludedDeliverables?: number[];
 }
 
+export interface PaymentMilestone {
+  label: string;   // "deposit" | "milestone" | "completion"
+  percent: number;  // 1–100
+}
+
 export function generateContractBody(
   clientName: string,
   companyName: string | null,
@@ -1033,7 +1038,8 @@ export function generateContractBody(
   selectedAddons: string[],
   customItems: CustomLineItem[],
   customTerms?: string,
-  packageCustomizations?: Record<string, PackageCustomization>
+  packageCustomizations?: Record<string, PackageCustomization>,
+  paymentSchedule?: PaymentMilestone[]
 ): string {
   const packages = SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id));
   const addons = ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id));
@@ -1193,11 +1199,25 @@ SECTION 3. PAYMENT TERMS
 `;
 
   if (oneTimeTotal > 0) {
-    contract += `One-time project payments are structured as follows:
+    if (paymentSchedule && paymentSchedule.length > 0) {
+      contract += `One-time project payments are structured as follows:\n`;
+      for (const milestone of paymentSchedule) {
+        const amount = Math.round((oneTimeTotal * milestone.percent) / 100);
+        const label = milestone.label === "deposit"
+          ? "Deposit due upon signing of this Agreement to initiate work"
+          : milestone.label === "milestone"
+          ? "Milestone payment due upon completion of project milestone"
+          : "Final balance due upon project completion (Net 7)";
+        contract += `- ${milestone.percent}% ${label}: $${amount.toLocaleString()} USD\n`;
+      }
+      contract += `\n`;
+    } else {
+      contract += `One-time project payments are structured as follows:
 - 50% deposit due upon signing of this Agreement to initiate work.
 - Remaining balance due upon project completion (Net 7).
 
 `;
+    }
   }
 
   if (recurringTotal > 0) {

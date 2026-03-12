@@ -69,7 +69,8 @@ export async function POST(
       parsed.addons,
       parsed.customItems,
       parsed.customTerms,
-      parsed.packageCustomizations
+      parsed.packageCustomizations,
+      parsed.paymentSchedule
     );
 
     // SHA-256 hash of the contract body for tamper detection
