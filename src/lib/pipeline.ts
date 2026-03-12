@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { sendOnboardingLinkEmail, sendContractEmail, sendContractSignedClientEmail, sendContractSignedAdminEmail } from "@/lib/email";
+import { sendOnboardingLinkEmail, sendContractEmail, sendContractSigningEmail, sendContractSignedClientEmail, sendContractSignedAdminEmail } from "@/lib/email";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { randomBytes } from "crypto";
 
@@ -113,6 +113,9 @@ export async function onPaymentConfirmed(clientId: string) {
       data: { checked: true },
     });
 
+    // Auto-send contract signing link if there's a pending contract linked to this client
+    await maybeSendContractSigningLink(clientId);
+
     // Check if both payment + contract are done → send onboarding if so
     await maybeSendOnboardingLink(clientId);
   } catch (error) {
@@ -126,6 +129,57 @@ export async function onPaymentConfirmed(clientId: string) {
       },
     });
   }
+}
+
+/**
+ * After payment, auto-send the contract signing link to the client
+ * if there's a PENDING contract they haven't signed yet.
+ */
+async function maybeSendContractSigningLink(clientId: string) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { name: true, email: true, telegramChatId: true },
+  });
+  if (!client?.email) return;
+
+  // Find the most recent pending contract for this client
+  const pendingContract = await prisma.contractSignature.findFirst({
+    where: { clientId, status: "PENDING" },
+    orderBy: { createdAt: "desc" },
+    select: { token: true },
+  });
+  if (!pendingContract) return;
+
+  // Idempotency: don't send if we already sent a signing link
+  const alreadySent = await prisma.activityLog.findFirst({
+    where: { clientId, action: "pipeline_contract_signing_sent" },
+    select: { id: true },
+  });
+  if (alreadySent) return;
+
+  const contractUrl = `${APP_URL}/contract/${pendingContract.token}`;
+
+  await sendContractSigningEmail({
+    to: client.email,
+    clientName: client.name,
+    contractUrl,
+  });
+
+  if (client.telegramChatId) {
+    await sendTelegramMessage(
+      client.telegramChatId,
+      `📝 Payment received! Please review and sign your service agreement:\n\n${contractUrl}`
+    );
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      clientId,
+      actor: "agent",
+      action: "pipeline_contract_signing_sent",
+      details: `Auto-sent contract signing link to ${client.name} (${client.email}) after payment confirmed`,
+    },
+  });
 }
 
 export async function onContractSigned(

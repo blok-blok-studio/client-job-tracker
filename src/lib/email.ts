@@ -123,6 +123,57 @@ export async function sendOnboardingLinkEmail(params: {
   return data;
 }
 
+export async function sendContractSigningEmail(params: {
+  to: string;
+  clientName: string;
+  contractUrl: string;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: "Please Review & Sign Your Agreement — Blok Blok Studio",
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Hi ${params.clientName.split(" ")[0]},
+        </p>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Thank you for your payment! Your service agreement is ready for review and signature. Please click the button below to review the terms and sign electronically.
+        </p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.contractUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            Review & Sign Agreement
+          </a>
+        </div>
+        <p style="color: #666; font-size: 14px; line-height: 1.6;">
+          Once signed, you'll receive a confirmation email with a copy for your records.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">
+          Blok Blok Studio · chase@blokblokstudio.com
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send contract signing email:", error);
+    return null;
+  }
+
+  return data;
+}
+
 export async function sendContractEmail(params: {
   to: string;
   clientName: string;
