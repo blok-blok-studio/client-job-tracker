@@ -135,7 +135,7 @@ export async function POST(
         enabled: true,
         invoice_data: {
           description: parsed.description,
-          rendering: { template: invoiceTemplate },
+          rendering_options: { template: invoiceTemplate },
           metadata: {
             clientId: client.id,
             clientName: client.name,
@@ -146,7 +146,7 @@ export async function POST(
       // For subscriptions, set the template on subscription invoices
       sessionParams.subscription_data = {
         invoice_settings: {
-          rendering: { template: invoiceTemplate },
+          rendering_options: { template: invoiceTemplate },
         },
       };
     }

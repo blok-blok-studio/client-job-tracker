@@ -235,8 +235,10 @@ export default function ClientDetailPage() {
         setPaymentSelectedPkgs([]);
         setPaymentSelectedAddons([]);
         fetchClient();
+      } else {
+        alert(data.error || "Failed to create payment link");
       }
-    } catch { /* stay on modal */ }
+    } catch (err) { alert("Network error creating payment link"); }
     finally { setGeneratingPayment(false); }
   }
 
