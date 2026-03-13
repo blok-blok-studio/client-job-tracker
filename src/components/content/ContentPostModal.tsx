@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Modal from "@/components/shared/Modal";
 import PlatformIcon, { getPlatformLabel } from "./PlatformIcon";
-import { X, Upload, Image, Film, Loader2 } from "lucide-react";
+import { X, Upload, Image, Film, Loader2, Eye, EyeOff, Sparkles } from "lucide-react";
+import PostPreview from "./PostPreview";
 
 interface Client {
   id: string;
@@ -56,6 +57,8 @@ export default function ContentPostModal({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [suggestingHashtags, setSuggestingHashtags] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -152,6 +155,27 @@ export default function ContentPostModal({
     },
     [uploadFiles]
   );
+
+  const suggestHashtags = useCallback(async () => {
+    if (!body && !title) return;
+    setSuggestingHashtags(true);
+    try {
+      const res = await fetch("/api/content-posts/suggest-hashtags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform, title, body, existingHashtags: hashtags }),
+      });
+      const data = await res.json();
+      if (data.success && data.hashtags?.length) {
+        const newTags = data.hashtags.filter((t: string) => !hashtags.includes(t));
+        setHashtags((prev) => [...prev, ...newTags]);
+      }
+    } catch {
+      // Silently fail — suggestions are optional
+    } finally {
+      setSuggestingHashtags(false);
+    }
+  }, [body, title, platform, hashtags]);
 
   const handleSubmit = async () => {
     if (!clientId || !platform) return;
@@ -368,6 +392,16 @@ export default function ContentPostModal({
               >
                 Add
               </button>
+              <button
+                type="button"
+                onClick={suggestHashtags}
+                disabled={suggestingHashtags || (!body && !title)}
+                className="flex items-center gap-1 px-3 py-2 bg-bb-elevated border border-bb-border rounded-lg text-sm text-bb-muted hover:text-white disabled:opacity-40 transition-colors"
+                title="Auto-suggest hashtags based on your content"
+              >
+                {suggestingHashtags ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                <span className="hidden sm:inline">Suggest</span>
+              </button>
             </div>
           </div>
 
@@ -399,23 +433,46 @@ export default function ContentPostModal({
           )}
         </div>
 
+        {/* Preview */}
+        {showPreview && (
+          <div className="mt-4 pt-4 border-t border-bb-border">
+            <PostPreview
+              platform={platform}
+              title={title}
+              body={body}
+              hashtags={hashtags}
+              mediaUrls={mediaUrls}
+            />
+          </div>
+        )}
+
         {/* Actions */}
-        <div className="flex justify-end gap-3 mt-6">
+        <div className="flex items-center justify-between gap-3 mt-6">
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors"
+            onClick={() => setShowPreview(!showPreview)}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-bb-muted hover:text-white transition-colors"
           >
-            Cancel
+            {showPreview ? <EyeOff size={14} /> : <Eye size={14} />}
+            {showPreview ? "Hide Preview" : "Preview"}
           </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!clientId || saving || uploading}
-            className="px-4 py-2 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange/90 transition-colors disabled:opacity-50"
-          >
-            {saving ? "Saving..." : initialData?.id ? "Update" : "Create Post"}
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!clientId || saving || uploading}
+              className="px-4 py-2 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange/90 transition-colors disabled:opacity-50"
+            >
+              {saving ? "Saving..." : initialData?.id ? "Update" : "Create Post"}
+            </button>
+          </div>
         </div>
       </div>
     </Modal>

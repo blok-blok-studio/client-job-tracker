@@ -13,11 +13,14 @@ import {
   X,
   Image as ImageIcon,
   Film,
+  Upload,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
 import PlatformIcon, { getPlatformLabel, PLATFORM_COLORS } from "@/components/content/PlatformIcon";
 import ContentPostModal from "@/components/content/ContentPostModal";
+import BulkImportModal from "@/components/content/BulkImportModal";
+import BestTimes from "@/components/content/BestTimes";
 import { cn } from "@/lib/utils";
 import {
   startOfMonth,
@@ -71,6 +74,7 @@ export default function ContentPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editPost, setEditPost] = useState<ContentPost | null>(null);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -288,12 +292,20 @@ export default function ContentPage() {
             </div>
           </div>
 
-          <button
-            onClick={openNew}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange/90 transition-colors w-full sm:w-auto"
-          >
-            <Plus size={16} /> New Post
-          </button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setBulkModalOpen(true)}
+              className="flex items-center justify-center gap-2 px-3 py-2.5 bg-bb-elevated border border-bb-border text-bb-muted rounded-lg text-sm font-medium hover:text-white transition-colors flex-1 sm:flex-initial"
+            >
+              <Upload size={14} /> CSV Import
+            </button>
+            <button
+              onClick={openNew}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange/90 transition-colors flex-1 sm:flex-initial"
+            >
+              <Plus size={16} /> New Post
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -624,6 +636,11 @@ export default function ContentPage() {
             </div>
           </>
         )}
+
+        {/* Best Times to Post */}
+        {!loading && (
+          <BestTimes platform={platformFilter} />
+        )}
       </div>
 
       <ContentPostModal
@@ -650,6 +667,12 @@ export default function ContentPage() {
               }
             : null
         }
+      />
+
+      <BulkImportModal
+        open={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
+        onComplete={fetchPosts}
       />
     </>
   );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { publishPost } from "@/lib/social/publisher";
+import { humanDelay } from "@/lib/social/http";
 
 // GET: List posts due for publishing (for OpenClaw inspection)
 export async function GET() {
@@ -18,7 +19,7 @@ export async function GET() {
 
 // POST: Publish all due posts (called by OpenClaw heartbeat or Vercel Cron)
 export async function POST(request: NextRequest) {
-  // Optional auth check for OpenClaw
+  // Auth check for OpenClaw / Cron
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   const openclawToken = process.env.OPENCLAW_API_TOKEN;
@@ -42,7 +43,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, message: "No posts due", published: 0, failed: 0 });
   }
 
-  const results: { id: string; status: "PUBLISHED" | "FAILED"; error?: string }[] = [];
+  const results: { id: string; platform: string; status: "PUBLISHED" | "FAILED"; error?: string }[] = [];
+  const MAX_RETRIES = 2;
 
   for (const post of duePosts) {
     // Mark as publishing
@@ -51,43 +53,67 @@ export async function POST(request: NextRequest) {
       data: { status: "PUBLISHING" },
     });
 
-    // Fetch client credentials separately for this post
+    // Fetch client credentials
     const credentials = await prisma.credential.findMany({
       where: { clientId: post.clientId },
     });
 
-    try {
-      const result = await publishPost(post, credentials);
+    let lastError = "";
+    let published = false;
 
-      await prisma.contentPost.update({
-        where: { id: post.id },
-        data: {
-          status: "PUBLISHED",
-          publishedAt: new Date(),
-          externalId: result.externalId || null,
-          externalUrl: result.externalUrl || null,
-          publishError: null,
-        },
-      });
+    // Retry loop with exponential backoff
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          const backoff = Math.pow(2, attempt) * 2000 + Math.random() * 2000;
+          await new Promise((r) => setTimeout(r, backoff));
+        }
 
-      await prisma.activityLog.create({
-        data: {
-          clientId: post.clientId,
-          actor: "openclaw",
-          action: "content_published",
-          details: `Published ${post.platform} post: ${post.title || "(untitled)"}`,
-        },
-      });
+        const result = await publishPost(post, credentials);
 
-      results.push({ id: post.id, status: "PUBLISHED" });
-    } catch (err) {
-      const error = err instanceof Error ? err.message : "Unknown publish error";
+        await prisma.contentPost.update({
+          where: { id: post.id },
+          data: {
+            status: "PUBLISHED",
+            publishedAt: new Date(),
+            externalId: result.externalId || null,
+            externalUrl: result.externalUrl || null,
+            publishError: null,
+          },
+        });
 
+        await prisma.activityLog.create({
+          data: {
+            clientId: post.clientId,
+            actor: "openclaw",
+            action: "content_published",
+            details: `Published ${post.platform} post: ${post.title || "(untitled)"}${attempt > 0 ? ` (retry ${attempt})` : ""}`,
+          },
+        });
+
+        results.push({ id: post.id, platform: post.platform, status: "PUBLISHED" });
+        published = true;
+        break;
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : "Unknown publish error";
+
+        // Don't retry on auth/credential errors (they won't succeed)
+        if (
+          lastError.includes("credentials") ||
+          lastError.includes("Unauthorized") ||
+          lastError.includes("401")
+        ) {
+          break;
+        }
+      }
+    }
+
+    if (!published) {
       await prisma.contentPost.update({
         where: { id: post.id },
         data: {
           status: "FAILED",
-          publishError: error,
+          publishError: lastError,
         },
       });
 
@@ -96,11 +122,16 @@ export async function POST(request: NextRequest) {
           clientId: post.clientId,
           actor: "openclaw",
           action: "content_publish_failed",
-          details: `Failed to publish ${post.platform} post: ${error}`,
+          details: `Failed to publish ${post.platform} post after ${MAX_RETRIES + 1} attempts: ${lastError}`,
         },
       });
 
-      results.push({ id: post.id, status: "FAILED", error });
+      results.push({ id: post.id, platform: post.platform, status: "FAILED", error: lastError });
+    }
+
+    // Stagger publishing between posts to avoid platform rate limits
+    if (duePosts.indexOf(post) < duePosts.length - 1) {
+      await humanDelay(2000, 5000);
     }
   }
 
