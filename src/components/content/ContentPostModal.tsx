@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Modal from "@/components/shared/Modal";
 import PlatformIcon, { getPlatformLabel } from "./PlatformIcon";
-import { X, Upload, Image, Film, Loader2, Eye, EyeOff, Sparkles } from "lucide-react";
+import { X, Upload, Image as ImageIcon, Film, Loader2, Eye, EyeOff, Sparkles } from "lucide-react";
 import PostPreview from "./PostPreview";
 
 interface Client {
@@ -325,7 +325,7 @@ export default function ContentPostModal({
                 <>
                   <div className="flex items-center gap-2 text-bb-muted">
                     <Upload size={18} />
-                    <Image size={18} />
+                    <ImageIcon size={18} />
                     <Film size={18} />
                   </div>
                   <p className="text-xs text-bb-dim text-center px-4">

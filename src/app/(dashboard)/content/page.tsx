@@ -11,7 +11,6 @@ import {
   Trash2,
   Edit3,
   X,
-  Image as ImageIcon,
   Film,
   Upload,
 } from "lucide-react";
