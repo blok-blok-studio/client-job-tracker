@@ -157,6 +157,17 @@ export async function POST(
       );
     }
 
+    if (contract.expiresAt && new Date() > contract.expiresAt) {
+      await prisma.contractSignature.update({
+        where: { id: contract.id },
+        data: { status: "EXPIRED" },
+      });
+      return NextResponse.json(
+        { success: false, error: "This contract has expired" },
+        { status: 410, headers: corsHeaders(request) }
+      );
+    }
+
     const body = await request.json();
     const parsed = signSchema.parse(body);
 
@@ -208,13 +219,13 @@ export async function POST(
     }).catch(() => {});
 
     // Trigger pipeline: auto-check checklist, send emails to client + Chase, cascade onboarding
-    onContractSigned(contract.client.id, {
+    // MUST be awaited — serverless runtimes kill the process after response,
+    // so fire-and-forget promises may never complete
+    await onContractSigned(contract.client.id, {
       signedName: parsed.signedName,
       ipAddress,
       token,
-    }).catch((err) =>
-      console.error("[Pipeline] onContractSigned error:", err)
-    );
+    });
 
     // Log the activity
     await prisma.activityLog.create({

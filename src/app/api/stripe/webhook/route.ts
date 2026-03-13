@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
               style: "currency",
               currency: record.currency.toUpperCase(),
             });
-            sendPaymentReceivedEmail({
+            await sendPaymentReceivedEmail({
               to: paidClient.email,
               clientName: paidClient.name,
               amount: amtStr,
@@ -127,10 +127,10 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // Trigger automated pipeline: send onboarding link
-        onPaymentConfirmed(record.clientId).catch((err) =>
-          console.error("[Pipeline] onPaymentConfirmed error:", err)
-        );
+        // Trigger automated pipeline: send contract signing link + onboarding
+        // MUST be awaited — Vercel serverless kills the process after response is sent,
+        // so fire-and-forget promises may never complete
+        await onPaymentConfirmed(record.clientId);
 
         break;
       }

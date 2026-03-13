@@ -77,6 +77,19 @@ async function maybeSendOnboardingLink(clientId: string) {
   if (alreadySent) return;
 
   // Both payment + contract are done → send onboarding link
+  if (!client.email && !client.telegramChatId) {
+    console.warn(`[Pipeline] Cannot send onboarding link to ${client.name} — no email or Telegram on file`);
+    await prisma.activityLog.create({
+      data: {
+        clientId,
+        actor: "agent",
+        action: "pipeline_warning",
+        details: `Cannot send onboarding link to ${client.name} — no email or Telegram on file. Add contact info and re-trigger.`,
+      },
+    });
+    return;
+  }
+
   let onboardToken = client.onboardToken;
   if (!onboardToken) {
     onboardToken = randomBytes(24).toString("hex");
@@ -88,22 +101,9 @@ async function maybeSendOnboardingLink(clientId: string) {
 
   const onboardUrl = `${APP_URL}/onboard/${onboardToken}`;
 
-  if (client.email) {
-    await sendOnboardingLinkEmail({
-      to: client.email,
-      clientName: client.name,
-      onboardUrl,
-    });
-  }
-
-  if (client.telegramChatId) {
-    await sendTelegramMessage(
-      client.telegramChatId,
-      `✅ Payment and contract are all set! Last step: please complete your onboarding form so we can get started.\n\n${onboardUrl}`
-    );
-  }
-
-  await prisma.activityLog.create({
+  // Claim the send slot BEFORE dispatching emails to prevent race conditions
+  // If two pipeline calls arrive concurrently, only the first will proceed
+  const claim = await prisma.activityLog.create({
     data: {
       clientId,
       actor: "agent",
@@ -111,6 +111,27 @@ async function maybeSendOnboardingLink(clientId: string) {
       details: `Auto-sent onboarding link to ${client.name}${client.email ? ` (${client.email})` : ""} (both payment + contract confirmed)`,
     },
   });
+
+  try {
+    if (client.email) {
+      await sendOnboardingLinkEmail({
+        to: client.email,
+        clientName: client.name,
+        onboardUrl,
+      });
+    }
+
+    if (client.telegramChatId) {
+      await sendTelegramMessage(
+        client.telegramChatId,
+        `✅ Payment and contract are all set! Last step: please complete your onboarding form so we can get started.\n\n${onboardUrl}`
+      );
+    }
+  } catch (sendErr) {
+    // Roll back the claim so a retry can succeed
+    await prisma.activityLog.delete({ where: { id: claim.id } }).catch(() => {});
+    throw sendErr;
+  }
 }
 
 export async function onPaymentConfirmed(clientId: string) {
@@ -269,7 +290,17 @@ async function sendContractSignedEmails(
     documentHash: contract?.documentHash,
     signedDocumentHash: contract?.signedDocumentHash,
     providerSignedName: contract?.providerSignedName,
-  }).catch((err) => console.error("[Email] Admin contract notification error:", err));
+  }).catch((err) => {
+    console.error("[Email] Admin contract notification error:", err);
+    prisma.activityLog.create({
+      data: {
+        clientId,
+        actor: "agent",
+        action: "pipeline_error",
+        details: `Failed to send admin contract-signed notification for ${client.name}: ${err instanceof Error ? err.message : "Unknown error"}`,
+      },
+    }).catch(() => {});
+  });
 
   // Send client confirmation if email exists
   if (client.email) {
@@ -328,8 +359,15 @@ export async function onOnboardingCompleted(clientId: string) {
       const contractUrl = `${APP_URL}/contract/${signedContract.token}`;
 
       // Check if the contract-signed confirmation email was deferred (client had no email at signing time)
+      // Scope to this contract cycle so re-engagement clients get fresh confirmations
       const alreadySentContractConfirmation = await prisma.activityLog.findFirst({
-        where: { clientId, action: "pipeline_contract_signed_emails_sent" },
+        where: {
+          clientId,
+          action: "pipeline_contract_signed_emails_sent",
+          ...(signedContract.signedAt
+            ? { createdAt: { gte: signedContract.signedAt } }
+            : {}),
+        },
         select: { id: true },
       });
 

@@ -390,9 +390,9 @@ export async function POST(
     });
 
     // Trigger automated pipeline: send contract
-    onOnboardingCompleted(client.id).catch((err) =>
-      console.error("[Pipeline] onOnboardingCompleted error:", err)
-    );
+    // MUST be awaited — serverless runtimes kill the process after response,
+    // so fire-and-forget promises may never complete
+    await onOnboardingCompleted(client.id);
 
     return NextResponse.json(
       { success: true, message: "Onboarding complete" },
