@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { sendTelegramMessage, getWebhookSecret } from "@/lib/telegram";
 import { sendToOpenClaw } from "@/lib/openclaw/client";
 import { respondToTicket } from "@/lib/agent/ticket-responder";
+import { handleCortanaMessage } from "@/lib/agent/cortana";
 
 interface TelegramUpdate {
   message?: {
@@ -11,6 +12,12 @@ interface TelegramUpdate {
     from?: { first_name?: string; last_name?: string; username?: string };
     text?: string;
   };
+}
+
+// Chase's admin chat ID — messages from this chat go to Cortana, not support tickets
+function isAdminChat(chatId: string): boolean {
+  const adminId = process.env.ADMIN_TELEGRAM_CHAT_ID;
+  return !!adminId && chatId === adminId;
 }
 
 export async function POST(request: NextRequest) {
@@ -41,6 +48,67 @@ export async function POST(request: NextRequest) {
     ]
       .filter(Boolean)
       .join(" ") || "Unknown";
+
+    // ─── ADMIN COMMANDS (Chase texting Cortana) ────────────────────────
+    if (isAdminChat(chatId)) {
+      // Handle /start for admin — just acknowledge
+      if (text === "/start") {
+        await sendTelegramMessage(chatId, "Hey Chase. I'm online and ready. What do you need?");
+        return NextResponse.json({ ok: true });
+      }
+
+      // Handle /status — quick operational snapshot
+      if (text === "/status" || text.toLowerCase() === "status") {
+        const [openTasks, overdueCount, openTickets, unpaidInvoices, scheduledPosts] = await Promise.all([
+          prisma.task.count({ where: { status: { notIn: ["DONE"] } } }),
+          prisma.task.count({ where: { dueDate: { lt: new Date() }, status: { notIn: ["DONE"] } } }),
+          prisma.supportTicket.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
+          prisma.invoice.count({ where: { status: { in: ["SENT", "OVERDUE"] } } }),
+          prisma.contentPost.count({ where: { status: "SCHEDULED" } }),
+        ]);
+
+        await sendTelegramMessage(chatId, [
+          "<b>📊 Quick Status</b>",
+          "",
+          `📋 Open tasks: <b>${openTasks}</b>${overdueCount > 0 ? ` (⚠️ ${overdueCount} overdue)` : ""}`,
+          `💬 Open tickets: <b>${openTickets}</b>`,
+          `💰 Unpaid invoices: <b>${unpaidInvoices}</b>`,
+          `📅 Scheduled posts: <b>${scheduledPosts}</b>`,
+          "",
+          "Text me anything to dig deeper.",
+        ].join("\n"));
+        return NextResponse.json({ ok: true });
+      }
+
+      // Handle /run — trigger agent cycle
+      if (text === "/run") {
+        // Import and run agent cycle (non-blocking)
+        import("@/lib/agent/engine").then(({ runAgentCycle }) => {
+          runAgentCycle().then((result) => {
+            sendTelegramMessage(chatId, [
+              `<b>🤖 Agent Cycle Complete</b>`,
+              "",
+              `Actions: <b>${result.actionsExecuted}</b>`,
+              `Errors: ${result.errors.length > 0 ? result.errors.join(", ") : "None"}`,
+              `Duration: ${(result.duration / 1000).toFixed(1)}s`,
+              "",
+              result.analysis ? `<i>${result.analysis.slice(0, 300)}</i>` : "",
+            ].join("\n"));
+          });
+        });
+        await sendTelegramMessage(chatId, "🤖 Running agent cycle now...");
+        return NextResponse.json({ ok: true });
+      }
+
+      // Everything else → Cortana interprets and acts (non-blocking)
+      handleCortanaMessage(chatId, text).catch((err) =>
+        console.error("[Cortana] Error:", err)
+      );
+
+      return NextResponse.json({ ok: true });
+    }
+
+    // ─── CLIENT MESSAGES (Support Tickets) ─────────────────────────────
 
     // Handle /start command with onboard token
     if (text.startsWith("/start ")) {
@@ -83,7 +151,16 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Notify Chase via OpenClaw
+      // Notify Chase via Telegram
+      const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID;
+      if (adminChatId) {
+        await sendTelegramMessage(
+          adminChatId,
+          `💬 <b>New ticket from ${client.name}:</b>\n"${text.slice(0, 200)}"`
+        );
+      }
+
+      // Notify OpenClaw
       await sendToOpenClaw(
         "cortana",
         `New support ticket from ${client.name}: "${ticket.subject}"`,
@@ -163,6 +240,14 @@ async function handleStartCommand(chatId: string, token: string, senderName: str
   );
 
   // Notify Chase
+  const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID;
+  if (adminChatId) {
+    await sendTelegramMessage(
+      adminChatId,
+      `🔗 <b>${client.name}</b> just linked their Telegram.`
+    );
+  }
+
   await sendToOpenClaw(
     "cortana",
     `${client.name} just linked their Telegram account for support.`,
