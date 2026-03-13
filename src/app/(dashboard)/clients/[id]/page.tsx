@@ -1320,10 +1320,9 @@ export default function ClientDetailPage() {
             })()}
           </div>
 
-          {/* Country for payment links */}
-          {contractSchedule !== "none" && (
-            <div>
-              <label className="block text-sm font-medium text-white mb-1.5">Client Country</label>
+          {/* Country for contract & payment links */}
+          <div>
+            <label className="block text-sm font-medium text-white mb-1.5">Client Country</label>
               <select
                 value={contractCountry}
                 onChange={(e) => setContractCountry(e.target.value)}
@@ -1397,8 +1396,7 @@ export default function ClientDetailPage() {
                   ? "Currency: EUR — EU invoice template"
                   : "Currency: USD — US invoice template"}
               </p>
-            </div>
-          )}
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-white mb-1.5">Custom Terms (Optional)</label>
