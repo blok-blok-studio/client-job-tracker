@@ -55,6 +55,20 @@ export const credentialSchema = z.object({
   notes: z.string().optional().or(z.literal("")),
 });
 
+export const SOCIAL_PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "LINKEDIN", "YOUTUBE", "FACEBOOK"] as const;
+export const CONTENT_POST_STATUSES = ["DRAFT", "SCHEDULED", "PUBLISHING", "PUBLISHED", "FAILED"] as const;
+
+export const contentPostSchema = z.object({
+  clientId: z.string().min(1, "Client is required"),
+  platform: z.enum(SOCIAL_PLATFORMS),
+  status: z.enum(CONTENT_POST_STATUSES).optional(),
+  title: z.string().optional().or(z.literal("")),
+  body: z.string().optional().or(z.literal("")),
+  hashtags: z.array(z.string()).optional().default([]),
+  mediaUrls: z.array(z.string()).optional().default([]),
+  scheduledAt: z.string().nullable().optional(),
+});
+
 export const reorderSchema = z.object({
   updates: z.array(
     z.object({

@@ -130,12 +130,66 @@ export async function handleEscalation(payload: unknown) {
   return { success: true, message: "Escalation created" };
 }
 
+const contentPublishedSchema = baseEventSchema.extend({
+  event_type: z.literal("content_published"),
+  post_ids: z.array(z.string()).optional(),
+  published: z.number().optional(),
+  failed: z.number().optional(),
+});
+
+const contentPublishFailedSchema = baseEventSchema.extend({
+  event_type: z.literal("content_publish_failed"),
+  post_ids: z.array(z.string()).optional(),
+  errors: z.array(z.string()).optional(),
+  published: z.number().optional(),
+  failed: z.number().optional(),
+});
+
+export async function handleContentPublished(payload: unknown) {
+  const parsed = contentPublishedSchema.parse(payload);
+
+  await prisma.activityLog.create({
+    data: {
+      actor: "openclaw",
+      action: "content_batch_published",
+      details: JSON.stringify({
+        published: parsed.published,
+        failed: parsed.failed,
+        post_ids: parsed.post_ids,
+      }),
+    },
+  });
+
+  return { success: true, message: `Content publish cycle complete: ${parsed.published || 0} published, ${parsed.failed || 0} failed` };
+}
+
+export async function handleContentPublishFailed(payload: unknown) {
+  const parsed = contentPublishFailedSchema.parse(payload);
+
+  await prisma.activityLog.create({
+    data: {
+      actor: "openclaw",
+      action: "content_publish_errors",
+      details: JSON.stringify({
+        errors: parsed.errors,
+        post_ids: parsed.post_ids,
+        published: parsed.published,
+        failed: parsed.failed,
+      }),
+    },
+  });
+
+  return { success: true, message: `Content publish failures logged: ${parsed.failed || 0} failed` };
+}
+
 const eventHandlers: Record<string, (payload: unknown) => Promise<{ success: boolean; message: string }>> = {
   prospect_qualified: handleProspectQualified,
   task_completed: handleTaskCompleted,
   note_added: handleNoteAdded,
   reminder_sent: handleReminderSent,
   escalation: handleEscalation,
+  content_published: handleContentPublished,
+  content_publish_failed: handleContentPublishFailed,
 };
 
 export async function processWebhookEvent(payload: unknown) {

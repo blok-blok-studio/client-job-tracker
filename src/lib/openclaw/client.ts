@@ -95,3 +95,19 @@ export async function notifyTaskBlocked(taskId: string, taskTitle: string, clien
     { taskId }
   );
 }
+
+export async function notifyContentPublished(postId: string, clientName: string, platform: string) {
+  return sendToOpenClaw(
+    "content_publisher",
+    `Successfully published ${platform} post for ${clientName}.`,
+    { postId, platform }
+  );
+}
+
+export async function notifyContentFailed(postId: string, clientName: string, platform: string, error: string) {
+  return sendToOpenClaw(
+    "content_publisher",
+    `Failed to publish ${platform} post for ${clientName}: ${error}`,
+    { postId, platform, error }
+  );
+}

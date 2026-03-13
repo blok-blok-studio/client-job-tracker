@@ -44,6 +44,7 @@ model Client {
   socialLinks      SocialLink[]
   contracts        ContractSignature[]
   paymentLinks     PaymentLink[]
+  contentPosts     ContentPost[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -377,4 +378,49 @@ model AgentConfig {
   systemPrompt    String?  @db.Text
 
   updatedAt DateTime @updatedAt
+}
+
+// --- CONTENT POSTS (Social Media Calendar) ---
+model ContentPost {
+  id            String            @id @default(cuid())
+  clientId      String
+  client        Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  platform      SocialPlatform
+  status        ContentPostStatus @default(DRAFT)
+
+  title         String?
+  body          String?           @db.Text
+  hashtags      String[]
+  mediaUrls     String[]
+
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  publishError  String?           @db.Text
+  externalId    String?
+  externalUrl   String?
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([platform])
+}
+
+enum SocialPlatform {
+  INSTAGRAM
+  TIKTOK
+  TWITTER
+  LINKEDIN
+  YOUTUBE
+  FACEBOOK
+}
+
+enum ContentPostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
 }
