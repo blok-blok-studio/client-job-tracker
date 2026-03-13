@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { put } from "@vercel/blob";
 import crypto from "crypto";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_FILES_PER_REQUEST = 10;
 
@@ -104,8 +102,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await mkdir(UPLOAD_DIR, { recursive: true });
-
     const urls: string[] = [];
 
     for (const file of files) {
@@ -145,11 +141,15 @@ export async function POST(request: NextRequest) {
       }
 
       const id = crypto.randomUUID();
-      const filename = `${id}${ext}`;
+      const filename = `media/${id}${ext}`;
 
-      // Write to uploads dir (filename is UUID-only, no user input in path)
-      await writeFile(path.join(UPLOAD_DIR, filename), buffer);
-      urls.push(`/uploads/${filename}`);
+      // Upload to Vercel Blob for persistent storage
+      const blob = await put(filename, buffer, {
+        access: "public",
+        contentType: file.type,
+      });
+
+      urls.push(blob.url);
     }
 
     return NextResponse.json({ success: true, urls });
