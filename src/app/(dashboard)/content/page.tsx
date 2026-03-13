@@ -11,6 +11,8 @@ import {
   Trash2,
   Edit3,
   X,
+  Image as ImageIcon,
+  Film,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -104,6 +106,7 @@ export default function ContentPage() {
     title: string;
     body: string;
     hashtags: string[];
+    mediaUrls: string[];
     scheduledAt: string;
   }) => {
     const url = data.id ? `/api/content-posts/${data.id}` : "/api/content-posts";
@@ -118,6 +121,7 @@ export default function ContentPage() {
         title: data.title,
         body: data.body,
         hashtags: data.hashtags,
+        mediaUrls: data.mediaUrls,
         scheduledAt: data.scheduledAt || null,
       }),
     });
@@ -156,6 +160,8 @@ export default function ContentPage() {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
+  const isVideo = (url: string) => /\.(mp4|mov|webm)$/i.test(url);
+
   // Render a post card (reused in calendar panel and list view on mobile)
   const renderPostCard = (post: ContentPost) => (
     <div
@@ -173,6 +179,29 @@ export default function ContentPage() {
           {post.status}
         </Badge>
       </div>
+      {post.mediaUrls.length > 0 && (
+        <div className="mt-2 flex gap-1.5 overflow-x-auto">
+          {post.mediaUrls.slice(0, 4).map((url) => (
+            <div
+              key={url}
+              className="w-14 h-14 rounded-md overflow-hidden border border-bb-border bg-bb-surface shrink-0"
+            >
+              {isVideo(url) ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Film size={16} className="text-bb-muted" />
+                </div>
+              ) : (
+                <img src={url} alt="" className="w-full h-full object-cover" />
+              )}
+            </div>
+          ))}
+          {post.mediaUrls.length > 4 && (
+            <div className="w-14 h-14 rounded-md border border-bb-border bg-bb-surface shrink-0 flex items-center justify-center text-xs text-bb-dim">
+              +{post.mediaUrls.length - 4}
+            </div>
+          )}
+        </div>
+      )}
       <div className="mt-2 flex items-center gap-2 text-xs text-bb-dim">
         <span>{post.client.name}</span>
         {post.scheduledAt && (
@@ -440,6 +469,29 @@ export default function ContentPage() {
                         {post.status}
                       </Badge>
                     </div>
+                    {post.mediaUrls.length > 0 && (
+                      <div className="mt-2 flex gap-1.5 overflow-x-auto">
+                        {post.mediaUrls.slice(0, 4).map((url) => (
+                          <div
+                            key={url}
+                            className="w-16 h-16 rounded-md overflow-hidden border border-bb-border bg-bb-surface shrink-0"
+                          >
+                            {isVideo(url) ? (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Film size={18} className="text-bb-muted" />
+                              </div>
+                            ) : (
+                              <img src={url} alt="" className="w-full h-full object-cover" />
+                            )}
+                          </div>
+                        ))}
+                        {post.mediaUrls.length > 4 && (
+                          <div className="w-16 h-16 rounded-md border border-bb-border bg-bb-surface shrink-0 flex items-center justify-center text-xs text-bb-dim">
+                            +{post.mediaUrls.length - 4}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {post.body && (
                       <p className="text-xs text-bb-muted mt-2 line-clamp-2">{post.body}</p>
                     )}
@@ -484,6 +536,7 @@ export default function ContentPage() {
                     <tr className="border-b border-bb-border text-left">
                       <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Platform</th>
                       <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Title</th>
+                      <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Media</th>
                       <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Client</th>
                       <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Scheduled</th>
                       <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Status</th>
@@ -506,6 +559,31 @@ export default function ContentPage() {
                           <span className="text-sm text-white">
                             {post.title || post.body?.slice(0, 50) || "(untitled)"}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {post.mediaUrls.length > 0 ? (
+                            <div className="flex items-center gap-1.5">
+                              {post.mediaUrls.slice(0, 3).map((url) => (
+                                <div
+                                  key={url}
+                                  className="w-8 h-8 rounded overflow-hidden border border-bb-border bg-bb-surface shrink-0"
+                                >
+                                  {isVideo(url) ? (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Film size={12} className="text-bb-muted" />
+                                    </div>
+                                  ) : (
+                                    <img src={url} alt="" className="w-full h-full object-cover" />
+                                  )}
+                                </div>
+                              ))}
+                              {post.mediaUrls.length > 3 && (
+                                <span className="text-xs text-bb-dim">+{post.mediaUrls.length - 3}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-bb-dim">&mdash;</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-bb-muted">{post.client.name}</span>
@@ -565,6 +643,7 @@ export default function ContentPage() {
                 title: editPost.title || "",
                 body: editPost.body || "",
                 hashtags: editPost.hashtags,
+                mediaUrls: editPost.mediaUrls || [],
                 scheduledAt: editPost.scheduledAt
                   ? format(parseISO(editPost.scheduledAt), "yyyy-MM-dd'T'HH:mm")
                   : "",
