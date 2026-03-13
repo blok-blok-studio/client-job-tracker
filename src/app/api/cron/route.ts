@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
         select: { id: true },
       });
       if (duePosts.length > 0) {
-        const pubRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app"}/api/content-posts/publish-due`, {
+        const pubRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app"}/api/content-posts/publish-due`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${process.env.CRON_SECRET}`,

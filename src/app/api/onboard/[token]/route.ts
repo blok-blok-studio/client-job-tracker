@@ -73,7 +73,7 @@ function getTaxIdType(country: string, taxId: string): string | null {
 const ALLOWED_ORIGINS = [
   "https://blokblokstudio.com",
   "https://www.blokblokstudio.com",
-  "https://client-job-tracker.vercel.app",
+  "https://blokblokstudio-clients.vercel.app",
   ...(process.env.NODE_ENV === "development" ? ["http://localhost:3000", "http://localhost:3001"] : []),
 ];
 
