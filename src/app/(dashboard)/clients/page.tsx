@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Search, Copy, Check, Link2 } from "lucide-react";
+import { Plus, Search, Copy, Check, Link2, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import ClientCard from "@/components/clients/ClientCard";
 import ClientForm from "@/components/clients/ClientForm";
@@ -15,6 +15,7 @@ const TABS = [
   { key: "PROSPECT", label: "Prospects" },
   { key: "PAST", label: "Past" },
   { key: "ALL", label: "All" },
+  { key: "ARCHIVED", label: "Archived" },
 ];
 
 interface ClientData {
@@ -43,7 +44,8 @@ export default function ClientsPage() {
   const fetchClients = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      if (activeTab !== "ALL") params.set("type", activeTab);
+      // Always pass the type so the API knows what to filter
+      params.set("type", activeTab);
       if (search) params.set("search", search);
       const res = await fetch(`/api/clients?${params}`);
       const data = await res.json();
@@ -93,6 +95,20 @@ export default function ClientsPage() {
 
   async function handleArchive(id: string) {
     await fetch(`/api/clients/${id}`, { method: "DELETE" });
+    toast("Client archived", "success");
+    fetchClients();
+  }
+
+  async function handleUnarchive(id: string) {
+    await fetch(`/api/clients/${id}/unarchive`, { method: "POST" });
+    toast("Client restored", "success");
+    fetchClients();
+  }
+
+  async function handlePermanentDelete(id: string) {
+    if (!window.confirm("Permanently delete this client and ALL their data? This cannot be undone.")) return;
+    await fetch(`/api/clients/${id}?permanent=true`, { method: "DELETE" });
+    toast("Client permanently deleted", "success");
     fetchClients();
   }
 
@@ -149,24 +165,51 @@ export default function ClientsPage() {
         {/* Client Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-8">
           {loading ? Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />) : clients.map((client) => (
-            <ClientCard
-              key={client.id}
-              id={client.id}
-              name={client.name}
-              company={client.company}
-              tier={client.tier}
-              type={client.type}
-              monthlyRetainer={client.monthlyRetainer ? Number(client.monthlyRetainer) : null}
-              contractEnd={client.contractEnd}
-              openTaskCount={client._count.tasks}
-              onArchive={handleArchive}
-              phone={client.phone}
-              timezone={client.timezone}
-            />
+            <div key={client.id} className="relative group">
+              <ClientCard
+                id={client.id}
+                name={client.name}
+                company={client.company}
+                tier={client.tier}
+                type={client.type}
+                monthlyRetainer={client.monthlyRetainer ? Number(client.monthlyRetainer) : null}
+                contractEnd={client.contractEnd}
+                openTaskCount={client._count.tasks}
+                onArchive={handleArchive}
+                phone={client.phone}
+                timezone={client.timezone}
+              />
+              {/* Archived client actions overlay */}
+              {activeTab === "ARCHIVED" && (
+                <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleUnarchive(client.id); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-medium rounded-md transition-colors shadow-lg"
+                    title="Restore client"
+                  >
+                    <ArchiveRestore size={12} /> Restore
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handlePermanentDelete(client.id); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-md transition-colors shadow-lg"
+                    title="Permanently delete"
+                  >
+                    <Trash2 size={12} /> Delete
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
           {!loading && clients.length === 0 && (
             <div className="col-span-full text-center py-12 text-bb-dim">
-              No clients found. Add your first client to get started.
+              {activeTab === "ARCHIVED" ? (
+                <div className="flex flex-col items-center gap-2">
+                  <Archive size={32} className="text-bb-dim/50" />
+                  <p>No archived clients.</p>
+                </div>
+              ) : (
+                "No clients found. Add your first client to get started."
+              )}
             </div>
           )}
         </div>
