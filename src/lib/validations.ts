@@ -67,6 +67,30 @@ export const contentPostSchema = z.object({
   hashtags: z.array(z.string()).optional().default([]),
   mediaUrls: z.array(z.string()).optional().default([]),
   scheduledAt: z.string().nullable().optional(),
+
+  // Location
+  location: z.string().nullable().optional(),
+  locationLat: z.number().nullable().optional(),
+  locationLng: z.number().nullable().optional(),
+
+  // People & Collaboration
+  taggedUsers: z.array(z.string()).optional().default([]),
+  collaborators: z.array(z.string()).optional().default([]),
+
+  // Media enhancements
+  altText: z.string().nullable().optional(),
+  coverImageUrl: z.string().nullable().optional(),
+  thumbnailUrl: z.string().nullable().optional(),
+
+  // First comment
+  firstComment: z.string().nullable().optional(),
+
+  // Platform settings
+  platformSettings: z.record(z.string(), z.unknown()).nullable().optional(),
+
+  // Content management
+  visibility: z.string().nullable().optional(),
+  enableComments: z.boolean().optional().default(true),
 });
 
 export const reorderSchema = z.object({

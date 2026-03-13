@@ -394,6 +394,36 @@ model ContentPost {
   hashtags      String[]
   mediaUrls     String[]
 
+  // Location tagging
+  location      String?
+  locationLat   Float?
+  locationLng   Float?
+
+  // People & Collaboration
+  taggedUsers   String[]          // @handles of tagged people
+  collaborators String[]          // Instagram collab invites, LinkedIn co-authors
+
+  // Media enhancements
+  altText       String?           @db.Text  // Accessibility alt text for media
+  coverImageUrl String?                     // Reel/TikTok/YouTube cover frame
+  thumbnailUrl  String?                     // YouTube custom thumbnail
+
+  // Auto-first comment (Instagram strategy)
+  firstComment  String?           @db.Text
+
+  // Platform-specific settings (JSON blob)
+  // Twitter: { threadPosts, pollOptions, pollDuration, quoteTweetUrl }
+  // YouTube: { category, playlist, tags, privacyStatus, madeForKids }
+  // TikTok:  { allowComments, allowDuet, allowStitch, privacyLevel }
+  // LinkedIn: { articleMode, visibility }
+  // Facebook: { feeling, album }
+  // Instagram: { shareToFeed, shareToStory }
+  platformSettings Json?
+
+  // Content management
+  visibility    String?           @default("PUBLIC") // PUBLIC, PRIVATE, UNLISTED
+  enableComments Boolean          @default(true)
+
   scheduledAt   DateTime?
   publishedAt   DateTime?
   publishError  String?           @db.Text
