@@ -83,8 +83,21 @@ export async function createCheckoutSession(params: CreateCheckoutParams): Promi
   const currencyConfig = CURRENCY_CONFIG[currency] || CURRENCY_CONFIG.usd;
   const invoiceTemplate = getInvoiceTemplate(params.country);
 
-  // Get or create Stripe Customer
+  // Get or create Stripe Customer — never create duplicates
   let stripeCustomerId = params.stripeCustomerId || null;
+
+  // If we don't have a stored Stripe customer, search by email first
+  if (!stripeCustomerId && params.clientEmail) {
+    const existing = await s.customers.list({ email: params.clientEmail, limit: 1 });
+    if (existing.data.length > 0) {
+      stripeCustomerId = existing.data[0].id;
+      await prisma.client.update({
+        where: { id: params.clientId },
+        data: { stripeCustomerId },
+      });
+    }
+  }
+
   if (!stripeCustomerId) {
     const customer = await s.customers.create({
       name: params.clientName,
