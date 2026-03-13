@@ -1,4 +1,5 @@
 import type { DecryptedCredential, PostContent, PublishResult } from "../publisher";
+import { resilientFetch, buildApiHeaders, humanDelay } from "../http";
 
 export async function publishToTiktok(
   content: PostContent,
@@ -13,12 +14,13 @@ export async function publishToTiktok(
   const hashtagStr = content.hashtags.map((t) => (t.startsWith("#") ? t : `#${t}`)).join(" ");
   const title = [content.body || content.title, hashtagStr].filter(Boolean).join(" ").slice(0, 150);
 
-  const initRes = await fetch("https://open.tiktokapis.com/v2/post/publish/video/init/", {
+  const headers = buildApiHeaders(accessToken);
+
+  await humanDelay(300, 800);
+
+  const initRes = await resilientFetch("https://open.tiktokapis.com/v2/post/publish/video/init/", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
       post_info: {
         title,
@@ -41,6 +43,39 @@ export async function publishToTiktok(
 
   const data = await initRes.json();
   const publishId = data.data?.publish_id;
+
+  // Poll for publish completion
+  if (publishId) {
+    let pollAttempts = 0;
+    while (pollAttempts < 15) {
+      await humanDelay(5000, 8000);
+
+      const statusRes = await resilientFetch(
+        "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ publish_id: publishId }),
+        }
+      );
+
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        const status = statusData.data?.status;
+        if (status === "PUBLISH_COMPLETE") {
+          return {
+            success: true,
+            externalId: publishId,
+            externalUrl: undefined,
+          };
+        } else if (status === "FAILED") {
+          const failReason = statusData.data?.fail_reason || "Unknown";
+          throw new Error(`TikTok publish failed: ${failReason}`);
+        }
+      }
+      pollAttempts++;
+    }
+  }
 
   return {
     success: true,

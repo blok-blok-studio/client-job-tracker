@@ -1,4 +1,5 @@
 import type { DecryptedCredential, PostContent, PublishResult } from "../publisher";
+import { resilientFetch, buildApiHeaders, humanDelay } from "../http";
 
 export async function publishToYoutube(
   content: PostContent,
@@ -13,14 +14,16 @@ export async function publishToYoutube(
     throw new Error("YouTube publishing requires a video URL. Community posts are not yet supported.");
   }
 
-  const res = await fetch(
-    `https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status`,
+  const headers = buildApiHeaders(accessToken);
+
+  await humanDelay(300, 800);
+
+  // Step 1: Initiate resumable upload
+  const res = await resilientFetch(
+    "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
     {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
         snippet: {
           title: content.title || "Untitled",
@@ -45,15 +48,21 @@ export async function publishToYoutube(
     throw new Error("YouTube did not return an upload URL");
   }
 
+  // Step 2: Fetch the video file
   const videoRes = await fetch(content.mediaUrls[0]);
   if (!videoRes.ok) {
     throw new Error(`Failed to fetch video from ${content.mediaUrls[0]}`);
   }
 
   const videoBuffer = await videoRes.arrayBuffer();
-  const uploadRes = await fetch(uploadUrl, {
+
+  await humanDelay(500, 1500);
+
+  // Step 3: Upload the video binary
+  const uploadRes = await resilientFetch(uploadUrl, {
     method: "PUT",
     headers: {
+      ...buildApiHeaders(accessToken),
       "Content-Type": "video/*",
       "Content-Length": String(videoBuffer.byteLength),
     },
