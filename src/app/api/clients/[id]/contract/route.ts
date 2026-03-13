@@ -156,7 +156,7 @@ export async function POST(
           let latestStripeCustomerId = client.stripeCustomerId;
 
           for (const milestone of schedule) {
-            const milestoneAmount = Math.round((oneTimeTotal * milestone.percent) / 100);
+            const milestoneAmount = Math.round(((oneTimeTotal * milestone.percent) / 100) * 100) / 100;
             if (milestoneAmount <= 0) continue;
 
             const milestoneLabel = milestone.label === "deposit" ? "Deposit"
