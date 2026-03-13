@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { randomBytes, createHash } from "crypto";
 import { generateContractBody, SERVICE_PACKAGES, ADDON_PACKAGES } from "@/lib/contract-templates";
 import { createCheckoutSession, getCurrencyForCountry, CURRENCY_CONFIG } from "@/lib/stripe";
-import { sendPaymentLinkEmail, sendContractSigningEmail } from "@/lib/email";
+import { sendPaymentLinkEmail } from "@/lib/email";
 import { z } from "zod";
 
 const milestoneSchema = z.object({
@@ -128,22 +128,17 @@ export async function POST(
       },
     });
 
-    // Always send the contract signing link to the client
-    const contractUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app"}/contract/${token}`;
-    if (client.email) {
-      await sendContractSigningEmail({
-        to: client.email,
-        clientName: client.name,
-        contractUrl,
-      }).catch((err) => console.error("[Email] Contract signing link email error:", err));
-    }
-
-    // --- Auto-create split payment links if schedule provided ---
-    // Wrapped in its own try/catch so the contract always succeeds even if Stripe fails
+    // --- Auto-create payment links ---
+    // Contract signing link is sent AFTER payment is confirmed (via pipeline.ts onPaymentConfirmed)
+    // Default to a single 100% payment if no schedule is provided ("No Split")
     const paymentLinksCreated: Array<{ milestone: string; url: string; amount: number }> = [];
     let paymentLinkError: string | null = null;
 
-    if (parsed.paymentSchedule && parsed.paymentSchedule.length > 0) {
+    const schedule = (parsed.paymentSchedule && parsed.paymentSchedule.length > 0)
+      ? parsed.paymentSchedule
+      : [{ label: "deposit" as const, percent: 100 }];
+
+    {
       try {
         // Calculate total one-time amount from selected packages
         const allItems = [
@@ -160,7 +155,7 @@ export async function POST(
           const currencyConfig = CURRENCY_CONFIG[currency];
           let latestStripeCustomerId = client.stripeCustomerId;
 
-          for (const milestone of parsed.paymentSchedule) {
+          for (const milestone of schedule) {
             const milestoneAmount = Math.round((oneTimeTotal * milestone.percent) / 100);
             if (milestoneAmount <= 0) continue;
 
@@ -202,23 +197,24 @@ export async function POST(
             });
           }
 
-          // Auto-send deposit link via email (first milestone only)
-          const depositLink = paymentLinksCreated.find((l) => l.milestone === "deposit");
-          if (depositLink && client.email) {
+          // Auto-send first payment link via email (deposit or full payment)
+          const firstLink = paymentLinksCreated[0];
+          if (firstLink && client.email) {
             const amountFormatted = new Intl.NumberFormat("en-US", {
               style: "currency",
               currency: currency.toUpperCase(),
-            }).format(depositLink.amount);
+            }).format(firstLink.amount);
 
-            sendPaymentLinkEmail({
+            const isFullPayment = schedule.length === 1 && schedule[0].percent === 100;
+            await sendPaymentLinkEmail({
               to: client.email,
               clientName: client.name,
               amount: amountFormatted,
-              description: `Deposit — ${client.name}`,
-              paymentUrl: depositLink.url,
+              description: isFullPayment ? `Payment — ${client.name}` : `Deposit — ${client.name}`,
+              paymentUrl: firstLink.url,
               recurring: false,
               interval: null,
-            }).catch((err) => console.error("[Email] Deposit payment link email error:", err));
+            }).catch((err) => console.error("[Email] Payment link email error:", err));
           }
         }
       } catch (err) {
