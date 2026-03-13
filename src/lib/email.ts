@@ -123,6 +123,64 @@ export async function sendOnboardingLinkEmail(params: {
   return data;
 }
 
+export async function sendOnboardingCompleteEmail(params: {
+  to: string;
+  clientName: string;
+  uploadUrl: string;
+  contractUrl?: string;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: "Onboarding Complete — Upload Your Files",
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Hi ${params.clientName.split(" ")[0]},
+        </p>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Your onboarding is complete — we're excited to get started! If you have any photos, videos, brand assets, or documents to share, you can upload them anytime using the button below.
+        </p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.uploadUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            Upload Files
+          </a>
+        </div>
+        <p style="color: #666; font-size: 14px; line-height: 1.6;">
+          This link is yours to keep — use it anytime you need to send us new files. Accepted formats include images, videos, and audio.
+        </p>
+        ${params.contractUrl ? `
+        <div style="background: #f9f9f9; border-radius: 8px; padding: 16px; margin: 24px 0; text-align: center;">
+          <p style="color: #666; font-size: 13px; margin: 0 0 8px 0;">Your signed agreement</p>
+          <a href="${params.contractUrl}" style="color: #FF6B00; text-decoration: underline; font-size: 14px; font-weight: 500;">View Contract</a>
+        </div>
+        ` : ""}
+        <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">
+          Blok Blok Studio · chase@blokblokstudio.com
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send onboarding complete email:", error);
+    return null;
+  }
+
+  return data;
+}
+
 export async function sendContractSigningEmail(params: {
   to: string;
   clientName: string;

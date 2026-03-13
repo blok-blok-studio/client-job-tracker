@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
+import { randomBytes } from "crypto";
 import { z } from "zod";
 import { onOnboardingCompleted } from "@/lib/pipeline";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
 
 function getTaxIdType(country: string, taxId: string): string | null {
   // EU VAT
@@ -399,13 +402,28 @@ export async function POST(
       },
     });
 
+    // Generate upload token so the client can upload files immediately
+    let uploadToken = await prisma.client.findUnique({
+      where: { id: client.id },
+      select: { uploadToken: true },
+    }).then((c) => c?.uploadToken);
+
+    if (!uploadToken) {
+      uploadToken = randomBytes(24).toString("hex");
+      await prisma.client.update({
+        where: { id: client.id },
+        data: { uploadToken },
+      });
+    }
+    const uploadUrl = `${APP_URL}/upload/${uploadToken}`;
+
     // Trigger automated pipeline: send contract
     // MUST be awaited — serverless runtimes kill the process after response,
     // so fire-and-forget promises may never complete
     await onOnboardingCompleted(client.id);
 
     return NextResponse.json(
-      { success: true, message: "Onboarding complete" },
+      { success: true, message: "Onboarding complete", uploadUrl },
       { headers: corsHeaders(request) }
     );
   } catch (error) {

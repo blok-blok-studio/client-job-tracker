@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Plus, Trash2, Check, Loader2, ChevronDown, MessageCircle } from "lucide-react";
+import { Plus, Trash2, Check, Loader2, ChevronDown, MessageCircle, Upload } from "lucide-react";
 import QRCode from "qrcode";
 
 interface Contact {
@@ -185,6 +185,7 @@ export default function OnboardPage() {
   const [clientName, setClientName] = useState("");
   const [telegramLink, setTelegramLink] = useState<string | null>(null);
   const [telegramQR, setTelegramQR] = useState<string | null>(null);
+  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
 
   // Form state
   const [contacts, setContacts] = useState<Contact[]>([
@@ -299,6 +300,7 @@ export default function OnboardPage() {
       });
       const data = await res.json();
       if (data.success) {
+        if (data.uploadUrl) setUploadUrl(data.uploadUrl);
         setSubmitted(true);
       } else {
         const debugInfo = data.debug ? ` (${data.debug})` : "";
@@ -424,6 +426,26 @@ export default function OnboardPage() {
             Thanks, {clientName.split(" ")[0]}! We&apos;ve received your
             information and will be in touch soon.
           </p>
+          {uploadUrl && (
+            <div className="mt-6 p-4 rounded-lg bg-white/5 border border-white/10 space-y-3">
+              <div className="flex items-center gap-2 justify-center">
+                <Upload size={18} className="text-bb-orange" />
+                <p className="text-white font-medium text-sm">Upload Files & Media</p>
+              </div>
+              <p className="text-bb-muted text-xs">
+                Have photos, videos, brand assets, or documents to share? Use the link below to upload them directly to your project folder.
+              </p>
+              <a
+                href={uploadUrl}
+                className="inline-block bg-bb-orange text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-orange-600 transition-colors"
+              >
+                Upload Files
+              </a>
+              <p className="text-bb-dim text-[11px]">
+                You can also use this link later — we&apos;ll send it to your email.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
