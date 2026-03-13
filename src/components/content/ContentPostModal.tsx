@@ -6,6 +6,7 @@ import PlatformIcon, { getPlatformLabel } from "./PlatformIcon";
 import PostPreview from "./PostPreview";
 import MediaLibrary from "./MediaLibrary";
 import AudioPanel from "./AudioPanel";
+import SendToDevice from "./SendToDevice";
 import {
   X,
   Upload,
@@ -37,6 +38,7 @@ import {
   Smartphone,
   Link2,
   Copy,
+  Check,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1535,6 +1537,33 @@ export default function ContentPostModal({
                 </div>
               )}
             </div>
+
+            {/* Send-to-Device for video platforms (IG, TikTok) */}
+            {(platform === "INSTAGRAM" || platform === "TIKTOK") && mediaUrls.length > 0 && (
+              <div className="mt-4">
+                <SendToDevice
+                  platform={platform}
+                  caption={[body, hashtags.map((t) => (t.startsWith("#") ? t : `#${t}`)).join(" ")].filter(Boolean).join("\n\n")}
+                  mediaUrls={mediaUrls}
+                  firstComment={firstComment}
+                  taggedUsers={taggedUsers}
+                  location={location}
+                />
+              </div>
+            )}
+
+            {/* Direct publish note for API platforms */}
+            {(platform === "TWITTER" || platform === "LINKEDIN" || platform === "FACEBOOK" || platform === "YOUTUBE") && (
+              <div className="mt-4 p-3 bg-green-500/5 border border-green-500/20 rounded-lg">
+                <p className="text-xs text-green-300 flex items-center gap-1.5">
+                  <Check size={12} />
+                  <span>
+                    <strong>{platform === "TWITTER" ? "Twitter" : platform === "LINKEDIN" ? "LinkedIn" : platform === "FACEBOOK" ? "Facebook" : "YouTube"}</strong> publishes directly via API.
+                    {scheduledAt ? " Your post will auto-publish at the scheduled time." : " Hit Create Post to publish now."}
+                  </span>
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -1548,7 +1577,12 @@ export default function ContentPostModal({
             {mediaUrls.length > 0 && <span>· {mediaUrls.length} media</span>}
             {hashtags.length > 0 && <span>· {hashtags.length} tags</span>}
           </div>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
+            {(platform === "INSTAGRAM" || platform === "TIKTOK") && mediaUrls.some((u) => /\.(mp4|mov|webm)$/i.test(u)) && (
+              <span className="text-[10px] text-purple-400 flex items-center gap-1">
+                <Smartphone size={10} /> Post via app
+              </span>
+            )}
             <button
               type="button"
               onClick={onClose}
