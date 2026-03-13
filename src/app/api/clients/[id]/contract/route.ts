@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { randomBytes, createHash } from "crypto";
 import { generateContractBody, SERVICE_PACKAGES, ADDON_PACKAGES } from "@/lib/contract-templates";
 import { createCheckoutSession, getCurrencyForCountry, CURRENCY_CONFIG } from "@/lib/stripe";
-import { sendPaymentLinkEmail } from "@/lib/email";
+import { sendPaymentLinkEmail, sendContractSigningEmail } from "@/lib/email";
 import { z } from "zod";
 
 const milestoneSchema = z.object({
@@ -127,6 +127,16 @@ export async function POST(
         details: `Contract generated and counter-signed by ${parsed.providerSignedName} for ${client.name}`,
       },
     });
+
+    // Always send the contract signing link to the client
+    const contractUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app"}/contract/${token}`;
+    if (client.email) {
+      await sendContractSigningEmail({
+        to: client.email,
+        clientName: client.name,
+        contractUrl,
+      }).catch((err) => console.error("[Email] Contract signing link email error:", err));
+    }
 
     // --- Auto-create split payment links if schedule provided ---
     // Wrapped in its own try/catch so the contract always succeeds even if Stripe fails
