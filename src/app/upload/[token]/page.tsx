@@ -1,0 +1,270 @@
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Upload, CheckCircle, AlertCircle, Loader2, Film, Image as ImageIcon, Music, X, FileUp } from "lucide-react";
+
+interface ClientInfo {
+  id: string;
+  name: string;
+  company?: string;
+  avatarUrl?: string;
+}
+
+interface UploadResult {
+  filename: string;
+  url?: string;
+  id?: string;
+  error?: string;
+}
+
+export default function ClientUploadPortal({ params }: { params: Promise<{ token: string }> }) {
+  const [token, setToken] = useState("");
+  const [client, setClient] = useState<ClientInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [invalid, setInvalid] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [results, setResults] = useState<UploadResult[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    params.then(({ token: t }) => {
+      setToken(t);
+      fetch(`/api/client-media/upload-portal?token=${t}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success) setClient(d.data);
+          else setInvalid(true);
+        })
+        .catch(() => setInvalid(true))
+        .finally(() => setLoading(false));
+    });
+  }, [params]);
+
+  const addFiles = useCallback((newFiles: FileList | File[]) => {
+    setFiles((prev) => [...prev, ...Array.from(newFiles)]);
+    setResults([]);
+  }, []);
+
+  const removeFile = (idx: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  }, [addFiles]);
+
+  const handleUpload = async () => {
+    if (files.length === 0 || !token) return;
+    setUploading(true);
+    setResults([]);
+
+    try {
+      const formData = new FormData();
+      formData.append("token", token);
+      files.forEach((f) => formData.append("files", f));
+
+      const res = await fetch("/api/client-media/upload-portal", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setResults(data.data);
+        setFiles([]);
+      } else {
+        setResults([{ filename: "Upload", error: data.error }]);
+      }
+    } catch {
+      setResults([{ filename: "Upload", error: "Upload failed. Please try again." }]);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const getFileIcon = (file: File) => {
+    if (file.type.startsWith("image/")) return <ImageIcon size={16} className="text-blue-400" />;
+    if (file.type.startsWith("video/")) return <Film size={16} className="text-purple-400" />;
+    if (file.type.startsWith("audio/")) return <Music size={16} className="text-green-400" />;
+    return <FileUp size={16} className="text-gray-400" />;
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0C] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-white/30 animate-spin" />
+      </div>
+    );
+  }
+
+  if (invalid || !client) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0C] flex items-center justify-center p-4">
+        <div className="text-center">
+          <AlertCircle size={48} className="text-red-400 mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-white mb-2">Invalid Upload Link</h1>
+          <p className="text-sm text-gray-400">
+            This upload link is expired or invalid. Please contact your manager for a new link.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0A0A0C]">
+      <div className="max-w-2xl mx-auto p-4 sm:p-8">
+        {/* Header */}
+        <div className="text-center mb-8 pt-8">
+          {client.avatarUrl ? (
+            <img src={client.avatarUrl} alt="" className="w-16 h-16 rounded-full mx-auto mb-4 border-2 border-white/10" />
+          ) : (
+            <div className="w-16 h-16 rounded-full mx-auto mb-4 bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center text-white text-xl font-bold">
+              {client.name.charAt(0)}
+            </div>
+          )}
+          <h1 className="text-2xl font-bold text-white mb-1">Upload Files</h1>
+          <p className="text-sm text-gray-400">
+            {client.company || client.name} &middot; Upload your photos, videos, and audio
+          </p>
+        </div>
+
+        {/* Drop Zone */}
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`flex flex-col items-center justify-center gap-4 py-16 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
+            dragOver
+              ? "border-orange-500 bg-orange-500/5 scale-[1.01]"
+              : "border-white/10 hover:border-white/20 bg-white/[0.02]"
+          }`}
+        >
+          <div className={`p-4 rounded-full transition-colors ${dragOver ? "bg-orange-500/10" : "bg-white/5"}`}>
+            <Upload size={32} className={dragOver ? "text-orange-400" : "text-white/40"} />
+          </div>
+          <div className="text-center">
+            <p className="text-white font-medium">Drag & drop files here</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Photos, videos, and audio &middot; Up to 500MB per file &middot; 20 files at a time
+            </p>
+            <p className="text-xs text-gray-600 mt-1">
+              JPEG, PNG, GIF, WebP, HEIC, MP4, MOV, WebM, MP3, WAV
+            </p>
+          </div>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*,audio/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files?.length) {
+              addFiles(e.target.files);
+              e.target.value = "";
+            }
+          }}
+        />
+
+        {/* File List */}
+        {files.length > 0 && (
+          <div className="mt-6 space-y-2">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-white">{files.length} file{files.length !== 1 ? "s" : ""} selected</h2>
+              <button
+                type="button"
+                onClick={() => setFiles([])}
+                className="text-xs text-gray-500 hover:text-white transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
+            {files.map((file, idx) => (
+              <div key={idx} className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded-xl">
+                {getFileIcon(file)}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{file.name}</p>
+                  <p className="text-[10px] text-gray-500">{formatSize(file.size)}</p>
+                </div>
+                <button type="button" onClick={() => removeFile(idx)} className="text-gray-600 hover:text-white">
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={handleUpload}
+              disabled={uploading}
+              className="w-full mt-4 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload size={16} />
+                  Upload {files.length} file{files.length !== 1 ? "s" : ""}
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Results */}
+        {results.length > 0 && (
+          <div className="mt-6 space-y-2">
+            <h2 className="text-sm font-medium text-white mb-3">Upload Results</h2>
+            {results.map((r, idx) => (
+              <div
+                key={idx}
+                className={`flex items-center gap-3 p-3 rounded-xl border ${
+                  r.error
+                    ? "bg-red-500/5 border-red-500/20"
+                    : "bg-green-500/5 border-green-500/20"
+                }`}
+              >
+                {r.error ? (
+                  <AlertCircle size={16} className="text-red-400 shrink-0" />
+                ) : (
+                  <CheckCircle size={16} className="text-green-400 shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{r.filename}</p>
+                  {r.error && <p className="text-xs text-red-400">{r.error}</p>}
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => { setResults([]); }}
+              className="w-full mt-3 py-2.5 bg-white/5 text-white/70 rounded-xl text-sm hover:bg-white/10 transition-colors"
+            >
+              Upload More Files
+            </button>
+          </div>
+        )}
+
+        {/* Footer */}
+        <p className="text-center text-[10px] text-gray-600 mt-12">
+          Files are securely uploaded and accessible only by your account manager.
+        </p>
+      </div>
+    </div>
+  );
+}

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Modal from "@/components/shared/Modal";
 import PlatformIcon, { getPlatformLabel } from "./PlatformIcon";
 import PostPreview from "./PostPreview";
+import MediaLibrary from "./MediaLibrary";
+import AudioPanel from "./AudioPanel";
 import {
   X,
   Upload,
@@ -30,6 +32,11 @@ import {
   FileText,
   Accessibility,
   Hash,
+  Music,
+  FolderOpen,
+  Smartphone,
+  Link2,
+  Copy,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -294,7 +301,8 @@ export default function ContentPostModal({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [suggestingHashtags, setSuggestingHashtags] = useState(false);
-  const [activeTab, setActiveTab] = useState<"compose" | "settings" | "preview">("compose");
+  const [activeTab, setActiveTab] = useState<"compose" | "media" | "audio" | "settings" | "preview">("compose");
+  const [uploadLinkCopied, setUploadLinkCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const thumbInputRef = useRef<HTMLInputElement>(null);
@@ -550,19 +558,26 @@ export default function ContentPostModal({
     >
       <div className="max-w-2xl w-full">
         {/* Tab Bar */}
-        <div className="flex border-b border-bb-border mb-4 -mt-2">
-          {(["compose", "settings", "preview"] as const).map((tab) => (
+        <div className="flex border-b border-bb-border mb-4 -mt-2 overflow-x-auto">
+          {([
+            { key: "compose" as const, label: "Compose", icon: Hash },
+            { key: "media" as const, label: "Media", icon: FolderOpen },
+            { key: "audio" as const, label: "Audio", icon: Music },
+            { key: "settings" as const, label: "Settings", icon: Settings2 },
+            { key: "preview" as const, label: "Preview", icon: EyeIcon },
+          ]).map((tab) => (
             <button
-              key={tab}
+              key={tab.key}
               type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === tab.key
                   ? "border-bb-orange text-white"
                   : "border-transparent text-bb-dim hover:text-bb-muted"
               }`}
             >
-              {tab === "compose" ? "Compose" : tab === "settings" ? "Settings" : "Preview"}
+              <tab.icon size={13} />
+              {tab.label}
             </button>
           ))}
         </div>
@@ -976,6 +991,123 @@ export default function ContentPostModal({
                 </p>
               </Section>
             )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {/* MEDIA LIBRARY TAB */}
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {activeTab === "media" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-white">Client Media Library</h3>
+                <p className="text-[10px] text-bb-dim mt-0.5">
+                  Files uploaded by your client or by you. Select files to add to this post.
+                </p>
+              </div>
+              {clientId && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/clients/${clientId}/upload-token`, { method: "POST" });
+                      const data = await res.json();
+                      if (data.success && data.data.uploadToken) {
+                        const link = `${window.location.origin}/upload/${data.data.uploadToken}`;
+                        await navigator.clipboard.writeText(link);
+                        setUploadLinkCopied(true);
+                        setTimeout(() => setUploadLinkCopied(false), 3000);
+                      }
+                    } catch { /* silent */ }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-bb-elevated border border-bb-border rounded-lg text-xs text-bb-muted hover:text-white transition-colors"
+                >
+                  {uploadLinkCopied ? (
+                    <><Copy size={12} className="text-green-400" /> Copied!</>
+                  ) : (
+                    <><Link2 size={12} /> Copy Upload Link</>
+                  )}
+                </button>
+              )}
+            </div>
+
+            <MediaLibrary
+              clientId={clientId}
+              selectedUrls={mediaUrls}
+              onSelect={(urls) => setMediaUrls(urls)}
+            />
+
+            {/* Send to phone */}
+            {mediaUrls.some((u) => /\.(mp4|mov|webm)$/i.test(u)) && (
+              <Section icon={Smartphone} label="Send to Phone for Editing" badge="Beta">
+                <p className="text-xs text-bb-dim">
+                  Need to add music via Instagram&apos;s Edits app? Send video files directly to your phone.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Generate QR / deep link for AirDrop/sharing
+                      const videoUrls = mediaUrls.filter((u) => /\.(mp4|mov|webm)$/i.test(u));
+                      if (videoUrls[0]) window.open(videoUrls[0], "_blank");
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-bb-elevated border border-bb-border rounded-lg text-xs text-bb-muted hover:text-white"
+                  >
+                    <Smartphone size={14} /> Open Video Link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const videoUrls = mediaUrls.filter((u) => /\.(mp4|mov|webm)$/i.test(u));
+                      await navigator.clipboard.writeText(videoUrls.join("\n"));
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-bb-elevated border border-bb-border rounded-lg text-xs text-bb-muted hover:text-white"
+                  >
+                    <Copy size={14} /> Copy Video URLs
+                  </button>
+                </div>
+                <p className="text-[10px] text-bb-dim">
+                  Open the link on your phone to download, edit in Edits/CapCut, then re-upload the final version.
+                </p>
+              </Section>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {/* AUDIO TAB */}
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {activeTab === "audio" && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-medium text-white">Audio & Music</h3>
+              <p className="text-[10px] text-bb-dim mt-0.5">
+                Browse royalty-free music, upload your own audio, or mix audio into video before publishing.
+              </p>
+            </div>
+
+            <AudioPanel
+              videoUrl={mediaUrls.find((u) => /\.(mp4|mov|webm)$/i.test(u))}
+              onAudioSelected={(url) => {
+                // Add audio to media URLs if not already there
+                if (!mediaUrls.includes(url)) {
+                  setMediaUrls((prev) => [...prev, url]);
+                }
+              }}
+              onMixComplete={(mixedUrl) => {
+                // Replace the original video with the mixed version
+                setMediaUrls((prev) => {
+                  const videoIdx = prev.findIndex((u) => /\.(mp4|mov|webm)$/i.test(u));
+                  if (videoIdx >= 0) {
+                    const updated = [...prev];
+                    updated[videoIdx] = mixedUrl;
+                    return updated;
+                  }
+                  return [...prev, mixedUrl];
+                });
+              }}
+            />
           </div>
         )}
 

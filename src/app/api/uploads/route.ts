@@ -22,6 +22,11 @@ const MAGIC_BYTES: Record<string, number[][]> = {
     [0x00, 0x00, 0x00], // moov/ftyp box
   ],
   "video/webm": [[0x1a, 0x45, 0xdf, 0xa3]], // EBML header
+  "audio/mpeg": [[0xff, 0xfb], [0xff, 0xf3], [0xff, 0xf2], [0x49, 0x44, 0x33]], // MP3 + ID3
+  "audio/wav": [[0x52, 0x49, 0x46, 0x46]], // RIFF header
+  "audio/ogg": [[0x4f, 0x67, 0x67, 0x53]], // OggS
+  "audio/mp4": [[0x00, 0x00, 0x00]], // ftyp box (M4A)
+  "audio/webm": [[0x1a, 0x45, 0xdf, 0xa3]], // EBML header
 };
 
 const ALLOWED_EXTENSIONS: Record<string, string> = {
@@ -32,6 +37,11 @@ const ALLOWED_EXTENSIONS: Record<string, string> = {
   "video/mp4": ".mp4",
   "video/quicktime": ".mov",
   "video/webm": ".webm",
+  "audio/mpeg": ".mp3",
+  "audio/wav": ".wav",
+  "audio/ogg": ".ogg",
+  "audio/mp4": ".m4a",
+  "audio/webm": ".weba",
 };
 
 function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
@@ -40,7 +50,7 @@ function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
 
   // Video containers have variable headers — check that the buffer starts with
   // a plausible box/atom structure rather than a strict magic-byte match
-  if (mimeType === "video/mp4" || mimeType === "video/quicktime") {
+  if (mimeType === "video/mp4" || mimeType === "video/quicktime" || mimeType === "audio/mp4") {
     // ftyp atom: bytes 4-7 should be "ftyp"
     if (buffer.length >= 8) {
       const ftypTag = buffer.slice(4, 8).toString("ascii");

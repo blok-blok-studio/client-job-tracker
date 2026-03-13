@@ -26,6 +26,7 @@ model Client {
   timezone        String?
   avatarUrl       String?
   onboardToken    String?    @unique
+  uploadToken     String?    @unique  // Shareable link for client file uploads
   telegramChatId  String?    @unique
   stripeCustomerId String?   @unique
   companyAddress  String?   @db.Text
@@ -46,6 +47,7 @@ model Client {
   contracts        ContractSignature[]
   paymentLinks     PaymentLink[]
   contentPosts     ContentPost[]
+  mediaFiles       ClientMedia[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -454,4 +456,64 @@ enum ContentPostStatus {
   PUBLISHING
   PUBLISHED
   FAILED
+}
+
+// --- CLIENT MEDIA LIBRARY ---
+// Files uploaded by clients via their portal link, or by you manually
+model ClientMedia {
+  id          String        @id @default(cuid())
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  url         String                // Vercel Blob URL
+  filename    String                // Original filename
+  fileType    MediaFileType         // IMAGE, VIDEO, AUDIO
+  fileSize    Int                   // Bytes
+  mimeType    String                // e.g. image/jpeg, video/mp4, audio/mpeg
+  duration    Float?                // Seconds (for video/audio)
+  width       Int?                  // Pixels (for image/video)
+  height      Int?                  // Pixels (for image/video)
+
+  label       String?               // Optional user-given label
+  notes       String?               // Notes about this file
+  uploadedBy  String        @default("client") // "client" or "manager"
+
+  usedInPosts String[]              // Post IDs this media has been used in
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([clientId])
+  @@index([fileType])
+  @@index([createdAt])
+}
+
+enum MediaFileType {
+  IMAGE
+  VIDEO
+  AUDIO
+}
+
+// --- AUDIO LIBRARY ---
+// Royalty-free tracks and uploaded audio for mixing into videos
+model AudioTrack {
+  id          String   @id @default(cuid())
+  title       String
+  artist      String?
+  genre       String?
+  mood        String?
+  duration    Float              // Seconds
+  url         String             // File URL
+  source      String             // "upload", "pixabay", "freesound"
+  sourceId    String?            // External ID from source
+  sourceUrl   String?            // Link to original
+  bpm         Int?
+  isLicensed  Boolean  @default(true)
+  tags        String[]
+
+  createdAt   DateTime @default(now())
+
+  @@index([genre])
+  @@index([mood])
+  @@index([source])
 }
