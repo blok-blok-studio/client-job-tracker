@@ -38,7 +38,11 @@ export async function sendTelegramMessage(
 }
 
 export function getWebhookSecret(): string {
-  return process.env.TELEGRAM_WEBHOOK_SECRET || process.env.CRON_SECRET || "";
+  const secret = process.env.TELEGRAM_WEBHOOK_SECRET || process.env.CRON_SECRET || "";
+  if (!secret && process.env.NODE_ENV === "production") {
+    console.error("[Telegram] TELEGRAM_WEBHOOK_SECRET is not set in production — webhook is unprotected");
+  }
+  return secret;
 }
 
 export async function setTelegramWebhook(url: string): Promise<{ success: boolean; error?: string }> {

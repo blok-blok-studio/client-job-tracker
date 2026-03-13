@@ -187,8 +187,8 @@ const onboardSchema = z.object({
   source: z.string().max(200).optional(),
   industry: z.string().max(200).optional(),
   telegramChatId: z.string().max(30).optional(),
-  contractStart: z.string().optional(),
-  contractEnd: z.string().optional(),
+  contractStart: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }).optional(),
+  contractEnd: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }).optional(),
   monthlyRetainer: z.number().min(0).optional(),
   notes: z.string().max(5000).optional(),
   brandGuidelines: z.string().max(10000).optional(),
@@ -231,6 +231,19 @@ export async function POST(
     const body = await request.json();
     const parsed = onboardSchema.parse(body);
 
+    // Invalidate the token FIRST to prevent duplicate submissions on crash/timeout
+    step = "invalidating token";
+    const tokenClaimed = await prisma.client.updateMany({
+      where: { id: client.id, onboardToken: token },
+      data: { onboardToken: null },
+    });
+    if (tokenClaimed.count === 0) {
+      return NextResponse.json(
+        { success: false, error: "This onboarding link has already been used" },
+        { status: 409, headers: corsHeaders(request) }
+      );
+    }
+
     // Update client with onboarding info
     step = "updating client";
     const updates: Record<string, unknown> = {};
@@ -260,9 +273,6 @@ export async function POST(
         ? `${current}\n\nCompany Website: ${parsed.companyWebsite}`
         : `Company Website: ${parsed.companyWebsite}`;
     }
-
-    // Invalidate the token after use
-    updates.onboardToken = null;
 
     await prisma.client.update({
       where: { id: client.id },

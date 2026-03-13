@@ -5,6 +5,7 @@ import { sendTelegramMessage, getWebhookSecret } from "@/lib/telegram";
 import { sendToOpenClaw } from "@/lib/openclaw/client";
 import { respondToTicket } from "@/lib/agent/ticket-responder";
 import { handleCortanaMessage } from "@/lib/agent/cortana";
+import { rateLimit } from "@/lib/rate-limit";
 
 interface TelegramUpdate {
   message?: {
@@ -35,10 +36,13 @@ export async function POST(request: NextRequest) {
     const secret = getWebhookSecret();
     if (secret) {
       const headerSecret = request.headers.get("x-telegram-bot-api-secret-token");
-      if (!headerSecret || !crypto.timingSafeEqual(
-        Buffer.from(headerSecret),
-        Buffer.from(secret)
-      )) {
+      if (!headerSecret || headerSecret.length === 0) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      // Hash both to constant length for timing-safe comparison
+      const headerHash = crypto.createHash("sha256").update(headerSecret).digest();
+      const secretHash = crypto.createHash("sha256").update(secret).digest();
+      if (!crypto.timingSafeEqual(headerHash, secretHash)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
     }
@@ -206,20 +210,23 @@ async function handleAdminMessage(chatId: string, text: string) {
 
   // /run — trigger agent cycle
   if (text === "/run") {
-    import("@/lib/agent/engine").then(({ runAgentCycle }) => {
-      runAgentCycle().then((result) => {
-        sendTelegramMessage(chatId, [
-          `<b>Agent Cycle Complete</b>`,
-          "",
-          `Actions: <b>${result.actionsExecuted}</b>`,
-          `Errors: ${result.errors.length > 0 ? result.errors.join(", ") : "None"}`,
-          `Duration: ${(result.duration / 1000).toFixed(1)}s`,
-          "",
-          result.analysis ? `<i>${result.analysis.slice(0, 300)}</i>` : "",
-        ].join("\n"));
-      });
-    });
     await sendTelegramMessage(chatId, "Running agent cycle...");
+    try {
+      const { runAgentCycle } = await import("@/lib/agent/engine");
+      const result = await runAgentCycle();
+      await sendTelegramMessage(chatId, [
+        `<b>Agent Cycle Complete</b>`,
+        "",
+        `Actions: <b>${result.actionsExecuted}</b>`,
+        `Errors: ${result.errors.length > 0 ? result.errors.join(", ") : "None"}`,
+        `Duration: ${(result.duration / 1000).toFixed(1)}s`,
+        "",
+        result.analysis ? `<i>${result.analysis.slice(0, 300)}</i>` : "",
+      ].join("\n"));
+    } catch (err) {
+      console.error("[Agent] Cycle error:", err);
+      await sendTelegramMessage(chatId, `Agent cycle failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
     return NextResponse.json({ ok: true });
   }
 
@@ -326,6 +333,13 @@ async function handleClientMessage(chatId: string, text: string, senderName: str
 // ─── /start onboarding command ───────────────────────────────────────────
 
 async function handleStartCommand(chatId: string, token: string, senderName: string) {
+  // Rate limit token attempts — 5/min per chat to prevent enumeration
+  const rl = rateLimit(chatId, { max: 5, prefix: "telegram-start" });
+  if (!rl.allowed) {
+    await sendTelegramMessage(chatId, "Too many attempts. Please try again in a minute.");
+    return NextResponse.json({ ok: true });
+  }
+
   const client = await prisma.client.findUnique({
     where: { onboardToken: token },
     select: { id: true, name: true },

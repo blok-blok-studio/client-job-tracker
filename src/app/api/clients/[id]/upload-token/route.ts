@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { randomUUID } from "crypto";
+import { randomBytes } from "crypto";
 
 // POST — generate or regenerate upload token for client
 export async function POST(
@@ -9,7 +9,7 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
-    const token = randomUUID();
+    const token = randomBytes(24).toString("hex");
 
     const client = await prisma.client.update({
       where: { id },

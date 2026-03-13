@@ -10,12 +10,13 @@ function verifyBearerToken(authHeader: string | null): boolean {
   if (!secret || !authHeader) return false;
 
   const token = authHeader.replace("Bearer ", "");
-  if (token.length !== secret.length) return false;
 
-  return crypto.timingSafeEqual(
-    Buffer.from(token),
-    Buffer.from(secret)
-  );
+  // Hash both values to constant length before comparison — avoids leaking
+  // token length via timing differences on the early length check
+  const tokenHash = crypto.createHash("sha256").update(token).digest();
+  const secretHash = crypto.createHash("sha256").update(secret).digest();
+
+  return crypto.timingSafeEqual(tokenHash, secretHash);
 }
 
 export async function GET(request: NextRequest) {
