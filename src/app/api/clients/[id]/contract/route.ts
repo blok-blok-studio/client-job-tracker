@@ -29,6 +29,7 @@ const generateSchema = z.object({
     excludedDeliverables: z.array(z.number().int().min(0)).optional(),
   })).optional(),
   providerSignedName: z.string().min(1).max(200),
+  providerSignatureData: z.string().max(500000).optional(), // Base64 PNG of drawn signature
   // Payment schedule
   country: z.string().length(2).default("US"),
   paymentSchedule: z.array(milestoneSchema).optional(), // e.g. [{label:"deposit",percent:50},{label:"completion",percent:50}]
@@ -93,6 +94,7 @@ export async function POST(
         contractBody,
         documentHash,
         providerSignedName: parsed.providerSignedName,
+        providerSignatureData: parsed.providerSignatureData || null,
         providerSignedAt: new Date(),
         providerIpAddress: providerIp,
         providerUserAgent: providerUa,

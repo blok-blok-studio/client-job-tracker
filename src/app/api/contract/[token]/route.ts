@@ -98,6 +98,7 @@ export async function GET(
           signatureData: contract.signatureData,
           signedAt: contract.signedAt,
           providerSignedName: contract.providerSignedName,
+          providerSignatureData: contract.providerSignatureData,
           providerSignedAt: contract.providerSignedAt,
           createdAt: contract.createdAt,
         },

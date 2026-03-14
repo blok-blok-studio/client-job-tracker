@@ -14,6 +14,7 @@ interface ContractData {
   signatureData: string | null;
   signedAt: string | null;
   providerSignedName: string | null;
+  providerSignatureData: string | null;
   providerSignedAt: string | null;
   createdAt: string;
 }
@@ -410,6 +411,16 @@ export default function ContractSignPage() {
             {contract?.providerSignedName && (
               <div className="space-y-2 pb-3 border-b border-bb-border/50">
                 <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">Provider</p>
+                {contract.providerSignatureData && (
+                  <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={contract.providerSignatureData}
+                      alt="Provider signature"
+                      className="h-16 object-contain"
+                    />
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-bb-dim">Signed by</span>
                   <span className="text-white">{contract.providerSignedName}</span>
@@ -488,7 +499,16 @@ export default function ContractSignPage() {
           <div className="bg-bb-surface border border-bb-border rounded-xl p-6 mb-8 space-y-3">
             <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">Provider Signature</p>
             <div className="p-4 bg-bb-black rounded-lg border border-bb-border">
-              <p className="text-3xl font-serif italic text-white">{contract.providerSignedName}</p>
+              {contract.providerSignatureData ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={contract.providerSignatureData}
+                  alt="Provider signature"
+                  className="h-16 object-contain"
+                />
+              ) : (
+                <p className="text-3xl font-serif italic text-white">{contract.providerSignedName}</p>
+              )}
             </div>
             <div className="flex gap-6 text-sm">
               <div>

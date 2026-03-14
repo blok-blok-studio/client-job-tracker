@@ -287,10 +287,11 @@ model ContractSignature {
   contractBody  String   @db.Text
 
   // Provider (Chase) counter-signature
-  providerSignedName  String?
-  providerSignedAt    DateTime?
-  providerIpAddress   String?
-  providerUserAgent   String?  @db.Text
+  providerSignedName      String?
+  providerSignatureData   String?  @db.Text  // Base64 PNG of drawn signature
+  providerSignedAt        DateTime?
+  providerIpAddress       String?
+  providerUserAgent       String?  @db.Text
 
   // Client signature
   signedName    String?

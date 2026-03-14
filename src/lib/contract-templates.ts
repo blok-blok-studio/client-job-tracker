@@ -1220,7 +1220,13 @@ SECTION 3. PAYMENT TERMS
     }
   }
 
-  if (recurringTotal > 0) {
+  if (recurringTotal > 0 && oneTimeTotal === 0) {
+    contract += `Monthly services are billed on a recurring basis. The first payment of $${recurringTotal.toLocaleString()} USD is due upon signing of this Agreement. Subsequent invoices will be issued on the 1st of each month and are due within 7 days of receipt (Net 7).
+
+Either party may cancel recurring services with 30 days written notice. Cancellation takes effect at the end of the current billing cycle.
+
+`;
+  } else if (recurringTotal > 0) {
     contract += `Recurring services are billed monthly. The first payment is due upon signing of this Agreement. Subsequent invoices will be issued on the 1st of each month and are due within 7 days of receipt (Net 7).
 
 `;
