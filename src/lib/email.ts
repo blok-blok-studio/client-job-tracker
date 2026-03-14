@@ -66,7 +66,7 @@ export async function sendPaymentLinkEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send payment link email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;
@@ -117,7 +117,7 @@ export async function sendOnboardingLinkEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send onboarding email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;
@@ -175,7 +175,7 @@ export async function sendOnboardingCompleteEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send onboarding complete email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;
@@ -226,7 +226,7 @@ export async function sendContractSigningEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send contract signing email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;
@@ -277,7 +277,7 @@ export async function sendContractEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send contract email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;
@@ -321,7 +321,7 @@ export async function sendReminderEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send reminder email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;
@@ -386,7 +386,7 @@ export async function sendContractSignedClientEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send contract signed client email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;
@@ -451,7 +451,7 @@ export async function sendPaymentReceivedEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send payment received email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;
@@ -492,7 +492,7 @@ export async function sendPaymentFailedEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send payment failed email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;
@@ -532,7 +532,7 @@ export async function sendSubscriptionCancelledEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send subscription cancelled email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;
@@ -587,7 +587,7 @@ export async function sendPaymentReminderEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send payment reminder email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;
@@ -665,7 +665,7 @@ export async function sendContractSignedAdminEmail(params: {
 
   if (error) {
     console.error("[Email] Failed to send contract signed admin email:", error);
-    return null;
+    throw new Error(`Resend error: ${error.message}`);
   }
 
   return data;

@@ -210,15 +210,47 @@ export async function POST(
             }).format(firstLink.amount);
 
             const isFullPayment = schedule.length === 1 && schedule[0].percent === 100;
-            await sendPaymentLinkEmail({
-              to: client.email,
-              clientName: client.name,
-              amount: amountFormatted,
-              description: isFullPayment ? `Payment — ${client.name}` : `Deposit — ${client.name}`,
-              paymentUrl: firstLink.url,
-              recurring: false,
-              interval: null,
-            }).catch((err) => console.error("[Email] Payment link email error:", err));
+            try {
+              const emailResult = await sendPaymentLinkEmail({
+                to: client.email,
+                clientName: client.name,
+                amount: amountFormatted,
+                description: isFullPayment ? `Payment — ${client.name}` : `Deposit — ${client.name}`,
+                paymentUrl: firstLink.url,
+                recurring: false,
+                interval: null,
+              });
+              if (emailResult) {
+                await prisma.activityLog.create({
+                  data: {
+                    clientId: client.id,
+                    actor: "agent",
+                    action: "payment_email_sent",
+                    details: `Payment link email sent to ${client.email} for ${amountFormatted}`,
+                  },
+                });
+              } else {
+                console.warn("[Email] Payment link email returned null (RESEND_API_KEY missing?)");
+                await prisma.activityLog.create({
+                  data: {
+                    clientId: client.id,
+                    actor: "agent",
+                    action: "pipeline_error",
+                    details: `Payment link email skipped — email service not configured`,
+                  },
+                });
+              }
+            } catch (emailErr) {
+              console.error("[Email] Payment link email error:", emailErr);
+              await prisma.activityLog.create({
+                data: {
+                  clientId: client.id,
+                  actor: "agent",
+                  action: "pipeline_error",
+                  details: `Payment link email failed: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
+                },
+              });
+            }
           }
         }
       } catch (err) {
