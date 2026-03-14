@@ -6,7 +6,7 @@ import { z } from "zod";
 import { onOnboardingCompleted } from "@/lib/pipeline";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app";
 
 function getTaxIdType(country: string, taxId: string): string | null {
   // EU VAT
@@ -76,7 +76,7 @@ function getTaxIdType(country: string, taxId: string): string | null {
 const ALLOWED_ORIGINS = [
   "https://blokblokstudio.com",
   "https://www.blokblokstudio.com",
-  "https://blokblokstudio-clients.vercel.app",
+  "https://client-job-tracker.vercel.app",
   ...(process.env.NODE_ENV === "development" ? ["http://localhost:3000", "http://localhost:3001"] : []),
 ];
 

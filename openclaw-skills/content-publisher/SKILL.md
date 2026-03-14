@@ -20,7 +20,7 @@ You are the autonomous content publishing agent. Your job is to check for schedu
 
 ## Environment Variables
 
-- `APP_URL`: The base URL of the client job tracker app (e.g., `https://blokblokstudio-clients.vercel.app`)
+- `APP_URL`: The base URL of the client job tracker app (e.g., `https://client-job-tracker.vercel.app`)
 - `OPENCLAW_API_TOKEN`: Bearer token for authenticating with the publish endpoint
 
 ## Webhook Callback Format

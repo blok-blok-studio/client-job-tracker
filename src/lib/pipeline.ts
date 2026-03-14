@@ -3,7 +3,7 @@ import { sendOnboardingLinkEmail, sendContractEmail, sendContractSigningEmail, s
 import { sendTelegramMessage } from "@/lib/telegram";
 import { randomBytes } from "crypto";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app";
 
 /**
  * Flexible onboarding pipeline:
