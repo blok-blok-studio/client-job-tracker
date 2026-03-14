@@ -1879,8 +1879,8 @@ export default function ClientDetailPage() {
                 onChange={(e) => setPaymentAmount(e.target.value)}
                 className="w-full pl-7 pr-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
                 placeholder="5000"
-                min="1"
-                step="1"
+                min="0.01"
+                step="0.01"
               />
             </div>
           </div>
@@ -1984,8 +1984,8 @@ export default function ClientDetailPage() {
                     onChange={(e) => setUpdatePriceAmount(e.target.value)}
                     className="w-full pl-7 pr-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
                     placeholder="5000"
-                    min="1"
-                    step="1"
+                    min="0.01"
+                    step="0.01"
                   />
                 </div>
               </div>

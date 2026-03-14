@@ -8,7 +8,7 @@ import { sendPaymentLinkEmail } from "@/lib/email";
 export const maxDuration = 60;
 
 const createSchema = z.object({
-  amount: z.number().min(1, "Amount must be at least 1"),
+  amount: z.number().positive("Amount must be greater than 0"),
   description: z.string().min(1).max(500),
   currency: z.enum(["usd", "eur"]).default("usd"),
   country: z.string().length(2).default("US"),
