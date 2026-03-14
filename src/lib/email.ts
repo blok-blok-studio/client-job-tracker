@@ -332,6 +332,7 @@ export async function sendContractSignedClientEmail(params: {
   to: string;
   clientName: string;
   contractUrl: string;
+  pdfUrl: string;
   signedAt: Date;
 }) {
   const resend = getResend();
@@ -371,6 +372,11 @@ export async function sendContractSignedClientEmail(params: {
         <div style="text-align: center; margin: 32px 0;">
           <a href="${params.contractUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             View Signed Agreement
+          </a>
+        </div>
+        <div style="text-align: center; margin: 0 0 32px 0;">
+          <a href="${params.pdfUrl}" style="display: inline-block; background-color: #ffffff; color: #FF6B00; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; border: 2px solid #FF6B00;">
+            Download PDF
           </a>
         </div>
         <p style="color: #666; font-size: 14px; line-height: 1.6;">
