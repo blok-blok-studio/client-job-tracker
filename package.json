@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate --no-engine && prisma db push --skip-generate && next build",
+    "build": "prisma generate --no-engine && ([ -n \"$DIRECT_DATABASE_URL\" ] && prisma db push --skip-generate || true) && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",
