@@ -229,9 +229,10 @@ export async function handleCortanaMessage(
     });
   } catch (error) {
     console.error("[Cortana] Error:", error);
+    const errMsg = error instanceof Error ? error.message : String(error);
     await sendTelegramMessage(
       chatId,
-      "⚠️ Something broke. I logged the error — try again or check the dashboard."
+      `⚠️ Something broke: ${errMsg.slice(0, 200)}`
     );
   }
 }
