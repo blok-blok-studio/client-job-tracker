@@ -197,6 +197,9 @@ model Invoice {
   paidAt   DateTime?
   notes    String?
 
+  stripeInvoiceId  String? @unique
+  stripeInvoiceUrl String?
+
   createdAt DateTime @default(now())
 
   @@index([clientId])

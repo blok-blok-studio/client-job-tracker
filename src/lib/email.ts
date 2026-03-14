@@ -399,6 +399,7 @@ export async function sendPaymentReceivedEmail(params: {
   description: string;
   currency: string;
   paidAt: string;
+  invoiceUrl?: string | null;
 }) {
   const resend = getResend();
   if (!resend) {
@@ -438,6 +439,16 @@ export async function sendPaymentReceivedEmail(params: {
             </tr>
           </table>
         </div>
+        ${params.invoiceUrl ? `
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${params.invoiceUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            View Invoice & Receipt
+          </a>
+        </div>
+        <p style="color: #666; font-size: 13px; line-height: 1.6; text-align: center;">
+          You can download a PDF copy of your invoice from the link above.
+        </p>
+        ` : ""}
         <p style="color: #666; font-size: 14px; line-height: 1.6;">
           If you have any questions about this payment, feel free to reach out.
         </p>
