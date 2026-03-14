@@ -94,7 +94,38 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // Send payment received email
+        // Retrieve Stripe invoice URL (for one-time payments with invoice_creation enabled)
+        let stripeInvoiceId: string | null = null;
+        let stripeInvoiceUrl: string | null = null;
+
+        if (session.invoice) {
+          const invoiceId = typeof session.invoice === "string" ? session.invoice : session.invoice.id;
+          try {
+            const stripeInvoice = await stripe.invoices.retrieve(invoiceId);
+            stripeInvoiceId = stripeInvoice.id;
+            stripeInvoiceUrl = stripeInvoice.hosted_invoice_url ?? null;
+          } catch (err) {
+            console.error("[Webhook] Failed to retrieve Stripe invoice:", err);
+          }
+        }
+
+        // Auto-generate invoice record
+        await prisma.invoice.create({
+          data: {
+            clientId: record.clientId,
+            amount: record.amount / 100,
+            currency: record.currency.toUpperCase(),
+            status: "PAID",
+            country: record.country || "US",
+            region: ["DE","AT","NL","BE","FR","ES","IT","IE","PT","FI","GR","LU"].includes(record.country || "") ? "EU" : "US",
+            paidAt: new Date(),
+            notes: record.description,
+            stripeInvoiceId,
+            stripeInvoiceUrl,
+          },
+        });
+
+        // Send payment received email with invoice download link
         if (record.clientId) {
           const paidClient = await prisma.client.findUnique({
             where: { id: record.clientId },
@@ -112,23 +143,10 @@ export async function POST(request: NextRequest) {
               description: record.description,
               currency: record.currency,
               paidAt: new Date().toLocaleDateString("en-US", { dateStyle: "long" }),
+              invoiceUrl: stripeInvoiceUrl,
             }).catch((err) => console.error("[Email] Payment received email error:", err));
           }
         }
-
-        // Auto-generate invoice record
-        await prisma.invoice.create({
-          data: {
-            clientId: record.clientId,
-            amount: record.amount / 100,
-            currency: record.currency.toUpperCase(),
-            status: "PAID",
-            country: record.country || "US",
-            region: ["DE","AT","NL","BE","FR","ES","IT","IE","PT","FI","GR","LU"].includes(record.country || "") ? "EU" : "US",
-            paidAt: new Date(),
-            notes: record.description,
-          },
-        });
 
         // Trigger automated pipeline: send contract signing link + onboarding
         // MUST be awaited — Vercel serverless kills the process after response is sent,
@@ -170,6 +188,20 @@ export async function POST(request: NextRequest) {
               description: cancelledRecord.description,
             }).catch((err) => console.error("[Email] Subscription cancelled email error:", err));
           }
+        }
+
+        break;
+      }
+
+      case "invoice.paid": {
+        const paidInvoice = event.data.object as Stripe.Invoice;
+
+        // Update our invoice record with the Stripe hosted URL if we have a matching record
+        if (paidInvoice.id && paidInvoice.hosted_invoice_url) {
+          await prisma.invoice.updateMany({
+            where: { stripeInvoiceId: paidInvoice.id },
+            data: { stripeInvoiceUrl: paidInvoice.hosted_invoice_url },
+          });
         }
 
         break;

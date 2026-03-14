@@ -48,6 +48,7 @@ export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [client, setClient] = useState<ClientDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [newContact, setNewContact] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", role: "", email: "", phone: "" });
@@ -89,9 +90,18 @@ export default function ClientDetailPage() {
   const [contractSchedule, setContractSchedule] = useState<"none" | "50/50" | "50/25/25">("50/50");
 
   const fetchClient = useCallback(async () => {
-    const res = await fetch(`/api/clients/${id}`);
-    const data = await res.json();
-    if (data.success) setClient(data.data);
+    try {
+      setError(null);
+      const res = await fetch(`/api/clients/${id}`);
+      const data = await res.json();
+      if (data.success) {
+        setClient(data.data);
+      } else {
+        setError(data.error || "Failed to load client");
+      }
+    } catch {
+      setError("Failed to connect to server");
+    }
   }, [id]);
 
   useEffect(() => { fetchClient(); }, [fetchClient]);
@@ -286,6 +296,12 @@ export default function ClientDetailPage() {
     } catch { /* silently fail */ }
   }
 
+  if (error) return (
+    <div className="p-6">
+      <div className="text-red-400 mb-4">{error}</div>
+      <button onClick={fetchClient} className="text-bb-accent hover:underline">Try again</button>
+    </div>
+  );
   if (!client) return <div className="p-6 text-bb-dim">Loading...</div>;
 
   return (

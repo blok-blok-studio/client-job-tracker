@@ -135,8 +135,8 @@ async function maybeSendOnboardingLink(clientId: string) {
 }
 
 export async function onPaymentConfirmed(clientId: string) {
+  // Auto-check "Payment confirmed" checklist item
   try {
-    // Auto-check "Payment confirmed" checklist item
     await prisma.checklistItem.updateMany({
       where: {
         clientId,
@@ -145,22 +145,38 @@ export async function onPaymentConfirmed(clientId: string) {
       },
       data: { checked: true },
     });
-
-    // Auto-send contract signing link if there's a pending contract linked to this client
-    await maybeSendContractSigningLink(clientId);
-
-    // Check if both payment + contract are done → send onboarding if so
-    await maybeSendOnboardingLink(clientId);
   } catch (error) {
-    console.error("[Pipeline] Failed to process payment confirmed:", error);
+    console.error("[Pipeline] Failed to update checklist:", error);
+  }
+
+  // Auto-send contract signing link — isolated so failure doesn't block onboarding
+  try {
+    await maybeSendContractSigningLink(clientId);
+  } catch (error) {
+    console.error("[Pipeline] Failed to send contract signing link:", error);
     await prisma.activityLog.create({
       data: {
         clientId,
         actor: "agent",
         action: "pipeline_error",
-        details: `Failed to process payment confirmed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        details: `Failed to send contract signing link: ${error instanceof Error ? error.message : "Unknown error"}`,
       },
-    });
+    }).catch(() => {});
+  }
+
+  // Check if both payment + contract are done → send onboarding if so
+  try {
+    await maybeSendOnboardingLink(clientId);
+  } catch (error) {
+    console.error("[Pipeline] Failed to send onboarding link:", error);
+    await prisma.activityLog.create({
+      data: {
+        clientId,
+        actor: "agent",
+        action: "pipeline_error",
+        details: `Failed to send onboarding link: ${error instanceof Error ? error.message : "Unknown error"}`,
+      },
+    }).catch(() => {});
   }
 }
 
