@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload, Pen, Type, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -86,6 +86,8 @@ export default function ClientDetailPage() {
   const [paymentCustomizations, setPaymentCustomizations] = useState<Record<string, PackageCustomization>>({});
   const [paymentExpandedPkgs, setPaymentExpandedPkgs] = useState<string[]>([]);
   const [providerSignedName, setProviderSignedName] = useState("Chase Haynes");
+  const [providerSignatureMode, setProviderSignatureMode] = useState<"type" | "draw">("type");
+  const [providerSignatureData, setProviderSignatureData] = useState<string | null>(null);
   const [contractCountry, setContractCountry] = useState("DE");
   const [contractSchedule, setContractSchedule] = useState<"none" | "50/50" | "50/25/25">("50/50");
 
@@ -209,6 +211,7 @@ export default function ClientDetailPage() {
           customTerms: customTerms.trim() || undefined,
           packageCustomizations: Object.keys(contractCustomizations).length > 0 ? contractCustomizations : undefined,
           providerSignedName,
+          providerSignatureData: providerSignatureMode === "draw" ? providerSignatureData : undefined,
           country: contractCountry,
           paymentSchedule: contractSchedule === "50/50"
             ? [{ label: "deposit", percent: 50 }, { label: "completion", percent: 50 }]
@@ -1480,8 +1483,8 @@ export default function ClientDetailPage() {
           </div>
 
           {/* Provider Counter-Signature */}
-          <div>
-            <label className="block text-sm font-medium text-bb-muted mb-1">Your Full Legal Name (Counter-Signature)</label>
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-bb-muted">Your Signature (Counter-Signature)</label>
             <input
               type="text"
               value={providerSignedName}
@@ -1489,7 +1492,105 @@ export default function ClientDetailPage() {
               className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
               placeholder="Your full legal name"
             />
-            <p className="text-xs text-bb-dim mt-1">By generating this contract, you are counter-signing it with your full legal name, IP address, and timestamp.</p>
+
+            {/* Signature mode toggle */}
+            <div className="flex gap-1 bg-bb-black rounded-lg p-1 border border-bb-border">
+              <button
+                type="button"
+                onClick={() => setProviderSignatureMode("type")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-colors ${
+                  providerSignatureMode === "type"
+                    ? "bg-bb-surface text-white"
+                    : "text-bb-dim hover:text-bb-muted"
+                }`}
+              >
+                <Type size={12} /> Type
+              </button>
+              <button
+                type="button"
+                onClick={() => setProviderSignatureMode("draw")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-colors ${
+                  providerSignatureMode === "draw"
+                    ? "bg-bb-surface text-white"
+                    : "text-bb-dim hover:text-bb-muted"
+                }`}
+              >
+                <Pen size={12} /> Draw
+              </button>
+            </div>
+
+            {providerSignatureMode === "type" ? (
+              providerSignedName && (
+                <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
+                  <p className="text-xs text-bb-dim mb-1">Signature preview</p>
+                  <p className="text-2xl font-serif italic text-white">{providerSignedName}</p>
+                </div>
+              )
+            ) : (
+              <div className="space-y-1.5">
+                <div className="relative bg-bb-black rounded-lg border border-bb-border overflow-hidden">
+                  <canvas
+                    id="provider-sig-canvas"
+                    width={600}
+                    height={200}
+                    className="w-full h-[120px] cursor-crosshair touch-none"
+                    ref={(canvas) => {
+                      if (!canvas) return;
+                      const ctx = canvas.getContext("2d");
+                      if (!ctx || canvas.dataset.init) return;
+                      canvas.dataset.init = "1";
+                      ctx.strokeStyle = "#ffffff";
+                      ctx.lineWidth = 2.5;
+                      ctx.lineCap = "round";
+                      ctx.lineJoin = "round";
+                      let drawing = false;
+                      const getPos = (e: MouseEvent | TouchEvent) => {
+                        const rect = canvas.getBoundingClientRect();
+                        const scaleX = canvas.width / rect.width;
+                        const scaleY = canvas.height / rect.height;
+                        if ("touches" in e) {
+                          return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+                        }
+                        return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+                      };
+                      canvas.addEventListener("mousedown", (e) => { drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+                      canvas.addEventListener("mousemove", (e) => { if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
+                      canvas.addEventListener("mouseup", () => { drawing = false; setProviderSignatureData(canvas.toDataURL("image/png")); });
+                      canvas.addEventListener("mouseleave", () => { if (drawing) { drawing = false; setProviderSignatureData(canvas.toDataURL("image/png")); } });
+                      canvas.addEventListener("touchstart", (e) => { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+                      canvas.addEventListener("touchmove", (e) => { if (!drawing) return; e.preventDefault(); const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
+                      canvas.addEventListener("touchend", () => { drawing = false; setProviderSignatureData(canvas.toDataURL("image/png")); });
+                    }}
+                  />
+                  {!providerSignatureData && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <p className="text-bb-dim text-xs">Sign here with your mouse or finger</p>
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const canvas = document.getElementById("provider-sig-canvas") as HTMLCanvasElement;
+                    if (!canvas) return;
+                    const ctx = canvas.getContext("2d");
+                    if (!ctx) return;
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.lineWidth = 2.5;
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    canvas.dataset.init = "";
+                    setProviderSignatureData(null);
+                  }}
+                  className="flex items-center gap-1 text-xs text-bb-dim hover:text-bb-muted transition-colors"
+                >
+                  <RotateCcw size={10} /> Clear
+                </button>
+              </div>
+            )}
+
+            <p className="text-xs text-bb-dim">By generating this contract, you are counter-signing it with your full legal name, IP address, and timestamp.</p>
           </div>
 
           <div className="flex gap-3 justify-end">

@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
+// Brand colors
+const ORANGE = rgb(1, 0.42, 0); // #FF6B00
+const BLACK = rgb(0.04, 0.04, 0.04); // #0A0A0A
+const DARK_TEXT = rgb(0.12, 0.12, 0.12);
+const BODY_TEXT = rgb(0.25, 0.25, 0.25);
+const MUTED = rgb(0.5, 0.5, 0.5);
+const LIGHT_BORDER = rgb(0.88, 0.88, 0.88);
+
 // GET — Download signed contract as PDF
 export async function GET(
   _request: NextRequest,
@@ -45,6 +53,15 @@ export async function GET(
       if (y - needed < MARGIN) {
         page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
         y = PAGE_HEIGHT - MARGIN;
+        // Orange accent line at top of each page
+        page.drawRectangle({
+          x: 0,
+          y: PAGE_HEIGHT - 4,
+          width: PAGE_WIDTH,
+          height: 4,
+          color: ORANGE,
+        });
+        y -= 8;
       }
     }
 
@@ -68,7 +85,7 @@ export async function GET(
       return lines;
     }
 
-    function drawWrappedText(text: string, fontSize: number, currentFont: typeof font, color = rgb(0.15, 0.15, 0.15)) {
+    function drawWrappedText(text: string, fontSize: number, currentFont: typeof font, color = BODY_TEXT) {
       const lines = wrapText(text, fontSize, currentFont);
       for (const line of lines) {
         ensureSpace(LINE_HEIGHT);
@@ -77,30 +94,49 @@ export async function GET(
       }
     }
 
+    // --- Orange accent bar at top ---
+    page.drawRectangle({
+      x: 0,
+      y: PAGE_HEIGHT - 4,
+      width: PAGE_WIDTH,
+      height: 4,
+      color: ORANGE,
+    });
+
     // --- Header ---
     page.drawText("BLOK BLOK STUDIO", {
       x: MARGIN,
       y,
-      size: 18,
+      size: 20,
       font: fontBold,
-      color: rgb(0, 0, 0),
+      color: BLACK,
     });
-    y -= 20;
+    y -= 18;
+
+    // Orange underline below studio name
+    page.drawLine({
+      start: { x: MARGIN, y },
+      end: { x: MARGIN + 120, y },
+      thickness: 2.5,
+      color: ORANGE,
+    });
+    y -= 14;
+
     page.drawText("creative tech studio", {
       x: MARGIN,
       y,
       size: 9,
       font: fontItalic,
-      color: rgb(0.5, 0.5, 0.5),
+      color: MUTED,
     });
-    y -= 30;
+    y -= 28;
 
     // --- Divider ---
     page.drawLine({
       start: { x: MARGIN, y },
       end: { x: PAGE_WIDTH - MARGIN, y },
       thickness: 1,
-      color: rgb(0.85, 0.85, 0.85),
+      color: LIGHT_BORDER,
     });
     y -= 20;
 
@@ -124,7 +160,7 @@ export async function GET(
           y,
           size: HEADING_SIZE,
           font: fontBold,
-          color: rgb(0, 0, 0),
+          color: BLACK,
         });
         y -= 24;
         continue;
@@ -134,13 +170,21 @@ export async function GET(
       if (/^SECTION \d+\./.test(trimmed) || trimmed === "ACKNOWLEDGMENT AND ACCEPTANCE") {
         ensureSpace(30);
         y -= 10;
+        // Orange accent line before section header
         page.drawLine({
           start: { x: MARGIN, y: y + 6 },
+          end: { x: MARGIN + 40, y: y + 6 },
+          thickness: 2,
+          color: ORANGE,
+        });
+        // Light line extending to the right
+        page.drawLine({
+          start: { x: MARGIN + 40, y: y + 6 },
           end: { x: PAGE_WIDTH - MARGIN, y: y + 6 },
           thickness: 0.5,
-          color: rgb(0.85, 0.85, 0.85),
+          color: LIGHT_BORDER,
         });
-        drawWrappedText(trimmed, SECTION_SIZE, fontBold, rgb(0, 0, 0));
+        drawWrappedText(trimmed, SECTION_SIZE, fontBold, BLACK);
         y -= 4;
         continue;
       }
@@ -148,7 +192,7 @@ export async function GET(
       // Lettered items with prices
       if (/^[A-Z]\.\s/.test(trimmed) && trimmed.includes("$")) {
         ensureSpace(LINE_HEIGHT);
-        drawWrappedText(trimmed, FONT_SIZE, fontBold, rgb(0.15, 0.15, 0.15));
+        drawWrappedText(trimmed, FONT_SIZE, fontBold, DARK_TEXT);
         continue;
       }
 
@@ -160,9 +204,9 @@ export async function GET(
           start: { x: MARGIN, y: y + 6 },
           end: { x: PAGE_WIDTH - MARGIN, y: y + 6 },
           thickness: 0.5,
-          color: rgb(0.85, 0.85, 0.85),
+          color: LIGHT_BORDER,
         });
-        drawWrappedText(trimmed, SECTION_SIZE, fontBold, rgb(0, 0, 0));
+        drawWrappedText(trimmed, SECTION_SIZE, fontBold, BLACK);
         continue;
       }
 
@@ -177,29 +221,62 @@ export async function GET(
       start: { x: MARGIN, y },
       end: { x: PAGE_WIDTH - MARGIN, y },
       thickness: 1,
-      color: rgb(0.85, 0.85, 0.85),
+      color: LIGHT_BORDER,
     });
     y -= 24;
 
+    // Orange accent before SIGNATURES heading
+    page.drawLine({
+      start: { x: MARGIN, y: y + 2 },
+      end: { x: MARGIN + 30, y: y + 2 },
+      thickness: 2.5,
+      color: ORANGE,
+    });
+
     page.drawText("SIGNATURES", {
-      x: MARGIN,
+      x: MARGIN + 36,
       y,
       size: SECTION_SIZE,
       font: fontBold,
-      color: rgb(0, 0, 0),
+      color: BLACK,
     });
     y -= 24;
 
     // Provider signature
     if (contract.providerSignedName) {
-      page.drawText("Provider:", { x: MARGIN, y, size: 9, font: fontBold, color: rgb(0.4, 0.4, 0.4) });
+      ensureSpace(80);
+      page.drawText("Provider:", { x: MARGIN, y, size: 9, font: fontBold, color: MUTED });
       y -= LINE_HEIGHT;
-      page.drawText(contract.providerSignedName, { x: MARGIN, y, size: 16, font: fontItalic, color: rgb(0, 0, 0) });
-      y -= LINE_HEIGHT;
+
+      // If there's a drawn provider signature, embed it
+      if (contract.providerSignatureData) {
+        try {
+          const base64Data = contract.providerSignatureData.replace(/^data:image\/png;base64,/, "");
+          const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+          const sigImage = await pdf.embedPng(sigBytes);
+          const sigDims = sigImage.scale(0.35);
+          ensureSpace(sigDims.height + 20);
+          page.drawImage(sigImage, {
+            x: MARGIN,
+            y: y - sigDims.height,
+            width: sigDims.width,
+            height: sigDims.height,
+          });
+          y -= sigDims.height + 8;
+        } catch {
+          // Fallback to typed name
+          page.drawText(contract.providerSignedName, { x: MARGIN, y, size: 16, font: fontItalic, color: BLACK });
+          y -= LINE_HEIGHT;
+        }
+      } else {
+        page.drawText(contract.providerSignedName, { x: MARGIN, y, size: 16, font: fontItalic, color: BLACK });
+        y -= LINE_HEIGHT;
+      }
+
       if (contract.providerSignedAt) {
         page.drawText(
           `Signed: ${contract.providerSignedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}`,
-          { x: MARGIN, y, size: 8, font, color: rgb(0.5, 0.5, 0.5) }
+          { x: MARGIN, y, size: 8, font, color: MUTED }
         );
         y -= LINE_HEIGHT;
       }
@@ -209,7 +286,7 @@ export async function GET(
     // Client signature
     if (contract.signedName) {
       ensureSpace(60);
-      page.drawText("Client:", { x: MARGIN, y, size: 9, font: fontBold, color: rgb(0.4, 0.4, 0.4) });
+      page.drawText("Client:", { x: MARGIN, y, size: 9, font: fontBold, color: MUTED });
       y -= LINE_HEIGHT;
 
       // If there's a drawn signature, embed it
@@ -229,36 +306,59 @@ export async function GET(
           y -= sigDims.height + 8;
         } catch {
           // Fallback to typed name if signature image fails
-          page.drawText(contract.signedName, { x: MARGIN, y, size: 16, font: fontItalic, color: rgb(0, 0, 0) });
+          page.drawText(contract.signedName, { x: MARGIN, y, size: 16, font: fontItalic, color: BLACK });
           y -= LINE_HEIGHT;
         }
       } else {
-        page.drawText(contract.signedName, { x: MARGIN, y, size: 16, font: fontItalic, color: rgb(0, 0, 0) });
+        page.drawText(contract.signedName, { x: MARGIN, y, size: 16, font: fontItalic, color: BLACK });
         y -= LINE_HEIGHT;
       }
 
-      page.drawText(`Name: ${contract.signedName}`, { x: MARGIN, y, size: 8, font, color: rgb(0.5, 0.5, 0.5) });
+      page.drawText(`Name: ${contract.signedName}`, { x: MARGIN, y, size: 8, font, color: MUTED });
       y -= 12;
       if (contract.signedAt) {
         page.drawText(
           `Signed: ${contract.signedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}`,
-          { x: MARGIN, y, size: 8, font, color: rgb(0.5, 0.5, 0.5) }
+          { x: MARGIN, y, size: 8, font, color: MUTED }
         );
         y -= 12;
       }
     }
 
-    // --- Document integrity footer ---
-    y -= 16;
-    ensureSpace(40);
+    // --- Footer with branding & links ---
+    y -= 20;
+    ensureSpace(80);
+
+    // Orange divider
     page.drawLine({
       start: { x: MARGIN, y: y + 4 },
+      end: { x: MARGIN + 40, y: y + 4 },
+      thickness: 2,
+      color: ORANGE,
+    });
+    page.drawLine({
+      start: { x: MARGIN + 40, y: y + 4 },
       end: { x: PAGE_WIDTH - MARGIN, y: y + 4 },
       thickness: 0.5,
-      color: rgb(0.9, 0.9, 0.9),
+      color: LIGHT_BORDER,
     });
-    y -= 8;
+    y -= 12;
 
+    // Company info & links
+    page.drawText("Blok Blok Studio", {
+      x: MARGIN, y, size: 8, font: fontBold, color: DARK_TEXT,
+    });
+    y -= 12;
+    page.drawText("blokblokstudio.com  |  chase@blokblokstudio.com", {
+      x: MARGIN, y, size: 7, font, color: MUTED,
+    });
+    y -= 10;
+    page.drawText("Instagram: @blokblokstudio  |  @haynes2va", {
+      x: MARGIN, y, size: 7, font, color: MUTED,
+    });
+    y -= 16;
+
+    // Document integrity hashes
     if (contract.documentHash) {
       page.drawText(`Document Hash: ${contract.documentHash}`, {
         x: MARGIN, y, size: 6, font, color: rgb(0.7, 0.7, 0.7),
