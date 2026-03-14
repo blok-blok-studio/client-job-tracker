@@ -275,7 +275,7 @@ export async function GET(
     const clientName = contract.client.name.replace(/[^a-zA-Z0-9]/g, "-");
     const filename = `Blok-Blok-Studio-Agreement-${clientName}.pdf`;
 
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
