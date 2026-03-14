@@ -187,10 +187,10 @@ export async function createCheckoutSession(params: CreateCheckoutParams): Promi
       },
     };
   } else {
+    // For subscriptions, invoice rendering is inherited from the customer's
+    // invoice_settings (set above during customer create/update)
     sessionParams.subscription_data = {
-      invoice_settings: {
-        rendering_options: { template: invoiceTemplate },
-      },
+      description: params.description,
     };
   }
 
