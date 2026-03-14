@@ -146,7 +146,7 @@ export async function POST(
 
     {
       try {
-        // Calculate total one-time amount from selected packages
+        // Calculate totals from selected packages
         const allItems = [
           ...SERVICE_PACKAGES.filter((p) => parsed.packages.includes(p.id)),
           ...ADDON_PACKAGES.filter((a) => (parsed.addons || []).includes(a.id)),
@@ -155,15 +155,20 @@ export async function POST(
           parsed.packageCustomizations?.[item.id]?.priceOverride ?? item.price;
         const oneTimeTotal = allItems.filter((i) => !i.recurring).reduce((s, i) => s + getPrice(i), 0)
           + (parsed.customItems || []).filter(i => !i.recurring).reduce((s, i) => s + i.price, 0);
+        const recurringTotal = allItems.filter((i) => i.recurring).reduce((s, i) => s + getPrice(i), 0)
+          + (parsed.customItems || []).filter(i => i.recurring).reduce((s, i) => s + i.price, 0);
 
-        if (oneTimeTotal === 0) {
+        const currency = getCurrencyForCountry(parsed.country);
+        const currencyConfig = CURRENCY_CONFIG[currency];
+        let latestStripeCustomerId = client.stripeCustomerId;
+
+        if (oneTimeTotal === 0 && recurringTotal === 0) {
           // $0 contract — skip payment, auto-confirm and send contract signing link directly
           await onPaymentConfirmed(client.id);
-        } else if (oneTimeTotal > 0) {
-          const currency = getCurrencyForCountry(parsed.country);
-          const currencyConfig = CURRENCY_CONFIG[currency];
-          let latestStripeCustomerId = client.stripeCustomerId;
+        }
 
+        // --- One-time payment links ---
+        if (oneTimeTotal > 0) {
           for (const milestone of schedule) {
             const milestoneAmount = Math.round(((oneTimeTotal * milestone.percent) / 100) * 100) / 100;
             if (milestoneAmount <= 0) continue;
@@ -186,7 +191,6 @@ export async function POST(
               milestone: milestone.label,
             });
 
-            // Reuse the Stripe customer for subsequent milestones
             latestStripeCustomerId = result.stripeCustomerId;
 
             paymentLinksCreated.push({
@@ -195,7 +199,6 @@ export async function POST(
               amount: milestoneAmount,
             });
 
-            // Log each payment link
             await prisma.activityLog.create({
               data: {
                 clientId: client.id,
@@ -206,7 +209,7 @@ export async function POST(
             });
           }
 
-          // Auto-send first payment link via email (deposit or full payment)
+          // Auto-send first one-time payment link via email
           const firstLink = paymentLinksCreated[0];
           if (firstLink && client.email) {
             const amountFormatted = new Intl.NumberFormat("en-US", {
@@ -234,16 +237,6 @@ export async function POST(
                     details: `Payment link email sent to ${client.email} for ${amountFormatted}`,
                   },
                 });
-              } else {
-                console.warn("[Email] Payment link email returned null (RESEND_API_KEY missing?)");
-                await prisma.activityLog.create({
-                  data: {
-                    clientId: client.id,
-                    actor: "agent",
-                    action: "pipeline_error",
-                    details: `Payment link email skipped — email service not configured`,
-                  },
-                });
               }
             } catch (emailErr) {
               console.error("[Email] Payment link email error:", emailErr);
@@ -253,6 +246,82 @@ export async function POST(
                   actor: "agent",
                   action: "pipeline_error",
                   details: `Payment link email failed: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
+                },
+              });
+            }
+          }
+        }
+
+        // --- Recurring/monthly payment link ---
+        if (recurringTotal > 0) {
+          const description = `Monthly Services — ${client.name}`;
+
+          const result = await createCheckoutSession({
+            clientId: client.id,
+            clientName: client.name,
+            clientEmail: client.email,
+            stripeCustomerId: latestStripeCustomerId,
+            amount: recurringTotal,
+            description,
+            currency,
+            country: parsed.country,
+            contractId: contract.id,
+            recurring: true,
+            interval: "month",
+          });
+
+          latestStripeCustomerId = result.stripeCustomerId;
+
+          paymentLinksCreated.push({
+            milestone: "monthly",
+            url: result.url,
+            amount: recurringTotal,
+          });
+
+          await prisma.activityLog.create({
+            data: {
+              clientId: client.id,
+              actor: "chase",
+              action: "payment_link_created",
+              details: `Monthly subscription payment link created: ${currencyConfig.symbol}${recurringTotal.toLocaleString()}/mo for contract`,
+            },
+          });
+
+          // Auto-send recurring payment link via email
+          if (client.email) {
+            const amountFormatted = new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: currency.toUpperCase(),
+            }).format(recurringTotal);
+
+            try {
+              const emailResult = await sendPaymentLinkEmail({
+                to: client.email,
+                clientName: client.name,
+                amount: `${amountFormatted}/mo`,
+                description: `Monthly Services — ${client.name}`,
+                paymentUrl: result.url,
+                recurring: true,
+                interval: "month",
+              });
+              if (emailResult) {
+                await prisma.activityLog.create({
+                  data: {
+                    clientId: client.id,
+                    actor: "agent",
+                    action: "payment_email_sent",
+                    details: `Monthly payment link email sent to ${client.email} for ${amountFormatted}/mo`,
+                  },
+                });
+              }
+            } catch (emailErr) {
+              console.error("[Email] Monthly payment link email error:", emailErr);
+              await prisma.activityLog.create({
+                data: {
+                  clientId: client.id,
+                  actor: "agent",
+                  action: "pipeline_error",
+                  details: `Monthly payment link email failed: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
                 },
               });
             }
