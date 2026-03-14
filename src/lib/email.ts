@@ -206,7 +206,7 @@ export async function sendContractSigningEmail(params: {
           Hi ${params.clientName.split(" ")[0]},
         </p>
         <p style="color: #333; font-size: 16px; line-height: 1.6;">
-          Thank you for your payment! Your service agreement is ready for review and signature. Please click the button below to review the terms and sign electronically.
+          Your service agreement is ready for review and signature. Please click the button below to review the terms and sign electronically.
         </p>
         <div style="text-align: center; margin: 32px 0;">
           <a href="${params.contractUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
