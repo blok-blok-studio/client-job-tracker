@@ -388,28 +388,47 @@ export default function ContractSignPage() {
 
   if (signed) {
     return (
-      <div className="min-h-screen bg-bb-black flex items-center justify-center px-4">
-        <div className="text-center space-y-4 max-w-md">
-          <Image
-            src="/bb_logo_wordmark_subhead_WHT_PNG.png"
-            alt="Blok Blok Studio"
-            width={180}
-            height={60}
-            className="mx-auto mb-6"
-          />
-          <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto">
-            <Check className="text-green-400" size={32} />
+      <div className="min-h-screen bg-bb-black">
+        <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <Image
+              src="/bb_logo_wordmark_subhead_WHT_PNG.png"
+              alt="Blok Blok Studio"
+              width={200}
+              height={67}
+              className="mx-auto mb-6"
+            />
+            <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+              <Check className="text-green-400" size={32} />
+            </div>
+            <h1 className="text-2xl font-display font-semibold text-white">
+              Contract Signed
+            </h1>
+            <p className="text-bb-muted mt-2">
+              Thank you, {contract?.clientName?.split(" ")[0]}! Your agreement has been recorded.
+              We&apos;ll be in touch to get started.
+            </p>
+            <a
+              href={`/api/contract/${token}/pdf`}
+              className="inline-block mt-4 px-6 py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white font-semibold rounded-lg transition-colors text-sm"
+            >
+              Download PDF
+            </a>
           </div>
-          <h1 className="text-2xl font-display font-semibold text-white">
-            Contract Signed
-          </h1>
-          <p className="text-bb-muted">
-            Thank you, {contract?.clientName?.split(" ")[0]}! Your agreement has been recorded.
-            We&apos;ll be in touch to get started.
-          </p>
-          <div className="bg-bb-surface border border-bb-border rounded-lg p-4 text-left space-y-3 text-sm">
+
+          {/* Full Contract Body */}
+          {contract?.contractBody && (
+            <div className="bg-bb-surface border border-bb-border rounded-xl p-6 sm:p-10 mb-8">
+              <ContractRenderer body={contract.contractBody} />
+            </div>
+          )}
+
+          {/* Signature Blocks */}
+          <div className="bg-bb-surface border border-bb-border rounded-xl p-6 space-y-6">
+            <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">Signatures</p>
             {contract?.providerSignedName && (
-              <div className="space-y-2 pb-3 border-b border-bb-border/50">
+              <div className="space-y-2 pb-4 border-b border-bb-border/50">
                 <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">Provider</p>
                 {contract.providerSignatureData && (
                   <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
@@ -421,12 +440,12 @@ export default function ContractSignPage() {
                     />
                   </div>
                 )}
-                <div className="flex justify-between">
+                <div className="flex justify-between text-sm">
                   <span className="text-bb-dim">Signed by</span>
                   <span className="text-white">{contract.providerSignedName}</span>
                 </div>
                 {contract.providerSignedAt && (
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-sm">
                     <span className="text-bb-dim">Date</span>
                     <span className="text-white">
                       {new Date(contract.providerSignedAt).toLocaleDateString("en-US", {
@@ -449,12 +468,12 @@ export default function ContractSignPage() {
                   />
                 </div>
               )}
-              <div className="flex justify-between">
+              <div className="flex justify-between text-sm">
                 <span className="text-bb-dim">Signed by</span>
                 <span className="text-white">{contract?.signedName || signedName}</span>
               </div>
               {contract?.signedAt && (
-                <div className="flex justify-between">
+                <div className="flex justify-between text-sm">
                   <span className="text-bb-dim">Date</span>
                   <span className="text-white">
                     {new Date(contract.signedAt).toLocaleDateString("en-US", {
