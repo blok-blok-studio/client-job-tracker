@@ -97,7 +97,7 @@ export async function sendOnboardingLinkEmail(params: {
           Hi ${params.clientName.split(" ")[0]},
         </p>
         <p style="color: #333; font-size: 16px; line-height: 1.6;">
-          Everything is set on our end! The final step is to fill out our onboarding form so we can get started on your project.
+          We're excited to work with you! Please fill out our onboarding form so we can get started on your project.
         </p>
         <div style="text-align: center; margin: 32px 0;">
           <a href="${params.onboardUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
