@@ -128,6 +128,7 @@ export async function sendOnboardingCompleteEmail(params: {
   clientName: string;
   uploadUrl: string;
   contractUrl?: string;
+  pdfUrl?: string;
 }) {
   const resend = getResend();
   if (!resend) {
@@ -161,8 +162,9 @@ export async function sendOnboardingCompleteEmail(params: {
         </p>
         ${params.contractUrl ? `
         <div style="background: #f9f9f9; border-radius: 8px; padding: 16px; margin: 24px 0; text-align: center;">
-          <p style="color: #666; font-size: 13px; margin: 0 0 8px 0;">Your signed agreement</p>
+          <p style="color: #666; font-size: 13px; margin: 0 0 12px 0;">Your signed agreement</p>
           <a href="${params.contractUrl}" style="color: #FF6B00; text-decoration: underline; font-size: 14px; font-weight: 500;">View Contract</a>
+          ${params.pdfUrl ? `<span style="color: #ccc; margin: 0 8px;">·</span><a href="${params.pdfUrl}" style="color: #FF6B00; text-decoration: underline; font-size: 14px; font-weight: 500;">Download PDF</a>` : ""}
         </div>
         ` : ""}
         <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />

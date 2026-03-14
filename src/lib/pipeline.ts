@@ -441,6 +441,7 @@ export async function onOnboardingCompleted(clientId: string) {
           clientName: client.name,
           uploadUrl,
           contractUrl,
+          pdfUrl: `${APP_URL}/api/contract/${signedContract.token}/pdf`,
         });
       }
 
