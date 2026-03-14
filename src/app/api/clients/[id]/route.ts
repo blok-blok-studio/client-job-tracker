@@ -29,8 +29,10 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, data: client });
-  } catch {
-    return NextResponse.json({ success: false, error: "Failed to load client" }, { status: 500 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to load client";
+    console.error("GET /api/clients/[id] error:", message);
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
