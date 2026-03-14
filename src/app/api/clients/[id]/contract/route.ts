@@ -7,6 +7,9 @@ import { sendPaymentLinkEmail } from "@/lib/email";
 import { onPaymentConfirmed } from "@/lib/pipeline";
 import { z } from "zod";
 
+// Allow up to 60s for Stripe API calls + email sending
+export const maxDuration = 60;
+
 const milestoneSchema = z.object({
   label: z.string(), // "deposit" | "milestone" | "completion"
   percent: z.number().min(1).max(100),

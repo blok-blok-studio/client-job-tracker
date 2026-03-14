@@ -9,6 +9,9 @@ import {
   sendSubscriptionCancelledEmail,
 } from "@/lib/email";
 
+// Allow up to 60s for pipeline processing after payment
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");

@@ -4,6 +4,9 @@ import { createCheckoutSession, CURRENCY_CONFIG } from "@/lib/stripe";
 import { z } from "zod";
 import { sendPaymentLinkEmail } from "@/lib/email";
 
+// Allow up to 60s for Stripe API calls + email sending
+export const maxDuration = 60;
+
 const createSchema = z.object({
   amount: z.number().min(1, "Amount must be at least 1"),
   description: z.string().min(1).max(500),
