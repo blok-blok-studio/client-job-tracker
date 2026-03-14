@@ -5,7 +5,7 @@ import { sendPaymentLinkEmail } from "@/lib/email";
 import { z } from "zod";
 
 const updateSchema = z.object({
-  amount: z.number().min(1, "Amount must be at least 1"),
+  amount: z.number().positive("Amount must be greater than 0"),
   prorate: z.boolean().default(true),
 });
 
