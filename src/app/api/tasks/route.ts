@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { taskSchema } from "@/lib/validations";
 
+const VALID_STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "BLOCKED"] as const;
+const VALID_PRIORITIES = ["URGENT", "HIGH", "MEDIUM", "LOW"] as const;
+const VALID_CATEGORIES = [
+  "GENERAL", "CONTENT_CREATION", "SOCIAL_MEDIA", "CLIENT_COMMS",
+  "REPORTING", "STRATEGY", "INVOICING", "ONBOARDING",
+  "OFFBOARDING", "DEVELOPMENT", "DESIGN",
+] as const;
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const status = searchParams.get("status");
@@ -12,9 +20,9 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get("search");
 
   const where: Record<string, unknown> = {};
-  if (status) where.status = status;
-  if (priority) where.priority = priority;
-  if (category) where.category = category;
+  if (status && (VALID_STATUSES as readonly string[]).includes(status)) where.status = status;
+  if (priority && (VALID_PRIORITIES as readonly string[]).includes(priority)) where.priority = priority;
+  if (category && (VALID_CATEGORIES as readonly string[]).includes(category)) where.category = category;
   if (clientId) where.clientId = clientId;
   if (assignedTo) where.assignedTo = assignedTo;
   if (search) where.title = { contains: search, mode: "insensitive" };

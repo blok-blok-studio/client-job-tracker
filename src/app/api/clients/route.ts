@@ -18,8 +18,16 @@ export async function GET(request: NextRequest) {
   const tier = searchParams.get("tier");
   const search = searchParams.get("search");
 
+  // Exclude archived by default — only show them when explicitly requested
   const where: Record<string, unknown> = {};
-  if (type && type !== "ALL") where.type = type;
+  if (type === "ARCHIVED") {
+    where.type = "ARCHIVED";
+  } else if (type && type !== "ALL") {
+    where.type = type;
+  } else {
+    // "ALL" or no type filter → exclude archived
+    where.type = { not: "ARCHIVED" };
+  }
   if (tier) where.tier = tier;
   if (search) {
     where.OR = [

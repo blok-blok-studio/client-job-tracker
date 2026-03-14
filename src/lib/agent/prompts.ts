@@ -85,6 +85,16 @@ VALID ACTIONS:
 - MARK_INVOICE_OVERDUE: { action: "MARK_INVOICE_OVERDUE", invoiceId, reason }
 - SEND_PAYMENT_REMINDER: { action: "SEND_PAYMENT_REMINDER", invoiceId, message }
 - CLOSE_STALE_TICKET: { action: "CLOSE_STALE_TICKET", ticketId, reason }
+- SCHEDULE_POST: { action: "SCHEDULE_POST", clientId, platform, body, hashtags?, scheduledAt?, mediaUrls? }
+- SEND_DAILY_DIGEST: { action: "SEND_DAILY_DIGEST", channel: "telegram"|"email"|"both" }
+- AUTO_SCHEDULE_OPTIMAL: { action: "AUTO_SCHEDULE_OPTIMAL", postId }
+
+AUTONOMOUS CONTENT MANAGEMENT:
+- If an active client has NO scheduled or draft posts for the next 7 days, create a SCHEDULE_POST or at minimum a CREATE_TASK for content creation
+- If there are DRAFT posts sitting for 3+ days, auto-schedule them to the next optimal time using AUTO_SCHEDULE_OPTIMAL
+- Send SEND_DAILY_DIGEST via telegram at the start of the day's first cycle (check if one was sent today before sending)
+- If a published post has no engagement data logged after 48h, create a task to pull analytics
+- Proactively create content tasks for upcoming holidays, industry events, or seasonal trends
 
 RULES:
 1. Never perform more than 50 actions in one cycle
@@ -123,7 +133,7 @@ export async function buildContextPayload() {
       ])
     : [[], []];
 
-  const [activeClients, prospectClients, openTasks, recentlyCompleted, overdueTasks, upcomingTasks, lastAgentLog, todayActionCount, openTickets, unpaidInvoices, resolvedTickets, contractSignatures, pipelineActivity] =
+  const [activeClients, prospectClients, openTasks, recentlyCompleted, overdueTasks, upcomingTasks, lastAgentLog, todayActionCount, openTickets, unpaidInvoices, resolvedTickets, contractSignatures, pipelineActivity, contentPosts, digestSentToday] =
     await Promise.all([
       prisma.client.findMany({
         where: { type: "ACTIVE" },
@@ -210,6 +220,20 @@ export async function buildContextPayload() {
         select: { clientId: true, action: true, details: true, createdAt: true },
         orderBy: { createdAt: "desc" },
         take: 50,
+      }),
+      // Content posts — drafts, scheduled, recent published, failed
+      prisma.contentPost.findMany({
+        where: { status: { in: ["DRAFT", "SCHEDULED", "FAILED"] } },
+        include: { client: { select: { name: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
+      // Check if daily digest was sent today
+      prisma.activityLog.findFirst({
+        where: {
+          action: "daily_digest_sent",
+          createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+        },
       }),
     ]);
 
@@ -317,5 +341,15 @@ export async function buildContextPayload() {
       details: a.details?.slice(0, 200),
       at: a.createdAt.toISOString(),
     })),
+    contentPosts: (contentPosts as Array<Record<string, unknown>>).map((p) => ({
+      id: p.id,
+      clientName: (p as { client?: { name: string } }).client?.name || null,
+      platform: p.platform,
+      status: p.status,
+      body: (p.body as string)?.slice(0, 100) || null,
+      scheduledAt: p.scheduledAt ? (p.scheduledAt as Date).toISOString() : null,
+      createdAt: (p.createdAt as Date).toISOString(),
+    })),
+    dailyDigestSentToday: !!digestSentToday,
   };
 }

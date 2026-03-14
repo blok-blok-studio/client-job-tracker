@@ -28,20 +28,31 @@ export async function PATCH(
     const body = await request.json();
     const parsed = contentPostSchema.partial().parse(body);
 
+    const data: Record<string, unknown> = {};
+    if (parsed.clientId !== undefined) data.clientId = parsed.clientId;
+    if (parsed.platform !== undefined) data.platform = parsed.platform;
+    if (parsed.status !== undefined) data.status = parsed.status;
+    if (parsed.title !== undefined) data.title = parsed.title || null;
+    if (parsed.body !== undefined) data.body = parsed.body || null;
+    if (parsed.hashtags !== undefined) data.hashtags = parsed.hashtags;
+    if (parsed.mediaUrls !== undefined) data.mediaUrls = parsed.mediaUrls;
+    if (parsed.scheduledAt !== undefined) data.scheduledAt = parsed.scheduledAt ? new Date(parsed.scheduledAt) : null;
+    if (parsed.location !== undefined) data.location = parsed.location || null;
+    if (parsed.locationLat !== undefined) data.locationLat = parsed.locationLat;
+    if (parsed.locationLng !== undefined) data.locationLng = parsed.locationLng;
+    if (parsed.taggedUsers !== undefined) data.taggedUsers = parsed.taggedUsers;
+    if (parsed.collaborators !== undefined) data.collaborators = parsed.collaborators;
+    if (parsed.altText !== undefined) data.altText = parsed.altText || null;
+    if (parsed.coverImageUrl !== undefined) data.coverImageUrl = parsed.coverImageUrl || null;
+    if (parsed.thumbnailUrl !== undefined) data.thumbnailUrl = parsed.thumbnailUrl || null;
+    if (parsed.firstComment !== undefined) data.firstComment = parsed.firstComment || null;
+    if (parsed.platformSettings !== undefined) data.platformSettings = parsed.platformSettings;
+    if (parsed.visibility !== undefined) data.visibility = parsed.visibility;
+    if (parsed.enableComments !== undefined) data.enableComments = parsed.enableComments;
+
     const post = await prisma.contentPost.update({
       where: { id },
-      data: {
-        ...(parsed.clientId !== undefined ? { clientId: parsed.clientId } : {}),
-        ...(parsed.platform !== undefined ? { platform: parsed.platform } : {}),
-        ...(parsed.status !== undefined ? { status: parsed.status } : {}),
-        ...(parsed.title !== undefined ? { title: parsed.title || null } : {}),
-        ...(parsed.body !== undefined ? { body: parsed.body || null } : {}),
-        ...(parsed.hashtags !== undefined ? { hashtags: parsed.hashtags } : {}),
-        ...(parsed.mediaUrls !== undefined ? { mediaUrls: parsed.mediaUrls } : {}),
-        ...(parsed.scheduledAt !== undefined
-          ? { scheduledAt: parsed.scheduledAt ? new Date(parsed.scheduledAt) : null }
-          : {}),
-      },
+      data,
       include: { client: { select: { id: true, name: true } } },
     });
 

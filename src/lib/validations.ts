@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+// Accepts ISO 8601 date strings or rejects invalid formats
+const dateString = z.string().refine(
+  (val) => !isNaN(Date.parse(val)),
+  { message: "Invalid date format" }
+);
+
 export const clientSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Valid email is required"),
@@ -10,9 +16,9 @@ export const clientSchema = z.object({
   source: z.string().optional().or(z.literal("")),
   industry: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
-  monthlyRetainer: z.number().nullable().optional(),
-  contractStart: z.string().nullable().optional(),
-  contractEnd: z.string().nullable().optional(),
+  monthlyRetainer: z.number().min(0).nullable().optional(),
+  contractStart: dateString.nullable().optional(),
+  contractEnd: dateString.nullable().optional(),
   timezone: z.string().optional(),
 });
 
@@ -38,7 +44,7 @@ export const taskSchema = z.object({
       "OFFBOARDING", "DEVELOPMENT", "DESIGN",
     ])
     .optional(),
-  dueDate: z.string().nullable().optional(),
+  dueDate: dateString.nullable().optional(),
   assignedTo: z.string().optional(),
   isRecurring: z.boolean().optional(),
   recurPattern: z.string().optional().nullable(),
@@ -66,7 +72,31 @@ export const contentPostSchema = z.object({
   body: z.string().optional().or(z.literal("")),
   hashtags: z.array(z.string()).optional().default([]),
   mediaUrls: z.array(z.string()).optional().default([]),
-  scheduledAt: z.string().nullable().optional(),
+  scheduledAt: dateString.nullable().optional(),
+
+  // Location
+  location: z.string().nullable().optional(),
+  locationLat: z.number().nullable().optional(),
+  locationLng: z.number().nullable().optional(),
+
+  // People & Collaboration
+  taggedUsers: z.array(z.string()).optional().default([]),
+  collaborators: z.array(z.string()).optional().default([]),
+
+  // Media enhancements
+  altText: z.string().nullable().optional(),
+  coverImageUrl: z.string().nullable().optional(),
+  thumbnailUrl: z.string().nullable().optional(),
+
+  // First comment
+  firstComment: z.string().nullable().optional(),
+
+  // Platform settings
+  platformSettings: z.record(z.string(), z.unknown()).nullable().optional(),
+
+  // Content management
+  visibility: z.string().nullable().optional(),
+  enableComments: z.boolean().optional().default(true),
 });
 
 export const reorderSchema = z.object({

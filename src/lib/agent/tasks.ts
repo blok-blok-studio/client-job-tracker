@@ -505,6 +505,150 @@ export async function closeStaleTicket(params: {
   return { success: true, message: `Closed stale ticket: ${ticket.subject}` };
 }
 
+// --- Content Actions (Autonomous) ---
+
+export async function schedulePost(params: {
+  clientId: string;
+  platform: string;
+  body: string;
+  hashtags?: string[];
+  scheduledAt?: string;
+  mediaUrls?: string[];
+}): Promise<ActionResult> {
+  const schema = z.object({
+    clientId: z.string(),
+    platform: z.string(),
+    body: z.string().min(1),
+    hashtags: z.array(z.string()).optional(),
+    scheduledAt: z.string().optional(),
+    mediaUrls: z.array(z.string()).optional(),
+  });
+
+  const parsed = schema.parse(params);
+
+  const post = await prisma.contentPost.create({
+    data: {
+      clientId: parsed.clientId,
+      platform: parsed.platform.toUpperCase() as "INSTAGRAM",
+      status: parsed.scheduledAt ? "SCHEDULED" : "DRAFT",
+      body: parsed.body,
+      hashtags: parsed.hashtags || [],
+      mediaUrls: parsed.mediaUrls || [],
+      scheduledAt: parsed.scheduledAt ? new Date(parsed.scheduledAt) : null,
+    },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      clientId: parsed.clientId,
+      actor: "agent",
+      action: "content_post_created",
+      details: `Auto-created ${parsed.platform} post (${post.status}): ${parsed.body.slice(0, 80)}`,
+    },
+  });
+
+  return { success: true, message: `Created ${parsed.platform} post: ${post.id}` };
+}
+
+export async function sendDailyDigest(params: {
+  channel: string;
+}): Promise<ActionResult> {
+  const now = new Date();
+  const [openTasks, overdue, openTickets, unpaid, scheduled, completedToday] = await Promise.all([
+    prisma.task.count({ where: { status: { notIn: ["DONE"] } } }),
+    prisma.task.count({ where: { dueDate: { lt: now }, status: { notIn: ["DONE"] } } }),
+    prisma.supportTicket.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
+    prisma.invoice.findMany({ where: { status: { in: ["SENT", "OVERDUE"] } }, include: { client: { select: { name: true } } } }),
+    prisma.contentPost.count({ where: { status: "SCHEDULED" } }),
+    prisma.task.count({ where: { completedAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } } }),
+  ]);
+
+  const totalOwed = unpaid.reduce((sum, inv) => sum + Number(inv.amount), 0);
+
+  const digest = [
+    `<b>📊 Daily Digest — ${now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</b>`,
+    "",
+    `✅ Completed today: <b>${completedToday}</b>`,
+    `📋 Open tasks: <b>${openTasks}</b>${overdue > 0 ? ` (⚠️ <b>${overdue} overdue</b>)` : ""}`,
+    `💬 Open tickets: <b>${openTickets}</b>`,
+    `💰 Outstanding: <b>$${totalOwed.toFixed(2)}</b> across ${unpaid.length} invoices`,
+    `📅 Scheduled posts: <b>${scheduled}</b>`,
+  ];
+
+  if (unpaid.filter((i) => i.status === "OVERDUE").length > 0) {
+    digest.push("");
+    digest.push("<b>⚠️ Overdue invoices:</b>");
+    unpaid.filter((i) => i.status === "OVERDUE").forEach((i) => {
+      const clientName = (i as unknown as { client: { name: string } }).client?.name || "Unknown";
+      digest.push(`  • ${clientName}: $${Number(i.amount).toFixed(2)}`);
+    });
+  }
+
+  const adminChatId = process.env.ADMIN_TELEGRAM_CHAT_ID;
+  if (adminChatId && (params.channel === "telegram" || params.channel === "both")) {
+    await sendTelegramMessage(adminChatId, digest.join("\n"));
+  }
+
+  if (params.channel === "email" || params.channel === "both") {
+    await sendReminderEmail({
+      to: "chase@blokblokstudio.com",
+      subject: `Daily Digest — ${now.toLocaleDateString()}`,
+      body: digest.join("\n").replace(/<[^>]+>/g, ""),
+    });
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      actor: "agent",
+      action: "daily_digest_sent",
+      details: `Daily digest sent via ${params.channel}`,
+    },
+  });
+
+  return { success: true, message: "Daily digest sent" };
+}
+
+export async function autoScheduleOptimalTime(params: {
+  postId: string;
+}): Promise<ActionResult> {
+  const post = await prisma.contentPost.findUnique({
+    where: { id: params.postId },
+    select: { id: true, platform: true, clientId: true, status: true },
+  });
+
+  if (!post || post.status !== "DRAFT") {
+    return { success: false, message: "Post not found or not a draft" };
+  }
+
+  // Find best time based on historical published posts for this platform
+  const recentPosts = await prisma.contentPost.findMany({
+    where: { platform: post.platform, status: "PUBLISHED", publishedAt: { not: null } },
+    select: { publishedAt: true },
+    orderBy: { publishedAt: "desc" },
+    take: 20,
+  });
+
+  let scheduledHour = 10; // Default 10 AM
+  if (recentPosts.length >= 5) {
+    // Use most common hour from successful posts
+    const hours = recentPosts.map((p) => p.publishedAt!.getHours());
+    const freq = hours.reduce((acc, h) => { acc[h] = (acc[h] || 0) + 1; return acc; }, {} as Record<number, number>);
+    scheduledHour = Number(Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0]);
+  }
+
+  // Schedule for next day at optimal time
+  const scheduled = new Date();
+  scheduled.setDate(scheduled.getDate() + 1);
+  scheduled.setHours(scheduledHour, 0, 0, 0);
+
+  await prisma.contentPost.update({
+    where: { id: post.id },
+    data: { scheduledAt: scheduled, status: "SCHEDULED" },
+  });
+
+  return { success: true, message: `Scheduled for ${scheduled.toLocaleString()} (optimal time: ${scheduledHour}:00)` };
+}
+
 // --- Action Dispatcher ---
 
 const actionMap: Record<string, (params: Record<string, unknown>) => Promise<ActionResult>> = {
@@ -522,6 +666,9 @@ const actionMap: Record<string, (params: Record<string, unknown>) => Promise<Act
   MARK_INVOICE_OVERDUE: (p) => markInvoiceOverdue(p as Parameters<typeof markInvoiceOverdue>[0]),
   SEND_PAYMENT_REMINDER: (p) => sendPaymentReminder(p as Parameters<typeof sendPaymentReminder>[0]),
   CLOSE_STALE_TICKET: (p) => closeStaleTicket(p as Parameters<typeof closeStaleTicket>[0]),
+  SCHEDULE_POST: (p) => schedulePost(p as Parameters<typeof schedulePost>[0]),
+  SEND_DAILY_DIGEST: (p) => sendDailyDigest(p as Parameters<typeof sendDailyDigest>[0]),
+  AUTO_SCHEDULE_OPTIMAL: (p) => autoScheduleOptimalTime(p as Parameters<typeof autoScheduleOptimalTime>[0]),
 };
 
 export async function dispatchAction(

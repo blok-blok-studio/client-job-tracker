@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload } from "lucide-react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -29,6 +29,7 @@ interface ClientDetail {
   contractEnd: string | null;
   timezone: string | null;
   onboardToken: string | null;
+  uploadToken: string | null;
   contacts: Array<{ id: string; name: string; role: string | null; email: string | null; phone: string | null; isPrimary: boolean }>;
   tasks: Array<{ id: string; title: string; status: string; priority: string; dueDate: string | null }>;
   credentials: Array<{ id: string; platform: string; username: string }>;
@@ -112,6 +113,19 @@ export default function ClientDetailPage() {
       const data = await res.json();
       if (data.success && client) {
         setClient({ ...client, onboardToken: data.data.onboardToken });
+      }
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  async function handleGenerateUploadToken() {
+    setRegenerating(true);
+    try {
+      const res = await fetch(`/api/clients/${id}/upload-token`, { method: "POST" });
+      const data = await res.json();
+      if (data.success && client) {
+        setClient({ ...client, uploadToken: data.data.uploadToken });
       }
     } finally {
       setRegenerating(false);
@@ -549,6 +563,46 @@ export default function ClientDetailPage() {
                     className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
                   >
                     {regenerating ? "Generating..." : "Generate New Link"}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Upload Portal Link */}
+            <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Upload size={16} className="text-bb-orange" />
+                <h3 className="font-display font-semibold">File Upload Portal</h3>
+              </div>
+              {client.uploadToken ? (
+                <>
+                  <p className="text-xs text-bb-dim mb-3">Share this link with your client so they can upload photos, videos, and audio directly to their media library.</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-bb-black px-3 py-2 rounded border border-bb-border text-bb-muted truncate">
+                      {window.location.origin}/upload/{client.uploadToken}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/upload/${client.uploadToken}`);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="p-2 rounded bg-bb-elevated hover:bg-bb-border text-bb-muted hover:text-white transition-colors shrink-0"
+                      title="Copy link"
+                    >
+                      {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-bb-dim mb-3">Generate a unique upload link for this client. They&apos;ll be able to drag & drop their files which automatically land in their media library here.</p>
+                  <button
+                    onClick={handleGenerateUploadToken}
+                    disabled={regenerating}
+                    className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                  >
+                    {regenerating ? "Generating..." : "Generate Upload Link"}
                   </button>
                 </>
               )}

@@ -1,9 +1,9 @@
 import prisma from "@/lib/prisma";
-import { sendOnboardingLinkEmail, sendContractEmail, sendContractSigningEmail, sendContractSignedClientEmail, sendContractSignedAdminEmail } from "@/lib/email";
+import { sendOnboardingLinkEmail, sendContractEmail, sendContractSigningEmail, sendContractSignedClientEmail, sendContractSignedAdminEmail, sendOnboardingCompleteEmail } from "@/lib/email";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { randomBytes } from "crypto";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
 
 /**
  * Flexible onboarding pipeline:
@@ -398,11 +398,32 @@ export async function onOnboardingCompleted(clientId: string) {
         });
       }
 
+      // Generate upload link for the client
+      let uploadToken = client.uploadToken;
+      if (!uploadToken) {
+        uploadToken = randomBytes(24).toString("hex");
+        await prisma.client.update({
+          where: { id: clientId },
+          data: { uploadToken },
+        });
+      }
+      const uploadUrl = `${APP_URL}/upload/${uploadToken}`;
+
       if (client.telegramChatId) {
         await sendTelegramMessage(
           client.telegramChatId,
-          `📋 Onboarding complete! Here's your signed service agreement for your records:\n\n${contractUrl}`
+          `📋 Onboarding complete! Here's your signed service agreement for your records:\n\n${contractUrl}\n\n📁 Need to send us files, photos, or videos? Upload them here:\n${uploadUrl}`
         );
+      }
+
+      // Send the onboarding complete email with upload link
+      if (client.email) {
+        await sendOnboardingCompleteEmail({
+          to: client.email,
+          clientName: client.name,
+          uploadUrl,
+          contractUrl,
+        });
       }
 
       await prisma.activityLog.create({

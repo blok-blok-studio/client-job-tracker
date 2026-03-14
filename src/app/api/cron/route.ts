@@ -10,12 +10,13 @@ function verifyBearerToken(authHeader: string | null): boolean {
   if (!secret || !authHeader) return false;
 
   const token = authHeader.replace("Bearer ", "");
-  if (token.length !== secret.length) return false;
 
-  return crypto.timingSafeEqual(
-    Buffer.from(token),
-    Buffer.from(secret)
-  );
+  // Hash both values to constant length before comparison — avoids leaking
+  // token length via timing differences on the early length check
+  const tokenHash = crypto.createHash("sha256").update(token).digest();
+  const secretHash = crypto.createHash("sha256").update(secret).digest();
+
+  return crypto.timingSafeEqual(tokenHash, secretHash);
 }
 
 export async function GET(request: NextRequest) {
@@ -142,7 +143,7 @@ export async function GET(request: NextRequest) {
         select: { id: true },
       });
       if (duePosts.length > 0) {
-        const pubRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app"}/api/content-posts/publish-due`, {
+        const pubRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app"}/api/content-posts/publish-due`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${process.env.CRON_SECRET}`,

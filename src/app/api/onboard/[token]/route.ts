@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
+import { randomBytes } from "crypto";
 import { z } from "zod";
 import { onOnboardingCompleted } from "@/lib/pipeline";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
 
 function getTaxIdType(country: string, taxId: string): string | null {
   // EU VAT
@@ -73,7 +76,7 @@ function getTaxIdType(country: string, taxId: string): string | null {
 const ALLOWED_ORIGINS = [
   "https://blokblokstudio.com",
   "https://www.blokblokstudio.com",
-  "https://client-job-tracker.vercel.app",
+  "https://blokblokstudio-clients.vercel.app",
   ...(process.env.NODE_ENV === "development" ? ["http://localhost:3000", "http://localhost:3001"] : []),
 ];
 
@@ -187,8 +190,8 @@ const onboardSchema = z.object({
   source: z.string().max(200).optional(),
   industry: z.string().max(200).optional(),
   telegramChatId: z.string().max(30).optional(),
-  contractStart: z.string().optional(),
-  contractEnd: z.string().optional(),
+  contractStart: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }).optional(),
+  contractEnd: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }).optional(),
   monthlyRetainer: z.number().min(0).optional(),
   notes: z.string().max(5000).optional(),
   brandGuidelines: z.string().max(10000).optional(),
@@ -231,6 +234,19 @@ export async function POST(
     const body = await request.json();
     const parsed = onboardSchema.parse(body);
 
+    // Invalidate the token FIRST to prevent duplicate submissions on crash/timeout
+    step = "invalidating token";
+    const tokenClaimed = await prisma.client.updateMany({
+      where: { id: client.id, onboardToken: token },
+      data: { onboardToken: null },
+    });
+    if (tokenClaimed.count === 0) {
+      return NextResponse.json(
+        { success: false, error: "This onboarding link has already been used" },
+        { status: 409, headers: corsHeaders(request) }
+      );
+    }
+
     // Update client with onboarding info
     step = "updating client";
     const updates: Record<string, unknown> = {};
@@ -260,9 +276,6 @@ export async function POST(
         ? `${current}\n\nCompany Website: ${parsed.companyWebsite}`
         : `Company Website: ${parsed.companyWebsite}`;
     }
-
-    // Invalidate the token after use
-    updates.onboardToken = null;
 
     await prisma.client.update({
       where: { id: client.id },
@@ -389,13 +402,28 @@ export async function POST(
       },
     });
 
+    // Generate upload token so the client can upload files immediately
+    let uploadToken = await prisma.client.findUnique({
+      where: { id: client.id },
+      select: { uploadToken: true },
+    }).then((c) => c?.uploadToken);
+
+    if (!uploadToken) {
+      uploadToken = randomBytes(24).toString("hex");
+      await prisma.client.update({
+        where: { id: client.id },
+        data: { uploadToken },
+      });
+    }
+    const uploadUrl = `${APP_URL}/upload/${uploadToken}`;
+
     // Trigger automated pipeline: send contract
     // MUST be awaited — serverless runtimes kill the process after response,
     // so fire-and-forget promises may never complete
     await onOnboardingCompleted(client.id);
 
     return NextResponse.json(
-      { success: true, message: "Onboarding complete" },
+      { success: true, message: "Onboarding complete", uploadUrl },
       { headers: corsHeaders(request) }
     );
   } catch (error) {

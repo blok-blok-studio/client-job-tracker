@@ -55,25 +55,43 @@ export async function PATCH(
   }
 }
 
+// DELETE — archive (soft delete) or permanent delete
+// ?permanent=true → hard delete with all data
+// default → soft archive (set type to ARCHIVED)
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const permanent = request.nextUrl.searchParams.get("permanent") === "true";
 
-  await prisma.client.update({
-    where: { id },
-    data: { type: "ARCHIVED" },
-  });
+  try {
+    if (permanent) {
+      // Permanently delete client and all related data (cascade)
+      const client = await prisma.client.findUnique({ where: { id }, select: { name: true } });
+      await prisma.client.delete({ where: { id } });
 
-  await prisma.activityLog.create({
-    data: {
-      clientId: id,
-      actor: "chase",
-      action: "archived_client",
-      details: "Client archived",
-    },
-  });
+      return NextResponse.json({ success: true, message: `${client?.name || "Client"} permanently deleted` });
+    }
 
-  return NextResponse.json({ success: true });
+    // Soft archive — keep all data, just hide from active views
+    const client = await prisma.client.update({
+      where: { id },
+      data: { type: "ARCHIVED" },
+      select: { id: true, name: true },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        clientId: id,
+        actor: "chase",
+        action: "archived_client",
+        details: `Archived client: ${client.name}`,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: client });
+  } catch {
+    return NextResponse.json({ success: false, error: "Failed to process request" }, { status: 500 });
+  }
 }

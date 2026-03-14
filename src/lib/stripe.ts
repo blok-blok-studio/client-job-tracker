@@ -22,7 +22,7 @@ export const stripe = new Proxy({} as Stripe, {
 
 // --- Shared constants ---
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://client-job-tracker.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
 
 export const CURRENCY_CONFIG: Record<string, { symbol: string; payment_methods: string[] }> = {
   usd: { symbol: "$", payment_methods: ["card", "us_bank_account"] },
