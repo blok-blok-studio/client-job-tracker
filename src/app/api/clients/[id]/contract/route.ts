@@ -4,6 +4,7 @@ import { randomBytes, createHash } from "crypto";
 import { generateContractBody, SERVICE_PACKAGES, ADDON_PACKAGES } from "@/lib/contract-templates";
 import { createCheckoutSession, getCurrencyForCountry, CURRENCY_CONFIG } from "@/lib/stripe";
 import { sendPaymentLinkEmail } from "@/lib/email";
+import { onPaymentConfirmed } from "@/lib/pipeline";
 import { z } from "zod";
 
 const milestoneSchema = z.object({
@@ -150,7 +151,10 @@ export async function POST(
         const oneTimeTotal = allItems.filter((i) => !i.recurring).reduce((s, i) => s + getPrice(i), 0)
           + (parsed.customItems || []).filter(i => !i.recurring).reduce((s, i) => s + i.price, 0);
 
-        if (oneTimeTotal > 0) {
+        if (oneTimeTotal === 0) {
+          // $0 contract — skip payment, auto-confirm and send contract signing link directly
+          await onPaymentConfirmed(client.id);
+        } else if (oneTimeTotal > 0) {
           const currency = getCurrencyForCountry(parsed.country);
           const currencyConfig = CURRENCY_CONFIG[currency];
           let latestStripeCustomerId = client.stripeCustomerId;
