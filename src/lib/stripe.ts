@@ -90,11 +90,21 @@ export async function createCheckoutSession(params: CreateCheckoutParams): Promi
   if (!stripeCustomerId && params.clientEmail) {
     const existing = await s.customers.list({ email: params.clientEmail, limit: 1 });
     if (existing.data.length > 0) {
-      stripeCustomerId = existing.data[0].id;
-      await prisma.client.update({
-        where: { id: params.clientId },
-        data: { stripeCustomerId },
+      // Only reuse if no other client in our DB already claims this Stripe customer
+      const alreadyClaimed = await prisma.client.findFirst({
+        where: {
+          stripeCustomerId: existing.data[0].id,
+          id: { not: params.clientId },
+        },
+        select: { id: true },
       });
+      if (!alreadyClaimed) {
+        stripeCustomerId = existing.data[0].id;
+        await prisma.client.update({
+          where: { id: params.clientId },
+          data: { stripeCustomerId },
+        });
+      }
     }
   }
 
