@@ -8,26 +8,30 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const client = await prisma.client.findUnique({
-    where: { id },
-    include: {
-      contacts: { orderBy: { createdAt: "asc" } },
-      tasks: { orderBy: { sortOrder: "asc" }, take: 20 },
-      credentials: { select: { id: true, platform: true, label: true, username: true, url: true, lastRotated: true, createdAt: true } },
-      checklistItems: { orderBy: { sortOrder: "asc" } },
-      invoices: { orderBy: { createdAt: "desc" }, take: 10 },
-      socialLinks: { orderBy: { createdAt: "asc" } },
-      activityLogs: { orderBy: { createdAt: "desc" }, take: 20 },
-      contracts: { orderBy: { createdAt: "desc" }, select: { id: true, token: true, status: true, signedName: true, signedAt: true, createdAt: true } },
-      paymentLinks: { orderBy: { createdAt: "desc" }, select: { id: true, stripeUrl: true, amount: true, currency: true, description: true, recurring: true, interval: true, status: true, paidAt: true, milestone: true, contractId: true, createdAt: true } },
-    },
-  });
+  try {
+    const client = await prisma.client.findUnique({
+      where: { id },
+      include: {
+        contacts: { orderBy: { createdAt: "asc" } },
+        tasks: { orderBy: { sortOrder: "asc" }, take: 20 },
+        credentials: { select: { id: true, platform: true, label: true, username: true, url: true, lastRotated: true, createdAt: true } },
+        checklistItems: { orderBy: { sortOrder: "asc" } },
+        invoices: { orderBy: { createdAt: "desc" }, take: 10 },
+        socialLinks: { orderBy: { createdAt: "asc" } },
+        activityLogs: { orderBy: { createdAt: "desc" }, take: 20 },
+        contracts: { orderBy: { createdAt: "desc" }, select: { id: true, token: true, status: true, signedName: true, signedAt: true, createdAt: true } },
+        paymentLinks: { orderBy: { createdAt: "desc" }, select: { id: true, stripeUrl: true, amount: true, currency: true, description: true, recurring: true, interval: true, status: true, paidAt: true, milestone: true, contractId: true, createdAt: true } },
+      },
+    });
 
-  if (!client) {
-    return NextResponse.json({ success: false, error: "Client not found" }, { status: 404 });
+    if (!client) {
+      return NextResponse.json({ success: false, error: "Client not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, data: client });
+  } catch {
+    return NextResponse.json({ success: false, error: "Failed to load client" }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true, data: client });
 }
 
 export async function PATCH(
