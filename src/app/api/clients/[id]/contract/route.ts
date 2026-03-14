@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { randomBytes, createHash } from "crypto";
 import { generateContractBody, SERVICE_PACKAGES, ADDON_PACKAGES } from "@/lib/contract-templates";
 import { createCheckoutSession, getCurrencyForCountry, CURRENCY_CONFIG } from "@/lib/stripe";
-import { sendPaymentLinkEmail } from "@/lib/email";
+import { sendPaymentLinkEmail, sendContractSigningEmail } from "@/lib/email";
 import { onPaymentConfirmed } from "@/lib/pipeline";
 import { z } from "zod";
 
@@ -265,6 +265,36 @@ export async function POST(
             actor: "agent",
             action: "pipeline_error",
             details: `Contract created but payment links failed: ${paymentLinkError}`,
+          },
+        });
+      }
+    }
+
+    // Always send contract signing email immediately so client can sign right away
+    if (client.email) {
+      const contractUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app"}/contract/${contract.token}`;
+      try {
+        await sendContractSigningEmail({
+          to: client.email,
+          clientName: client.name,
+          contractUrl,
+        });
+        await prisma.activityLog.create({
+          data: {
+            clientId: client.id,
+            actor: "agent",
+            action: "pipeline_contract_signing_sent",
+            details: `Contract signing link sent to ${client.name} (${client.email}) immediately after contract creation`,
+          },
+        });
+      } catch (emailErr) {
+        console.error("[Email] Contract signing email error:", emailErr);
+        await prisma.activityLog.create({
+          data: {
+            clientId: client.id,
+            actor: "agent",
+            action: "pipeline_error",
+            details: `Failed to send contract signing email: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
           },
         });
       }
