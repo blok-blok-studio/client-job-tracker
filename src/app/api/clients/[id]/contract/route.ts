@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { randomBytes, createHash } from "crypto";
 import { generateContractBody, SERVICE_PACKAGES, ADDON_PACKAGES } from "@/lib/contract-templates";
 import { createCheckoutSession, getCurrencyForCountry, CURRENCY_CONFIG } from "@/lib/stripe";
-import { sendPaymentLinkEmail, sendContractSigningEmail } from "@/lib/email";
+import { sendPaymentLinkEmail, sendContractSigningEmail, sendOnboardingLinkEmail } from "@/lib/email";
 import { onPaymentConfirmed } from "@/lib/pipeline";
 import { z } from "zod";
 
@@ -295,6 +295,47 @@ export async function POST(
             actor: "agent",
             action: "pipeline_error",
             details: `Failed to send contract signing email: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
+          },
+        });
+      }
+    }
+
+    // Send onboarding email immediately so client can start filling it out right away
+    if (client.email) {
+      try {
+        let onboardToken = (await prisma.client.findUnique({ where: { id: client.id }, select: { onboardToken: true } }))?.onboardToken;
+        if (!onboardToken) {
+          onboardToken = randomBytes(24).toString("hex");
+          await prisma.client.update({
+            where: { id: client.id },
+            data: { onboardToken },
+          });
+        }
+
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
+        const onboardUrl = `${appUrl}/onboard/${onboardToken}`;
+
+        await sendOnboardingLinkEmail({
+          to: client.email,
+          clientName: client.name,
+          onboardUrl,
+        });
+        await prisma.activityLog.create({
+          data: {
+            clientId: client.id,
+            actor: "agent",
+            action: "pipeline_onboard_sent",
+            details: `Onboarding link sent to ${client.name} (${client.email}) immediately after contract creation`,
+          },
+        });
+      } catch (emailErr) {
+        console.error("[Email] Onboarding email error:", emailErr);
+        await prisma.activityLog.create({
+          data: {
+            clientId: client.id,
+            actor: "agent",
+            action: "pipeline_error",
+            details: `Failed to send onboarding email: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
           },
         });
       }

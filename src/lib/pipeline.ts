@@ -324,6 +324,7 @@ async function sendContractSignedEmails(
       to: client.email,
       clientName: client.name,
       contractUrl,
+      pdfUrl: `${APP_URL}/api/contract/${details.token}/pdf`,
       signedAt,
     });
 
@@ -393,6 +394,7 @@ export async function onOnboardingCompleted(clientId: string) {
           to: client.email,
           clientName: client.name,
           contractUrl,
+          pdfUrl: `${APP_URL}/api/contract/${signedContract.token}/pdf`,
           signedAt: signedContract.signedAt || new Date(),
         });
 
@@ -439,6 +441,7 @@ export async function onOnboardingCompleted(clientId: string) {
           clientName: client.name,
           uploadUrl,
           contractUrl,
+          pdfUrl: `${APP_URL}/api/contract/${signedContract.token}/pdf`,
         });
       }
 

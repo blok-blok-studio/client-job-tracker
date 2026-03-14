@@ -97,7 +97,7 @@ export async function sendOnboardingLinkEmail(params: {
           Hi ${params.clientName.split(" ")[0]},
         </p>
         <p style="color: #333; font-size: 16px; line-height: 1.6;">
-          Everything is set on our end! The final step is to fill out our onboarding form so we can get started on your project.
+          We're excited to work with you! Please fill out our onboarding form so we can get started on your project.
         </p>
         <div style="text-align: center; margin: 32px 0;">
           <a href="${params.onboardUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
@@ -128,6 +128,7 @@ export async function sendOnboardingCompleteEmail(params: {
   clientName: string;
   uploadUrl: string;
   contractUrl?: string;
+  pdfUrl?: string;
 }) {
   const resend = getResend();
   if (!resend) {
@@ -161,8 +162,9 @@ export async function sendOnboardingCompleteEmail(params: {
         </p>
         ${params.contractUrl ? `
         <div style="background: #f9f9f9; border-radius: 8px; padding: 16px; margin: 24px 0; text-align: center;">
-          <p style="color: #666; font-size: 13px; margin: 0 0 8px 0;">Your signed agreement</p>
+          <p style="color: #666; font-size: 13px; margin: 0 0 12px 0;">Your signed agreement</p>
           <a href="${params.contractUrl}" style="color: #FF6B00; text-decoration: underline; font-size: 14px; font-weight: 500;">View Contract</a>
+          ${params.pdfUrl ? `<span style="color: #ccc; margin: 0 8px;">·</span><a href="${params.pdfUrl}" style="color: #FF6B00; text-decoration: underline; font-size: 14px; font-weight: 500;">Download PDF</a>` : ""}
         </div>
         ` : ""}
         <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
@@ -332,6 +334,7 @@ export async function sendContractSignedClientEmail(params: {
   to: string;
   clientName: string;
   contractUrl: string;
+  pdfUrl: string;
   signedAt: Date;
 }) {
   const resend = getResend();
@@ -371,6 +374,11 @@ export async function sendContractSignedClientEmail(params: {
         <div style="text-align: center; margin: 32px 0;">
           <a href="${params.contractUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             View Signed Agreement
+          </a>
+        </div>
+        <div style="text-align: center; margin: 0 0 32px 0;">
+          <a href="${params.pdfUrl}" style="display: inline-block; background-color: #ffffff; color: #FF6B00; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; border: 2px solid #FF6B00;">
+            Download PDF
           </a>
         </div>
         <p style="color: #666; font-size: 14px; line-height: 1.6;">
