@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload, Pen, Type, RotateCcw, Eye, EyeOff, Image as ImageIcon, Film, Music, Lock, FolderOpen } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload, Pen, Type, RotateCcw, Eye, EyeOff, Image as ImageIcon, Film, Music, Lock, FolderOpen, ChevronLeft, ChevronRight, Download, ZoomIn } from "lucide-react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
 import Modal from "@/components/shared/Modal";
 import EditClientForm from "@/components/clients/EditClientForm";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
+import { useToast } from "@/components/shared/Toast";
 import { PLATFORM_OPTIONS } from "@/types";
 import { getFlagFromPhone, LiveClock } from "@/lib/client-utils";
 import { SERVICE_PACKAGES, ADDON_PACKAGES, PACKAGE_CATEGORIES, type PackageCustomization } from "@/lib/contract-templates";
@@ -47,6 +48,7 @@ const typeVariant: Record<string, "green" | "yellow" | "gray" | "red"> = { ACTIV
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { toast } = useToast();
   const router = useRouter();
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +102,7 @@ export default function ClientDetailPage() {
   const [credForm, setCredForm] = useState({ platform: "", username: "", password: "", url: "", notes: "" });
   const [savingCred, setSavingCred] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   const fetchClient = useCallback(async () => {
     try {
@@ -372,11 +375,13 @@ export default function ClientDetailPage() {
       });
       const data = await res.json();
       if (data.success) {
+        const count = data.data?.length || files.length;
+        toast(`${count} file${count !== 1 ? "s" : ""} uploaded successfully`, "success");
         fetchClient();
       } else {
-        alert(data.error || "Upload failed");
+        toast(data.error || "Upload failed", "error");
       }
-    } catch { alert("Upload failed"); }
+    } catch { toast("Upload failed — check your connection", "error"); }
     finally { setUploadingMedia(false); }
   }
 
@@ -1008,8 +1013,12 @@ export default function ClientDetailPage() {
 
                     {client.mediaFiles && client.mediaFiles.length > 0 ? (
                       <div className="grid grid-cols-3 gap-2">
-                        {client.mediaFiles.map((media) => (
-                          <div key={media.id} className="group relative rounded-lg overflow-hidden bg-bb-black border border-bb-border aspect-square">
+                        {client.mediaFiles.map((media, idx) => (
+                          <div
+                            key={media.id}
+                            onClick={() => setViewerIndex(idx)}
+                            className="group relative rounded-lg overflow-hidden bg-bb-black border border-bb-border aspect-square cursor-pointer"
+                          >
                             {media.fileType === "IMAGE" ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
@@ -1026,19 +1035,12 @@ export default function ClientDetailPage() {
                             )}
                             {/* Hover overlay */}
                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                              <ZoomIn size={20} className="text-white mb-1" />
                               <span className="text-[10px] text-white font-medium truncate max-w-[90%]">{media.filename}</span>
                               <span className="text-[9px] text-bb-dim">
                                 {media.fileSize < 1024 * 1024 ? `${(media.fileSize / 1024).toFixed(0)} KB` : `${(media.fileSize / (1024 * 1024)).toFixed(1)} MB`}
                                 {" · "}{media.uploadedBy === "client" ? "Client" : "You"}
                               </span>
-                              <div className="flex gap-2 mt-1">
-                                <a href={media.url} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-bb-surface/80 text-white hover:bg-bb-orange">
-                                  <ExternalLink size={12} />
-                                </a>
-                                <button onClick={() => handleDeleteMedia(media.id)} className="p-1 rounded bg-bb-surface/80 text-white hover:bg-red-500">
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
                             </div>
                           </div>
                         ))}
@@ -1052,6 +1054,153 @@ export default function ClientDetailPage() {
                         )}
                       </div>
                     )}
+
+                    {/* ─── Full-screen Media Viewer ─── */}
+                    {viewerIndex !== null && client.mediaFiles && client.mediaFiles[viewerIndex] && (() => {
+                      const media = client.mediaFiles[viewerIndex];
+                      const total = client.mediaFiles.length;
+                      return (
+                        <div
+                          className="fixed inset-0 z-[200] bg-black/95 flex flex-col"
+                          onClick={() => setViewerIndex(null)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") setViewerIndex(null);
+                            if (e.key === "ArrowLeft" && viewerIndex > 0) setViewerIndex(viewerIndex - 1);
+                            if (e.key === "ArrowRight" && viewerIndex < total - 1) setViewerIndex(viewerIndex + 1);
+                          }}
+                          tabIndex={0}
+                          // eslint-disable-next-line jsx-a11y/no-autofocus
+                          autoFocus
+                        >
+                          {/* Top bar */}
+                          <div className="flex items-center justify-between px-4 py-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="text-sm text-white font-medium truncate max-w-[300px]">{media.filename}</span>
+                              <span className="text-xs text-bb-dim shrink-0">
+                                {media.fileSize < 1024 * 1024 ? `${(media.fileSize / 1024).toFixed(0)} KB` : `${(media.fileSize / (1024 * 1024)).toFixed(1)} MB`}
+                                {" · "}{media.uploadedBy === "client" ? "Client" : "You"}
+                                {" · "}{viewerIndex + 1} of {total}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={media.url}
+                                download={media.filename}
+                                className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+                                title="Download"
+                              >
+                                <Download size={16} />
+                              </a>
+                              <a
+                                href={media.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+                                title="Open in new tab"
+                              >
+                                <ExternalLink size={16} />
+                              </a>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteMedia(media.id); setViewerIndex(null); }}
+                                className="p-2 rounded-lg bg-white/10 text-white hover:bg-red-500 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                              <button
+                                onClick={() => setViewerIndex(null)}
+                                className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Main content area */}
+                          <div className="flex-1 flex items-center justify-center relative min-h-0 px-16" onClick={(e) => e.stopPropagation()}>
+                            {/* Previous button */}
+                            {viewerIndex > 0 && (
+                              <button
+                                onClick={() => setViewerIndex(viewerIndex - 1)}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors z-10"
+                              >
+                                <ChevronLeft size={24} />
+                              </button>
+                            )}
+
+                            {/* Media display */}
+                            {media.fileType === "IMAGE" ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={media.url}
+                                alt={media.filename}
+                                className="max-w-full max-h-full object-contain rounded-lg"
+                              />
+                            ) : media.fileType === "VIDEO" ? (
+                              <video
+                                src={media.url}
+                                controls
+                                autoPlay
+                                className="max-w-full max-h-full rounded-lg"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center gap-4">
+                                <div className="w-32 h-32 rounded-2xl bg-white/5 flex items-center justify-center">
+                                  <Music size={48} className="text-green-400" />
+                                </div>
+                                <p className="text-white font-medium">{media.filename}</p>
+                                <audio
+                                  src={media.url}
+                                  controls
+                                  autoPlay
+                                  className="w-80"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                            )}
+
+                            {/* Next button */}
+                            {viewerIndex < total - 1 && (
+                              <button
+                                onClick={() => setViewerIndex(viewerIndex + 1)}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors z-10"
+                              >
+                                <ChevronRight size={24} />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Thumbnail strip */}
+                          {total > 1 && (
+                            <div className="shrink-0 px-4 py-3 flex gap-2 justify-center overflow-x-auto" onClick={(e) => e.stopPropagation()}>
+                              {client.mediaFiles.map((thumb, i) => (
+                                <button
+                                  key={thumb.id}
+                                  onClick={() => setViewerIndex(i)}
+                                  className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
+                                    i === viewerIndex ? "border-bb-orange scale-110" : "border-transparent opacity-50 hover:opacity-100"
+                                  }`}
+                                >
+                                  {thumb.fileType === "IMAGE" ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={thumb.url} alt="" className="w-full h-full object-cover" />
+                                  ) : thumb.fileType === "VIDEO" ? (
+                                    <div className="w-full h-full bg-bb-surface flex items-center justify-center">
+                                      <Film size={14} className="text-purple-400" />
+                                    </div>
+                                  ) : (
+                                    <div className="w-full h-full bg-bb-surface flex items-center justify-center">
+                                      <Music size={14} className="text-green-400" />
+                                    </div>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 

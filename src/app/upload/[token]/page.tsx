@@ -228,24 +228,47 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
         {/* Results */}
         {results.length > 0 && (
           <div className="mt-6 space-y-2">
-            <h2 className="text-sm font-medium text-white mb-3">Upload Results</h2>
-            {results.map((r, idx) => (
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle size={18} className="text-green-400" />
+              <h2 className="text-sm font-medium text-white">
+                {results.filter((r) => !r.error).length} file{results.filter((r) => !r.error).length !== 1 ? "s" : ""} uploaded successfully
+              </h2>
+            </div>
+
+            {/* Thumbnail grid for successful uploads */}
+            {results.some((r) => r.url) && (
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {results.filter((r) => r.url).map((r, idx) => (
+                  <div key={idx} className="relative rounded-xl overflow-hidden bg-white/[0.03] border border-green-500/20 aspect-square">
+                    {r.filename.match(/\.(jpg|jpeg|png|gif|webp|heic)$/i) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={r.url} alt={r.filename} className="w-full h-full object-cover" />
+                    ) : r.filename.match(/\.(mp4|mov|webm|avi)$/i) ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center">
+                        <Film size={24} className="text-purple-400 mb-1" />
+                        <span className="text-[10px] text-gray-400 truncate max-w-full px-2">{r.filename}</span>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center">
+                        <Music size={24} className="text-green-400 mb-1" />
+                        <span className="text-[10px] text-gray-400 truncate max-w-full px-2">{r.filename}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Error items */}
+            {results.filter((r) => r.error).map((r, idx) => (
               <div
                 key={idx}
-                className={`flex items-center gap-3 p-3 rounded-xl border ${
-                  r.error
-                    ? "bg-red-500/5 border-red-500/20"
-                    : "bg-green-500/5 border-green-500/20"
-                }`}
+                className="flex items-center gap-3 p-3 rounded-xl border bg-red-500/5 border-red-500/20"
               >
-                {r.error ? (
-                  <AlertCircle size={16} className="text-red-400 shrink-0" />
-                ) : (
-                  <CheckCircle size={16} className="text-green-400 shrink-0" />
-                )}
+                <AlertCircle size={16} className="text-red-400 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white truncate">{r.filename}</p>
-                  {r.error && <p className="text-xs text-red-400">{r.error}</p>}
+                  <p className="text-xs text-red-400">{r.error}</p>
                 </div>
               </div>
             ))}

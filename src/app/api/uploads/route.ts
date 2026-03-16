@@ -15,6 +15,8 @@ const MAGIC_BYTES: Record<string, number[][]> = {
     [0x47, 0x49, 0x46, 0x38, 0x39], // GIF89a
   ],
   "image/webp": [[0x52, 0x49, 0x46, 0x46]], // RIFF header
+  "image/heic": [[0x00, 0x00, 0x00]], // ftyp heic container
+  "image/heif": [[0x00, 0x00, 0x00]], // ftyp heif container
   "video/mp4": [
     [0x00, 0x00, 0x00], // ftyp box (variable offset)
   ],
@@ -34,6 +36,8 @@ const ALLOWED_EXTENSIONS: Record<string, string> = {
   "image/png": ".png",
   "image/gif": ".gif",
   "image/webp": ".webp",
+  "image/heic": ".heic",
+  "image/heif": ".heif",
   "video/mp4": ".mp4",
   "video/quicktime": ".mov",
   "video/webm": ".webm",
@@ -50,7 +54,7 @@ function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
 
   // Video containers have variable headers — check that the buffer starts with
   // a plausible box/atom structure rather than a strict magic-byte match
-  if (mimeType === "video/mp4" || mimeType === "video/quicktime" || mimeType === "audio/mp4") {
+  if (mimeType === "video/mp4" || mimeType === "video/quicktime" || mimeType === "audio/mp4" || mimeType === "image/heic" || mimeType === "image/heif") {
     // ftyp atom: bytes 4-7 should be "ftyp"
     if (buffer.length >= 8) {
       const ftypTag = buffer.slice(4, 8).toString("ascii");
