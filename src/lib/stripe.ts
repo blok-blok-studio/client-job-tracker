@@ -80,7 +80,6 @@ export async function createCheckoutSession(params: CreateCheckoutParams): Promi
   const amountInCents = Math.round(params.amount * 100);
   const isRecurring = params.recurring && params.interval;
   const currency = params.currency;
-  const currencyConfig = CURRENCY_CONFIG[currency] || CURRENCY_CONFIG.usd;
   const invoiceTemplate = getInvoiceTemplate(params.country);
 
   // Get or create Stripe Customer — never create duplicates
