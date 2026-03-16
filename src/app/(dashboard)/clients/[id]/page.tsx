@@ -92,7 +92,7 @@ export default function ClientDetailPage() {
   const [providerSignatureMode, setProviderSignatureMode] = useState<"type" | "draw">("type");
   const [providerSignatureData, setProviderSignatureData] = useState<string | null>(null);
   const [contractCountry, setContractCountry] = useState("DE");
-  const [contractSchedule, setContractSchedule] = useState<"none" | "50/50" | "50/25/25">("50/50");
+  const [contractSchedule, setContractSchedule] = useState<"no-payment" | "none" | "50/50" | "50/25/25">("50/50");
   // Assets section state
   const [assetsTab, setAssetsTab] = useState<"passwords" | "media" | "contracts">("passwords");
   const [revealedCred, setRevealedCred] = useState<Record<string, { username: string; password: string; notes: string | null }>>({});
@@ -226,6 +226,7 @@ export default function ClientDetailPage() {
           providerSignedName,
           providerSignatureData: providerSignatureMode === "draw" ? providerSignatureData : undefined,
           country: contractCountry,
+          skipPayment: contractSchedule === "no-payment",
           paymentSchedule: contractSchedule === "50/50"
             ? [{ label: "deposit", percent: 50 }, { label: "completion", percent: 50 }]
             : contractSchedule === "50/25/25"
@@ -246,9 +247,11 @@ export default function ClientDetailPage() {
         setContractSchedule("50/50");
         fetchClient();
         if (data.data?.paymentLinkError) {
-          alert(`Contract created, but payment links failed: ${data.data.paymentLinkError}\n\nYou can create them manually from the Payments section.`);
+          toast(`Contract created, but payment links failed: ${data.data.paymentLinkError}`, "error");
         } else if (data.data?.paymentLinks?.length > 0) {
-          alert(`Contract generated with ${data.data.paymentLinks.length} payment link(s). Deposit link sent to client.`);
+          toast(`Contract generated with ${data.data.paymentLinks.length} payment link(s). Deposit link sent to client.`, "success");
+        } else {
+          toast("Contract generated and sent to client for signing.", "success");
         }
       } else {
         alert(data.error || "Failed to generate contract");
@@ -1774,16 +1777,17 @@ export default function ClientDetailPage() {
           {/* Payment Schedule */}
           <div>
             <h4 className="text-sm font-medium text-white mb-3">Payment Schedule</h4>
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="grid grid-cols-2 gap-2 mb-3">
               {([
-                ["none", "No Split", "Manual payment links"],
+                ["no-payment", "Contract Only", "No payment links"],
+                ["none", "No Split", "Single full payment"],
                 ["50/50", "50 / 50", "Deposit + Completion"],
                 ["50/25/25", "50 / 25 / 25", "Deposit + Milestone + Completion"],
               ] as const).map(([value, label, desc]) => (
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setContractSchedule(value as "none" | "50/50" | "50/25/25")}
+                  onClick={() => setContractSchedule(value as "no-payment" | "none" | "50/50" | "50/25/25")}
                   className={`p-2.5 rounded-lg border text-left transition-colors ${
                     contractSchedule === value
                       ? "border-bb-orange bg-bb-orange/5"
@@ -1795,7 +1799,7 @@ export default function ClientDetailPage() {
                 </button>
               ))}
             </div>
-            {contractSchedule !== "none" && (() => {
+            {contractSchedule !== "none" && contractSchedule !== "no-payment" && (() => {
               const allSelected = [
                 ...SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id)),
                 ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id)),

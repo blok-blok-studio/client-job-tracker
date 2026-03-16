@@ -33,6 +33,7 @@ const generateSchema = z.object({
   // Payment schedule
   country: z.string().length(2).default("US"),
   paymentSchedule: z.array(milestoneSchema).optional(), // e.g. [{label:"deposit",percent:50},{label:"completion",percent:50}]
+  skipPayment: z.boolean().optional().default(false), // true = contract only, no payment links
 });
 
 // POST — Generate a new contract for a client
@@ -146,7 +147,7 @@ export async function POST(
       ? parsed.paymentSchedule
       : [{ label: "deposit" as const, percent: 100 }];
 
-    {
+    if (!parsed.skipPayment) {
       try {
         // Calculate total one-time amount from selected packages
         const allItems = [
