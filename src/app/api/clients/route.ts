@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
     const parsed = clientSchema.parse(body);
 
     const onboardToken = randomBytes(24).toString("hex");
+    const uploadToken = randomBytes(24).toString("hex");
 
     const client = await prisma.client.create({
       data: {
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
         contractEnd: parsed.contractEnd ? new Date(parsed.contractEnd) : null,
         timezone: parsed.timezone || null,
         onboardToken,
+        uploadToken,
         checklistItems: {
           create: DEFAULT_CHECKLIST_ITEMS.map((label, i) => ({
             label,

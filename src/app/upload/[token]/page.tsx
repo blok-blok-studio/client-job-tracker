@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Upload, CheckCircle, AlertCircle, Loader2, Film, Image as ImageIcon, Music, X, FileUp } from "lucide-react";
+import { Upload, CheckCircle, AlertCircle, Loader2, Film, Image as ImageIcon, Music, X, FileUp, Check } from "lucide-react";
 
 interface ClientInfo {
   id: string;
@@ -24,6 +24,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
   const [invalid, setInvalid] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [results, setResults] = useState<UploadResult[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -60,30 +61,45 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
   const handleUpload = async () => {
     if (files.length === 0 || !token) return;
     setUploading(true);
+    setUploadProgress(0);
     setResults([]);
 
-    try {
-      const formData = new FormData();
-      formData.append("token", token);
-      files.forEach((f) => formData.append("files", f));
+    const formData = new FormData();
+    formData.append("token", token);
+    files.forEach((f) => formData.append("files", f));
 
-      const res = await fetch("/api/client-media/upload-portal", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
+    const xhr = new XMLHttpRequest();
 
-      if (data.success) {
-        setResults(data.data);
-        setFiles([]);
-      } else {
-        setResults([{ filename: "Upload", error: data.error }]);
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) {
+        setUploadProgress(Math.round((e.loaded / e.total) * 100));
       }
-    } catch {
-      setResults([{ filename: "Upload", error: "Upload failed. Please try again." }]);
-    } finally {
+    });
+
+    xhr.addEventListener("load", () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (data.success) {
+          setResults(data.data);
+          setFiles([]);
+        } else {
+          setResults([{ filename: "Upload", error: data.error }]);
+        }
+      } catch {
+        setResults([{ filename: "Upload", error: "Upload failed. Please try again." }]);
+      }
       setUploading(false);
-    }
+      setUploadProgress(0);
+    });
+
+    xhr.addEventListener("error", () => {
+      setResults([{ filename: "Upload", error: "Upload failed. Please try again." }]);
+      setUploading(false);
+      setUploadProgress(0);
+    });
+
+    xhr.open("POST", "/api/client-media/upload-portal");
+    xhr.send(formData);
   };
 
   const getFileIcon = (file: File) => {
@@ -204,16 +220,33 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
               </div>
             ))}
 
+            {/* Ready to submit indicator */}
+            {!uploading && (
+              <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                <Check size={14} className="text-orange-400 shrink-0" />
+                <p className="text-xs text-orange-300">
+                  {files.length} file{files.length !== 1 ? "s" : ""} ready to upload ({formatSize(files.reduce((s, f) => s + f.size, 0))} total)
+                </p>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleUpload}
               disabled={uploading}
-              className="w-full mt-4 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
+              className="w-full mt-3 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2 relative overflow-hidden"
             >
               {uploading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Uploading...
+                  {/* Progress bar background */}
+                  <div
+                    className="absolute inset-0 bg-white/10 transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                  <span className="relative flex items-center gap-2">
+                    <Loader2 size={16} className="animate-spin" />
+                    Uploading... {uploadProgress}%
+                  </span>
                 </>
               ) : (
                 <>
