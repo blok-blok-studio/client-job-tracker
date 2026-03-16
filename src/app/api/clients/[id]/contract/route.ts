@@ -7,8 +7,8 @@ import { sendPaymentLinkEmail, sendContractSigningEmail, sendOnboardingLinkEmail
 import { onPaymentConfirmed } from "@/lib/pipeline";
 import { z } from "zod";
 
-// Allow up to 60s for Stripe API calls + email sending
-export const maxDuration = 60;
+// Allow up to 120s for exchange rate fetch + Stripe API calls + email sending
+export const maxDuration = 120;
 
 const milestoneSchema = z.object({
   label: z.string(), // "deposit" | "milestone" | "completion"
@@ -291,75 +291,82 @@ export async function POST(
       }
     }
 
-    // Always send contract signing email immediately so client can sign right away
+    // Send contract signing + onboarding emails in parallel
     if (client.email) {
-      const contractUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app"}/contract/${contract.token}`;
-      try {
-        await sendContractSigningEmail({
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
+      const contractUrl = `${appUrl}/contract/${contract.token}`;
+
+      const emailTasks: Promise<void>[] = [];
+
+      // Contract signing email
+      emailTasks.push(
+        sendContractSigningEmail({
           to: client.email,
           clientName: client.name,
           contractUrl,
-        });
-        await prisma.activityLog.create({
-          data: {
-            clientId: client.id,
-            actor: "agent",
-            action: "pipeline_contract_signing_sent",
-            details: `Contract signing link sent to ${client.name} (${client.email}) immediately after contract creation`,
-          },
-        });
-      } catch (emailErr) {
-        console.error("[Email] Contract signing email error:", emailErr);
-        await prisma.activityLog.create({
-          data: {
-            clientId: client.id,
-            actor: "agent",
-            action: "pipeline_error",
-            details: `Failed to send contract signing email: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
-          },
-        });
-      }
-    }
-
-    // Send onboarding email immediately so client can start filling it out right away
-    if (client.email) {
-      try {
-        let onboardToken = (await prisma.client.findUnique({ where: { id: client.id }, select: { onboardToken: true } }))?.onboardToken;
-        if (!onboardToken) {
-          onboardToken = randomBytes(24).toString("hex");
-          await prisma.client.update({
-            where: { id: client.id },
-            data: { onboardToken },
+        }).then(async () => {
+          await prisma.activityLog.create({
+            data: {
+              clientId: client.id,
+              actor: "agent",
+              action: "pipeline_contract_signing_sent",
+              details: `Contract signing link sent to ${client.name} (${client.email}) immediately after contract creation`,
+            },
           });
-        }
+        }).catch(async (emailErr) => {
+          console.error("[Email] Contract signing email error:", emailErr);
+          await prisma.activityLog.create({
+            data: {
+              clientId: client.id,
+              actor: "agent",
+              action: "pipeline_error",
+              details: `Failed to send contract signing email: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
+            },
+          });
+        })
+      );
 
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
-        const onboardUrl = `${appUrl}/onboard/${onboardToken}`;
+      // Onboarding email
+      emailTasks.push(
+        (async () => {
+          let onboardToken = (await prisma.client.findUnique({ where: { id: client.id }, select: { onboardToken: true } }))?.onboardToken;
+          if (!onboardToken) {
+            onboardToken = randomBytes(24).toString("hex");
+            await prisma.client.update({
+              where: { id: client.id },
+              data: { onboardToken },
+            });
+          }
 
-        await sendOnboardingLinkEmail({
-          to: client.email,
-          clientName: client.name,
-          onboardUrl,
-        });
-        await prisma.activityLog.create({
-          data: {
-            clientId: client.id,
-            actor: "agent",
-            action: "pipeline_onboard_sent",
-            details: `Onboarding link sent to ${client.name} (${client.email}) immediately after contract creation`,
-          },
-        });
-      } catch (emailErr) {
-        console.error("[Email] Onboarding email error:", emailErr);
-        await prisma.activityLog.create({
-          data: {
-            clientId: client.id,
-            actor: "agent",
-            action: "pipeline_error",
-            details: `Failed to send onboarding email: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
-          },
-        });
-      }
+          const onboardUrl = `${appUrl}/onboard/${onboardToken}`;
+
+          await sendOnboardingLinkEmail({
+            to: client.email!,
+            clientName: client.name,
+            onboardUrl,
+          });
+          await prisma.activityLog.create({
+            data: {
+              clientId: client.id,
+              actor: "agent",
+              action: "pipeline_onboard_sent",
+              details: `Onboarding link sent to ${client.name} (${client.email}) immediately after contract creation`,
+            },
+          });
+        })().catch(async (emailErr) => {
+          console.error("[Email] Onboarding email error:", emailErr);
+          await prisma.activityLog.create({
+            data: {
+              clientId: client.id,
+              actor: "agent",
+              action: "pipeline_error",
+              details: `Failed to send onboarding email: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
+            },
+          });
+        })
+      );
+
+      await Promise.allSettled(emailTasks);
     }
 
     return NextResponse.json({
