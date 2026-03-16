@@ -175,10 +175,17 @@ export async function POST(
         const oneTimeTotal = allItems.filter((i) => !i.recurring).reduce((s, i) => s + getPrice(i), 0)
           + (parsed.customItems || []).filter(i => !i.recurring).reduce((s, i) => s + convertAmount(i.price), 0);
 
-        if (oneTimeTotal === 0) {
+        // Recurring items: packages + custom items marked as recurring
+        const recurringItems = [
+          ...allItems.filter((i) => i.recurring).map((i) => ({ name: i.name || i.id, price: getPrice(i) })),
+          ...(parsed.customItems || []).filter(i => i.recurring).map(i => ({ name: i.name, price: convertAmount(i.price) })),
+        ];
+        const recurringTotal = recurringItems.reduce((s, i) => s + i.price, 0);
+
+        if (oneTimeTotal === 0 && recurringTotal === 0) {
           // $0 contract — skip payment, auto-confirm and send contract signing link directly
           await onPaymentConfirmed(client.id);
-        } else if (oneTimeTotal > 0) {
+        } else if (oneTimeTotal > 0 || recurringTotal > 0) {
           const currency = getCurrencyForCountry(parsed.country);
           const currencyConfig = CURRENCY_CONFIG[currency];
           let latestStripeCustomerId = client.stripeCustomerId;
@@ -221,6 +228,42 @@ export async function POST(
                 actor: "chase",
                 action: "payment_link_created",
                 details: `${milestoneLabel} payment link created: ${currencyConfig.symbol}${milestoneAmount.toLocaleString()} (${milestone.percent}%) for contract`,
+              },
+            });
+          }
+
+          // Create subscription checkout sessions for recurring items
+          for (const item of recurringItems) {
+            if (item.price <= 0) continue;
+
+            const result = await createCheckoutSession({
+              clientId: client.id,
+              clientName: client.name,
+              clientEmail: client.email,
+              stripeCustomerId: latestStripeCustomerId,
+              amount: item.price,
+              description: `${item.name} (monthly) — ${client.name}`,
+              currency,
+              country: parsed.country,
+              contractId: contract.id,
+              recurring: true,
+              interval: "month",
+            });
+
+            latestStripeCustomerId = result.stripeCustomerId;
+
+            paymentLinksCreated.push({
+              milestone: "subscription",
+              url: result.url,
+              amount: item.price,
+            });
+
+            await prisma.activityLog.create({
+              data: {
+                clientId: client.id,
+                actor: "chase",
+                action: "payment_link_created",
+                details: `Subscription link created: ${currencyConfig.symbol}${item.price.toLocaleString()}/mo for ${item.name}`,
               },
             });
           }
