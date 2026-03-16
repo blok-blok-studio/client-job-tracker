@@ -21,6 +21,7 @@ export async function GET(
         activityLogs: { orderBy: { createdAt: "desc" }, take: 20 },
         contracts: { orderBy: { createdAt: "desc" }, select: { id: true, token: true, status: true, signedName: true, signedAt: true, createdAt: true } },
         paymentLinks: { orderBy: { createdAt: "desc" }, select: { id: true, stripeUrl: true, amount: true, currency: true, description: true, recurring: true, interval: true, status: true, paidAt: true, milestone: true, contractId: true, createdAt: true } },
+        clientMedia: { orderBy: { createdAt: "desc" }, select: { id: true, url: true, filename: true, fileType: true, fileSize: true, mimeType: true, uploadedBy: true, label: true, createdAt: true } },
       },
     });
 
@@ -80,11 +81,21 @@ export async function DELETE(
       return NextResponse.json({ success: true, message: `${client?.name || "Client"} permanently deleted` });
     }
 
-    // Soft archive — keep all data, just hide from active views
+    // Soft archive — keep all data, invalidate all active links
     const client = await prisma.client.update({
       where: { id },
-      data: { type: "ARCHIVED" },
+      data: {
+        type: "ARCHIVED",
+        onboardToken: null,
+        uploadToken: null,
+      },
       select: { id: true, name: true },
+    });
+
+    // Expire any pending contracts so signing links stop working
+    await prisma.contractSignature.updateMany({
+      where: { clientId: id, status: "PENDING" },
+      data: { status: "EXPIRED" },
     });
 
     await prisma.activityLog.create({
@@ -92,7 +103,7 @@ export async function DELETE(
         clientId: id,
         actor: "chase",
         action: "archived_client",
-        details: `Archived client: ${client.name}`,
+        details: `Archived client: ${client.name} — all active links invalidated`,
       },
     });
 

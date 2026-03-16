@@ -49,7 +49,7 @@ export async function GET(
       where: { token },
       include: {
         client: {
-          select: { name: true, company: true },
+          select: { name: true, company: true, type: true },
         },
       },
     });
@@ -58,6 +58,13 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: "Invalid or expired contract link" },
         { status: 404, headers: corsHeaders(request) }
+      );
+    }
+
+    if (contract.client.type === "ARCHIVED") {
+      return NextResponse.json(
+        { success: false, error: "This contract is no longer available" },
+        { status: 410, headers: corsHeaders(request) }
       );
     }
 

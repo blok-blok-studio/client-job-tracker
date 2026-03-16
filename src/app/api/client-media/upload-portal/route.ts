@@ -20,11 +20,11 @@ export async function GET(request: NextRequest) {
 
   const client = await prisma.client.findUnique({
     where: { uploadToken: token },
-    select: { id: true, name: true, company: true, avatarUrl: true },
+    select: { id: true, name: true, company: true, avatarUrl: true, type: true },
   });
 
-  if (!client) {
-    return NextResponse.json({ success: false, error: "Invalid upload link" }, { status: 404 });
+  if (!client || client.type === "ARCHIVED") {
+    return NextResponse.json({ success: false, error: "Invalid upload link" }, { status: !client ? 404 : 410 });
   }
 
   return NextResponse.json({ success: true, data: client });
@@ -43,11 +43,11 @@ export async function POST(request: NextRequest) {
 
     const client = await prisma.client.findUnique({
       where: { uploadToken: token },
-      select: { id: true, name: true },
+      select: { id: true, name: true, type: true },
     });
 
-    if (!client) {
-      return NextResponse.json({ success: false, error: "Invalid upload link" }, { status: 404 });
+    if (!client || client.type === "ARCHIVED") {
+      return NextResponse.json({ success: false, error: "Invalid upload link" }, { status: !client ? 404 : 410 });
     }
 
     if (files.length === 0) {

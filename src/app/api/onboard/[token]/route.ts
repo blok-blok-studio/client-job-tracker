@@ -119,10 +119,10 @@ export async function GET(
       select: { id: true, name: true, company: true, type: true },
     });
 
-    if (!client) {
+    if (!client || client.type === "ARCHIVED") {
       return NextResponse.json(
         { success: false, error: "Invalid or expired onboarding link" },
-        { status: 404, headers: corsHeaders(request) }
+        { status: !client ? 404 : 410, headers: corsHeaders(request) }
       );
     }
 

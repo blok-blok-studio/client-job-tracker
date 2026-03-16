@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload, Pen, Type, RotateCcw } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload, Pen, Type, RotateCcw, Eye, EyeOff, Image as ImageIcon, Film, Music, Lock, FolderOpen } from "lucide-react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -39,6 +39,7 @@ interface ClientDetail {
   activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; createdAt: string }>;
   contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
   paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; currency: string; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; milestone: string | null; contractId: string | null; createdAt: string }>;
+  clientMedia: Array<{ id: string; url: string; filename: string; fileType: string; fileSize: number; mimeType: string; uploadedBy: string; label: string | null; createdAt: string }>;
 }
 
 const tierVariant: Record<string, "orange" | "gray" | "blue"> = { VIP: "orange", STANDARD: "gray", TRIAL: "blue" };
@@ -90,6 +91,15 @@ export default function ClientDetailPage() {
   const [providerSignatureData, setProviderSignatureData] = useState<string | null>(null);
   const [contractCountry, setContractCountry] = useState("DE");
   const [contractSchedule, setContractSchedule] = useState<"none" | "50/50" | "50/25/25">("50/50");
+  // Assets section state
+  const [assetsTab, setAssetsTab] = useState<"passwords" | "media" | "contracts">("passwords");
+  const [revealedCred, setRevealedCred] = useState<Record<string, { username: string; password: string; notes: string | null }>>({});
+  const [revealingCred, setRevealingCred] = useState<string | null>(null);
+  const [revealPassword, setRevealPassword] = useState("");
+  const [showAddCred, setShowAddCred] = useState(false);
+  const [credForm, setCredForm] = useState({ platform: "", username: "", password: "", url: "", notes: "" });
+  const [savingCred, setSavingCred] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
 
   const fetchClient = useCallback(async () => {
     try {
@@ -295,6 +305,85 @@ export default function ClientDetailPage() {
   async function handleDeleteSocial(linkId: string) {
     try {
       await fetch(`/api/clients/${id}/social-links?linkId=${linkId}`, { method: "DELETE" });
+      fetchClient();
+    } catch { /* silently fail */ }
+  }
+
+  async function handleRevealCred(credId: string) {
+    if (!revealPassword) return;
+    setRevealingCred(credId);
+    try {
+      const res = await fetch(`/api/vault/${credId}/reveal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: revealPassword }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRevealedCred((prev) => ({ ...prev, [credId]: data.data }));
+        setRevealPassword("");
+      } else {
+        alert(data.error || "Failed to reveal credential");
+      }
+    } catch { alert("Failed to reveal credential"); }
+    finally { setRevealingCred(null); }
+  }
+
+  async function handleAddCredential() {
+    if (!credForm.platform || !credForm.username || !credForm.password) return;
+    setSavingCred(true);
+    try {
+      const res = await fetch(`/api/clients/${id}/credentials`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowAddCred(false);
+        setCredForm({ platform: "", username: "", password: "", url: "", notes: "" });
+        fetchClient();
+      } else {
+        alert(data.error || "Failed to add credential");
+      }
+    } catch { alert("Network error"); }
+    finally { setSavingCred(false); }
+  }
+
+  async function handleDeleteCred(credId: string) {
+    if (!confirm("Delete this credential? This cannot be undone.")) return;
+    try {
+      await fetch(`/api/vault/${credId}`, { method: "DELETE" });
+      setRevealedCred((prev) => { const n = { ...prev }; delete n[credId]; return n; });
+      fetchClient();
+    } catch { /* silently fail */ }
+  }
+
+  async function handleUploadMedia(files: FileList) {
+    if (!files.length) return;
+    setUploadingMedia(true);
+    try {
+      const formData = new FormData();
+      formData.append("clientId", id);
+      Array.from(files).forEach((f) => formData.append("files", f));
+      const res = await fetch("/api/client-media", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchClient();
+      } else {
+        alert(data.error || "Upload failed");
+      }
+    } catch { alert("Upload failed"); }
+    finally { setUploadingMedia(false); }
+  }
+
+  async function handleDeleteMedia(mediaId: string) {
+    if (!confirm("Delete this file?")) return;
+    try {
+      await fetch(`/api/client-media/${mediaId}`, { method: "DELETE" });
       fetchClient();
     } catch { /* silently fail */ }
   }
@@ -629,84 +718,6 @@ export default function ClientDetailPage() {
 
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-display font-semibold flex items-center gap-2">
-                  <FileText size={16} className="text-bb-orange" /> Contracts
-                </h3>
-                <button
-                  onClick={() => setShowContractModal(true)}
-                  className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1"
-                >
-                  <Plus size={14} /> New
-                </button>
-              </div>
-              <div className="space-y-2">
-                {client.contracts && client.contracts.length > 0 ? (
-                  client.contracts.map((contract) => (
-                    <div key={contract.id} className="p-3 rounded-lg bg-bb-black border border-bb-border space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-bb-dim">
-                          {new Date(contract.createdAt).toLocaleDateString()}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                            contract.status === "SIGNED"
-                              ? "bg-green-500/10 text-green-400"
-                              : "bg-yellow-500/10 text-yellow-400"
-                          }`}>
-                            {contract.status === "SIGNED" ? "Signed" : "Pending"}
-                          </span>
-                          <button
-                            onClick={async () => {
-                              if (!confirm("Delete this contract? This cannot be undone.")) return;
-                              try {
-                                await fetch(`/api/clients/${id}/contract/${contract.id}`, { method: "DELETE" });
-                                fetchClient();
-                              } catch { /* silently fail */ }
-                            }}
-                            className="p-1 text-bb-dim hover:text-red-400 transition-colors"
-                            title="Delete contract"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-                      {contract.status === "SIGNED" && contract.signedName && (
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-bb-muted">
-                            Signed by {contract.signedName} on {new Date(contract.signedAt!).toLocaleString()}
-                          </p>
-                          <button
-                            onClick={() => window.open(`/api/contract/${contract.token}/certificate`, "_blank")}
-                            className="text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
-                          >
-                            View Certificate
-                          </button>
-                        </div>
-                      )}
-                      {contract.status === "PENDING" && (
-                        <div className="flex items-center gap-2">
-                          <code className="flex-1 text-xs bg-bb-surface px-2 py-1.5 rounded border border-bb-border text-bb-dim truncate">
-                            {window.location.origin}/contract/{contract.token}
-                          </code>
-                          <button
-                            onClick={() => handleCopyContractLink(contract.token)}
-                            className="p-1.5 rounded bg-bb-elevated hover:bg-bb-border text-bb-muted hover:text-white transition-colors shrink-0"
-                            title="Copy link"
-                          >
-                            {contractCopied === contract.token ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-bb-dim">No contracts generated</p>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
-              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <h3 className="font-display font-semibold flex items-center gap-2">
                     <CreditCard size={16} className="text-bb-orange" /> Payments
@@ -839,19 +850,292 @@ export default function ClientDetailPage() {
               </div>
             </div>
 
-            <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-display font-semibold">Credentials</h3>
-                <Link href="/vault" className="text-bb-orange hover:text-bb-orange-light text-sm">Manage</Link>
-              </div>
-              <div className="space-y-2">
-                {client.credentials.map((cred) => (
-                  <div key={cred.id} className="flex items-center justify-between p-2 rounded hover:bg-bb-elevated">
-                    <span className="text-sm">{cred.platform}</span>
-                    <span className="text-xs text-bb-dim font-mono">{cred.username}</span>
-                  </div>
+            {/* ─── Unified Assets Section ─── */}
+            <div className="bg-bb-surface border border-bb-border rounded-lg overflow-hidden">
+              {/* Tab bar */}
+              <div className="flex border-b border-bb-border">
+                {([
+                  { key: "passwords" as const, label: "Passwords", icon: <Lock size={14} />, count: client.credentials.length },
+                  { key: "media" as const, label: "Media", icon: <ImageIcon size={14} />, count: client.clientMedia?.length || 0 },
+                  { key: "contracts" as const, label: "Contracts", icon: <FileText size={14} />, count: client.contracts?.length || 0 },
+                ]).map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setAssetsTab(tab.key)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors ${
+                      assetsTab === tab.key
+                        ? "text-bb-orange border-b-2 border-bb-orange bg-bb-orange/5"
+                        : "text-bb-muted hover:text-white hover:bg-bb-elevated"
+                    }`}
+                  >
+                    {tab.icon}
+                    {tab.label}
+                    {tab.count > 0 && (
+                      <span className="text-[10px] bg-bb-border rounded-full px-1.5 py-0.5 ml-0.5">{tab.count}</span>
+                    )}
+                  </button>
                 ))}
-                {client.credentials.length === 0 && <p className="text-sm text-bb-dim">No credentials stored</p>}
+              </div>
+
+              <div className="p-5">
+                {/* ─── Passwords Tab ─── */}
+                {assetsTab === "passwords" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-xs text-bb-dim">Encrypted credentials for this client</p>
+                      <button onClick={() => setShowAddCred(!showAddCred)} className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1">
+                        <Plus size={14} /> Add
+                      </button>
+                    </div>
+
+                    {showAddCred && (
+                      <div className="mb-4 p-3 bg-bb-black rounded-lg space-y-2">
+                        <input placeholder="Platform (e.g. Instagram)" value={credForm.platform} onChange={(e) => setCredForm({ ...credForm, platform: e.target.value })} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
+                        <input placeholder="Username / Email" value={credForm.username} onChange={(e) => setCredForm({ ...credForm, username: e.target.value })} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
+                        <input placeholder="Password" type="password" value={credForm.password} onChange={(e) => setCredForm({ ...credForm, password: e.target.value })} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
+                        <input placeholder="URL (optional)" value={credForm.url} onChange={(e) => setCredForm({ ...credForm, url: e.target.value })} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
+                        <input placeholder="Notes (optional)" value={credForm.notes} onChange={(e) => setCredForm({ ...credForm, notes: e.target.value })} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={() => { setShowAddCred(false); setCredForm({ platform: "", username: "", password: "", url: "", notes: "" }); }} className="p-1 text-bb-dim hover:text-white"><X size={16} /></button>
+                          <button onClick={handleAddCredential} disabled={savingCred || !credForm.platform || !credForm.username || !credForm.password} className="p-1 text-bb-orange hover:text-bb-orange-light disabled:opacity-50">
+                            {savingCred ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      {client.credentials.map((cred) => {
+                        const revealed = revealedCred[cred.id];
+                        return (
+                          <div key={cred.id} className="p-3 rounded-lg bg-bb-black border border-bb-border">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Lock size={12} className="text-bb-orange" />
+                                <span className="text-sm font-medium text-white">{cred.platform}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {!revealed ? (
+                                  <button
+                                    onClick={() => setRevealingCred(revealingCred === cred.id ? null : cred.id)}
+                                    className="p-1 text-bb-dim hover:text-bb-orange transition-colors"
+                                    title="Reveal password"
+                                  >
+                                    <Eye size={14} />
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => setRevealedCred((prev) => { const n = { ...prev }; delete n[cred.id]; return n; })}
+                                    className="p-1 text-bb-orange hover:text-bb-orange-light transition-colors"
+                                    title="Hide password"
+                                  >
+                                    <EyeOff size={14} />
+                                  </button>
+                                )}
+                                <button onClick={() => handleDeleteCred(cred.id)} className="p-1 text-bb-dim hover:text-red-400 transition-colors" title="Delete"><Trash2 size={13} /></button>
+                              </div>
+                            </div>
+
+                            {revealed ? (
+                              <div className="mt-2 space-y-1 text-xs font-mono">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-bb-dim w-16">User:</span>
+                                  <span className="text-white">{revealed.username}</span>
+                                  <button onClick={() => navigator.clipboard.writeText(revealed.username)} className="p-0.5 text-bb-dim hover:text-white"><Copy size={11} /></button>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-bb-dim w-16">Pass:</span>
+                                  <span className="text-white">{revealed.password}</span>
+                                  <button onClick={() => navigator.clipboard.writeText(revealed.password)} className="p-0.5 text-bb-dim hover:text-white"><Copy size={11} /></button>
+                                </div>
+                                {revealed.notes && (
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-bb-dim w-16">Notes:</span>
+                                    <span className="text-bb-muted">{revealed.notes}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : revealingCred === cred.id ? (
+                              <div className="mt-2 flex items-center gap-2">
+                                <input
+                                  type="password"
+                                  placeholder="Enter your password to reveal"
+                                  value={revealPassword}
+                                  onChange={(e) => setRevealPassword(e.target.value)}
+                                  onKeyDown={(e) => e.key === "Enter" && handleRevealCred(cred.id)}
+                                  className="flex-1 px-2 py-1.5 bg-bb-surface border border-bb-border rounded text-xs text-white"
+                                  autoFocus
+                                />
+                                <button onClick={() => handleRevealCred(cred.id)} className="px-3 py-1.5 bg-bb-orange text-white text-xs rounded hover:bg-bb-orange-light">
+                                  Reveal
+                                </button>
+                              </div>
+                            ) : (
+                              <p className="mt-1 text-xs text-bb-dim font-mono">••••••••</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {client.credentials.length === 0 && !showAddCred && (
+                        <div className="text-center py-6">
+                          <Lock size={24} className="mx-auto text-bb-dim mb-2" />
+                          <p className="text-sm text-bb-dim">No credentials stored</p>
+                          <button onClick={() => setShowAddCred(true)} className="text-xs text-bb-orange hover:text-bb-orange-light mt-1">Add first credential</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── Media Tab ─── */}
+                {assetsTab === "media" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-xs text-bb-dim">{client.clientMedia?.length || 0} files uploaded</p>
+                      <label className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1 cursor-pointer">
+                        <Upload size={14} />
+                        {uploadingMedia ? "Uploading..." : "Upload"}
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*,video/*,audio/*"
+                          className="hidden"
+                          onChange={(e) => e.target.files && handleUploadMedia(e.target.files)}
+                          disabled={uploadingMedia}
+                        />
+                      </label>
+                    </div>
+
+                    {client.clientMedia && client.clientMedia.length > 0 ? (
+                      <div className="grid grid-cols-3 gap-2">
+                        {client.clientMedia.map((media) => (
+                          <div key={media.id} className="group relative rounded-lg overflow-hidden bg-bb-black border border-bb-border aspect-square">
+                            {media.fileType === "IMAGE" ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
+                            ) : media.fileType === "VIDEO" ? (
+                              <div className="w-full h-full flex flex-col items-center justify-center">
+                                <Film size={24} className="text-purple-400 mb-1" />
+                                <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
+                              </div>
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center">
+                                <Music size={24} className="text-green-400 mb-1" />
+                                <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
+                              </div>
+                            )}
+                            {/* Hover overlay */}
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                              <span className="text-[10px] text-white font-medium truncate max-w-[90%]">{media.filename}</span>
+                              <span className="text-[9px] text-bb-dim">
+                                {media.fileSize < 1024 * 1024 ? `${(media.fileSize / 1024).toFixed(0)} KB` : `${(media.fileSize / (1024 * 1024)).toFixed(1)} MB`}
+                                {" · "}{media.uploadedBy === "client" ? "Client" : "You"}
+                              </span>
+                              <div className="flex gap-2 mt-1">
+                                <a href={media.url} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-bb-surface/80 text-white hover:bg-bb-orange">
+                                  <ExternalLink size={12} />
+                                </a>
+                                <button onClick={() => handleDeleteMedia(media.id)} className="p-1 rounded bg-bb-surface/80 text-white hover:bg-red-500">
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6">
+                        <FolderOpen size={24} className="mx-auto text-bb-dim mb-2" />
+                        <p className="text-sm text-bb-dim">No media files yet</p>
+                        {client.uploadToken && (
+                          <p className="text-[10px] text-bb-dim mt-1">Share the upload portal link for your client to upload</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ─── Contracts Tab ─── */}
+                {assetsTab === "contracts" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-xs text-bb-dim">{client.contracts?.length || 0} contracts</p>
+                      <button onClick={() => setShowContractModal(true)} className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1">
+                        <Plus size={14} /> New
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {client.contracts && client.contracts.length > 0 ? (
+                        client.contracts.map((contract) => (
+                          <div key={contract.id} className="p-3 rounded-lg bg-bb-black border border-bb-border space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-bb-dim">
+                                {new Date(contract.createdAt).toLocaleDateString()}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                  contract.status === "SIGNED"
+                                    ? "bg-green-500/10 text-green-400"
+                                    : contract.status === "EXPIRED"
+                                    ? "bg-red-500/10 text-red-400"
+                                    : "bg-yellow-500/10 text-yellow-400"
+                                }`}>
+                                  {contract.status === "SIGNED" ? "Signed" : contract.status === "EXPIRED" ? "Expired" : "Pending"}
+                                </span>
+                                <button
+                                  onClick={async () => {
+                                    if (!confirm("Delete this contract? This cannot be undone.")) return;
+                                    try {
+                                      await fetch(`/api/clients/${id}/contract/${contract.id}`, { method: "DELETE" });
+                                      fetchClient();
+                                    } catch { /* silently fail */ }
+                                  }}
+                                  className="p-1 text-bb-dim hover:text-red-400 transition-colors"
+                                  title="Delete contract"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
+                            {contract.status === "SIGNED" && contract.signedName && (
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-bb-muted">
+                                  Signed by {contract.signedName} on {new Date(contract.signedAt!).toLocaleString()}
+                                </p>
+                                <button
+                                  onClick={() => window.open(`/api/contract/${contract.token}/certificate`, "_blank")}
+                                  className="text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                                >
+                                  View Certificate
+                                </button>
+                              </div>
+                            )}
+                            {contract.status === "PENDING" && (
+                              <div className="flex items-center gap-2">
+                                <code className="flex-1 text-xs bg-bb-surface px-2 py-1.5 rounded border border-bb-border text-bb-dim truncate">
+                                  {window.location.origin}/contract/{contract.token}
+                                </code>
+                                <button
+                                  onClick={() => handleCopyContractLink(contract.token)}
+                                  className="p-1.5 rounded bg-bb-elevated hover:bg-bb-border text-bb-muted hover:text-white transition-colors shrink-0"
+                                  title="Copy link"
+                                >
+                                  {contractCopied === contract.token ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6">
+                          <FileText size={24} className="mx-auto text-bb-dim mb-2" />
+                          <p className="text-sm text-bb-dim">No contracts generated</p>
+                          <button onClick={() => setShowContractModal(true)} className="text-xs text-bb-orange hover:text-bb-orange-light mt-1">Create first contract</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
