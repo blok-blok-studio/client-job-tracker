@@ -189,7 +189,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
           type="file"
           accept="image/*,video/*,audio/*"
           multiple
-          className="hidden"
+          className="sr-only"
           onChange={(e) => {
             if (e.target.files?.length) {
               addFiles(e.target.files);
