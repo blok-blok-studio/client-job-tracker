@@ -39,7 +39,7 @@ interface ClientDetail {
   activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; createdAt: string }>;
   contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
   paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; currency: string; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; milestone: string | null; contractId: string | null; createdAt: string }>;
-  clientMedia: Array<{ id: string; url: string; filename: string; fileType: string; fileSize: number; mimeType: string; uploadedBy: string; label: string | null; createdAt: string }>;
+  mediaFiles: Array<{ id: string; url: string; filename: string; fileType: string; fileSize: number; mimeType: string; uploadedBy: string; label: string | null; createdAt: string }>;
 }
 
 const tierVariant: Record<string, "orange" | "gray" | "blue"> = { VIP: "orange", STANDARD: "gray", TRIAL: "blue" };
@@ -856,7 +856,7 @@ export default function ClientDetailPage() {
               <div className="flex border-b border-bb-border">
                 {([
                   { key: "passwords" as const, label: "Passwords", icon: <Lock size={14} />, count: client.credentials.length },
-                  { key: "media" as const, label: "Media", icon: <ImageIcon size={14} />, count: client.clientMedia?.length || 0 },
+                  { key: "media" as const, label: "Media", icon: <ImageIcon size={14} />, count: client.mediaFiles?.length || 0 },
                   { key: "contracts" as const, label: "Contracts", icon: <FileText size={14} />, count: client.contracts?.length || 0 },
                 ]).map((tab) => (
                   <button
@@ -991,7 +991,7 @@ export default function ClientDetailPage() {
                 {assetsTab === "media" && (
                   <div>
                     <div className="flex items-center justify-between mb-4">
-                      <p className="text-xs text-bb-dim">{client.clientMedia?.length || 0} files uploaded</p>
+                      <p className="text-xs text-bb-dim">{client.mediaFiles?.length || 0} files uploaded</p>
                       <label className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1 cursor-pointer">
                         <Upload size={14} />
                         {uploadingMedia ? "Uploading..." : "Upload"}
@@ -1006,9 +1006,9 @@ export default function ClientDetailPage() {
                       </label>
                     </div>
 
-                    {client.clientMedia && client.clientMedia.length > 0 ? (
+                    {client.mediaFiles && client.mediaFiles.length > 0 ? (
                       <div className="grid grid-cols-3 gap-2">
-                        {client.clientMedia.map((media) => (
+                        {client.mediaFiles.map((media) => (
                           <div key={media.id} className="group relative rounded-lg overflow-hidden bg-bb-black border border-bb-border aspect-square">
                             {media.fileType === "IMAGE" ? (
                               // eslint-disable-next-line @next/next/no-img-element

@@ -160,9 +160,10 @@ export default function EditClientForm({
     for (const [key, value] of formData.entries()) {
       if (key === "monthlyRetainer") {
         data[key] = value ? Number(value) : null;
-      } else {
-        data[key] = value || undefined;
+      } else if (value) {
+        data[key] = value;
       }
+      // Skip empty strings — omitting them preserves the existing DB value
     }
 
     try {

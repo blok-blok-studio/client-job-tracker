@@ -21,7 +21,7 @@ export async function GET(
         activityLogs: { orderBy: { createdAt: "desc" }, take: 20 },
         contracts: { orderBy: { createdAt: "desc" }, select: { id: true, token: true, status: true, signedName: true, signedAt: true, createdAt: true } },
         paymentLinks: { orderBy: { createdAt: "desc" }, select: { id: true, stripeUrl: true, amount: true, currency: true, description: true, recurring: true, interval: true, status: true, paidAt: true, milestone: true, contractId: true, createdAt: true } },
-        clientMedia: { orderBy: { createdAt: "desc" }, select: { id: true, url: true, filename: true, fileType: true, fileSize: true, mimeType: true, uploadedBy: true, label: true, createdAt: true } },
+        mediaFiles: { orderBy: { createdAt: "desc" }, select: { id: true, url: true, filename: true, fileType: true, fileSize: true, mimeType: true, uploadedBy: true, label: true, createdAt: true } },
       },
     });
 
@@ -47,9 +47,17 @@ export async function PATCH(
     const body = await request.json();
     const parsed = clientSchema.partial().parse(body);
 
-    const data: Record<string, unknown> = { ...parsed };
-    if (parsed.contractStart) data.contractStart = new Date(parsed.contractStart);
-    if (parsed.contractEnd) data.contractEnd = new Date(parsed.contractEnd);
+    const data: Record<string, unknown> = {};
+
+    // Only include fields that have real values — skip empty strings to preserve existing data
+    for (const [key, value] of Object.entries(parsed)) {
+      if (value === undefined) continue;
+      if (value === "" || value === null) continue;
+      data[key] = value;
+    }
+
+    if (data.contractStart) data.contractStart = new Date(data.contractStart as string);
+    if (data.contractEnd) data.contractEnd = new Date(data.contractEnd as string);
 
     const client = await prisma.client.update({
       where: { id },
