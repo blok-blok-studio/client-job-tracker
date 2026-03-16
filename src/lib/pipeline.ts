@@ -178,6 +178,32 @@ export async function onPaymentConfirmed(clientId: string) {
       },
     }).catch(() => {});
   }
+
+  // Auto-generate tasks from purchased packages
+  try {
+    const paymentLink = await prisma.paymentLink.findFirst({
+      where: { clientId, status: { in: ["PAID", "ACTIVE"] } },
+      orderBy: { paidAt: "desc" },
+      select: { contractId: true },
+    });
+    if (paymentLink?.contractId) {
+      const { generateTasksFromContract } = await import("./task-generation");
+      const count = await generateTasksFromContract(clientId, paymentLink.contractId);
+      if (count > 0) {
+        console.log(`[Pipeline] Auto-generated ${count} task(s) for client ${clientId}`);
+      }
+    }
+  } catch (error) {
+    console.error("[Pipeline] Failed to generate tasks from packages:", error);
+    await prisma.activityLog.create({
+      data: {
+        clientId,
+        actor: "agent",
+        action: "pipeline_error",
+        details: `Failed to auto-generate tasks: ${error instanceof Error ? error.message : "Unknown error"}`,
+      },
+    }).catch(() => {});
+  }
 }
 
 /**
@@ -419,7 +445,12 @@ export async function onOnboardingCompleted(clientId: string) {
       },
     });
 
-    if (!existingCalendarTask) {
+    // Only create generic content calendar task if no package-based tasks were auto-generated
+    const existingAutoTasks = await prisma.task.findFirst({
+      where: { clientId, tags: { has: "auto-generated" } },
+    });
+
+    if (!existingCalendarTask && !existingAutoTasks) {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 3);
 

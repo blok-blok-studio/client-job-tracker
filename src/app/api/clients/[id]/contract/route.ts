@@ -116,6 +116,12 @@ export async function POST(
         providerIpAddress: providerIp,
         providerUserAgent: providerUa,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        selectedPackages: {
+          packages: parsed.packages,
+          addons: parsed.addons || [],
+          customItems: parsed.customItems || [],
+          packageCustomizations: parsed.packageCustomizations || {},
+        },
       },
     });
 

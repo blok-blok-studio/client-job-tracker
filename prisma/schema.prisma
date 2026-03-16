@@ -307,6 +307,9 @@ model ContractSignature {
   status        ContractStatus @default(PENDING)
   expiresAt     DateTime?
 
+  // Structured package selection for auto task generation
+  selectedPackages  Json?
+
   paymentLinks     PaymentLink[]
   auditLogs        ContractAuditLog[]
 
