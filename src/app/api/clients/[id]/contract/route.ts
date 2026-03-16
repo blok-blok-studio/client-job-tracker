@@ -69,6 +69,19 @@ export async function POST(
 
     const token = randomBytes(32).toString("hex");
     const contractCurrency = getCurrencyForCountry(parsed.country);
+
+    // Fetch live USD→EUR rate for non-USD contracts
+    let exchangeRate: number | undefined;
+    if (contractCurrency === "eur") {
+      try {
+        const rateRes = await fetch("https://api.frankfurter.app/latest?from=USD&to=EUR");
+        const rateData = await rateRes.json();
+        if (rateData.rates?.EUR) exchangeRate = rateData.rates.EUR;
+      } catch {
+        exchangeRate = 0.92; // fallback
+      }
+    }
+
     const contractBody = generateContractBody(
       client.name,
       client.company,
@@ -78,7 +91,8 @@ export async function POST(
       parsed.customTerms,
       parsed.packageCustomizations,
       parsed.paymentSchedule,
-      contractCurrency
+      contractCurrency,
+      exchangeRate
     );
 
     // SHA-256 hash of the contract body for tamper detection
@@ -149,15 +163,17 @@ export async function POST(
 
     if (!parsed.skipPayment) {
       try {
-        // Calculate total one-time amount from selected packages
+        // Calculate total one-time amount from selected packages (converted to target currency)
+        const convertAmount = (usd: number) =>
+          exchangeRate ? Math.round(usd * exchangeRate * 100) / 100 : usd;
         const allItems = [
           ...SERVICE_PACKAGES.filter((p) => parsed.packages.includes(p.id)),
           ...ADDON_PACKAGES.filter((a) => (parsed.addons || []).includes(a.id)),
         ];
         const getPrice = (item: { id: string; price: number }) =>
-          parsed.packageCustomizations?.[item.id]?.priceOverride ?? item.price;
+          convertAmount(parsed.packageCustomizations?.[item.id]?.priceOverride ?? item.price);
         const oneTimeTotal = allItems.filter((i) => !i.recurring).reduce((s, i) => s + getPrice(i), 0)
-          + (parsed.customItems || []).filter(i => !i.recurring).reduce((s, i) => s + i.price, 0);
+          + (parsed.customItems || []).filter(i => !i.recurring).reduce((s, i) => s + convertAmount(i.price), 0);
 
         if (oneTimeTotal === 0) {
           // $0 contract — skip payment, auto-confirm and send contract signing link directly

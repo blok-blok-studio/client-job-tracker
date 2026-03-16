@@ -1059,17 +1059,21 @@ export function generateContractBody(
   customTerms?: string,
   packageCustomizations?: Record<string, PackageCustomization>,
   paymentSchedule?: PaymentMilestone[],
-  currency?: "usd" | "eur"
+  currency?: "usd" | "eur",
+  exchangeRate?: number // USD→EUR rate (e.g. 0.87)
 ): string {
   const sym = currency === "eur" ? "\u20ac" : "$";
   const code = currency === "eur" ? "EUR" : "USD";
+  const convert = (usd: number) =>
+    currency === "eur" && exchangeRate ? Math.round(usd * exchangeRate) : usd;
   const packages = SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id));
   const addons = ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id));
   const allItems = [...packages, ...addons];
 
   const getPrice = (item: ServicePackage) => {
     const c = packageCustomizations?.[item.id];
-    return c?.priceOverride != null ? c.priceOverride : item.price;
+    const usdPrice = c?.priceOverride != null ? c.priceOverride : item.price;
+    return convert(usdPrice);
   };
 
   const getDeliverables = (item: ServicePackage) => {
@@ -1141,9 +1145,10 @@ The Provider agrees to deliver the following services to the Client:
   if (customItems.length > 0) {
     customItems.forEach((item, idx) => {
       const letter = String.fromCharCode(65 + allItems.length + idx);
+      const convertedPrice = convert(item.price);
       const priceStr = item.recurring
-        ? `${sym}${item.price.toLocaleString()} ${code}/mo`
-        : `${sym}${item.price.toLocaleString()} ${code}`;
+        ? `${sym}${convertedPrice.toLocaleString()} ${code}/mo`
+        : `${sym}${convertedPrice.toLocaleString()} ${code}`;
       contract += `${letter}. ${item.name}    ${priceStr}
 `;
     });
@@ -1169,7 +1174,7 @@ The Provider agrees to deliver the following services to the Client:
 `;
     });
     oneTimeCustom.forEach((item) => {
-      contract += `   ${item.name}    ${sym}${item.price.toLocaleString()} ${code}
+      contract += `   ${item.name}    ${sym}${convert(item.price).toLocaleString()} ${code}
 `;
     });
     contract += `
@@ -1188,20 +1193,20 @@ The Provider agrees to deliver the following services to the Client:
 `;
     });
     recurringCustom.forEach((item) => {
-      contract += `   ${item.name}    ${sym}${item.price.toLocaleString()} ${code}/mo
+      contract += `   ${item.name}    ${sym}${convert(item.price).toLocaleString()} ${code}/mo
 `;
     });
     contract += `
 `;
   }
 
-  // Totals
+  // Totals (getPrice already converts; custom items need explicit convert)
   const oneTimeTotal =
     oneTimeItems.reduce((sum, i) => sum + getPrice(i), 0) +
-    oneTimeCustom.reduce((sum, i) => sum + i.price, 0);
+    oneTimeCustom.reduce((sum, i) => sum + convert(i.price), 0);
   const recurringTotal =
     recurringItems.reduce((sum, i) => sum + getPrice(i), 0) +
-    recurringCustom.reduce((sum, i) => sum + i.price, 0);
+    recurringCustom.reduce((sum, i) => sum + convert(i.price), 0);
 
   if (oneTimeTotal > 0) {
     contract += `Total    ${sym}${oneTimeTotal.toLocaleString()} ${code}
