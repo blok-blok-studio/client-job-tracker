@@ -165,6 +165,25 @@ export const SERVICE_PACKAGES: ServicePackage[] = [
   // ─── Web & Brand Packages ──────────────────────────────────────
 
   {
+    id: "single-page-launch",
+    name: "Single Page Launch",
+    category: "web-brand",
+    price: 2000,
+    description: "Best for a simple online presence.",
+    deliverables: [
+      "Custom landing page (1 page) — fully custom-designed, mobile-responsive, built in Next.js with scroll-based sections: hero, about, services, testimonials, and contact form",
+      "Responsive layout for desktop, tablet, and mobile",
+      "SEO meta title and description written",
+      "SSL certificate and hosting setup on Vercel included",
+      "Brand identity: 2 initial logo concepts (PNG, SVG, PDF — full color, white, and black versions), 1 primary color palette (5 colors with hex codes), 1 font pairing (heading + body). No full brand guidelines document at this tier",
+      "Analytics & tracking: GA4 installed and configured, 1 conversion goal, Google Search Console connected, basic CTA event tracking",
+      "2 design revision rounds (1 round = 1 consolidated set of feedback within 5 business days, no partial or rolling feedback)",
+      "Content & copy: client provides all written content (headlines, body copy, bios, service descriptions) — we handle layout, formatting, and placement. Copywriting add-on available at $200/page",
+    ],
+    timeline: "1 to 2 weeks",
+    supportPeriod: "14 days post-launch support",
+  },
+  {
     id: "starter-launch",
     name: "Starter Launch",
     category: "web-brand",
