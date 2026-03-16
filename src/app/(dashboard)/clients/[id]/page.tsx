@@ -93,6 +93,8 @@ export default function ClientDetailPage() {
   const [providerSignatureData, setProviderSignatureData] = useState<string | null>(null);
   const [contractCountry, setContractCountry] = useState("DE");
   const [contractSchedule, setContractSchedule] = useState<"no-payment" | "none" | "50/50" | "50/25/25">("50/50");
+  // Live exchange rate for EUR conversion
+  const [eurRate, setEurRate] = useState<number | null>(null);
   // Assets section state
   const [assetsTab, setAssetsTab] = useState<"passwords" | "media" | "contracts">("passwords");
   const [revealedCred, setRevealedCred] = useState<Record<string, { username: string; password: string; notes: string | null }>>({});
@@ -120,6 +122,22 @@ export default function ClientDetailPage() {
   }, [id]);
 
   useEffect(() => { fetchClient(); }, [fetchClient]);
+
+  // Fetch live USD→EUR rate
+  useEffect(() => {
+    fetch("/api/exchange-rate")
+      .then((r) => r.json())
+      .then((d) => { if (d.success && d.rate) setEurRate(d.rate); })
+      .catch(() => {});
+  }, []);
+
+  const EU_COUNTRIES = ["DE","AT","NL","BE","FR","IT","ES","PT","IE","FI","SE","DK","PL","CZ","GR","HU","RO","BG","HR","SK","SI","LT","LV","EE","CY","MT","LU"];
+  const isEurContract = EU_COUNTRIES.includes(contractCountry);
+  const contractCurrSym = isEurContract ? "€" : "$";
+  const convertPrice = (usdAmount: number) => {
+    if (!isEurContract || !eurRate) return usdAmount;
+    return Math.round(usdAmount * eurRate);
+  };
 
   async function handleUpdate(data: Record<string, unknown>) {
     await fetch(`/api/clients/${id}`, {
@@ -1430,7 +1448,7 @@ export default function ClientDetailPage() {
                         const isSelected = selectedPackages.includes(pkg.id);
                         const isExpanded = contractExpandedPkgs.includes(pkg.id);
                         const cust = contractCustomizations[pkg.id];
-                        const displayPrice = cust?.priceOverride != null ? cust.priceOverride : pkg.price;
+                        const displayPrice = convertPrice(cust?.priceOverride != null ? cust.priceOverride : pkg.price);
                         const hasOverride = cust?.priceOverride != null || (cust?.excludedDeliverables && cust.excludedDeliverables.length > 0);
                         return (
                         <div key={pkg.id}>
@@ -1459,7 +1477,7 @@ export default function ClientDetailPage() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-medium text-white">{pkg.name}</span>
                               <span className={`text-sm font-mono font-semibold ${pkg.recurring ? "text-blue-400" : "text-bb-orange"}`}>
-                                ${displayPrice.toLocaleString()}{pkg.recurring ? "/mo" : ""}
+                                {contractCurrSym}{displayPrice.toLocaleString()}{pkg.recurring ? "/mo" : ""}
                               </span>
                               {hasOverride && <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 font-medium">Modified</span>}
                               {pkg.recurring ? (
@@ -1509,7 +1527,7 @@ export default function ClientDetailPage() {
                               </div>
                               {cust?.priceOverride != null && cust.priceOverride !== pkg.price && (
                                 <p className="text-[10px] text-yellow-400 mt-1">
-                                  Original: ${pkg.price.toLocaleString()} → Custom: ${cust.priceOverride.toLocaleString()}
+                                  Original: {contractCurrSym}{convertPrice(pkg.price).toLocaleString()} → Custom: {contractCurrSym}{convertPrice(cust.priceOverride).toLocaleString()}
                                 </p>
                               )}
                             </div>
@@ -1559,7 +1577,7 @@ export default function ClientDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
               {ADDON_PACKAGES.map((addon) => {
                 const addonCust = contractCustomizations[addon.id];
-                const addonPrice = addonCust?.priceOverride != null ? addonCust.priceOverride : addon.price;
+                const addonPrice = convertPrice(addonCust?.priceOverride != null ? addonCust.priceOverride : addon.price);
                 return (
                 <label key={addon.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
                   selectedAddons.includes(addon.id)
@@ -1584,7 +1602,7 @@ export default function ClientDetailPage() {
                   <div className="flex-1">
                     <span className="text-xs font-medium text-white">{addon.name}</span>
                     <span className={`text-xs ml-1 font-mono ${addon.recurring ? "text-blue-400" : "text-bb-orange"}`}>
-                      ${addonPrice.toLocaleString()}{addon.recurring ? "/mo" : ""}
+                      {contractCurrSym}{addonPrice.toLocaleString()}{addon.recurring ? "/mo" : ""}
                     </span>
                     {addonCust?.priceOverride != null && <span className="text-[9px] ml-1 text-yellow-400">modified</span>}
                   </div>
@@ -1705,14 +1723,14 @@ export default function ClientDetailPage() {
               ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id)),
             ];
             const validCustom = customItems.filter(i => i.name.trim() && Number(i.price) > 0);
-            const getEffectivePrice = (i: { id: string; price: number }) => contractCustomizations[i.id]?.priceOverride ?? i.price;
+            const getEffectivePrice = (i: { id: string; price: number }) => convertPrice(contractCustomizations[i.id]?.priceOverride ?? i.price);
             const oneTimeItems = [
               ...allSelected.filter((i) => !i.recurring).map(i => ({ name: i.name, price: getEffectivePrice(i) })),
-              ...validCustom.filter(i => !i.recurring).map(i => ({ name: i.name, price: Number(i.price) })),
+              ...validCustom.filter(i => !i.recurring).map(i => ({ name: i.name, price: convertPrice(Number(i.price)) })),
             ];
             const recurringItems = [
               ...allSelected.filter((i) => i.recurring).map(i => ({ name: i.name, price: getEffectivePrice(i) })),
-              ...validCustom.filter(i => i.recurring).map(i => ({ name: i.name, price: Number(i.price) })),
+              ...validCustom.filter(i => i.recurring).map(i => ({ name: i.name, price: convertPrice(Number(i.price)) })),
             ];
             const oneTimeTotal = oneTimeItems.reduce((sum, i) => sum + i.price, 0);
             const recurringTotal = recurringItems.reduce((sum, i) => sum + i.price, 0);
@@ -1728,13 +1746,13 @@ export default function ClientDetailPage() {
                       {oneTimeItems.map((item, idx) => (
                         <div key={idx} className="flex justify-between text-xs">
                           <span className="text-bb-muted">{item.name}</span>
-                          <span className="text-bb-orange font-mono">${item.price.toLocaleString()}</span>
+                          <span className="text-bb-orange font-mono">{contractCurrSym}{item.price.toLocaleString()}</span>
                         </div>
                       ))}
                       {oneTimeItems.length > 1 && (
                         <div className="flex justify-between text-sm pt-1 border-t border-bb-border/30">
                           <span className="text-bb-dim text-xs font-medium">Subtotal</span>
-                          <span className="text-bb-orange font-mono font-semibold">${oneTimeTotal.toLocaleString()}</span>
+                          <span className="text-bb-orange font-mono font-semibold">{contractCurrSym}{oneTimeTotal.toLocaleString()}</span>
                         </div>
                       )}
                     </div>
@@ -1750,13 +1768,13 @@ export default function ClientDetailPage() {
                       {recurringItems.map((item, idx) => (
                         <div key={idx} className="flex justify-between text-xs">
                           <span className="text-bb-muted">{item.name}</span>
-                          <span className="text-blue-400 font-mono">${item.price.toLocaleString()}/mo</span>
+                          <span className="text-blue-400 font-mono">{contractCurrSym}{item.price.toLocaleString()}/mo</span>
                         </div>
                       ))}
                       {recurringItems.length > 1 && (
                         <div className="flex justify-between text-sm pt-1 border-t border-bb-border/30">
                           <span className="text-bb-dim text-xs font-medium">Subtotal</span>
-                          <span className="text-blue-400 font-mono font-semibold">${recurringTotal.toLocaleString()}/mo</span>
+                          <span className="text-blue-400 font-mono font-semibold">{contractCurrSym}{recurringTotal.toLocaleString()}/mo</span>
                         </div>
                       )}
                     </div>
@@ -1766,7 +1784,7 @@ export default function ClientDetailPage() {
                   <div className="flex justify-between text-sm pt-2 border-t border-bb-border/50">
                     <span className="text-white text-xs font-semibold">Total</span>
                     <span className="text-white font-mono font-semibold">
-                      ${oneTimeTotal.toLocaleString()} + ${recurringTotal.toLocaleString()}/mo
+                      {contractCurrSym}{oneTimeTotal.toLocaleString()} + {contractCurrSym}{recurringTotal.toLocaleString()}/mo
                     </span>
                   </div>
                 )}
@@ -1805,9 +1823,9 @@ export default function ClientDetailPage() {
                 ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id)),
               ];
               const validCustom = customItems.filter(i => i.name.trim() && Number(i.price) > 0);
-              const getEffectivePrice = (i: { id: string; price: number }) => contractCustomizations[i.id]?.priceOverride ?? i.price;
+              const getEffectivePrice = (i: { id: string; price: number }) => convertPrice(contractCustomizations[i.id]?.priceOverride ?? i.price);
               const oneTimeTotal = allSelected.filter((i) => !i.recurring).reduce((s, i) => s + getEffectivePrice(i), 0)
-                + validCustom.filter(i => !i.recurring).reduce((s, i) => s + Number(i.price), 0);
+                + validCustom.filter(i => !i.recurring).reduce((s, i) => s + convertPrice(Number(i.price)), 0);
               if (oneTimeTotal <= 0) return null;
               const splits = contractSchedule === "50/50"
                 ? [{ label: "Deposit", percent: 50 }, { label: "Completion", percent: 50 }]
@@ -1817,12 +1835,12 @@ export default function ClientDetailPage() {
                   {splits.map((s, i) => (
                     <div key={i} className="flex justify-between text-xs">
                       <span className="text-bb-muted">{s.label} ({s.percent}%)</span>
-                      <span className="text-bb-orange font-mono">${Math.round((oneTimeTotal * s.percent) / 100).toLocaleString()}</span>
+                      <span className="text-bb-orange font-mono">{contractCurrSym}{Math.round((oneTimeTotal * s.percent) / 100).toLocaleString()}</span>
                     </div>
                   ))}
                   <div className="flex justify-between text-xs pt-1 border-t border-bb-border/30">
                     <span className="text-bb-dim font-medium">Total</span>
-                    <span className="text-white font-mono font-semibold">${oneTimeTotal.toLocaleString()}</span>
+                    <span className="text-white font-mono font-semibold">{contractCurrSym}{oneTimeTotal.toLocaleString()}</span>
                   </div>
                   <p className="text-[10px] text-bb-dim pt-1">Deposit link will be auto-sent to the client. Other milestones can be sent manually.</p>
                 </div>
@@ -1902,8 +1920,8 @@ export default function ClientDetailPage() {
                 </optgroup>
               </select>
               <p className="text-[10px] text-bb-dim mt-1">
-                {["DE","AT","NL","BE","FR","IT","ES","PT","IE","FI","SE","DK","PL","CZ","GR","HU","RO","BG","HR","SK","SI","LT","LV","EE","CY","MT","LU"].includes(contractCountry)
-                  ? "Currency: EUR — EU invoice template"
+                {isEurContract
+                  ? `Currency: EUR — EU invoice template${eurRate ? ` (1 USD = ${eurRate.toFixed(4)} EUR live)` : ""}`
                   : "Currency: USD — US invoice template"}
               </p>
           </div>

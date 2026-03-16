@@ -16,6 +16,7 @@ const PUBLIC_PATHS = [
   "/api/telegram/webhook",
   "/api/stripe/webhook",
   "/api/cron",
+  "/api/exchange-rate",
 ];
 
 // In-memory rate limiter (Edge runtime compatible)

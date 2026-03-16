@@ -155,10 +155,11 @@ export async function createCheckoutSession(params: CreateCheckoutParams): Promi
   const firstName = params.clientName.split(" ")[0];
 
   // Build session params
+  // Use automatic_payment_methods instead of explicit types — Stripe picks
+  // the best methods for the currency/account, avoiding capability errors.
   const sessionParams: Record<string, unknown> = {
     customer: stripeCustomerId,
     line_items: [{ price: price.id, quantity: 1 }],
-    payment_method_types: currencyConfig.payment_methods,
     mode: isRecurring ? "subscription" : "payment",
     success_url: `${APP_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}&name=${encodeURIComponent(firstName)}`,
     cancel_url: `${APP_URL}/payment/cancelled`,
