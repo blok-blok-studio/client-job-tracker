@@ -196,40 +196,40 @@ function ContractRenderer({ body }: { body: string }) {
           );
         }
 
-        // Lettered items (A. Package Name    $5,000 USD)
-        if (/^[A-Z]\.\s/.test(trimmed) && trimmed.includes("$")) {
-          const parts = trimmed.match(/^([A-Z]\.\s.+?)\s{2,}\$(.+)$/);
+        // Lettered items (A. Package Name    $5,000 USD or €5,000 EUR)
+        if (/^[A-Z]\.\s/.test(trimmed) && /[$€]/.test(trimmed)) {
+          const parts = trimmed.match(/^([A-Z]\.\s.+?)\s{2,}([$€].+)$/);
           if (parts) {
             return (
               <div key={i} className="flex items-baseline justify-between pt-4 pb-1 pl-4">
                 <span className="text-sm font-semibold text-white">{parts[1]}</span>
-                <span className="text-sm font-mono text-bb-orange font-semibold">${parts[2]}</span>
+                <span className="text-sm font-mono text-bb-orange font-semibold">{parts[2]}</span>
               </div>
             );
           }
         }
 
         // Total line
-        if (trimmed.startsWith("Total") && trimmed.includes("$")) {
-          const parts = trimmed.match(/^Total\s{2,}\$(.+)$/);
+        if (trimmed.startsWith("Total") && /[$€]/.test(trimmed)) {
+          const parts = trimmed.match(/^Total\s{2,}([$€].+)$/);
           if (parts) {
             return (
               <div key={i} className="flex items-baseline justify-between pt-3 pb-1 pl-4 border-t border-bb-border/30 mt-2">
                 <span className="text-sm font-bold text-white">Total</span>
-                <span className="text-base font-mono text-bb-orange font-bold">${parts[1]}</span>
+                <span className="text-base font-mono text-bb-orange font-bold">{parts[1]}</span>
               </div>
             );
           }
         }
 
-        // Itemized breakdown lines (   Package Name    $X,XXX USD)
-        if (/^\s{3}\S/.test(line) && trimmed.includes("$") && trimmed.includes("USD") && !trimmed.startsWith("Total")) {
-          const parts = trimmed.match(/^(.+?)\s{2,}\$(.+)$/);
+        // Itemized breakdown lines (   Package Name    $X,XXX USD or €X,XXX EUR)
+        if (/^\s{3}\S/.test(line) && /[$€]/.test(trimmed) && /USD|EUR/.test(trimmed) && !trimmed.startsWith("Total")) {
+          const parts = trimmed.match(/^(.+?)\s{2,}([$€].+)$/);
           if (parts) {
             return (
               <div key={i} className="flex items-baseline justify-between pl-6 py-0.5">
                 <span className="text-xs text-bb-dim">{parts[1]}</span>
-                <span className="text-xs font-mono text-bb-muted">${parts[2]}</span>
+                <span className="text-xs font-mono text-bb-muted">{parts[2]}</span>
               </div>
             );
           }

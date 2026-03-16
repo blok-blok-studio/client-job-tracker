@@ -45,6 +45,8 @@ const ACTION_ICONS: Record<string, string> = {
   closed_stale_ticket: "X",
   logged_note: "N",
   archived_client: "A",
+  client_media_uploaded: "U",
+  client_promoted: "^",
 };
 
 const POLL_INTERVAL = 10_000; // 10 seconds

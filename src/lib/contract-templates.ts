@@ -1058,8 +1058,11 @@ export function generateContractBody(
   customItems: CustomLineItem[],
   customTerms?: string,
   packageCustomizations?: Record<string, PackageCustomization>,
-  paymentSchedule?: PaymentMilestone[]
+  paymentSchedule?: PaymentMilestone[],
+  currency?: "usd" | "eur"
 ): string {
+  const sym = currency === "eur" ? "\u20ac" : "$";
+  const code = currency === "eur" ? "EUR" : "USD";
   const packages = SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id));
   const addons = ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id));
   const allItems = [...packages, ...addons];
@@ -1103,8 +1106,8 @@ The Provider agrees to deliver the following services to the Client:
     const price = getPrice(item);
     const deliverables = getDeliverables(item);
     const priceStr = item.recurring
-      ? `$${price.toLocaleString()} USD/mo`
-      : `$${price.toLocaleString()} USD`;
+      ? `${sym}${price.toLocaleString()} ${code}/mo`
+      : `${sym}${price.toLocaleString()} ${code}`;
 
     contract += `${letter}. ${item.name}    ${priceStr}
    ${item.description}
@@ -1139,8 +1142,8 @@ The Provider agrees to deliver the following services to the Client:
     customItems.forEach((item, idx) => {
       const letter = String.fromCharCode(65 + allItems.length + idx);
       const priceStr = item.recurring
-        ? `$${item.price.toLocaleString()} USD/mo`
-        : `$${item.price.toLocaleString()} USD`;
+        ? `${sym}${item.price.toLocaleString()} ${code}/mo`
+        : `${sym}${item.price.toLocaleString()} ${code}`;
       contract += `${letter}. ${item.name}    ${priceStr}
 `;
     });
@@ -1162,11 +1165,11 @@ The Provider agrees to deliver the following services to the Client:
 `;
     oneTimeItems.forEach((item) => {
       const price = getPrice(item);
-      contract += `   ${item.name}    $${price.toLocaleString()} USD
+      contract += `   ${item.name}    ${sym}${price.toLocaleString()} ${code}
 `;
     });
     oneTimeCustom.forEach((item) => {
-      contract += `   ${item.name}    $${item.price.toLocaleString()} USD
+      contract += `   ${item.name}    ${sym}${item.price.toLocaleString()} ${code}
 `;
     });
     contract += `
@@ -1181,11 +1184,11 @@ The Provider agrees to deliver the following services to the Client:
 `;
     recurringItems.forEach((item) => {
       const price = getPrice(item);
-      contract += `   ${item.name}    $${price.toLocaleString()} USD/mo
+      contract += `   ${item.name}    ${sym}${price.toLocaleString()} ${code}/mo
 `;
     });
     recurringCustom.forEach((item) => {
-      contract += `   ${item.name}    $${item.price.toLocaleString()} USD/mo
+      contract += `   ${item.name}    ${sym}${item.price.toLocaleString()} ${code}/mo
 `;
     });
     contract += `
@@ -1201,11 +1204,11 @@ The Provider agrees to deliver the following services to the Client:
     recurringCustom.reduce((sum, i) => sum + i.price, 0);
 
   if (oneTimeTotal > 0) {
-    contract += `Total    $${oneTimeTotal.toLocaleString()} USD
+    contract += `Total    ${sym}${oneTimeTotal.toLocaleString()} ${code}
 `;
   }
   if (recurringTotal > 0) {
-    contract += `Total    $${recurringTotal.toLocaleString()} USD/mo
+    contract += `Total    ${sym}${recurringTotal.toLocaleString()} ${code}/mo
 `;
   }
 
@@ -1227,7 +1230,7 @@ SECTION 3. PAYMENT TERMS
           : milestone.label === "milestone"
           ? "Milestone payment due upon completion of project milestone"
           : "Final balance due upon project completion (Net 7)";
-        contract += `- ${milestone.percent}% ${label}: $${amount.toLocaleString()} USD\n`;
+        contract += `- ${milestone.percent}% ${label}: ${sym}${amount.toLocaleString()} ${code}\n`;
       }
       contract += `\n`;
     } else {
@@ -1240,7 +1243,7 @@ SECTION 3. PAYMENT TERMS
   }
 
   if (recurringTotal > 0 && oneTimeTotal === 0) {
-    contract += `Monthly services are billed on a recurring basis. The first payment of $${recurringTotal.toLocaleString()} USD is due upon signing of this Agreement. Subsequent invoices will be issued on the 1st of each month and are due within 7 days of receipt (Net 7).
+    contract += `Monthly services are billed on a recurring basis. The first payment of ${sym}${recurringTotal.toLocaleString()} ${code} is due upon signing of this Agreement. Subsequent invoices will be issued on the 1st of each month and are due within 7 days of receipt (Net 7).
 
 Either party may cancel recurring services with 30 days written notice. Cancellation takes effect at the end of the current billing cycle.
 

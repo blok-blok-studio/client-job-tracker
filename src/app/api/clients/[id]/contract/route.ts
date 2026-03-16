@@ -67,6 +67,7 @@ export async function POST(
     }
 
     const token = randomBytes(32).toString("hex");
+    const contractCurrency = getCurrencyForCountry(parsed.country);
     const contractBody = generateContractBody(
       client.name,
       client.company,
@@ -75,7 +76,8 @@ export async function POST(
       parsed.customItems,
       parsed.customTerms,
       parsed.packageCustomizations,
-      parsed.paymentSchedule
+      parsed.paymentSchedule,
+      contractCurrency
     );
 
     // SHA-256 hash of the contract body for tamper detection

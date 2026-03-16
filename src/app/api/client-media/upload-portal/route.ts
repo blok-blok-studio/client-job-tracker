@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { put } from "@vercel/blob";
 import { randomUUID } from "crypto";
+import { sendTelegramMessage } from "@/lib/telegram";
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB for client uploads (4K video)
 const ACCEPTED_MIMES = new Set([
@@ -97,15 +98,28 @@ export async function POST(request: NextRequest) {
       results.push({ filename: file.name, url: blob.url, id: record.id });
     }
 
+    const successCount = results.filter((r) => !("error" in r)).length;
+    const fileNames = results.filter((r) => !("error" in r)).map((r) => r.filename).join(", ");
+
     // Log activity
     await prisma.activityLog.create({
       data: {
         clientId: client.id,
         actor: client.name,
         action: "client_media_uploaded",
-        details: `${client.name} uploaded ${results.filter((r) => !("error" in r)).length} files`,
+        details: `${client.name} uploaded ${successCount} file${successCount !== 1 ? "s" : ""}: ${fileNames}`,
       },
     });
+
+    // Notify Chase via Telegram
+    const chaseChatId = process.env.ADMIN_TELEGRAM_CHAT_ID;
+    if (chaseChatId && successCount > 0) {
+      sendTelegramMessage(
+        chaseChatId,
+        `📸 <b>${client.name}</b> just uploaded ${successCount} file${successCount !== 1 ? "s" : ""}:\n${fileNames}`,
+        "HTML"
+      ).catch((err) => console.error("[Telegram] Upload notification failed:", err));
+    }
 
     return NextResponse.json({ success: true, data: results }, { status: 201 });
   } catch (err) {

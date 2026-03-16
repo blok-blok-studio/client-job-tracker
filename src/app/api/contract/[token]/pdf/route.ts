@@ -190,14 +190,14 @@ export async function GET(
       }
 
       // Lettered items with prices
-      if (/^[A-Z]\.\s/.test(trimmed) && trimmed.includes("$")) {
+      if (/^[A-Z]\.\s/.test(trimmed) && /[$\u20ac]/.test(trimmed)) {
         ensureSpace(LINE_HEIGHT);
         drawWrappedText(trimmed, FONT_SIZE, fontBold, DARK_TEXT);
         continue;
       }
 
       // Total line
-      if (trimmed.startsWith("Total") && trimmed.includes("$")) {
+      if (trimmed.startsWith("Total") && /[$\u20ac]/.test(trimmed)) {
         ensureSpace(LINE_HEIGHT + 10);
         y -= 4;
         page.drawLine({

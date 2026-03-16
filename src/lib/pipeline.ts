@@ -346,6 +346,22 @@ export async function onOnboardingCompleted(clientId: string) {
       data: { checked: true },
     });
 
+    // Promote client to ACTIVE if currently PROSPECT
+    if (client.type === "PROSPECT") {
+      await prisma.client.update({
+        where: { id: clientId },
+        data: { type: "ACTIVE" },
+      });
+      await prisma.activityLog.create({
+        data: {
+          clientId,
+          actor: "agent",
+          action: "client_promoted",
+          details: `${client.name} automatically promoted from PROSPECT to ACTIVE after onboarding completed`,
+        },
+      });
+    }
+
     // Send the signed contract copy to the client via email + Telegram
     const signedContract = await prisma.contractSignature.findFirst({
       where: { clientId, status: "SIGNED" },
