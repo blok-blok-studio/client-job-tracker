@@ -192,8 +192,9 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
           className="sr-only"
           tabIndex={-1}
           onChange={(e) => {
-            if (e.target.files?.length) {
-              addFiles(e.target.files);
+            const picked = Array.from(e.target.files || []);
+            if (picked.length) {
+              addFiles(picked);
             }
             e.target.value = "";
           }}
