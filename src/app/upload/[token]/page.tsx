@@ -154,12 +154,12 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
           </p>
         </div>
 
-        {/* Drop Zone — uses <label> so click-to-upload works natively on all browsers */}
-        <label
-          htmlFor="file-upload-input"
+        {/* Drop Zone */}
+        <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
           className={`flex flex-col items-center justify-center gap-4 py-16 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
             dragOver
               ? "border-orange-500 bg-orange-500/5 scale-[1.01]"
@@ -182,21 +182,22 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
               JPEG, PNG, GIF, WebP, HEIC, MP4, MOV, WebM, MP3, WAV
             </p>
           </div>
-          <input
-            id="file-upload-input"
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,video/*,audio/*"
-            multiple
-            className="sr-only"
-            onChange={(e) => {
-              if (e.target.files?.length) {
-                addFiles(e.target.files);
-                e.target.value = "";
-              }
-            }}
-          />
-        </label>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*,audio/*"
+          multiple
+          className="sr-only"
+          tabIndex={-1}
+          onChange={(e) => {
+            if (e.target.files?.length) {
+              addFiles(e.target.files);
+            }
+            e.target.value = "";
+          }}
+        />
 
         {/* File List */}
         {files.length > 0 && (
