@@ -171,7 +171,11 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
           </div>
           <div className="text-center">
             <p className="text-white font-medium">Drag & drop files here</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 mt-1">or</p>
+            <span className="inline-block mt-2 px-5 py-2 bg-white/10 hover:bg-white/15 text-white text-sm font-medium rounded-lg transition-colors">
+              Browse Files
+            </span>
+            <p className="text-xs text-gray-500 mt-3">
               Photos, videos, and audio &middot; Up to 500MB per file &middot; 20 files at a time
             </p>
             <p className="text-xs text-gray-600 mt-1">
