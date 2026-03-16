@@ -189,7 +189,7 @@ export async function createCheckoutSession(params: CreateCheckoutParams): Promi
   } else {
     sessionParams.subscription_data = {
       invoice_settings: {
-        rendering_options: { template: invoiceTemplate },
+        issuer: { type: "self" },
       },
     };
   }
