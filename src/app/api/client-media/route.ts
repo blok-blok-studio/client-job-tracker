@@ -8,9 +8,12 @@ export async function GET(request: NextRequest) {
   const fileType = searchParams.get("fileType");
   const search = searchParams.get("search");
 
+  const excludeArchived = searchParams.get("excludeArchived") !== "false";
+
   const where: Record<string, unknown> = {};
   if (clientId) where.clientId = clientId;
   if (fileType) where.fileType = fileType;
+  if (excludeArchived) where.client = { type: { not: "ARCHIVED" } };
   if (search) {
     where.OR = [
       { filename: { contains: search, mode: "insensitive" } },
@@ -20,7 +23,7 @@ export async function GET(request: NextRequest) {
 
   const media = await prisma.clientMedia.findMany({
     where,
-    include: { client: { select: { id: true, name: true, company: true } } },
+    include: { client: { select: { id: true, name: true, company: true, type: true } } },
     orderBy: { createdAt: "desc" },
     take: 200,
   });

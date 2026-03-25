@@ -22,7 +22,7 @@ interface MediaFile {
   label: string | null;
   notes: string | null;
   createdAt: string;
-  client: { id: string; name: string; company: string | null };
+  client: { id: string; name: string; company: string | null; type: string };
 }
 
 function formatSize(bytes: number) {
@@ -55,7 +55,15 @@ export default function FilesPage() {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
+  const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch full client list once (for dropdown)
+  useEffect(() => {
+    fetch("/api/clients").then((r) => r.json()).then((d) => {
+      if (d.success) setAllClients(d.data.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
+    }).catch(() => {});
+  }, []);
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -74,7 +82,6 @@ export default function FilesPage() {
 
   // Derived
   const selectedMedia = selectedId ? files.find((m) => m.id === selectedId) : null;
-  const clients = Array.from(new Map(files.map((f) => [f.client.id, f.client])).values());
   const filtered = files; // already filtered by API
 
   const counts = {
@@ -194,7 +201,7 @@ export default function FilesPage() {
             <span className="text-bb-border">|</span>
             <span>{formatSize(totalSize)} total</span>
             <span className="text-bb-border">|</span>
-            <span>{clients.length} clients</span>
+            <span>{allClients.length} clients</span>
           </div>
         </div>
 
@@ -236,7 +243,7 @@ export default function FilesPage() {
             className="text-xs bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-bb-orange"
           >
             <option value="ALL">All clients</option>
-            {clients.map((c) => (
+            {allClients.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
