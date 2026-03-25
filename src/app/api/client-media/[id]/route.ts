@@ -2,6 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { del } from "@vercel/blob";
 
+// PATCH — update media label/notes
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  try {
+    const body = await request.json();
+    const { label, notes } = body;
+
+    const media = await prisma.clientMedia.update({
+      where: { id },
+      data: {
+        ...(label !== undefined && { label }),
+        ...(notes !== undefined && { notes }),
+      },
+    });
+
+    return NextResponse.json({ success: true, data: media });
+  } catch {
+    return NextResponse.json({ success: false, error: "Failed to update media" }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

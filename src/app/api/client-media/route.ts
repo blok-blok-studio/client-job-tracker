@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-// GET — list media for a client
+// GET — list media, optionally filtered by client
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const clientId = searchParams.get("clientId");
   const fileType = searchParams.get("fileType");
   const search = searchParams.get("search");
 
-  if (!clientId) {
-    return NextResponse.json({ success: false, error: "clientId required" }, { status: 400 });
-  }
-
-  const where: Record<string, unknown> = { clientId };
+  const where: Record<string, unknown> = {};
+  if (clientId) where.clientId = clientId;
   if (fileType) where.fileType = fileType;
   if (search) {
     where.OR = [
@@ -23,8 +20,9 @@ export async function GET(request: NextRequest) {
 
   const media = await prisma.clientMedia.findMany({
     where,
+    include: { client: { select: { id: true, name: true, company: true } } },
     orderBy: { createdAt: "desc" },
-    take: 100,
+    take: 200,
   });
 
   return NextResponse.json({ success: true, data: media });

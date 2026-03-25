@@ -21,7 +21,7 @@ export async function GET(
         activityLogs: { orderBy: { createdAt: "desc" }, take: 20 },
         contracts: { orderBy: { createdAt: "desc" }, select: { id: true, token: true, status: true, signedName: true, signedAt: true, createdAt: true } },
         paymentLinks: { orderBy: { createdAt: "desc" }, select: { id: true, stripeUrl: true, amount: true, currency: true, description: true, recurring: true, interval: true, status: true, paidAt: true, milestone: true, contractId: true, createdAt: true } },
-        mediaFiles: { orderBy: { createdAt: "desc" }, select: { id: true, url: true, filename: true, fileType: true, fileSize: true, mimeType: true, uploadedBy: true, label: true, createdAt: true } },
+        mediaFiles: { orderBy: { createdAt: "desc" }, select: { id: true, url: true, filename: true, fileType: true, fileSize: true, mimeType: true, uploadedBy: true, label: true, notes: true, createdAt: true } },
       },
     });
 
