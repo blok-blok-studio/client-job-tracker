@@ -44,7 +44,7 @@ function getDefaultData(type: string): Record<string, unknown> {
   }
 }
 
-function FlowCanvasInner({ initialNodes, initialEdges, onNodesChange: onNodesExtChange, onEdgesChange: onEdgesExtChange, onNodeSelect, onNodeUpdate }: FlowCanvasProps) {
+function FlowCanvasInner({ initialNodes, initialEdges, onNodesChange: onNodesExtChange, onEdgesChange: onEdgesExtChange, onNodeSelect }: FlowCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes as Node[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges as Edge[]);
 
