@@ -27,11 +27,10 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     scopes: [
       "business_management",
       "instagram_business_basic",
-      "instagram_business_content_publish",
-      "instagram_business_manage_messages",
+      "instagram_manage_comments",
       "pages_show_list",
-      "pages_manage_posts",
       "pages_read_engagement",
+      "public_profile",
     ],
     scopeSeparator: ",",
     clientIdEnv: "META_APP_ID",
