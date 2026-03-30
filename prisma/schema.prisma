@@ -499,6 +499,7 @@ enum MediaFileType {
   IMAGE
   VIDEO
   AUDIO
+  DOCUMENT
 }
 
 // --- AUDIO LIBRARY ---
