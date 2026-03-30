@@ -26,7 +26,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     tokenUrl: "https://graph.facebook.com/v21.0/oauth/access_token",
     scopes: [
       "instagram_basic",
-      "instagram_content_publishing",
+      "instagram_content_publish",
       "instagram_manage_messages",
       "pages_show_list",
       "pages_read_engagement",
