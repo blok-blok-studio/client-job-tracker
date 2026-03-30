@@ -61,7 +61,7 @@ const statusBadge: Record<string, "gray" | "blue" | "yellow" | "green" | "red"> 
   FAILED: "red",
 };
 
-const PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "LINKEDIN", "YOUTUBE", "FACEBOOK"];
+const PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "THREADS", "LINKEDIN", "YOUTUBE", "FACEBOOK"];
 
 export default function ContentPage() {
   const [posts, setPosts] = useState<ContentPost[]>([]);

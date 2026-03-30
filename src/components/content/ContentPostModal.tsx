@@ -105,7 +105,7 @@ interface ContentPostData {
   enableComments?: boolean;
 }
 
-const PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "LINKEDIN", "YOUTUBE", "FACEBOOK"];
+const PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "THREADS", "LINKEDIN", "YOUTUBE", "FACEBOOK"];
 const STATUSES = ["DRAFT", "SCHEDULED"];
 const ACCEPTED_TYPES = "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm";
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -536,6 +536,19 @@ export default function ContentPostModal({
     updatePlatformSetting("pollOptions", pollOptions.filter((_, i) => i !== idx));
   };
 
+  // ─── Timezone helpers ────────────────────────────────────────────────────
+
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const userTzAbbr = new Date().toLocaleTimeString("en-US", { timeZoneName: "short" }).split(" ").pop() || "";
+
+  /** Convert datetime-local value to proper ISO string with timezone offset */
+  function localToISO(datetimeLocal: string): string {
+    if (!datetimeLocal) return "";
+    // datetime-local gives "2026-03-30T14:00" — create Date in local tz
+    const d = new Date(datetimeLocal);
+    return d.toISOString(); // converts to UTC ISO string
+  }
+
   // ─── Submit ─────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
@@ -552,7 +565,7 @@ export default function ContentPostModal({
         body,
         hashtags,
         mediaUrls,
-        scheduledAt,
+        scheduledAt: localToISO(scheduledAt),
         location: location || null,
         taggedUsers,
         collaborators,
@@ -644,13 +657,16 @@ export default function ContentPostModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-bb-muted mb-1">Schedule</label>
+                <label className="block text-sm font-medium text-bb-muted mb-1">
+                  Schedule <span className="text-bb-dim font-normal">({userTzAbbr})</span>
+                </label>
                 <input
                   type="datetime-local"
                   value={scheduledAt}
                   onChange={(e) => setScheduledAt(e.target.value)}
                   className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-white text-sm"
                 />
+                <p className="text-[10px] text-bb-dim mt-1">{userTimezone}</p>
               </div>
             </div>
 

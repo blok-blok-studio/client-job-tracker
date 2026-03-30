@@ -6,6 +6,7 @@ import { publishToLinkedin } from "./platforms/linkedin";
 import { publishToFacebook } from "./platforms/facebook";
 import { publishToTiktok } from "./platforms/tiktok";
 import { publishToYoutube } from "./platforms/youtube";
+import { publishToThreads } from "./platforms/threads";
 
 /** Strip tokens/keys from error messages to prevent credential leakage in logs */
 export function sanitizePublishError(message: string): string {
@@ -43,6 +44,7 @@ function findCredential(credentials: Credential[], platform: string): Credential
     TWITTER: ["twitter", "x", "x.com"],
     LINKEDIN: ["linkedin"],
     TIKTOK: ["tiktok"],
+    THREADS: ["threads"],
     YOUTUBE: ["youtube", "google"],
   };
 
@@ -99,6 +101,8 @@ export async function publishPost(
       return publishToTiktok(content, decrypted);
     case "YOUTUBE":
       return publishToYoutube(content, decrypted);
+    case "THREADS":
+      return publishToThreads(content, decrypted);
     default:
       throw new Error(`Unsupported platform: ${post.platform}`);
   }

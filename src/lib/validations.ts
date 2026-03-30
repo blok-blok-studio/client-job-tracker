@@ -61,7 +61,7 @@ export const credentialSchema = z.object({
   notes: z.string().optional().or(z.literal("")),
 });
 
-export const SOCIAL_PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "LINKEDIN", "YOUTUBE", "FACEBOOK"] as const;
+export const SOCIAL_PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "THREADS", "LINKEDIN", "YOUTUBE", "FACEBOOK"] as const;
 export const CONTENT_POST_STATUSES = ["DRAFT", "SCHEDULED", "PUBLISHING", "PUBLISHED", "FAILED"] as const;
 
 export const contentPostSchema = z.object({

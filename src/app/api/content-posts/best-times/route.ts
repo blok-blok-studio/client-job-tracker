@@ -45,6 +45,12 @@ const DEFAULT_BEST_TIMES: Record<string, { day: number; hour: number; label: str
     { day: 6, hour: 12, label: "Sat 12:00 PM" },
     { day: 0, hour: 14, label: "Sun 2:00 PM" },
   ],
+  THREADS: [
+    { day: 1, hour: 10, label: "Mon 10:00 AM" },
+    { day: 3, hour: 12, label: "Wed 12:00 PM" },
+    { day: 4, hour: 11, label: "Thu 11:00 AM" },
+    { day: 5, hour: 9, label: "Fri 9:00 AM" },
+  ],
 };
 
 export async function GET(request: NextRequest) {
