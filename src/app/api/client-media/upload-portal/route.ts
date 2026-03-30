@@ -6,9 +6,25 @@ import { sendTelegramMessage } from "@/lib/telegram";
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB for client uploads (4K video)
 const ACCEPTED_MIMES = new Set([
-  "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic",
-  "video/mp4", "video/quicktime", "video/webm", "video/x-msvideo",
+  // Images
+  "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif",
+  "image/svg+xml", "image/bmp", "image/tiff", "image/x-icon", "image/avif",
+  // Videos
+  "video/mp4", "video/quicktime", "video/webm", "video/x-msvideo", "video/x-matroska",
+  "video/x-ms-wmv", "video/x-flv", "video/3gpp", "video/3gpp2", "video/ogg",
+  "video/x-m4v", "video/mp2t",
+  // Audio
   "audio/mpeg", "audio/wav", "audio/mp4", "audio/ogg", "audio/webm",
+  "audio/aac", "audio/flac", "audio/x-m4a", "audio/x-aiff",
+  // Documents
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain", "text/csv", "text/rtf", "application/rtf",
 ]);
 
 // GET — validate token and get client info
@@ -54,9 +70,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "No files provided" }, { status: 400 });
     }
 
-    if (files.length > 20) {
-      return NextResponse.json({ success: false, error: "Maximum 20 files per upload" }, { status: 400 });
-    }
+    // No file count limit — files are uploaded one at a time from the portal
 
     const results = [];
 
@@ -81,14 +95,14 @@ export async function POST(request: NextRequest) {
         ? "VIDEO"
         : file.type.startsWith("audio/")
         ? "AUDIO"
-        : "IMAGE";
+        : "DOCUMENT";
 
       const record = await prisma.clientMedia.create({
         data: {
           clientId: client.id,
           url: blob.url,
           filename: file.name,
-          fileType: fileType as "IMAGE" | "VIDEO" | "AUDIO",
+          fileType: fileType as "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT",
           fileSize: file.size,
           mimeType: file.type,
           uploadedBy: "client",

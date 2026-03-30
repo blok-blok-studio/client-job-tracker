@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Upload, CheckCircle, AlertCircle, Loader2, Film, Image as ImageIcon, Music, X, FileUp, Check } from "lucide-react";
+import { Upload, CheckCircle, AlertCircle, Loader2, Film, Image as ImageIcon, Music, X, FileUp, Check, FileText } from "lucide-react";
 
 interface ClientInfo {
   id: string;
@@ -64,48 +64,71 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
     setUploadProgress(0);
     setResults([]);
 
-    const formData = new FormData();
-    formData.append("token", token);
-    files.forEach((f) => formData.append("files", f));
+    const allResults: UploadResult[] = [];
+    const totalSize = files.reduce((s, f) => s + f.size, 0);
+    let uploadedSize = 0;
 
-    const xhr = new XMLHttpRequest();
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
 
-    xhr.upload.addEventListener("progress", (e) => {
-      if (e.lengthComputable) {
-        setUploadProgress(Math.round((e.loaded / e.total) * 100));
-      }
-    });
-
-    xhr.addEventListener("load", () => {
       try {
-        const data = JSON.parse(xhr.responseText);
-        if (data.success) {
-          setResults(data.data);
-          setFiles([]);
-        } else {
-          setResults([{ filename: "Upload", error: data.error }]);
-        }
+        const result = await new Promise<UploadResult>((resolve) => {
+          const formData = new FormData();
+          formData.append("token", token);
+          formData.append("files", file);
+
+          const xhr = new XMLHttpRequest();
+
+          xhr.upload.addEventListener("progress", (e) => {
+            if (e.lengthComputable) {
+              const overall = uploadedSize + e.loaded;
+              setUploadProgress(Math.round((overall / totalSize) * 100));
+            }
+          });
+
+          xhr.addEventListener("load", () => {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              if (data.success && data.data?.[0]) {
+                resolve(data.data[0]);
+              } else {
+                resolve({ filename: file.name, error: data.error || "Upload failed" });
+              }
+            } catch {
+              resolve({ filename: file.name, error: "Upload failed" });
+            }
+          });
+
+          xhr.addEventListener("error", () => {
+            resolve({ filename: file.name, error: "Upload failed. Please try again." });
+          });
+
+          xhr.open("POST", "/api/client-media/upload-portal");
+          xhr.send(formData);
+        });
+
+        allResults.push(result);
+        uploadedSize += file.size;
+        setUploadProgress(Math.round((uploadedSize / totalSize) * 100));
+        setResults([...allResults]);
       } catch {
-        setResults([{ filename: "Upload", error: "Upload failed. Please try again." }]);
+        allResults.push({ filename: file.name, error: "Upload failed" });
+        uploadedSize += file.size;
+        setResults([...allResults]);
       }
-      setUploading(false);
-      setUploadProgress(0);
-    });
+    }
 
-    xhr.addEventListener("error", () => {
-      setResults([{ filename: "Upload", error: "Upload failed. Please try again." }]);
-      setUploading(false);
-      setUploadProgress(0);
-    });
-
-    xhr.open("POST", "/api/client-media/upload-portal");
-    xhr.send(formData);
+    setFiles([]);
+    setUploading(false);
+    setUploadProgress(0);
   };
 
   const getFileIcon = (file: File) => {
     if (file.type.startsWith("image/")) return <ImageIcon size={16} className="text-blue-400" />;
     if (file.type.startsWith("video/")) return <Film size={16} className="text-purple-400" />;
     if (file.type.startsWith("audio/")) return <Music size={16} className="text-green-400" />;
+    if (file.type === "application/pdf" || file.type.startsWith("application/vnd.") || file.type.startsWith("application/ms") || file.type.startsWith("text/"))
+      return <FileText size={16} className="text-orange-400" />;
     return <FileUp size={16} className="text-gray-400" />;
   };
 
@@ -150,7 +173,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
           )}
           <h1 className="text-2xl font-bold text-white mb-1">Upload Files</h1>
           <p className="text-sm text-gray-400">
-            {client.company || client.name} &middot; Upload your photos, videos, and audio
+            {client.company || client.name} &middot; Upload your photos, videos, audio, and documents
           </p>
         </div>
 
@@ -176,10 +199,10 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
               Browse Files
             </span>
             <p className="text-xs text-gray-500 mt-3">
-              Photos, videos, and audio &middot; Up to 500MB per file &middot; 20 files at a time
+              Photos, videos, audio, and documents &middot; Up to 500MB per file
             </p>
             <p className="text-xs text-gray-600 mt-1">
-              JPEG, PNG, GIF, WebP, HEIC, MP4, MOV, WebM, MP3, WAV
+              All image &amp; video formats, PDF, Word, Excel, PowerPoint, and more
             </p>
           </div>
         </div>
@@ -187,7 +210,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,video/*,audio/*"
+          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
           multiple
           className="sr-only"
           tabIndex={-1}
@@ -279,17 +302,22 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
               <div className="grid grid-cols-3 gap-2 mb-3">
                 {results.filter((r) => r.url).map((r, idx) => (
                   <div key={idx} className="relative rounded-xl overflow-hidden bg-white/[0.03] border border-green-500/20 aspect-square">
-                    {r.filename.match(/\.(jpg|jpeg|png|gif|webp|heic)$/i) ? (
+                    {r.filename.match(/\.(jpg|jpeg|png|gif|webp|heic|heif|bmp|avif|svg)$/i) ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={r.url} alt={r.filename} className="w-full h-full object-cover" />
-                    ) : r.filename.match(/\.(mp4|mov|webm|avi)$/i) ? (
+                    ) : r.filename.match(/\.(mp4|mov|webm|avi|mkv|wmv|flv|3gp|m4v|ogv|ts)$/i) ? (
                       <div className="w-full h-full flex flex-col items-center justify-center">
                         <Film size={24} className="text-purple-400 mb-1" />
                         <span className="text-[10px] text-gray-400 truncate max-w-full px-2">{r.filename}</span>
                       </div>
-                    ) : (
+                    ) : r.filename.match(/\.(mp3|wav|ogg|m4a|aac|flac|aiff|weba)$/i) ? (
                       <div className="w-full h-full flex flex-col items-center justify-center">
                         <Music size={24} className="text-green-400 mb-1" />
+                        <span className="text-[10px] text-gray-400 truncate max-w-full px-2">{r.filename}</span>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center">
+                        <FileText size={24} className="text-orange-400 mb-1" />
                         <span className="text-[10px] text-gray-400 truncate max-w-full px-2">{r.filename}</span>
                       </div>
                     )}
