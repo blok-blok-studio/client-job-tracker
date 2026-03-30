@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { del } from "@vercel/blob";
 import { clientSchema } from "@/lib/validations";
 
 export async function GET(
@@ -14,7 +15,7 @@ export async function GET(
       include: {
         contacts: { orderBy: { createdAt: "asc" } },
         tasks: { orderBy: { sortOrder: "asc" }, take: 20 },
-        credentials: { select: { id: true, platform: true, label: true, username: true, url: true, lastRotated: true, createdAt: true } },
+        credentials: { select: { id: true, platform: true, label: true, url: true, lastRotated: true, createdAt: true } },
         checklistItems: { orderBy: { sortOrder: "asc" } },
         invoices: { orderBy: { createdAt: "desc" }, take: 10 },
         socialLinks: { orderBy: { createdAt: "asc" } },
@@ -82,20 +83,31 @@ export async function DELETE(
 
   try {
     if (permanent) {
-      // Permanently delete client and all related data (cascade)
-      const client = await prisma.client.findUnique({ where: { id }, select: { name: true } });
+      // Permanently delete client and all related data
+      const client = await prisma.client.findUnique({
+        where: { id },
+        select: { name: true, mediaFiles: { select: { url: true } } },
+      });
+
+      // Delete all media files from Vercel Blob storage before cascade
+      if (client?.mediaFiles.length) {
+        const urls = client.mediaFiles.map((m) => m.url);
+        await del(urls).catch((err) =>
+          console.error("[Blob] Failed to delete media files:", err)
+        );
+      }
+
       await prisma.client.delete({ where: { id } });
 
       return NextResponse.json({ success: true, message: `${client?.name || "Client"} permanently deleted` });
     }
 
-    // Soft archive — keep all data, invalidate all active links
+    // Soft archive — keep data and upload links intact
     const client = await prisma.client.update({
       where: { id },
       data: {
         type: "ARCHIVED",
         onboardToken: null,
-        uploadToken: null,
       },
       select: { id: true, name: true },
     });
@@ -111,7 +123,7 @@ export async function DELETE(
         clientId: id,
         actor: "chase",
         action: "archived_client",
-        details: `Archived client: ${client.name} — all active links invalidated`,
+        details: `Archived client: ${client.name}`,
       },
     });
 

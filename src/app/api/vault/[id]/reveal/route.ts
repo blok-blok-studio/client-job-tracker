@@ -59,6 +59,16 @@ export async function POST(
       ? decrypt(credential.notes, ivData.notes)
       : null;
 
+    // Audit log — track every credential reveal
+    await prisma.activityLog.create({
+      data: {
+        clientId: credential.clientId,
+        actor: "chase",
+        action: "credential_revealed",
+        details: `Revealed ${credential.platform} credential (${credential.label || "unlabeled"})`,
+      },
+    }).catch(() => {}); // Don't block reveal if logging fails
+
     return NextResponse.json({
       success: true,
       data: { username, password: password_decrypted, notes },

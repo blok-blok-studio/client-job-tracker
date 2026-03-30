@@ -34,21 +34,20 @@ export async function GET(
         id: true,
         platform: true,
         label: true,
-        username: true,
         url: true,
         lastRotated: true,
         createdAt: true,
       },
     });
 
-    // Username is encrypted — return masked
-    const masked = credentials.map((c) => ({
+    // Never return encrypted blobs — only safe metadata
+    const safe = credentials.map((c) => ({
       ...c,
-      username: c.username, // Will be decrypted on reveal
+      username: "••••••••",
       password: "••••••••",
     }));
 
-    return NextResponse.json({ success: true, data: masked });
+    return NextResponse.json({ success: true, data: safe });
   } catch {
     return NextResponse.json({ success: false, error: "Failed to fetch credentials" }, { status: 500 });
   }

@@ -78,7 +78,6 @@ interface CredentialOption {
   id: string;
   platform: string;
   label: string | null;
-  username: string;
 }
 
 interface ContentPostData {
@@ -689,7 +688,7 @@ export default function ContentPostModal({
                   <option value="">Auto-select account</option>
                   {credentials.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.label || c.platform}{c.username ? ` (${c.username})` : ""}
+                      {c.label || `${c.platform} account`}
                     </option>
                   ))}
                 </select>

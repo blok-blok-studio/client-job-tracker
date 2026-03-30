@@ -16,10 +16,23 @@ export async function GET(
     return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
   }
 
-  // Return masked
+  // Strip all encrypted fields — never expose encrypted blobs or IVs
   return NextResponse.json({
     success: true,
-    data: { ...credential, password: "••••••••", notes: credential.notes ? "[encrypted]" : null },
+    data: {
+      id: credential.id,
+      clientId: credential.clientId,
+      client: credential.client,
+      platform: credential.platform,
+      label: credential.label,
+      url: credential.url,
+      lastRotated: credential.lastRotated,
+      createdAt: credential.createdAt,
+      updatedAt: credential.updatedAt,
+      username: "••••••••",
+      password: "••••••••",
+      notes: credential.notes ? "[encrypted]" : null,
+    },
   });
 }
 

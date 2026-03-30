@@ -9,9 +9,18 @@ export async function GET() {
     orderBy: [{ client: { name: "asc" } }, { platform: "asc" }],
   });
 
-  // Mask passwords in list view
+  // Strip all encrypted fields — never expose encrypted blobs or IVs
   const masked = credentials.map((c) => ({
-    ...c,
+    id: c.id,
+    clientId: c.clientId,
+    client: c.client,
+    platform: c.platform,
+    label: c.label,
+    url: c.url,
+    lastRotated: c.lastRotated,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    username: "••••••••",
     password: "••••••••",
     notes: c.notes ? "[encrypted]" : null,
   }));
