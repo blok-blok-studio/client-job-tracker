@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Link2, Instagram, Twitter, Linkedin, Youtube, AtSign, Facebook, ChevronDown } from "lucide-react";
+import { Link2, Instagram, Twitter, Linkedin, Youtube, ChevronDown } from "lucide-react";
 
 const PROVIDERS = [
   {
