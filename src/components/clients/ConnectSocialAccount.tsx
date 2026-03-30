@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link2, Instagram, Twitter, Linkedin, Youtube, AtSign, ChevronDown } from "lucide-react";
 
 const PROVIDERS = [
@@ -43,15 +43,27 @@ const PROVIDERS = [
 
 export default function ConnectSocialAccount({ clientId }: { clientId: string }) {
   const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
 
   const handleConnect = (providerKey: string) => {
-    // Redirect to OAuth authorize endpoint
     window.location.href = `/api/oauth/${providerKey}/authorize?clientId=${clientId}`;
   };
+
+  useEffect(() => {
+    if (open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.bottom + 8,
+        left: Math.max(8, rect.right - 320),
+      });
+    }
+  }, [open]);
 
   return (
     <div className="relative">
       <button
+        ref={buttonRef}
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
       >
@@ -63,10 +75,13 @@ export default function ConnectSocialAccount({ clientId }: { clientId: string })
       {open && (
         <>
           {/* Backdrop */}
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
 
-          {/* Dropdown */}
-          <div className="absolute right-0 top-full mt-2 w-80 bg-bb-surface border border-bb-border rounded-xl shadow-2xl z-50 overflow-hidden">
+          {/* Dropdown — fixed position to avoid overflow clipping */}
+          <div
+            className="fixed w-80 bg-bb-surface border border-bb-border rounded-xl shadow-2xl z-[70] overflow-hidden"
+            style={{ top: pos.top, left: pos.left }}
+          >
             <div className="px-4 py-3 border-b border-bb-border">
               <h3 className="text-sm font-semibold text-white">Connect Social Account</h3>
               <p className="text-[11px] text-bb-dim mt-0.5">Authorize access to post on behalf of this client</p>
