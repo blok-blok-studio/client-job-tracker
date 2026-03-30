@@ -1,15 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Link2, Instagram, Twitter, Linkedin, Youtube, ChevronDown } from "lucide-react";
+import { Link2, Instagram, Twitter, Linkedin, Youtube, AtSign, ChevronDown } from "lucide-react";
 
 const PROVIDERS = [
   {
     key: "meta",
-    label: "Instagram / Facebook / Threads",
+    label: "Instagram / Facebook",
     icon: Instagram,
     color: "text-pink-400",
-    description: "Connects Instagram Business, Facebook Pages, and Threads",
+    description: "Connects Instagram Business and Facebook Pages",
+  },
+  {
+    key: "threads",
+    label: "Threads",
+    icon: AtSign,
+    color: "text-gray-300",
+    description: "Post text, images, and video to Threads",
   },
   {
     key: "twitter",

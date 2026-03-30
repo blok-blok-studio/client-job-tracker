@@ -162,6 +162,11 @@ async function handleStandardCallback(
             }
             break;
           }
+          case "threads": {
+            userId = userinfo.id || userId;
+            label = userinfo.username ? `@${userinfo.username}` : label;
+            break;
+          }
         }
       }
     } catch (err) {

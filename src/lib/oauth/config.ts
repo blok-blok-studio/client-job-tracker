@@ -38,6 +38,23 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     usePKCE: false,
     platforms: ["INSTAGRAM", "FACEBOOK", "THREADS"],
   },
+  threads: {
+    name: "Threads",
+    authUrl: "https://threads.net/oauth/authorize",
+    tokenUrl: "https://graph.threads.net/oauth/access_token",
+    scopes: [
+      "threads_basic",
+      "threads_content_publish",
+      "threads_manage_replies",
+      "threads_manage_insights",
+    ],
+    scopeSeparator: ",",
+    clientIdEnv: "THREADS_APP_ID",
+    clientSecretEnv: "THREADS_APP_SECRET",
+    usePKCE: false,
+    userinfoUrl: "https://graph.threads.net/v1.0/me?fields=id,username",
+    platforms: ["THREADS"],
+  },
   twitter: {
     name: "X (Twitter)",
     authUrl: "https://twitter.com/i/oauth2/authorize",
