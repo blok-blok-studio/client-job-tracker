@@ -89,7 +89,7 @@ export async function refreshCredential(credentialId: string): Promise<boolean> 
       lastRotated: new Date(),
     };
 
-    const newIvData = { ...ivData, password: encryptedAccess.iv };
+    const newIvData: Record<string, string | null> = { ...ivData, password: encryptedAccess.iv };
 
     // If a new refresh token was issued, update it
     if (newTokens.refresh_token) {
