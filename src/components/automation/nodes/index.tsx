@@ -18,11 +18,11 @@ export const TriggerNode = memo(({ data }: NodeProps) => (
       <span className="text-xs font-bold text-orange-300 uppercase tracking-wide">Trigger</span>
     </div>
     <p className="text-sm text-white font-medium">{(data as Record<string, unknown>).label as string || "When message received"}</p>
-    {(data as Record<string, unknown>).keywords && (
+    {((data as Record<string, unknown>).keywords as string[] | undefined)?.length ? (
       <p className="text-[10px] text-orange-200/60 mt-1">
-        Keywords: {((data as Record<string, unknown>).keywords as string[])?.join(", ")}
+        Keywords: {((data as Record<string, unknown>).keywords as string[]).join(", ")}
       </p>
-    )}
+    ) : null}
     <Handle type="source" position={Position.Bottom} style={handleStyle} />
   </div>
 ));
