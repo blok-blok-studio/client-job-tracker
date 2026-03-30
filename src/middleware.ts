@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   "/api/cron",
   "/api/exchange-rate",
   "/api/oauth",
+  "/api/dm-webhook",
 ];
 
 // In-memory rate limiter (Edge runtime compatible)

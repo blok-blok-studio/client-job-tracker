@@ -48,6 +48,7 @@ model Client {
   paymentLinks     PaymentLink[]
   contentPosts     ContentPost[]
   mediaFiles       ClientMedia[]
+  automationFlows  AutomationFlow[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -529,4 +530,63 @@ model AudioTrack {
   @@index([genre])
   @@index([mood])
   @@index([source])
+}
+
+// --- DM AUTOMATION (ManyChat Replacement) ---
+
+model AutomationFlow {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?  @db.Text
+  platform      String   // INSTAGRAM, FACEBOOK, THREADS
+  trigger       String   // KEYWORD, COMMENT, STORY_REPLY, NEW_FOLLOWER, MANUAL
+  triggerConfig Json?    // { keywords: [], matchType: "contains"|"exact"|"starts_with" }
+  nodes         Json     @default("[]") // Reactflow nodes
+  edges         Json     @default("[]") // Reactflow edges
+  active        Boolean  @default(false)
+
+  executions AutomationExecution[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([platform])
+  @@index([active])
+}
+
+model AutomationExecution {
+  id          String   @id @default(cuid())
+  flowId      String
+  flow        AutomationFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  contactId   String?  // Platform user ID (IG sender ID)
+  contactName String?  // Display name
+  status      String   @default("RUNNING") // RUNNING, PAUSED, COMPLETED, FAILED
+  currentNode String?  // Current node ID waiting for input
+  context     Json?    // { variables: {}, conversationHistory: [] }
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  error       String?  @db.Text
+
+  messages AutomationMessage[]
+
+  @@index([flowId])
+  @@index([contactId])
+  @@index([status])
+}
+
+model AutomationMessage {
+  id          String   @id @default(cuid())
+  executionId String
+  execution   AutomationExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  direction   String   // INBOUND, OUTBOUND
+  text        String?  @db.Text
+  mediaUrl    String?
+  nodeId      String?  // Which flow node produced this
+  metadata    Json?    // Quick replies sent, buttons clicked, etc.
+  createdAt   DateTime @default(now())
+
+  @@index([executionId])
 }
