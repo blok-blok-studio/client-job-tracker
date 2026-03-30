@@ -101,6 +101,8 @@ model Credential {
   iv          String
   lastRotated DateTime?
 
+  posts     ContentPost[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -395,6 +397,8 @@ model ContentPost {
   id            String            @id @default(cuid())
   clientId      String
   client        Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  credentialId  String?
+  credential    Credential?       @relation(fields: [credentialId], references: [id], onDelete: SetNull)
   platform      SocialPlatform
   status        ContentPostStatus @default(DRAFT)
 

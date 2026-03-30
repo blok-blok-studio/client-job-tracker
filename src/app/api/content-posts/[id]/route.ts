@@ -30,6 +30,7 @@ export async function PATCH(
 
     const data: Record<string, unknown> = {};
     if (parsed.clientId !== undefined) data.clientId = parsed.clientId;
+    if (parsed.credentialId !== undefined) data.credentialId = parsed.credentialId || null;
     if (parsed.platform !== undefined) data.platform = parsed.platform;
     if (parsed.status !== undefined) data.status = parsed.status;
     if (parsed.title !== undefined) data.title = parsed.title || null;

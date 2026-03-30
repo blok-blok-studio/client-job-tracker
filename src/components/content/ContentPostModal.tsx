@@ -74,9 +74,17 @@ interface PlatformSettings {
   shareToStory?: boolean;
 }
 
+interface CredentialOption {
+  id: string;
+  platform: string;
+  label: string | null;
+  username: string;
+}
+
 interface ContentPostData {
   id?: string;
   clientId: string;
+  credentialId?: string | null;
   platform: string;
   status?: string;
   title: string;
@@ -275,6 +283,8 @@ export default function ContentPostModal({
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState("");
   const [platform, setPlatform] = useState("INSTAGRAM");
+  const [credentialId, setCredentialId] = useState<string | null>(null);
+  const [credentials, setCredentials] = useState<CredentialOption[]>([]);
   const [status, setStatus] = useState("DRAFT");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -319,10 +329,37 @@ export default function ContentPostModal({
       });
   }, []);
 
+  // Fetch credentials when client + platform change
+  useEffect(() => {
+    if (!clientId || !platform) {
+      setCredentials([]);
+      setCredentialId(null);
+      return;
+    }
+    fetch(`/api/clients/${clientId}/credentials?platform=${platform.toLowerCase()}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setCredentials(d.data);
+          // Auto-select if only one credential, or keep existing selection
+          if (d.data.length === 1) {
+            setCredentialId(d.data[0].id);
+          } else if (!d.data.find((c: CredentialOption) => c.id === credentialId)) {
+            setCredentialId(null);
+          }
+        } else {
+          setCredentials([]);
+        }
+      })
+      .catch(() => setCredentials([]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, platform]);
+
   useEffect(() => {
     if (initialData) {
       setClientId(initialData.clientId);
       setPlatform(initialData.platform);
+      setCredentialId(initialData.credentialId || null);
       setStatus(initialData.status || "DRAFT");
       setTitle(initialData.title || "");
       setBody(initialData.body || "");
@@ -342,6 +379,7 @@ export default function ContentPostModal({
     } else {
       setClientId("");
       setPlatform("INSTAGRAM");
+      setCredentialId(null);
       setStatus("DRAFT");
       setTitle("");
       setBody("");
@@ -508,6 +546,7 @@ export default function ContentPostModal({
       await onSave({
         id: initialData?.id,
         clientId,
+        credentialId,
         platform,
         status: scheduledAt ? "SCHEDULED" : status,
         title,
@@ -637,6 +676,30 @@ export default function ContentPostModal({
                 ))}
               </div>
             </div>
+
+            {/* Account selector (when multiple credentials exist) */}
+            {credentials.length > 1 && (
+              <div>
+                <label className="block text-sm font-medium text-bb-muted mb-1">Account</label>
+                <select
+                  value={credentialId || ""}
+                  onChange={(e) => setCredentialId(e.target.value || null)}
+                  className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-white text-sm"
+                >
+                  <option value="">Auto-select account</option>
+                  {credentials.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label || c.platform}{c.username ? ` (${c.username})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {credentials.length === 0 && clientId && (
+              <p className="text-xs text-yellow-400/80">
+                No {getPlatformLabel(platform)} credentials found for this client. Add them in the Vault to enable publishing.
+              </p>
+            )}
 
             {/* Title (shown for YouTube always, optional for others) */}
             {(platform === "YOUTUBE" || platform === "LINKEDIN") && (

@@ -66,6 +66,7 @@ export const CONTENT_POST_STATUSES = ["DRAFT", "SCHEDULED", "PUBLISHING", "PUBLI
 
 export const contentPostSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
+  credentialId: z.string().nullable().optional(),
   platform: z.enum(SOCIAL_PLATFORMS),
   status: z.enum(CONTENT_POST_STATUSES).optional(),
   title: z.string().optional().or(z.literal("")),

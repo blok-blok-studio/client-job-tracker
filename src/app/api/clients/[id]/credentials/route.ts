@@ -18,10 +18,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const platform = _request.nextUrl.searchParams.get("platform");
 
   try {
+    const where: Record<string, unknown> = { clientId: id };
+    if (platform) {
+      // Match platform aliases (e.g., "INSTAGRAM" matches credentials with "instagram" in platform field)
+      where.platform = { contains: platform, mode: "insensitive" };
+    }
+
     const credentials = await prisma.credential.findMany({
-      where: { clientId: id },
+      where,
       orderBy: { platform: "asc" },
       select: {
         id: true,

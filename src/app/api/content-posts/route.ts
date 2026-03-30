@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     const post = await prisma.contentPost.create({
       data: {
         clientId: parsed.clientId,
+        credentialId: parsed.credentialId || null,
         platform: parsed.platform,
         status: parsed.status || (parsed.scheduledAt ? "SCHEDULED" : "DRAFT"),
         title: parsed.title || null,

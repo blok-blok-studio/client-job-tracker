@@ -56,10 +56,13 @@ function decryptCredential(credential: Credential): DecryptedCredential {
 }
 
 export async function publishPost(
-  post: ContentPost,
+  post: ContentPost & { credentialId?: string | null },
   credentials: Credential[]
 ): Promise<PublishResult> {
-  const credential = findCredential(credentials, post.platform);
+  // If a specific credential is linked, use it directly
+  const credential = post.credentialId
+    ? credentials.find((c) => c.id === post.credentialId) || findCredential(credentials, post.platform)
+    : findCredential(credentials, post.platform);
 
   if (!credential) {
     throw new Error(`No ${post.platform} credentials found for this client. Add credentials in the Vault.`);
