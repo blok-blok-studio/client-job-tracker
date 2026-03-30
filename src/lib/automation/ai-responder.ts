@@ -3,9 +3,17 @@
  * Generates intelligent responses using conversation context.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 
-const anthropic = new Anthropic();
+// Lazy-load Anthropic SDK to prevent it from being bundled into client code
+let anthropic: Anthropic | null = null;
+async function getClient(): Promise<Anthropic> {
+  if (!anthropic) {
+    const { default: AnthropicSDK } = await import("@anthropic-ai/sdk");
+    anthropic = new AnthropicSDK();
+  }
+  return anthropic;
+}
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -38,6 +46,8 @@ export async function generateAIResponse(options: AIResponseOptions): Promise<st
     processedPrompt = processedPrompt.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
   }
 
+  const client = await getClient();
+
   const messages: Anthropic.MessageParam[] = [
     ...conversationHistory.map((msg) => ({
       role: msg.role as "user" | "assistant",
@@ -46,7 +56,7 @@ export async function generateAIResponse(options: AIResponseOptions): Promise<st
     { role: "user" as const, content: currentMessage },
   ];
 
-  const response = await anthropic.messages.create({
+  const response = await client.messages.create({
     model,
     max_tokens: maxTokens,
     system: processedPrompt,
