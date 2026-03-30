@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import {
   ReactFlow,
+  ReactFlowProvider,
   Controls,
   MiniMap,
   Background,
@@ -185,32 +186,34 @@ export default function FlowEditorPage() {
         <NodePalette onAddNode={handleAddNode} />
 
         {/* Flow Canvas */}
-        <div className="flex-1">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={onNodeClick}
-            nodeTypes={nodeTypes}
-            fitView
-            defaultEdgeOptions={{
-              animated: true,
-              style: { stroke: "#f97316", strokeWidth: 2 },
-            }}
-            style={{ background: "#0A0A0C" }}
-          >
-            <Controls
-              style={{ background: "#1a1a1e", borderColor: "#2a2a2e", borderRadius: 8 }}
-            />
-            <MiniMap
-              style={{ background: "#1a1a1e", borderColor: "#2a2a2e" }}
-              nodeColor="#f97316"
-              maskColor="rgba(0,0,0,0.7)"
-            />
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#ffffff08" />
-          </ReactFlow>
+        <div className="flex-1" style={{ height: "100%" }}>
+          <ReactFlowProvider>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onNodeClick={onNodeClick}
+              nodeTypes={nodeTypes}
+              fitView
+              defaultEdgeOptions={{
+                animated: true,
+                style: { stroke: "#f97316", strokeWidth: 2 },
+              }}
+              style={{ background: "#0A0A0C", width: "100%", height: "100%" }}
+            >
+              <Controls
+                style={{ background: "#1a1a1e", borderColor: "#2a2a2e", borderRadius: 8 }}
+              />
+              <MiniMap
+                style={{ background: "#1a1a1e", borderColor: "#2a2a2e" }}
+                nodeColor="#f97316"
+                maskColor="rgba(0,0,0,0.7)"
+              />
+              <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#ffffff08" />
+            </ReactFlow>
+          </ReactFlowProvider>
         </div>
 
         {/* Config Panel */}
