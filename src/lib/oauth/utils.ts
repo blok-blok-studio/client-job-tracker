@@ -116,7 +116,7 @@ export async function exchangeMetaLongLivedToken(shortToken: string): Promise<To
     fb_exchange_token: shortToken,
   });
 
-  const res = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?${params}`);
+  const res = await fetch(`https://graph.facebook.com/v21.0/oauth/access_token?${params}`);
   if (!res.ok) {
     const error = await res.text();
     throw new Error(`Long-lived token exchange failed: ${error}`);
@@ -268,7 +268,7 @@ export async function discoverMetaAccounts(accessToken: string): Promise<MetaAcc
 
   // Fetch Facebook Pages
   const pagesRes = await fetch(
-    `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=${accessToken}`
+    `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=${accessToken}`
   );
 
   if (pagesRes.ok) {
