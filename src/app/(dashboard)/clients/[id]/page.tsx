@@ -8,6 +8,7 @@ import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
 import Modal from "@/components/shared/Modal";
 import EditClientForm from "@/components/clients/EditClientForm";
+import ConnectSocialAccount from "@/components/clients/ConnectSocialAccount";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
 import { PLATFORM_OPTIONS } from "@/types";
@@ -122,6 +123,22 @@ export default function ClientDetailPage() {
   }, [id]);
 
   useEffect(() => { fetchClient(); }, [fetchClient]);
+
+  // Handle OAuth redirect results
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthSuccess = params.get("oauth_success");
+    const oauthError = params.get("oauth_error");
+    if (oauthSuccess) {
+      toast(oauthSuccess, "success");
+      window.history.replaceState({}, "", window.location.pathname);
+      fetchClient(); // Refresh to show new credentials
+    } else if (oauthError) {
+      toast(oauthError, "error");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch live USD→EUR rate
   useEffect(() => {
@@ -908,9 +925,12 @@ export default function ClientDetailPage() {
                 {assetsTab === "passwords" && (
                   <div>
                     <div className="flex items-center justify-between mb-4">
-                      <p className="text-xs text-bb-dim">Encrypted credentials for this client</p>
+                      <div className="flex items-center gap-3">
+                        <p className="text-xs text-bb-dim">Encrypted credentials for this client</p>
+                        <ConnectSocialAccount clientId={id} />
+                      </div>
                       <button onClick={() => setShowAddCred(!showAddCred)} className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1">
-                        <Plus size={14} /> Add
+                        <Plus size={14} /> Add Manual
                       </button>
                     </div>
 

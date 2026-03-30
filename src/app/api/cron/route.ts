@@ -4,6 +4,7 @@ import { processRecurringTasks } from "@/lib/recurring-tasks";
 import prisma from "@/lib/prisma";
 import { sendPaymentReminderEmail } from "@/lib/email";
 import crypto from "crypto";
+import { refreshExpiringCredentials } from "@/lib/oauth/refresh";
 
 function verifyBearerToken(authHeader: string | null): boolean {
   const secret = process.env.CRON_SECRET;
@@ -134,6 +135,20 @@ export async function GET(request: NextRequest) {
       console.log(`[Cron] Sent ${remindersSent} payment reminder(s)`);
     }
 
+    // Refresh expiring OAuth tokens
+    let tokensRefreshed = 0;
+    let tokenRefreshFailed = 0;
+    try {
+      const refreshResult = await refreshExpiringCredentials();
+      tokensRefreshed = refreshResult.refreshed;
+      tokenRefreshFailed = refreshResult.failed;
+      if (tokensRefreshed + tokenRefreshFailed > 0) {
+        console.log(`[Cron] OAuth tokens: ${tokensRefreshed} refreshed, ${tokenRefreshFailed} failed`);
+      }
+    } catch (err) {
+      console.error("[Cron] OAuth token refresh error:", err);
+    }
+
     // Publish due content posts (fallback if OpenClaw is offline)
     let contentPublished = 0;
     let contentFailed = 0;
@@ -165,7 +180,7 @@ export async function GET(request: NextRequest) {
     const result = await runAgentCycle();
     return NextResponse.json({
       success: true,
-      data: { ...result, recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, contentPublished, contentFailed },
+      data: { ...result, recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, contentPublished, contentFailed },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";

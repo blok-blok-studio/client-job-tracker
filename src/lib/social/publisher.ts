@@ -1,4 +1,5 @@
 import type { ContentPost, Credential } from "@prisma/client";
+import { ensureFreshToken } from "@/lib/oauth/refresh";
 import { decrypt } from "@/lib/encryption";
 import { publishToTwitter } from "./platforms/twitter";
 import { publishToInstagram } from "./platforms/instagram";
@@ -77,6 +78,11 @@ export async function publishPost(
 
   if (!credential) {
     throw new Error(`No ${post.platform} credentials found for this client. Add credentials in the Vault.`);
+  }
+
+  // Just-in-time token refresh for OAuth credentials
+  if (credential.url) {
+    await ensureFreshToken(credential.id).catch(() => {});
   }
 
   const decrypted = decryptCredential(credential);
