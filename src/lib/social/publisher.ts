@@ -7,6 +7,15 @@ import { publishToFacebook } from "./platforms/facebook";
 import { publishToTiktok } from "./platforms/tiktok";
 import { publishToYoutube } from "./platforms/youtube";
 
+/** Strip tokens/keys from error messages to prevent credential leakage in logs */
+export function sanitizePublishError(message: string): string {
+  return message
+    .replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, "Bearer [REDACTED]")
+    .replace(/access_token[=:]\s*[^\s,}&]*/gi, "access_token=[REDACTED]")
+    .replace(/token[=:]\s*["']?[A-Za-z0-9\-._~+/]{20,}["']?/gi, "token=[REDACTED]")
+    .replace(/key[=:]\s*["']?[A-Za-z0-9\-._~+/]{20,}["']?/gi, "key=[REDACTED]");
+}
+
 export interface PublishResult {
   success: boolean;
   externalId?: string;

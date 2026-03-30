@@ -46,7 +46,11 @@ export default function VaultPage() {
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [revealed, setRevealed] = useState<Record<string, RevealedData>>({});
+  const [revealed, setRevealedState] = useState<Record<string, RevealedData>>({});
+  // Clear decrypted credentials from memory on unmount
+  const setRevealed = useCallback((update: Record<string, RevealedData> | ((prev: Record<string, RevealedData>) => Record<string, RevealedData>)) => {
+    setRevealedState(update);
+  }, []);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState("");
@@ -70,6 +74,11 @@ export default function VaultPage() {
       }).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, [fetchCredentials]);
+
+  // Clear decrypted credentials from memory on page leave
+  useEffect(() => {
+    return () => { setRevealedState({}); };
+  }, []);
 
   async function handleReveal(id: string) {
     if (revealed[id]) {

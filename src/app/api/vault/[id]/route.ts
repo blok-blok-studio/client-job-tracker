@@ -71,6 +71,16 @@ export async function PATCH(
       data.password = enc.encrypted;
       ivData.password = enc.iv;
       data.lastRotated = new Date();
+
+      // Audit log credential rotation
+      await prisma.activityLog.create({
+        data: {
+          clientId: existing.clientId,
+          actor: "chase",
+          action: "credential_rotated",
+          details: `Rotated password for ${existing.platform} credential (${existing.label || "unlabeled"})`,
+        },
+      }).catch(() => {});
     }
 
     if (body.notes !== undefined) {

@@ -9,10 +9,11 @@ import {
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
 
-  if (!checkRateLimit(ip)) {
+  const rl = checkRateLimit(ip);
+  if (!rl.allowed) {
     return NextResponse.json(
-      { error: "Too many login attempts. Try again in a minute." },
-      { status: 429 }
+      { error: `Too many login attempts. Try again in ${Math.ceil((rl.retryAfter || 900) / 60)} minutes.` },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter || 900) } }
     );
   }
 

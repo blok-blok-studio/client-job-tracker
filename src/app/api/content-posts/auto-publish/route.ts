@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { publishPost } from "@/lib/social/publisher";
+import { publishPost, sanitizePublishError } from "@/lib/social/publisher";
 import { humanDelay } from "@/lib/social/http";
 
 export const maxDuration = 120;
@@ -70,7 +70,7 @@ export async function POST() {
         published = true;
         break;
       } catch (err) {
-        lastError = err instanceof Error ? err.message : "Unknown publish error";
+        lastError = sanitizePublishError(err instanceof Error ? err.message : "Unknown publish error");
         if (lastError.includes("credentials") || lastError.includes("Unauthorized") || lastError.includes("401")) {
           break;
         }

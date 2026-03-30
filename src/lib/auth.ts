@@ -65,22 +65,31 @@ export function getLogoutCookieConfig() {
   };
 }
 
-// Rate limiting for login attempts
+// Rate limiting for login attempts — strict to prevent brute force
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_ATTEMPTS = 3;
+const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
-export function checkRateLimit(ip: string): boolean {
+export function checkRateLimit(ip: string): { allowed: boolean; retryAfter?: number } {
   const now = Date.now();
   const entry = loginAttempts.get(ip);
 
-  if (!entry || now > entry.resetAt) {
-    loginAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
+  // Periodic cleanup
+  if (loginAttempts.size > 1000) {
+    for (const [key, val] of loginAttempts) {
+      if (now > val.resetAt) loginAttempts.delete(key);
+    }
   }
 
-  if (entry.count >= MAX_ATTEMPTS) return false;
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return { allowed: true };
+  }
+
+  if (entry.count >= MAX_ATTEMPTS) {
+    return { allowed: false, retryAfter: Math.ceil((entry.resetAt - now) / 1000) };
+  }
 
   entry.count++;
-  return true;
+  return { allowed: true };
 }

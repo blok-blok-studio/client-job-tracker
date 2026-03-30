@@ -5,21 +5,24 @@ import { encrypt } from "@/lib/encryption";
 
 export async function GET() {
   const credentials = await prisma.credential.findMany({
-    include: { client: { select: { id: true, name: true } } },
+    select: {
+      id: true,
+      clientId: true,
+      client: { select: { id: true, name: true } },
+      platform: true,
+      label: true,
+      url: true,
+      notes: true,
+      lastRotated: true,
+      createdAt: true,
+      updatedAt: true,
+    },
     orderBy: [{ client: { name: "asc" } }, { platform: "asc" }],
   });
 
-  // Strip all encrypted fields — never expose encrypted blobs or IVs
+  // Never expose encrypted blobs — only safe metadata
   const masked = credentials.map((c) => ({
-    id: c.id,
-    clientId: c.clientId,
-    client: c.client,
-    platform: c.platform,
-    label: c.label,
-    url: c.url,
-    lastRotated: c.lastRotated,
-    createdAt: c.createdAt,
-    updatedAt: c.updatedAt,
+    ...c,
     username: "••••••••",
     password: "••••••••",
     notes: c.notes ? "[encrypted]" : null,

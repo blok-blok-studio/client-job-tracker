@@ -8,13 +8,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Rate limit vault reveals — max 10 per minute
+  // Rate limit vault reveals — strict to prevent brute force
   const ip = getClientIp(request);
-  const rl = rateLimit(ip, { max: 10, prefix: "vault-reveal" });
+  const rl = rateLimit(ip, { max: 3, windowMs: 5 * 60 * 1000, prefix: "vault-reveal" });
   if (!rl.allowed) {
     return NextResponse.json(
-      { success: false, error: "Too many reveal attempts. Try again later." },
-      { status: 429 }
+      { success: false, error: "Too many reveal attempts. Try again in 5 minutes." },
+      { status: 429, headers: { "Retry-After": "300" } }
     );
   }
 
@@ -30,6 +30,18 @@ export async function POST(
     );
   }
   if (!verifyPassword(password)) {
+    // Log failed reveal attempt for security audit
+    const credential = await prisma.credential.findUnique({ where: { id }, select: { clientId: true, platform: true, label: true } });
+    if (credential) {
+      await prisma.activityLog.create({
+        data: {
+          clientId: credential.clientId,
+          actor: "security",
+          action: "credential_reveal_failed",
+          details: `Failed password verification for ${credential.platform} credential (${credential.label || "unlabeled"})`,
+        },
+      }).catch(() => {});
+    }
     return NextResponse.json(
       { success: false, error: "Invalid password" },
       { status: 403 }
@@ -69,10 +81,15 @@ export async function POST(
       },
     }).catch(() => {}); // Don't block reveal if logging fails
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: { username, password: password_decrypted, notes },
     });
+    // Prevent caching of decrypted credentials
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+    return response;
   } catch {
     return NextResponse.json({ success: false, error: "Decryption failed" }, { status: 500 });
   }

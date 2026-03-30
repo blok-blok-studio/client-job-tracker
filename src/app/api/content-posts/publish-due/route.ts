@@ -1,34 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { publishPost } from "@/lib/social/publisher";
+import { publishPost, sanitizePublishError } from "@/lib/social/publisher";
 import { humanDelay } from "@/lib/social/http";
+import crypto from "crypto";
 
-// GET: List posts due for publishing (for OpenClaw inspection)
-export async function GET() {
+function timingSafeTokenCheck(token: string | undefined, secret: string | undefined): boolean {
+  if (!token || !secret) return false;
+  const tokenHash = crypto.createHash("sha256").update(token).digest();
+  const secretHash = crypto.createHash("sha256").update(secret).digest();
+  return crypto.timingSafeEqual(tokenHash, secretHash);
+}
+
+// GET: List posts due for publishing (for OpenClaw inspection) — requires auth
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
+  const cronSecret = process.env.CRON_SECRET;
+  const openclawToken = process.env.OPENCLAW_API_TOKEN;
+
+  if (!timingSafeTokenCheck(token, cronSecret) && !timingSafeTokenCheck(token, openclawToken)) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   const duePosts = await prisma.contentPost.findMany({
     where: {
       status: "SCHEDULED",
       scheduledAt: { lte: new Date() },
     },
-    include: { client: { select: { id: true, name: true } } },
+    select: { id: true, platform: true, status: true, scheduledAt: true, title: true },
     orderBy: { scheduledAt: "asc" },
   });
 
-  return NextResponse.json({ success: true, data: duePosts, count: duePosts.length });
+  return NextResponse.json({ success: true, count: duePosts.length });
 }
 
 // POST: Publish all due posts (called by OpenClaw heartbeat or Vercel Cron)
 export async function POST(request: NextRequest) {
-  // Auth check for OpenClaw / Cron
   const authHeader = request.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
   const cronSecret = process.env.CRON_SECRET;
   const openclawToken = process.env.OPENCLAW_API_TOKEN;
 
-  if (cronSecret || openclawToken) {
-    const token = authHeader?.replace("Bearer ", "");
-    if (token !== cronSecret && token !== openclawToken) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+  if (!timingSafeTokenCheck(token, cronSecret) && !timingSafeTokenCheck(token, openclawToken)) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
   const duePosts = await prisma.contentPost.findMany({
@@ -95,7 +109,7 @@ export async function POST(request: NextRequest) {
         published = true;
         break;
       } catch (err) {
-        lastError = err instanceof Error ? err.message : "Unknown publish error";
+        lastError = sanitizePublishError(err instanceof Error ? err.message : "Unknown publish error");
 
         // Don't retry on auth/credential errors (they won't succeed)
         if (
