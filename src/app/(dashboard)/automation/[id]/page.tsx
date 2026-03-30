@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
   ReactFlow,
   Controls,
@@ -37,7 +37,6 @@ interface FlowData {
 
 export default function FlowEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const [flow, setFlow] = useState<FlowData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

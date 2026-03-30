@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Zap, ZapOff, Trash2, Edit3, BarChart3, Instagram, MessageSquare } from "lucide-react";
+import { Plus, Zap, ZapOff, Trash2, Edit3, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
