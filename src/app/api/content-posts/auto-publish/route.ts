@@ -1,39 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { publishPost } from "@/lib/social/publisher";
 import { humanDelay } from "@/lib/social/http";
-import crypto from "crypto";
 
 export const maxDuration = 120;
 
-function timingSafeEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return crypto.timingSafeEqual(bufA, bufB);
-}
-
-export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret) {
-    const token = authHeader?.replace("Bearer ", "") || "";
-    if (!timingSafeEqual(token, cronSecret)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
-
+// POST: Auto-publish due posts (called by content calendar polling)
+// Session-authenticated via middleware — no extra auth needed
+export async function POST() {
   const duePosts = await prisma.contentPost.findMany({
     where: {
       status: "SCHEDULED",
       scheduledAt: { lte: new Date() },
     },
     orderBy: { scheduledAt: "asc" },
+    take: 10, // Process up to 10 at a time to stay within function timeout
   });
 
   if (duePosts.length === 0) {
-    return NextResponse.json({ success: true, message: "No posts due", published: 0, failed: 0 });
+    return NextResponse.json({ success: true, published: 0, failed: 0 });
   }
 
   const results: { id: string; platform: string; status: string; error?: string }[] = [];
@@ -75,7 +60,7 @@ export async function GET(request: NextRequest) {
         await prisma.activityLog.create({
           data: {
             clientId: post.clientId,
-            actor: "cron",
+            actor: "auto-publish",
             action: "content_published",
             details: `Published ${post.platform} post: ${post.title || "(untitled)"}`,
           },
@@ -101,7 +86,7 @@ export async function GET(request: NextRequest) {
       await prisma.activityLog.create({
         data: {
           clientId: post.clientId,
-          actor: "cron",
+          actor: "auto-publish",
           action: "content_publish_failed",
           details: `Failed to publish ${post.platform} post: ${lastError}`,
         },

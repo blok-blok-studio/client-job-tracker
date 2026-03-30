@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -87,6 +87,31 @@ export default function ContentPage() {
 
   useEffect(() => {
     fetchPosts();
+  }, [fetchPosts]);
+
+  // Auto-publish polling — checks every 60s for due posts and publishes them
+  const publishingRef = useRef(false);
+  useEffect(() => {
+    const checkAndPublish = async () => {
+      if (publishingRef.current) return;
+      publishingRef.current = true;
+      try {
+        const res = await fetch("/api/content-posts/auto-publish", { method: "POST" });
+        const data = await res.json();
+        if (data.success && (data.published > 0 || data.failed > 0)) {
+          fetchPosts(); // Refresh the list to show updated statuses
+        }
+      } catch {
+        // Silently ignore — will retry next interval
+      } finally {
+        publishingRef.current = false;
+      }
+    };
+
+    // Run immediately on mount, then every 60 seconds
+    checkAndPublish();
+    const interval = setInterval(checkAndPublish, 60_000);
+    return () => clearInterval(interval);
   }, [fetchPosts]);
 
   // Calendar grid
