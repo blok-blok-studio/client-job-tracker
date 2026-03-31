@@ -116,7 +116,7 @@ export async function GET(
 
     const client = await prisma.client.findUnique({
       where: { onboardToken: token },
-      select: { id: true, name: true, company: true, type: true },
+      select: { id: true, name: true, company: true, type: true, uploadToken: true },
     });
 
     if (!client || client.type === "ARCHIVED") {
@@ -136,9 +136,11 @@ export async function GET(
       {
         success: true,
         data: {
+          id: client.id,
           name: client.name,
           company: client.company,
           telegramLink,
+          uploadUrl: client.uploadToken ? `${APP_URL}/upload/${client.uploadToken}` : null,
         },
       },
       { headers: corsHeaders(request) }

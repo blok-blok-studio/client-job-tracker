@@ -58,8 +58,10 @@ export async function GET(
       ? new Date(Date.now() + tokenData.expires_in * 1000)
       : undefined;
 
+    const redirectBase = state.returnTo || `${baseUrl}/clients/${state.clientId}`;
+
     if (provider === "meta") {
-      return await handleMetaCallback(state.clientId, tokenData.access_token, expiresAt, baseUrl);
+      return await handleMetaCallback(state.clientId, tokenData.access_token, expiresAt, redirectBase);
     }
 
     // For other providers, fetch user info and store credential
@@ -69,13 +71,14 @@ export async function GET(
       state.clientId,
       tokenData,
       expiresAt,
-      baseUrl
+      redirectBase
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "OAuth failed";
     console.error(`[OAuth ${provider}] Callback error:`, message);
+    const errorRedirect = state.returnTo || `${baseUrl}/clients/${state.clientId}`;
     return NextResponse.redirect(
-      `${baseUrl}/clients/${state.clientId}?oauth_error=${encodeURIComponent("Connection failed. Please try again.")}`
+      `${errorRedirect}?oauth_error=${encodeURIComponent("Connection failed. Please try again.")}`
     );
   }
 }
@@ -84,7 +87,7 @@ async function handleMetaCallback(
   clientId: string,
   shortLivedToken: string,
   _expiresAt: Date | undefined,
-  baseUrl: string
+  redirectBase: string
 ): Promise<NextResponse> {
   // Exchange for long-lived token (60 days)
   const longLived = await exchangeMetaLongLivedToken(shortLivedToken);
@@ -98,7 +101,7 @@ async function handleMetaCallback(
 
   if (accounts.length === 0) {
     return NextResponse.redirect(
-      `${baseUrl}/clients/${clientId}?oauth_error=${encodeURIComponent("No business accounts found. Make sure you have an Instagram Business/Creator account linked to a Facebook Page.")}`
+      `${redirectBase}?oauth_error=${encodeURIComponent("No business accounts found. Make sure you have an Instagram Business/Creator account linked to a Facebook Page.")}`
     );
   }
 
@@ -116,7 +119,7 @@ async function handleMetaCallback(
 
   const platformNames = accounts.map((a) => a.platform).join(", ");
   return NextResponse.redirect(
-    `${baseUrl}/clients/${clientId}?oauth_success=${encodeURIComponent(`Connected: ${platformNames}`)}`
+    `${redirectBase}?oauth_success=${encodeURIComponent(`Connected: ${platformNames}`)}`
   );
 }
 
@@ -126,7 +129,7 @@ async function handleStandardCallback(
   clientId: string,
   tokenData: { access_token: string; refresh_token?: string; expires_in?: number },
   expiresAt: Date | undefined,
-  baseUrl: string
+  redirectBase: string
 ): Promise<NextResponse> {
   const platform = config.platforms[0];
   let userId = "unknown";
@@ -185,6 +188,6 @@ async function handleStandardCallback(
   });
 
   return NextResponse.redirect(
-    `${baseUrl}/clients/${clientId}?oauth_success=${encodeURIComponent(`Connected ${platform}: ${label}`)}`
+    `${redirectBase}?oauth_success=${encodeURIComponent(`Connected ${platform}: ${label}`)}`
   );
 }

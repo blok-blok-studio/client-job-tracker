@@ -13,15 +13,17 @@ export interface OAuthState {
   clientId: string;
   provider: string;
   codeVerifier?: string;
+  returnTo?: string;
   nonce: string;
 }
 
 /** Generate a cryptographic state parameter that embeds clientId */
-export function generateState(clientId: string, provider: string, codeVerifier?: string): string {
+export function generateState(clientId: string, provider: string, codeVerifier?: string, returnTo?: string): string {
   const state: OAuthState = {
     clientId,
     provider,
     codeVerifier,
+    returnTo,
     nonce: crypto.randomBytes(16).toString("hex"),
   };
   return Buffer.from(JSON.stringify(state)).toString("base64url");

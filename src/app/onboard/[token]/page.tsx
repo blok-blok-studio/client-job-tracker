@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Plus, Trash2, Check, Loader2, ChevronDown, MessageCircle, Upload } from "lucide-react";
+import { Plus, Trash2, Check, Loader2, ChevronDown, MessageCircle, Upload, Link2 } from "lucide-react";
 import QRCode from "qrcode";
 
 interface Contact {
@@ -182,7 +182,9 @@ export default function OnboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [clientId, setClientId] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
+  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
   const [telegramLink, setTelegramLink] = useState<string | null>(null);
   const [telegramQR, setTelegramQR] = useState<string | null>(null);
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
@@ -230,7 +232,9 @@ export default function OnboardPage() {
         const res = await fetch(`/api/onboard/${token}`);
         const data = await res.json();
         if (data.success) {
+          setClientId(data.data.id);
           setClientName(data.data.name);
+          if (data.data.uploadUrl) setUploadUrl(data.data.uploadUrl);
           if (data.data.telegramLink) {
             setTelegramLink(data.data.telegramLink);
             QRCode.toDataURL(data.data.telegramLink, {
@@ -250,6 +254,20 @@ export default function OnboardPage() {
     }
     fetchClient();
   }, [token]);
+
+  // Handle OAuth redirect results (client connected a social account)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthSuccess = params.get("oauth_success");
+    const oauthError = params.get("oauth_error");
+    if (oauthSuccess) {
+      setConnectedPlatforms((prev) => [...prev, oauthSuccess]);
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (oauthError) {
+      setError(oauthError);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -786,11 +804,52 @@ export default function OnboardPage() {
             ))}
           </section>
 
+          {/* Connect Social Accounts via OAuth */}
+          {clientId && (
+            <section className="bg-bb-surface border border-bb-border rounded-xl p-4 sm:p-6 space-y-4">
+              <h2 className="text-lg font-display font-semibold text-white">
+                Connect Your Social Accounts
+              </h2>
+              <p className="text-xs text-bb-dim">
+                Securely connect your accounts so we can manage your content. You&apos;ll be redirected to authorize — no passwords are shared.
+              </p>
+
+              {connectedPlatforms.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {connectedPlatforms.map((p, i) => (
+                    <span key={i} className="flex items-center gap-1 text-xs bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-3 py-1">
+                      <Check size={12} /> {p}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { key: "meta", label: "Instagram & Facebook", color: "from-pink-500 to-purple-500" },
+                  { key: "threads", label: "Threads", color: "from-gray-400 to-gray-600" },
+                  { key: "twitter", label: "X (Twitter)", color: "from-gray-700 to-black" },
+                  { key: "linkedin", label: "LinkedIn", color: "from-blue-600 to-blue-800" },
+                  { key: "google", label: "YouTube", color: "from-red-500 to-red-700" },
+                ].map((provider) => (
+                  <a
+                    key={provider.key}
+                    href={`/api/oauth/${provider.key}/authorize?clientId=${clientId}&returnTo=${encodeURIComponent(window.location.href.split("?")[0])}`}
+                    className={`flex items-center justify-center gap-2 px-3 py-3 bg-gradient-to-r ${provider.color} text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity`}
+                  >
+                    <Link2 size={14} />
+                    {provider.label}
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Credentials Section */}
           <section className="bg-bb-surface border border-bb-border rounded-xl p-4 sm:p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-display font-semibold text-white">
-                Account Access
+                Manual Account Access
               </h2>
               <button
                 type="button"
@@ -801,7 +860,7 @@ export default function OnboardPage() {
               </button>
             </div>
             <p className="text-xs text-bb-dim">
-              Share login credentials for accounts we&apos;ll manage. All
+              If you prefer, you can share login credentials manually. All
               passwords are encrypted with AES-256.
             </p>
 

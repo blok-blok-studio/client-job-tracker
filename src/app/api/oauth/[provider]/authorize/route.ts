@@ -39,8 +39,9 @@ export async function GET(
     codeChallenge = pkce.codeChallenge;
   }
 
-  // Generate state with embedded clientId
-  const state = generateState(clientId, provider, codeVerifier);
+  // Generate state with embedded clientId and optional returnTo
+  const returnTo = request.nextUrl.searchParams.get("returnTo") || undefined;
+  const state = generateState(clientId, provider, codeVerifier, returnTo);
 
   // Store state in httpOnly cookie for CSRF validation on callback
   const cookieStore = await cookies();
