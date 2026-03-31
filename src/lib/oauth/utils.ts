@@ -177,9 +177,29 @@ interface StoreCredentialParams {
   expiresAt?: Date;
 }
 
+/** Normalize platform names for consistent display */
+function normalizePlatform(platform: string): string {
+  const map: Record<string, string> = {
+    instagram: "Instagram",
+    facebook: "Facebook",
+    threads: "Threads",
+    twitter: "X (Twitter)",
+    linkedin: "LinkedIn",
+    youtube: "YouTube",
+    INSTAGRAM: "Instagram",
+    FACEBOOK: "Facebook",
+    THREADS: "Threads",
+    TWITTER: "X (Twitter)",
+    LINKEDIN: "LinkedIn",
+    YOUTUBE: "YouTube",
+  };
+  return map[platform] || platform;
+}
+
 /** Store OAuth tokens as encrypted credentials */
 export async function storeOAuthCredential(params: StoreCredentialParams): Promise<string> {
-  const { clientId, platform, label, userId, accessToken, refreshToken: refreshTok, expiresAt } = params;
+  const { clientId, label, userId, accessToken, refreshToken: refreshTok, expiresAt } = params;
+  const platform = normalizePlatform(params.platform);
 
   const encryptedUsername = encrypt(userId);
   const encryptedPassword = encrypt(accessToken);

@@ -958,7 +958,7 @@ export default function ClientDetailPage() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Lock size={12} className="text-bb-orange" />
-                                <span className="text-sm font-medium text-white">{cred.platform}</span>
+                                <span className="text-sm font-medium text-white">{cred.platform}{cred.label ? <span className="text-bb-dim font-normal"> — {cred.label}</span> : null}</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 {!revealed ? (
