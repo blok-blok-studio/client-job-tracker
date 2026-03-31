@@ -71,7 +71,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     name: "LinkedIn",
     authUrl: "https://www.linkedin.com/oauth/v2/authorization",
     tokenUrl: "https://www.linkedin.com/oauth/v2/accessToken",
-    scopes: ["w_member_social", "r_liteprofile", "openid", "profile"],
+    scopes: ["w_member_social", "openid", "profile", "email"],
     scopeSeparator: " ",
     clientIdEnv: "LINKEDIN_CLIENT_ID",
     clientSecretEnv: "LINKEDIN_CLIENT_SECRET",
