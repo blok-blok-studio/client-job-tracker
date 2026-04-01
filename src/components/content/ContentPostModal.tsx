@@ -656,21 +656,29 @@ export default function ContentPostModal({
   };
 
   // ─── Platform-specific features visibility ─────────────────────────────
+  // Platform-specific sections only show in single-platform mode to avoid form conflicts.
+  // Common fields (caption, media, hashtags, schedule) always show.
 
-  const showLocation = activePlatforms.some((p) => ["INSTAGRAM", "FACEBOOK", "TWITTER"].includes(p));
-  const showTagPeople = activePlatforms.some((p) => ["INSTAGRAM", "FACEBOOK", "TWITTER", "LINKEDIN"].includes(p));
-  const showCollaborators = activePlatforms.some((p) => ["INSTAGRAM", "LINKEDIN"].includes(p));
-  const showFirstComment = activePlatforms.includes("INSTAGRAM");
-  const showAltText = activePlatforms.some((p) => ["INSTAGRAM", "TWITTER", "LINKEDIN", "FACEBOOK"].includes(p));
-  const showCoverImage = activePlatforms.some((p) => ["INSTAGRAM", "TIKTOK"].includes(p));
-  const showThumbnail = activePlatforms.includes("YOUTUBE");
-  const showVisibility = activePlatforms.some((p) => ["YOUTUBE", "TIKTOK", "LINKEDIN"].includes(p));
-  const showThread = activePlatforms.includes("TWITTER");
-  const showPoll = activePlatforms.includes("TWITTER");
-  const showYouTubeSettings = activePlatforms.includes("YOUTUBE");
-  const showTikTokSettings = activePlatforms.includes("TIKTOK");
-  const showFacebookSettings = activePlatforms.includes("FACEBOOK");
-  const showInstagramSettings = activePlatforms.includes("INSTAGRAM");
+  const isSinglePlatform = activePlatforms.length === 1;
+  const singleP = isSinglePlatform ? activePlatforms[0] : null;
+
+  // These common settings show in both single and multi-platform mode
+  const showLocation = isSinglePlatform && ["INSTAGRAM", "FACEBOOK", "TWITTER"].includes(singleP!);
+  const showTagPeople = isSinglePlatform && ["INSTAGRAM", "FACEBOOK", "TWITTER", "LINKEDIN"].includes(singleP!);
+  const showCollaborators = isSinglePlatform && ["INSTAGRAM", "LINKEDIN"].includes(singleP!);
+  const showFirstComment = isSinglePlatform && singleP === "INSTAGRAM";
+  const showAltText = isSinglePlatform && ["INSTAGRAM", "TWITTER", "LINKEDIN", "FACEBOOK"].includes(singleP!);
+  const showCoverImage = isSinglePlatform && ["INSTAGRAM", "TIKTOK"].includes(singleP!);
+  const showThumbnail = isSinglePlatform && singleP === "YOUTUBE";
+  const showVisibility = isSinglePlatform && ["YOUTUBE", "TIKTOK", "LINKEDIN"].includes(singleP!);
+
+  // Platform-specific sections — single platform only
+  const showThread = isSinglePlatform && singleP === "TWITTER";
+  const showPoll = isSinglePlatform && singleP === "TWITTER";
+  const showYouTubeSettings = isSinglePlatform && singleP === "YOUTUBE";
+  const showTikTokSettings = isSinglePlatform && singleP === "TIKTOK";
+  const showFacebookSettings = isSinglePlatform && singleP === "FACEBOOK";
+  const showInstagramSettings = isSinglePlatform && singleP === "INSTAGRAM";
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -851,23 +859,18 @@ export default function ContentPostModal({
               </div>
             )}
 
-            {/* Title (shown for YouTube always, optional for others) */}
-            {(activePlatforms.includes("YOUTUBE") || activePlatforms.includes("LINKEDIN")) && (
+            {/* Title (shown for YouTube/LinkedIn in single-platform mode only) */}
+            {isSinglePlatform && (singleP === "YOUTUBE" || singleP === "LINKEDIN") && (
               <div>
                 <label className="block text-sm font-medium text-bb-muted mb-1">
                   Title
-                  {activePlatforms.length === 1 && activePlatforms[0] === "YOUTUBE" && <span className="text-red-400"> *</span>}
-                  {activePlatforms.length > 1 && (
-                    <span className="text-bb-dim font-normal text-xs ml-1">
-                      (for {[activePlatforms.includes("YOUTUBE") && "YouTube", activePlatforms.includes("LINKEDIN") && "LinkedIn"].filter(Boolean).join(", ")})
-                    </span>
-                  )}
+                  {singleP === "YOUTUBE" && <span className="text-red-400"> *</span>}
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder={activePlatforms.includes("YOUTUBE") ? "Video title..." : "Article title (optional)..."}
+                  placeholder={singleP === "YOUTUBE" ? "Video title..." : "Article title (optional)..."}
                   className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-white text-sm placeholder:text-bb-dim"
                 />
                 {limits.title > 0 && <CharCount current={title.length} max={limits.title} />}
@@ -877,31 +880,28 @@ export default function ContentPostModal({
             {/* Body / Caption */}
             <div>
               <label className="block text-sm font-medium text-bb-muted mb-1">
-                {activePlatforms.length > 1
-                  ? "Caption"
-                  : primaryPlatform === "YOUTUBE" ? "Description" : primaryPlatform === "TWITTER" ? "Tweet" : "Caption"}
-                {activePlatforms.length > 1 && activePlatforms.includes("TWITTER") && (
-                  <span className="text-bb-dim font-normal text-xs ml-1">(X limit: 280 chars)</span>
-                )}
+                {isSinglePlatform
+                  ? singleP === "YOUTUBE" ? "Description" : singleP === "TWITTER" ? "Tweet" : "Caption"
+                  : "Caption"}
               </label>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder={
-                  activePlatforms.length > 1
+                  !isSinglePlatform
                     ? "Write your caption..."
-                    : primaryPlatform === "TWITTER"
+                    : singleP === "TWITTER"
                     ? "What's happening?"
-                    : primaryPlatform === "YOUTUBE"
+                    : singleP === "YOUTUBE"
                     ? "Tell viewers about your video..."
-                    : primaryPlatform === "LINKEDIN"
+                    : singleP === "LINKEDIN"
                     ? "Share your thoughts..."
                     : "Write your caption..."
                 }
-                rows={activePlatforms.length === 1 && primaryPlatform === "TWITTER" ? 3 : 4}
+                rows={isSinglePlatform && singleP === "TWITTER" ? 3 : 4}
                 className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-white text-sm placeholder:text-bb-dim resize-none"
               />
-              <CharCount current={body.length} max={limits.body} label={activePlatforms.length > 1 ? "(most restrictive)" : undefined} />
+              <CharCount current={body.length} max={limits.body} label={!isSinglePlatform ? "(most restrictive)" : undefined} />
             </div>
 
             {/* ─── Twitter Thread ─────────────────────────────────────── */}
@@ -1662,7 +1662,7 @@ export default function ContentPostModal({
             )}
 
             {/* ─── LinkedIn Article Mode ─────────────────────────── */}
-            {activePlatforms.includes("LINKEDIN") && (
+            {isSinglePlatform && singleP === "LINKEDIN" && (
               <div className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-2">
                   <FileText size={14} className="text-bb-muted" />
@@ -1686,7 +1686,7 @@ export default function ContentPostModal({
             )}
 
             {/* Quote tweet URL */}
-            {activePlatforms.includes("TWITTER") && (
+            {isSinglePlatform && singleP === "TWITTER" && (
               <div>
                 <label className="block text-sm font-medium text-bb-muted mb-1">Quote Tweet URL</label>
                 <input
