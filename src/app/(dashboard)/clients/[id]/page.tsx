@@ -35,7 +35,7 @@ interface ClientDetail {
   uploadToken: string | null;
   contacts: Array<{ id: string; name: string; role: string | null; email: string | null; phone: string | null; isPrimary: boolean }>;
   tasks: Array<{ id: string; title: string; status: string; priority: string; dueDate: string | null }>;
-  credentials: Array<{ id: string; platform: string; username: string }>;
+  credentials: Array<{ id: string; platform: string; username: string; label?: string }>;
   checklistItems: Array<{ id: string; label: string; checked: boolean }>;
   invoices: Array<{ id: string; amount: string | number; status: string; createdAt: string }>;
   socialLinks: Array<{ id: string; platform: string; url: string; handle: string | null }>;
