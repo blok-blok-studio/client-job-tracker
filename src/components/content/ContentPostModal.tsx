@@ -329,7 +329,21 @@ export default function ContentPostModal({
 
   const activePlatforms = isEditing ? [platform] : selectedPlatforms;
   const primaryPlatform = isEditing ? platform : (selectedPlatforms[0] || "INSTAGRAM");
-  const limits = getPlatformLimits(primaryPlatform);
+  // When multiple platforms selected, use the most restrictive limits
+  const limits = activePlatforms.length <= 1
+    ? getPlatformLimits(primaryPlatform)
+    : activePlatforms.reduce(
+        (acc, p) => {
+          const l = getPlatformLimits(p);
+          return {
+            body: Math.min(acc.body, l.body),
+            title: Math.max(acc.title, l.title), // show title limit if any platform needs it
+            media: Math.min(acc.media, l.media),
+            video: Math.min(acc.video, l.video),
+          };
+        },
+        { body: Infinity, title: 0, media: Infinity, video: Infinity }
+      );
 
   useEffect(() => {
     fetch("/api/clients")
@@ -841,7 +855,13 @@ export default function ContentPostModal({
             {(activePlatforms.includes("YOUTUBE") || activePlatforms.includes("LINKEDIN")) && (
               <div>
                 <label className="block text-sm font-medium text-bb-muted mb-1">
-                  Title {activePlatforms.includes("YOUTUBE") && <span className="text-red-400">*</span>}
+                  Title
+                  {activePlatforms.length === 1 && activePlatforms[0] === "YOUTUBE" && <span className="text-red-400"> *</span>}
+                  {activePlatforms.length > 1 && (
+                    <span className="text-bb-dim font-normal text-xs ml-1">
+                      (for {[activePlatforms.includes("YOUTUBE") && "YouTube", activePlatforms.includes("LINKEDIN") && "LinkedIn"].filter(Boolean).join(", ")})
+                    </span>
+                  )}
                 </label>
                 <input
                   type="text"
@@ -857,13 +877,20 @@ export default function ContentPostModal({
             {/* Body / Caption */}
             <div>
               <label className="block text-sm font-medium text-bb-muted mb-1">
-                {primaryPlatform === "YOUTUBE" ? "Description" : primaryPlatform === "TWITTER" ? "Tweet" : "Caption"}
+                {activePlatforms.length > 1
+                  ? "Caption"
+                  : primaryPlatform === "YOUTUBE" ? "Description" : primaryPlatform === "TWITTER" ? "Tweet" : "Caption"}
+                {activePlatforms.length > 1 && activePlatforms.includes("TWITTER") && (
+                  <span className="text-bb-dim font-normal text-xs ml-1">(X limit: 280 chars)</span>
+                )}
               </label>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder={
-                  primaryPlatform === "TWITTER"
+                  activePlatforms.length > 1
+                    ? "Write your caption..."
+                    : primaryPlatform === "TWITTER"
                     ? "What's happening?"
                     : primaryPlatform === "YOUTUBE"
                     ? "Tell viewers about your video..."
@@ -871,10 +898,10 @@ export default function ContentPostModal({
                     ? "Share your thoughts..."
                     : "Write your caption..."
                 }
-                rows={primaryPlatform === "TWITTER" ? 3 : 4}
+                rows={activePlatforms.length === 1 && primaryPlatform === "TWITTER" ? 3 : 4}
                 className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-white text-sm placeholder:text-bb-dim resize-none"
               />
-              <CharCount current={body.length} max={limits.body} />
+              <CharCount current={body.length} max={limits.body} label={activePlatforms.length > 1 ? "(most restrictive)" : undefined} />
             </div>
 
             {/* ─── Twitter Thread ─────────────────────────────────────── */}
