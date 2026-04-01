@@ -100,6 +100,32 @@ export const contentPostSchema = z.object({
   enableComments: z.boolean().optional().default(true),
 });
 
+export const contentPostBulkSchema = z.object({
+  clientId: z.string().min(1, "Client is required"),
+  platforms: z.array(z.object({
+    platform: z.enum(SOCIAL_PLATFORMS),
+    credentialId: z.string().nullable().optional(),
+  })).min(1, "At least one platform is required"),
+  status: z.enum(CONTENT_POST_STATUSES).optional(),
+  title: z.string().optional().or(z.literal("")),
+  body: z.string().optional().or(z.literal("")),
+  hashtags: z.array(z.string()).optional().default([]),
+  mediaUrls: z.array(z.string()).optional().default([]),
+  scheduledAt: dateString.nullable().optional(),
+  location: z.string().nullable().optional(),
+  locationLat: z.number().nullable().optional(),
+  locationLng: z.number().nullable().optional(),
+  taggedUsers: z.array(z.string()).optional().default([]),
+  collaborators: z.array(z.string()).optional().default([]),
+  altText: z.string().nullable().optional(),
+  coverImageUrl: z.string().nullable().optional(),
+  thumbnailUrl: z.string().nullable().optional(),
+  firstComment: z.string().nullable().optional(),
+  platformSettings: z.record(z.string(), z.unknown()).nullable().optional(),
+  visibility: z.string().nullable().optional(),
+  enableComments: z.boolean().optional().default(true),
+});
+
 export const reorderSchema = z.object({
   updates: z.array(
     z.object({

@@ -68,10 +68,11 @@ export default function ContentPage() {
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [mode, setMode] = useState<"calendar" | "list">("list");
+  const [mode, setMode] = useState<"calendar" | "list">("calendar");
   const [platformFilter, setPlatformFilter] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editPost, setEditPost] = useState<ContentPost | null>(null);
+  const [defaultScheduledAt, setDefaultScheduledAt] = useState<string>("");
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
 
@@ -169,7 +170,30 @@ export default function ContentPage() {
 
   const openNew = () => {
     setEditPost(null);
+    setDefaultScheduledAt("");
     setModalOpen(true);
+  };
+
+  const openNewForDay = (day: Date) => {
+    setEditPost(null);
+    // Set to 9am on the selected day for the datetime-local input
+    const d = new Date(day);
+    d.setHours(9, 0, 0, 0);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const dtLocal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    setDefaultScheduledAt(dtLocal);
+    setModalOpen(true);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleBulkSave = async (data: any) => {
+    await fetch("/api/content-posts/multi-platform", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    setEditPost(null);
+    fetchPosts();
   };
 
   const selectDay = (day: Date) => {
@@ -384,23 +408,31 @@ export default function ContentPage() {
                   const dayPosts = getPostsForDay(day);
                   const isSelected = selectedDay && isSameDay(day, selectedDay);
                   return (
-                    <button
+                    <div
                       key={day.toISOString()}
                       onClick={() => selectDay(day)}
                       className={cn(
-                        "bg-bb-surface min-h-[48px] sm:min-h-[64px] lg:min-h-[80px] p-1 sm:p-1.5 text-left transition-colors hover:bg-bb-elevated",
+                        "bg-bb-surface min-h-[48px] sm:min-h-[64px] lg:min-h-[80px] p-1 sm:p-1.5 text-left transition-colors hover:bg-bb-elevated cursor-pointer group/day relative",
                         !isSameMonth(day, currentMonth) && "opacity-40",
                         isSelected && "ring-1 ring-bb-orange bg-bb-elevated"
                       )}
                     >
-                      <span
-                        className={cn(
-                          "inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-xs",
-                          isToday(day) ? "bg-bb-orange text-white font-bold" : "text-bb-muted"
-                        )}
-                      >
-                        {format(day, "d")}
-                      </span>
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={cn(
+                            "inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-xs",
+                            isToday(day) ? "bg-bb-orange text-white font-bold" : "text-bb-muted"
+                          )}
+                        >
+                          {format(day, "d")}
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openNewForDay(day); }}
+                          className="w-5 h-5 rounded-full flex items-center justify-center text-bb-dim hover:text-bb-orange hover:bg-bb-orange/10 opacity-0 group-hover/day:opacity-100 transition-opacity"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
                       <div className="flex flex-wrap gap-0.5 mt-0.5 sm:mt-1">
                         {dayPosts.slice(0, 3).map((p) => (
                           <span
@@ -412,7 +444,7 @@ export default function ContentPage() {
                           <span className="text-[8px] sm:text-[9px] text-bb-dim">+{dayPosts.length - 3}</span>
                         )}
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -430,6 +462,14 @@ export default function ContentPage() {
                 <div className="space-y-3">
                   {selectedDayPosts.map(renderPostCard)}
                 </div>
+                {selectedDay && (
+                  <button
+                    onClick={() => openNewForDay(selectedDay)}
+                    className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-bb-orange/10 border border-bb-orange/30 rounded-lg text-sm text-bb-orange hover:bg-bb-orange/20 transition-colors"
+                  >
+                    <Plus size={14} /> New Post
+                  </button>
+                )}
               </div>
             </div>
 
@@ -674,6 +714,8 @@ export default function ContentPage() {
           setEditPost(null);
         }}
         onSave={handleSave}
+        onBulkSave={handleBulkSave}
+        defaultScheduledAt={defaultScheduledAt}
         initialData={
           editPost
             ? {

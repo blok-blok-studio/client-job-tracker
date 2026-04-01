@@ -271,19 +271,28 @@ export default function ContentPostModal({
   open,
   onClose,
   onSave,
+  onBulkSave,
   initialData,
+  defaultScheduledAt,
 }: {
   open: boolean;
   onClose: () => void;
   onSave: (data: ContentPostData) => Promise<void>;
+  onBulkSave?: (data: { clientId: string; platforms: { platform: string; credentialId: string | null }[]; status?: string; title: string; body: string; hashtags: string[]; mediaUrls: string[]; scheduledAt: string; location?: string | null; taggedUsers?: string[]; collaborators?: string[]; altText?: string | null; coverImageUrl?: string | null; thumbnailUrl?: string | null; firstComment?: string | null; platformSettings?: PlatformSettings | null; visibility?: string | null; enableComments?: boolean }) => Promise<void>;
   initialData?: ContentPostData | null;
+  defaultScheduledAt?: string;
 }) {
+  const isEditing = !!initialData?.id;
+
   // Core fields
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState("");
   const [platform, setPlatform] = useState("INSTAGRAM");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["INSTAGRAM"]);
   const [credentialId, setCredentialId] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<CredentialOption[]>([]);
+  const [credentialsMap, setCredentialsMap] = useState<Record<string, CredentialOption[]>>({});
+  const [credentialMap, setCredentialMap] = useState<Record<string, string | null>>({});
   const [status, setStatus] = useState("DRAFT");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -318,7 +327,9 @@ export default function ContentPostModal({
   const coverInputRef = useRef<HTMLInputElement>(null);
   const thumbInputRef = useRef<HTMLInputElement>(null);
 
-  const limits = getPlatformLimits(platform);
+  const activePlatforms = isEditing ? [platform] : selectedPlatforms;
+  const primaryPlatform = isEditing ? platform : (selectedPlatforms[0] || "INSTAGRAM");
+  const limits = getPlatformLimits(primaryPlatform);
 
   useEffect(() => {
     fetch("/api/clients")
@@ -328,11 +339,10 @@ export default function ContentPostModal({
       });
   }, []);
 
-  // Fetch credentials when client + platform change
+  // Fetch credentials when client + platform change (editing mode)
   useEffect(() => {
-    if (!clientId || !platform) {
-      setCredentials([]);
-      setCredentialId(null);
+    if (!clientId || !platform || !isEditing) {
+      if (isEditing) { setCredentials([]); setCredentialId(null); }
       return;
     }
     fetch(`/api/clients/${clientId}/credentials?platform=${platform.toLowerCase()}`)
@@ -340,7 +350,6 @@ export default function ContentPostModal({
       .then((d) => {
         if (d.success) {
           setCredentials(d.data);
-          // Auto-select if only one credential, or keep existing selection
           if (d.data.length === 1) {
             setCredentialId(d.data[0].id);
           } else if (!d.data.find((c: CredentialOption) => c.id === credentialId)) {
@@ -352,7 +361,34 @@ export default function ContentPostModal({
       })
       .catch(() => setCredentials([]));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId, platform]);
+  }, [clientId, platform, isEditing]);
+
+  // Fetch credentials for all selected platforms (new post mode)
+  useEffect(() => {
+    if (!clientId || isEditing || selectedPlatforms.length === 0) return;
+    const fetchAll = async () => {
+      const entries = await Promise.all(
+        selectedPlatforms.map(async (p) => {
+          try {
+            const res = await fetch(`/api/clients/${clientId}/credentials?platform=${p.toLowerCase()}`);
+            const d = await res.json();
+            return [p, d.success ? d.data : []] as [string, CredentialOption[]];
+          } catch {
+            return [p, []] as [string, CredentialOption[]];
+          }
+        })
+      );
+      const map = Object.fromEntries(entries);
+      setCredentialsMap(map);
+      const autoMap: Record<string, string | null> = {};
+      for (const [p, creds] of entries) {
+        autoMap[p] = creds.length === 1 ? creds[0].id : (credentialMap[p] || null);
+      }
+      setCredentialMap(autoMap);
+    };
+    fetchAll();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, selectedPlatforms, isEditing]);
 
   useEffect(() => {
     if (initialData) {
@@ -378,13 +414,16 @@ export default function ContentPostModal({
     } else {
       setClientId("");
       setPlatform("INSTAGRAM");
+      setSelectedPlatforms(["INSTAGRAM"]);
       setCredentialId(null);
+      setCredentialsMap({});
+      setCredentialMap({});
       setStatus("DRAFT");
       setTitle("");
       setBody("");
       setHashtags([]);
       setMediaUrls([]);
-      setScheduledAt("");
+      setScheduledAt(defaultScheduledAt || "");
       setLocation("");
       setTaggedUsers([]);
       setCollaborators([]);
@@ -398,7 +437,7 @@ export default function ContentPostModal({
     }
     setUploadError(null);
     setActiveTab("compose");
-  }, [initialData, open]);
+  }, [initialData, open, defaultScheduledAt]);
 
   // ─── Handlers ────────────────────────────────────────────────────────────
 
@@ -552,15 +591,12 @@ export default function ContentPostModal({
   // ─── Submit ─────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
-    if (!clientId || !platform) return;
+    if (!clientId) return;
+    if (isEditing && !platform) return;
+    if (!isEditing && selectedPlatforms.length === 0) return;
     setSaving(true);
     try {
-      await onSave({
-        id: initialData?.id,
-        clientId,
-        credentialId,
-        platform,
-        status: scheduledAt ? "SCHEDULED" : status,
+      const sharedFields = {
         title,
         body,
         hashtags,
@@ -576,7 +612,29 @@ export default function ContentPostModal({
         platformSettings: Object.keys(platformSettings).length > 0 ? platformSettings : null,
         visibility,
         enableComments,
-      });
+      };
+
+      if (!isEditing && selectedPlatforms.length > 1 && onBulkSave) {
+        await onBulkSave({
+          clientId,
+          platforms: selectedPlatforms.map((p) => ({
+            platform: p,
+            credentialId: credentialMap[p] || null,
+          })),
+          status: scheduledAt ? "SCHEDULED" : status,
+          ...sharedFields,
+        });
+      } else {
+        const singlePlatform = isEditing ? platform : selectedPlatforms[0];
+        await onSave({
+          id: initialData?.id,
+          clientId,
+          credentialId: isEditing ? credentialId : (credentialMap[singlePlatform] || null),
+          platform: singlePlatform,
+          status: scheduledAt ? "SCHEDULED" : status,
+          ...sharedFields,
+        });
+      }
       onClose();
     } finally {
       setSaving(false);
@@ -585,20 +643,20 @@ export default function ContentPostModal({
 
   // ─── Platform-specific features visibility ─────────────────────────────
 
-  const showLocation = ["INSTAGRAM", "FACEBOOK", "TWITTER"].includes(platform);
-  const showTagPeople = ["INSTAGRAM", "FACEBOOK", "TWITTER", "LINKEDIN"].includes(platform);
-  const showCollaborators = ["INSTAGRAM", "LINKEDIN"].includes(platform);
-  const showFirstComment = platform === "INSTAGRAM";
-  const showAltText = ["INSTAGRAM", "TWITTER", "LINKEDIN", "FACEBOOK"].includes(platform);
-  const showCoverImage = ["INSTAGRAM", "TIKTOK"].includes(platform);
-  const showThumbnail = platform === "YOUTUBE";
-  const showVisibility = ["YOUTUBE", "TIKTOK", "LINKEDIN"].includes(platform);
-  const showThread = platform === "TWITTER";
-  const showPoll = platform === "TWITTER";
-  const showYouTubeSettings = platform === "YOUTUBE";
-  const showTikTokSettings = platform === "TIKTOK";
-  const showFacebookSettings = platform === "FACEBOOK";
-  const showInstagramSettings = platform === "INSTAGRAM";
+  const showLocation = activePlatforms.some((p) => ["INSTAGRAM", "FACEBOOK", "TWITTER"].includes(p));
+  const showTagPeople = activePlatforms.some((p) => ["INSTAGRAM", "FACEBOOK", "TWITTER", "LINKEDIN"].includes(p));
+  const showCollaborators = activePlatforms.some((p) => ["INSTAGRAM", "LINKEDIN"].includes(p));
+  const showFirstComment = activePlatforms.includes("INSTAGRAM");
+  const showAltText = activePlatforms.some((p) => ["INSTAGRAM", "TWITTER", "LINKEDIN", "FACEBOOK"].includes(p));
+  const showCoverImage = activePlatforms.some((p) => ["INSTAGRAM", "TIKTOK"].includes(p));
+  const showThumbnail = activePlatforms.includes("YOUTUBE");
+  const showVisibility = activePlatforms.some((p) => ["YOUTUBE", "TIKTOK", "LINKEDIN"].includes(p));
+  const showThread = activePlatforms.includes("TWITTER");
+  const showPoll = activePlatforms.includes("TWITTER");
+  const showYouTubeSettings = activePlatforms.includes("YOUTUBE");
+  const showTikTokSettings = activePlatforms.includes("TIKTOK");
+  const showFacebookSettings = activePlatforms.includes("FACEBOOK");
+  const showInstagramSettings = activePlatforms.includes("INSTAGRAM");
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -672,28 +730,59 @@ export default function ContentPostModal({
 
             {/* Platform */}
             <div>
-              <label className="block text-sm font-medium text-bb-muted mb-1">Platform</label>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                {PLATFORMS.map((p) => (
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-bb-muted">
+                  Platform{!isEditing && selectedPlatforms.length > 1 ? `s (${selectedPlatforms.length})` : ""}
+                </label>
+                {!isEditing && (
                   <button
-                    key={p}
                     type="button"
-                    onClick={() => setPlatform(p)}
-                    className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg text-xs transition-colors border ${
-                      platform === p
-                        ? "border-bb-orange bg-bb-orange/10 text-white"
-                        : "border-bb-border bg-bb-elevated text-bb-dim hover:text-bb-muted"
-                    }`}
+                    onClick={() =>
+                      setSelectedPlatforms(
+                        selectedPlatforms.length === PLATFORMS.length ? ["INSTAGRAM"] : [...PLATFORMS]
+                      )
+                    }
+                    className="text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
                   >
-                    <PlatformIcon platform={p} size={16} />
-                    <span className="truncate w-full text-center">{getPlatformLabel(p)}</span>
+                    {selectedPlatforms.length === PLATFORMS.length ? "Deselect All" : "Select All"}
                   </button>
-                ))}
+                )}
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-7 gap-1.5">
+                {PLATFORMS.map((p) => {
+                  const isSelected = isEditing ? platform === p : selectedPlatforms.includes(p);
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => {
+                        if (isEditing) {
+                          setPlatform(p);
+                        } else {
+                          setSelectedPlatforms((prev) => {
+                            if (prev.includes(p)) {
+                              return prev.length > 1 ? prev.filter((x) => x !== p) : prev;
+                            }
+                            return [...prev, p];
+                          });
+                        }
+                      }}
+                      className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg text-xs transition-colors border ${
+                        isSelected
+                          ? "border-bb-orange bg-bb-orange/10 text-white"
+                          : "border-bb-border bg-bb-elevated text-bb-dim hover:text-bb-muted"
+                      }`}
+                    >
+                      <PlatformIcon platform={p} size={16} />
+                      <span className="truncate w-full text-center">{getPlatformLabel(p)}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Account selector (when multiple credentials exist) */}
-            {credentials.length > 1 && (
+            {/* Account selector - editing mode (single credential) */}
+            {isEditing && credentials.length > 1 && (
               <div>
                 <label className="block text-sm font-medium text-bb-muted mb-1">Account</label>
                 <select
@@ -710,23 +799,55 @@ export default function ContentPostModal({
                 </select>
               </div>
             )}
-            {credentials.length === 0 && clientId && (
+            {isEditing && credentials.length === 0 && clientId && (
               <p className="text-xs text-yellow-400/80">
                 No {getPlatformLabel(platform)} credentials found for this client. Add them in the Vault to enable publishing.
               </p>
             )}
 
+            {/* Per-platform credential pickers - new post mode */}
+            {!isEditing && clientId && selectedPlatforms.length > 0 && (
+              <div className="space-y-1.5">
+                {selectedPlatforms.map((p) => {
+                  const creds = credentialsMap[p] || [];
+                  if (creds.length === 0) return (
+                    <p key={p} className="text-xs text-yellow-400/80 flex items-center gap-1.5">
+                      <PlatformIcon platform={p} size={12} />
+                      No {getPlatformLabel(p)} credentials found. Add them in the Vault.
+                    </p>
+                  );
+                  if (creds.length <= 1) return null;
+                  return (
+                    <div key={p} className="flex items-center gap-2">
+                      <PlatformIcon platform={p} size={14} />
+                      <span className="text-xs text-bb-muted w-20 shrink-0">{getPlatformLabel(p)}</span>
+                      <select
+                        value={credentialMap[p] || ""}
+                        onChange={(e) => setCredentialMap((prev) => ({ ...prev, [p]: e.target.value || null }))}
+                        className="flex-1 bg-bb-elevated border border-bb-border rounded-lg px-2 py-1.5 text-white text-xs"
+                      >
+                        <option value="">Auto-select</option>
+                        {creds.map((c) => (
+                          <option key={c.id} value={c.id}>{c.label || `${c.platform} account`}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Title (shown for YouTube always, optional for others) */}
-            {(platform === "YOUTUBE" || platform === "LINKEDIN") && (
+            {(activePlatforms.includes("YOUTUBE") || activePlatforms.includes("LINKEDIN")) && (
               <div>
                 <label className="block text-sm font-medium text-bb-muted mb-1">
-                  Title {platform === "YOUTUBE" && <span className="text-red-400">*</span>}
+                  Title {activePlatforms.includes("YOUTUBE") && <span className="text-red-400">*</span>}
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder={platform === "YOUTUBE" ? "Video title..." : "Article title (optional)..."}
+                  placeholder={activePlatforms.includes("YOUTUBE") ? "Video title..." : "Article title (optional)..."}
                   className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-white text-sm placeholder:text-bb-dim"
                 />
                 {limits.title > 0 && <CharCount current={title.length} max={limits.title} />}
@@ -736,21 +857,21 @@ export default function ContentPostModal({
             {/* Body / Caption */}
             <div>
               <label className="block text-sm font-medium text-bb-muted mb-1">
-                {platform === "YOUTUBE" ? "Description" : platform === "TWITTER" ? "Tweet" : "Caption"}
+                {primaryPlatform === "YOUTUBE" ? "Description" : primaryPlatform === "TWITTER" ? "Tweet" : "Caption"}
               </label>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder={
-                  platform === "TWITTER"
+                  primaryPlatform === "TWITTER"
                     ? "What's happening?"
-                    : platform === "YOUTUBE"
+                    : primaryPlatform === "YOUTUBE"
                     ? "Tell viewers about your video..."
-                    : platform === "LINKEDIN"
+                    : primaryPlatform === "LINKEDIN"
                     ? "Share your thoughts..."
                     : "Write your caption..."
                 }
-                rows={platform === "TWITTER" ? 3 : 4}
+                rows={primaryPlatform === "TWITTER" ? 3 : 4}
                 className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-white text-sm placeholder:text-bb-dim resize-none"
               />
               <CharCount current={body.length} max={limits.body} />
@@ -848,7 +969,7 @@ export default function ContentPostModal({
               <label className="block text-sm font-medium text-bb-muted mb-1">
                 Media
                 <span className="text-bb-dim font-normal ml-1.5">
-                  {platform === "TIKTOK" || platform === "YOUTUBE"
+                  {activePlatforms.every((p) => p === "TIKTOK" || p === "YOUTUBE")
                     ? "Video"
                     : `Up to ${limits.media} files`}
                 </span>
@@ -983,9 +1104,9 @@ export default function ContentPostModal({
                   className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-1.5 text-white text-sm placeholder:text-bb-dim"
                 />
                 <p className="text-[10px] text-bb-dim">
-                  {platform === "INSTAGRAM"
+                  {primaryPlatform === "INSTAGRAM"
                     ? "Location appears above your caption in the post"
-                    : platform === "TWITTER"
+                    : primaryPlatform === "TWITTER"
                     ? "Location is added to tweet metadata"
                     : "Location appears on your post"}
                 </p>
@@ -999,21 +1120,21 @@ export default function ContentPostModal({
                   values={taggedUsers}
                   onChange={setTaggedUsers}
                   placeholder={
-                    platform === "INSTAGRAM"
+                    primaryPlatform === "INSTAGRAM"
                       ? "Tag in photo (username)..."
-                      : platform === "TWITTER"
+                      : primaryPlatform === "TWITTER"
                       ? "Mention @username..."
-                      : platform === "LINKEDIN"
+                      : primaryPlatform === "LINKEDIN"
                       ? "Mention a connection..."
                       : "Tag a person..."
                   }
                 />
                 <p className="text-[10px] text-bb-dim">
-                  {platform === "INSTAGRAM"
+                  {primaryPlatform === "INSTAGRAM"
                     ? "Tagged users will be notified and your post appears on their tagged page"
-                    : platform === "TWITTER"
+                    : primaryPlatform === "TWITTER"
                     ? "Mentioned users will be notified"
-                    : platform === "LINKEDIN"
+                    : primaryPlatform === "LINKEDIN"
                     ? "Tagged connections will be notified and may increase reach"
                     : "Tagged people will be notified"}
                 </p>
@@ -1027,13 +1148,13 @@ export default function ContentPostModal({
                   values={collaborators}
                   onChange={setCollaborators}
                   placeholder={
-                    platform === "INSTAGRAM"
+                    primaryPlatform === "INSTAGRAM"
                       ? "Invite collaborator (username)..."
                       : "Add co-author..."
                   }
                 />
                 <p className="text-[10px] text-bb-dim">
-                  {platform === "INSTAGRAM"
+                  {primaryPlatform === "INSTAGRAM"
                     ? "Collaborators share the post on both profiles. They must accept the invite."
                     : "Co-authored posts appear on both profiles and reach combined audiences."}
                 </p>
@@ -1116,6 +1237,7 @@ export default function ContentPostModal({
               clientId={clientId}
               selectedUrls={mediaUrls}
               onSelect={(urls) => setMediaUrls(urls)}
+              allowedTypes={["IMAGE", "VIDEO", "AUDIO"]}
             />
 
             {/* Send to phone */}
@@ -1241,9 +1363,9 @@ export default function ContentPostModal({
                   ))}
                 </div>
                 <p className="text-[10px] text-bb-dim mt-1">
-                  {platform === "YOUTUBE"
+                  {activePlatforms.includes("YOUTUBE")
                     ? "Public videos are visible to everyone. Unlisted = link only. Private = only you."
-                    : platform === "TIKTOK"
+                    : activePlatforms.includes("TIKTOK")
                     ? "Controls who can view your TikTok."
                     : "Controls post visibility."}
                 </p>
@@ -1310,7 +1432,7 @@ export default function ContentPostModal({
                   }}
                 />
                 <p className="text-[10px] text-bb-dim mt-1">
-                  {platform === "INSTAGRAM"
+                  {activePlatforms.includes("INSTAGRAM")
                     ? "Cover image shown on your profile grid for Reels"
                     : "Cover frame shown before video plays"}
                 </p>
@@ -1513,7 +1635,7 @@ export default function ContentPostModal({
             )}
 
             {/* ─── LinkedIn Article Mode ─────────────────────────── */}
-            {platform === "LINKEDIN" && (
+            {activePlatforms.includes("LINKEDIN") && (
               <div className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-2">
                   <FileText size={14} className="text-bb-muted" />
@@ -1537,7 +1659,7 @@ export default function ContentPostModal({
             )}
 
             {/* Quote tweet URL */}
-            {platform === "TWITTER" && (
+            {activePlatforms.includes("TWITTER") && (
               <div>
                 <label className="block text-sm font-medium text-bb-muted mb-1">Quote Tweet URL</label>
                 <input
@@ -1558,7 +1680,7 @@ export default function ContentPostModal({
         {activeTab === "preview" && (
           <div className="py-2">
             <PostPreview
-              platform={platform}
+              platform={primaryPlatform}
               title={title}
               body={body}
               hashtags={hashtags}
@@ -1617,10 +1739,10 @@ export default function ContentPostModal({
             </div>
 
             {/* Send-to-Device for video platforms (IG, TikTok) */}
-            {(platform === "INSTAGRAM" || platform === "TIKTOK") && mediaUrls.length > 0 && (
+            {activePlatforms.some((p) => p === "INSTAGRAM" || p === "TIKTOK") && mediaUrls.length > 0 && (
               <div className="mt-4">
                 <SendToDevice
-                  platform={platform}
+                  platform={primaryPlatform}
                   caption={[body, hashtags.map((t) => (t.startsWith("#") ? t : `#${t}`)).join(" ")].filter(Boolean).join("\n\n")}
                   mediaUrls={mediaUrls}
                   firstComment={firstComment}
@@ -1631,12 +1753,14 @@ export default function ContentPostModal({
             )}
 
             {/* Direct publish note for API platforms */}
-            {(platform === "TWITTER" || platform === "LINKEDIN" || platform === "FACEBOOK" || platform === "YOUTUBE") && (
+            {activePlatforms.some((p) => ["TWITTER", "LINKEDIN", "FACEBOOK", "YOUTUBE"].includes(p)) && (
               <div className="mt-4 p-3 bg-green-500/5 border border-green-500/20 rounded-lg">
                 <p className="text-xs text-green-300 flex items-center gap-1.5">
                   <Check size={12} />
                   <span>
-                    <strong>{platform === "TWITTER" ? "Twitter" : platform === "LINKEDIN" ? "LinkedIn" : platform === "FACEBOOK" ? "Facebook" : "YouTube"}</strong> publishes directly via API.
+                    {activePlatforms.length > 1
+                      ? "Selected platforms publish directly via API."
+                      : <><strong>{getPlatformLabel(primaryPlatform)}</strong> publishes directly via API.</>}
                     {scheduledAt ? " Your post will auto-publish at the scheduled time." : " Hit Create Post to publish now."}
                   </span>
                 </p>
@@ -1650,13 +1774,24 @@ export default function ContentPostModal({
         {/* ═══════════════════════════════════════════════════════════════════ */}
         <div className="flex items-center justify-between gap-3 mt-6 pt-4 border-t border-bb-border">
           <div className="flex items-center gap-1 text-[10px] text-bb-dim">
-            <PlatformIcon platform={platform} size={12} />
-            {getPlatformLabel(platform)}
+            {!isEditing && selectedPlatforms.length > 1 ? (
+              <div className="flex items-center gap-1">
+                {selectedPlatforms.map((p) => (
+                  <PlatformIcon key={p} platform={p} size={12} />
+                ))}
+                <span>{selectedPlatforms.length} platforms</span>
+              </div>
+            ) : (
+              <>
+                <PlatformIcon platform={isEditing ? platform : selectedPlatforms[0]} size={12} />
+                {getPlatformLabel(isEditing ? platform : selectedPlatforms[0])}
+              </>
+            )}
             {mediaUrls.length > 0 && <span>· {mediaUrls.length} media</span>}
             {hashtags.length > 0 && <span>· {hashtags.length} tags</span>}
           </div>
           <div className="flex items-center gap-3">
-            {(platform === "INSTAGRAM" || platform === "TIKTOK") && mediaUrls.some((u) => /\.(mp4|mov|webm)$/i.test(u)) && (
+            {activePlatforms.some((p) => p === "INSTAGRAM" || p === "TIKTOK") && mediaUrls.some((u) => /\.(mp4|mov|webm)$/i.test(u)) && (
               <span className="text-[10px] text-purple-400 flex items-center gap-1">
                 <Smartphone size={10} /> Post via app
               </span>
@@ -1671,10 +1806,10 @@ export default function ContentPostModal({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!clientId || saving || uploading}
+              disabled={!clientId || saving || uploading || (!isEditing && selectedPlatforms.length === 0)}
               className="px-5 py-2 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange/90 transition-colors disabled:opacity-50"
             >
-              {saving ? "Saving..." : initialData?.id ? "Update" : "Create Post"}
+              {saving ? "Saving..." : isEditing ? "Update" : selectedPlatforms.length > 1 ? `Create ${selectedPlatforms.length} Posts` : "Create Post"}
             </button>
           </div>
         </div>
