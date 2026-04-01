@@ -185,16 +185,6 @@ export default function ContentPage() {
     setModalOpen(true);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleBulkSave = async (data: any) => {
-    await fetch("/api/content-posts/multi-platform", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    setEditPost(null);
-    fetchPosts();
-  };
 
   const selectDay = (day: Date) => {
     setSelectedDay(day);
@@ -714,7 +704,6 @@ export default function ContentPage() {
           setEditPost(null);
         }}
         onSave={handleSave}
-        onBulkSave={handleBulkSave}
         defaultScheduledAt={defaultScheduledAt}
         initialData={
           editPost
