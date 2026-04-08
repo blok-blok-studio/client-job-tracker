@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { put } from "@vercel/blob";
-import { randomUUID } from "crypto";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { sendTelegramMessage } from "@/lib/telegram";
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB for client uploads (4K video)
-const ACCEPTED_MIMES = new Set([
+const ACCEPTED_MIMES = [
   // Images
   "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif",
   "image/svg+xml", "image/bmp", "image/tiff", "image/x-icon", "image/avif",
@@ -25,7 +24,7 @@ const ACCEPTED_MIMES = new Set([
   "application/vnd.ms-powerpoint",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "text/plain", "text/csv", "text/rtf", "application/rtf",
-]);
+];
 
 // GET — validate token and get client info
 export async function GET(request: NextRequest) {
@@ -46,98 +45,138 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ success: true, data: client });
 }
 
-// POST — client uploads files via their portal link
-export async function POST(request: NextRequest) {
+// POST — direct-to-blob client upload handshake.
+//
+// Files are uploaded straight from the browser to Vercel Blob via
+// `upload()` from `@vercel/blob/client`. This endpoint only:
+//   1. Signs a short-lived upload token after validating the client's
+//      uploadToken (onBeforeGenerateToken)
+//   2. Records the ClientMedia DB row + activity log once the browser
+//      finishes the upload (onUploadCompleted)
+//
+// The file bytes NEVER pass through this serverless function, which
+// bypasses Vercel's ~4.5MB request body limit and lets clients upload
+// up to 500MB (4K video) without hitting "Upload failed".
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const body = (await request.json()) as HandleUploadBody;
+
   try {
-    const formData = await request.formData();
-    const token = formData.get("token") as string;
-    const files = formData.getAll("files") as File[];
+    const jsonResponse = await handleUpload({
+      body,
+      request,
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        if (!clientPayload) {
+          throw new Error("Missing client payload");
+        }
 
-    if (!token) {
-      return NextResponse.json({ success: false, error: "Token required" }, { status: 400 });
-    }
+        let payload: { token?: string; filename?: string; size?: number };
+        try {
+          payload = JSON.parse(clientPayload);
+        } catch {
+          throw new Error("Invalid client payload");
+        }
 
-    const client = await prisma.client.findUnique({
-      where: { uploadToken: token },
-      select: { id: true, name: true, type: true },
-    });
+        const token = payload.token;
+        if (!token) {
+          throw new Error("Token required");
+        }
 
-    if (!client || client.type === "ARCHIVED") {
-      return NextResponse.json({ success: false, error: "Invalid upload link" }, { status: !client ? 404 : 410 });
-    }
+        const client = await prisma.client.findUnique({
+          where: { uploadToken: token },
+          select: { id: true, name: true, type: true },
+        });
 
-    if (files.length === 0) {
-      return NextResponse.json({ success: false, error: "No files provided" }, { status: 400 });
-    }
+        if (!client) {
+          throw new Error("Invalid upload link");
+        }
+        if (client.type === "ARCHIVED") {
+          throw new Error("This upload link has been archived");
+        }
 
-    // No file count limit — files are uploaded one at a time from the portal
+        if (typeof payload.size === "number" && payload.size > MAX_FILE_SIZE) {
+          throw new Error("Exceeds 500MB limit");
+        }
 
-    const results = [];
+        return {
+          allowedContentTypes: ACCEPTED_MIMES,
+          maximumSizeInBytes: MAX_FILE_SIZE,
+          addRandomSuffix: false,
+          tokenPayload: JSON.stringify({
+            clientId: client.id,
+            clientName: client.name,
+            originalFilename: payload.filename ?? pathname.split("/").pop() ?? "upload",
+            size: payload.size ?? 0,
+          }),
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        if (!tokenPayload) return;
 
-    for (const file of files) {
-      if (file.size > MAX_FILE_SIZE) {
-        results.push({ filename: file.name, error: `Exceeds 500MB limit` });
-        continue;
-      }
-      if (!ACCEPTED_MIMES.has(file.type)) {
-        results.push({ filename: file.name, error: `Unsupported file type: ${file.type}` });
-        continue;
-      }
+        let payload: {
+          clientId: string;
+          clientName: string;
+          originalFilename: string;
+          size: number;
+        };
+        try {
+          payload = JSON.parse(tokenPayload);
+        } catch (err) {
+          console.error("[upload-portal] Failed to parse tokenPayload:", err);
+          return;
+        }
 
-      const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
-      const blobPath = `client-media/${client.id}/${randomUUID()}${ext}`;
+        const contentType = blob.contentType ?? "application/octet-stream";
+        const fileType = contentType.startsWith("image/")
+          ? "IMAGE"
+          : contentType.startsWith("video/")
+          ? "VIDEO"
+          : contentType.startsWith("audio/")
+          ? "AUDIO"
+          : "DOCUMENT";
 
-      const blob = await put(blobPath, file, { access: "public" });
+        try {
+          await prisma.clientMedia.create({
+            data: {
+              clientId: payload.clientId,
+              url: blob.url,
+              filename: payload.originalFilename,
+              fileType: fileType as "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT",
+              fileSize: payload.size,
+              mimeType: contentType,
+              uploadedBy: "client",
+            },
+          });
 
-      const fileType = file.type.startsWith("image/")
-        ? "IMAGE"
-        : file.type.startsWith("video/")
-        ? "VIDEO"
-        : file.type.startsWith("audio/")
-        ? "AUDIO"
-        : "DOCUMENT";
+          await prisma.activityLog.create({
+            data: {
+              clientId: payload.clientId,
+              actor: payload.clientName,
+              action: "client_media_uploaded",
+              details: `${payload.clientName} uploaded ${payload.originalFilename}`,
+            },
+          });
 
-      const record = await prisma.clientMedia.create({
-        data: {
-          clientId: client.id,
-          url: blob.url,
-          filename: file.name,
-          fileType: fileType as "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT",
-          fileSize: file.size,
-          mimeType: file.type,
-          uploadedBy: "client",
-        },
-      });
-
-      results.push({ filename: file.name, url: blob.url, id: record.id });
-    }
-
-    const successCount = results.filter((r) => !("error" in r)).length;
-    const fileNames = results.filter((r) => !("error" in r)).map((r) => r.filename).join(", ");
-
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        clientId: client.id,
-        actor: client.name,
-        action: "client_media_uploaded",
-        details: `${client.name} uploaded ${successCount} file${successCount !== 1 ? "s" : ""}: ${fileNames}`,
+          const chaseChatId = process.env.ADMIN_TELEGRAM_CHAT_ID;
+          if (chaseChatId) {
+            await sendTelegramMessage(
+              chaseChatId,
+              `📸 <b>${payload.clientName}</b> just uploaded a file:\n${payload.originalFilename}`,
+              "HTML"
+            ).catch((err) => console.error("[Telegram] Upload notification failed:", err));
+          }
+        } catch (err) {
+          // onUploadCompleted must throw on failure so Vercel Blob retries,
+          // but we log the details first for debugging.
+          console.error("[upload-portal] Failed to record uploaded media:", err);
+          throw err;
+        }
       },
     });
 
-    // Notify Chase via Telegram
-    const chaseChatId = process.env.ADMIN_TELEGRAM_CHAT_ID;
-    if (chaseChatId && successCount > 0) {
-      sendTelegramMessage(
-        chaseChatId,
-        `📸 <b>${client.name}</b> just uploaded ${successCount} file${successCount !== 1 ? "s" : ""}:\n${fileNames}`,
-        "HTML"
-      ).catch((err) => console.error("[Telegram] Upload notification failed:", err));
-    }
-
-    return NextResponse.json({ success: true, data: results }, { status: 201 });
+    return NextResponse.json(jsonResponse);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Upload failed";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    console.error("[upload-portal] handleUpload error:", err);
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }

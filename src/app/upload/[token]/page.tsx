@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { upload } from "@vercel/blob/client";
 import { Upload, CheckCircle, AlertCircle, Loader2, Film, Image as ImageIcon, Music, X, FileUp, Check, FileText } from "lucide-react";
 
 interface ClientInfo {
@@ -59,7 +60,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
   }, [addFiles]);
 
   const handleUpload = async () => {
-    if (files.length === 0 || !token) return;
+    if (files.length === 0 || !token || !client) return;
     setUploading(true);
     setUploadProgress(0);
     setResults([]);
@@ -68,54 +69,37 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
     const totalSize = files.reduce((s, f) => s + f.size, 0);
     let uploadedSize = 0;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-
+    for (const file of files) {
       try {
-        const result = await new Promise<UploadResult>((resolve) => {
-          const formData = new FormData();
-          formData.append("token", token);
-          formData.append("files", file);
+        const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
+        const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`;
+        const blobPath = `client-media/${client.id}/${safeName}`;
 
-          const xhr = new XMLHttpRequest();
-
-          xhr.upload.addEventListener("progress", (e) => {
-            if (e.lengthComputable) {
-              const overall = uploadedSize + e.loaded;
-              setUploadProgress(Math.round((overall / totalSize) * 100));
-            }
-          });
-
-          xhr.addEventListener("load", () => {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              if (data.success && data.data?.[0]) {
-                resolve(data.data[0]);
-              } else {
-                resolve({ filename: file.name, error: data.error || "Upload failed" });
-              }
-            } catch {
-              resolve({ filename: file.name, error: "Upload failed" });
-            }
-          });
-
-          xhr.addEventListener("error", () => {
-            resolve({ filename: file.name, error: "Upload failed. Please try again." });
-          });
-
-          xhr.open("POST", "/api/client-media/upload-portal");
-          xhr.send(formData);
+        const blob = await upload(blobPath, file, {
+          access: "public",
+          handleUploadUrl: "/api/client-media/upload-portal",
+          contentType: file.type || undefined,
+          clientPayload: JSON.stringify({
+            token,
+            filename: file.name,
+            size: file.size,
+          }),
+          onUploadProgress: ({ loaded }) => {
+            const overall = uploadedSize + loaded;
+            setUploadProgress(Math.min(100, Math.round((overall / totalSize) * 100)));
+          },
         });
 
-        allResults.push(result);
-        uploadedSize += file.size;
-        setUploadProgress(Math.round((uploadedSize / totalSize) * 100));
-        setResults([...allResults]);
-      } catch {
-        allResults.push({ filename: file.name, error: "Upload failed" });
-        uploadedSize += file.size;
-        setResults([...allResults]);
+        allResults.push({ filename: file.name, url: blob.url });
+      } catch (err) {
+        const message =
+          err instanceof Error && err.message ? err.message : "Upload failed. Please try again.";
+        allResults.push({ filename: file.name, error: message });
       }
+
+      uploadedSize += file.size;
+      setUploadProgress(Math.min(100, Math.round((uploadedSize / totalSize) * 100)));
+      setResults([...allResults]);
     }
 
     setFiles([]);
