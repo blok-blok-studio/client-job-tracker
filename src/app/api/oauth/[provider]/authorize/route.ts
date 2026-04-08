@@ -69,12 +69,49 @@ export async function GET(
     authParams.set("code_challenge_method", "S256");
   }
 
-  // Google needs access_type=offline for refresh token
-  if (provider === "google") {
-    authParams.set("access_type", "offline");
-    authParams.set("prompt", "consent");
+  // Provider-specific params to force re-authentication. Without these, each
+  // provider will silently reuse the browser's existing session and auto-sign
+  // the user into whichever account they last used — making it impossible to
+  // connect a different account for a different client. Every provider has a
+  // different mechanism for forcing account selection.
+  switch (provider) {
+    case "google":
+      // access_type=offline is required for refresh tokens.
+      // prompt=consent forces the consent screen; select_account shows the
+      // Google account picker so the user can choose which account to use.
+      authParams.set("access_type", "offline");
+      authParams.set("prompt", "consent select_account");
+      break;
+    case "meta":
+      // Facebook/Instagram: auth_type=reauthenticate forces the user to
+      // re-enter their password, which lets them switch accounts.
+      authParams.set("auth_type", "reauthenticate");
+      break;
+    case "threads":
+      // Threads uses the same Meta auth infrastructure.
+      authParams.set("auth_type", "reauthenticate");
+      break;
+    case "twitter":
+      // Twitter/X OAuth 2.0 doesn't officially support prompt=login, but
+      // passing force_login nudges the flow to show the login screen when
+      // possible. See logout wrapper below for the stronger guarantee.
+      authParams.set("force_login", "true");
+      break;
+    case "linkedin":
+      // LinkedIn ignores prompt=login entirely — handled via logout redirect
+      // below.
+      break;
   }
 
   const authUrl = `${config.authUrl}?${authParams.toString()}`;
+
+  // For providers that don't honor re-auth query params, wrap the authorize
+  // URL in the provider's logout redirect so the browser session is cleared
+  // first, forcing the login page on the next hop.
+  if (provider === "linkedin") {
+    const logoutUrl = `https://www.linkedin.com/m/logout/?session_redirect=${encodeURIComponent(authUrl)}`;
+    return NextResponse.redirect(logoutUrl);
+  }
+
   return NextResponse.redirect(authUrl);
 }
