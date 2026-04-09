@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const heicConvert = require("heic-convert");
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 
@@ -110,6 +108,7 @@ async function convertHeicUrl(url: string): Promise<{ newUrl: string }> {
   const buffer = Buffer.from(await res.arrayBuffer());
 
   // Convert to JPEG
+  const heicConvert = (await import("heic-convert")).default;
   const converted = await heicConvert({ buffer, format: "JPEG", quality: 0.9 });
   const jpegBuffer = Buffer.from(converted);
 

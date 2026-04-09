@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import crypto from "crypto";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const heicConvert = require("heic-convert");
+async function convertHeicToJpeg(buffer: Buffer): Promise<Buffer> {
+  const heicConvert = (await import("heic-convert")).default;
+  const converted = await heicConvert({ buffer, format: "JPEG", quality: 0.9 });
+  return Buffer.from(converted);
+}
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -163,8 +166,7 @@ export async function POST(request: NextRequest) {
       let uploadExt = ext;
       let uploadContentType = file.type;
       if (file.type === "image/heic" || file.type === "image/heif") {
-        const converted = await heicConvert({ buffer, format: "JPEG", quality: 0.9 });
-        uploadBuffer = Buffer.from(converted);
+        uploadBuffer = await convertHeicToJpeg(buffer);
         uploadExt = ".jpg";
         uploadContentType = "image/jpeg";
       }
