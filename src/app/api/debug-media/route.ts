@@ -2,39 +2,25 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 export async function GET() {
-  // Find all posts with broken or non-standard image URLs
   const posts = await prisma.contentPost.findMany({
     where: {
       NOT: { mediaUrls: { equals: [] } },
     },
-    select: {
-      id: true,
-      title: true,
-      mediaUrls: true,
-      client: { select: { name: true } },
-      scheduledAt: true,
-    },
-    orderBy: { scheduledAt: "desc" },
   });
 
-  const report = posts.map((p) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const report = posts.map((p: any) => ({
     id: p.id,
-    client: p.client?.name,
-    title: p.title?.slice(0, 40),
+    clientId: p.clientId,
+    title: (p.title || "").slice(0, 40),
     scheduledAt: p.scheduledAt,
     mediaUrls: p.mediaUrls,
-    issues: p.mediaUrls
-      .map((url, i) => {
-        if (/\.heic|\.heif/i.test(url)) return `[${i}] still HEIC`;
-        if (!url.startsWith("http")) return `[${i}] invalid URL`;
-        return null;
-      })
-      .filter(Boolean),
+    hasHeic: p.mediaUrls.some((url: string) => /\.heic|\.heif/i.test(url)),
   }));
 
   return NextResponse.json({
-    totalPosts: posts.length,
-    postsWithIssues: report.filter((r) => r.issues.length > 0),
+    totalPosts: report.length,
+    postsWithHeic: report.filter((r: any) => r.hasHeic),
     allPosts: report,
   });
 }
