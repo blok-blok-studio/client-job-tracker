@@ -158,11 +158,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Convert HEIC/HEIF to JPEG for browser preview compatibility + LinkedIn support
-      let uploadBuffer: Buffer | Uint8Array = buffer;
+      let uploadBuffer: Buffer = buffer;
       let uploadExt = ext;
       let uploadContentType = file.type;
       if (file.type === "image/heic" || file.type === "image/heif") {
-        uploadBuffer = await sharp(buffer).jpeg({ quality: 90 }).toBuffer();
+        uploadBuffer = Buffer.from(await sharp(buffer).jpeg({ quality: 90 }).toBuffer());
         uploadExt = ".jpg";
         uploadContentType = "image/jpeg";
       }
