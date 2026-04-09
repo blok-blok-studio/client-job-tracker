@@ -6,7 +6,8 @@ export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q") || "";
   const platform = request.nextUrl.searchParams.get("platform") || "";
 
-  const where: Record<string, unknown> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const where: any = {};
   if (platform) where.platform = platform.toUpperCase();
   if (q) {
     where.OR = [
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   });
 
   return NextResponse.json(
-    links.map((l) => ({
+    links.map((l: { id: string; platform: string; handle: string | null; url: string; client: { id: string; name: string; avatarUrl: string | null } }) => ({
       id: l.id,
       platform: l.platform,
       handle: l.handle,
