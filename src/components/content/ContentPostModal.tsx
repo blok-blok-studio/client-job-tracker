@@ -109,7 +109,7 @@ interface ContentPostData {
 
 const PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "THREADS", "LINKEDIN", "YOUTUBE", "FACEBOOK"];
 const STATUSES = ["DRAFT", "SCHEDULED"];
-const ACCEPTED_TYPES = "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf";
+const ACCEPTED_TYPES = "image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm,application/pdf";
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 const YOUTUBE_CATEGORIES = [
@@ -178,24 +178,67 @@ function TagInput({
   onChange,
   placeholder,
   prefix = "@",
+  searchPlatform,
 }: {
   values: string[];
   onChange: (v: string[]) => void;
   placeholder: string;
   prefix?: string;
+  searchPlatform?: string;
 }) {
   const [input, setInput] = useState("");
+  const [suggestions, setSuggestions] = useState<{ handle: string; clientName: string; clientAvatar: string | null; platform: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlightIdx, setHighlightIdx] = useState(-1);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const add = () => {
-    const val = input.trim().replace(/^[@#]/, "");
-    if (val && !values.includes(val)) {
-      onChange([...values, val]);
+  const add = (val?: string) => {
+    const v = (val || input).trim().replace(/^[@#]/, "");
+    if (v && !values.includes(v)) {
+      onChange([...values, v]);
     }
     setInput("");
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setHighlightIdx(-1);
   };
 
+  // Search social links when typing
+  useEffect(() => {
+    if (!searchPlatform || input.trim().length < 1) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/social-links/search?q=${encodeURIComponent(input.trim())}&platform=${searchPlatform}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data);
+          setShowSuggestions(data.length > 0);
+          setHighlightIdx(-1);
+        }
+      } catch { /* ignore */ }
+    }, 250);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [input, searchPlatform]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   return (
-    <div>
+    <div ref={wrapperRef}>
       {values.length > 0 && (
         <div className="flex gap-1.5 mb-2 flex-wrap">
           {values.map((v) => (
@@ -211,27 +254,74 @@ function TagInput({
           ))}
         </div>
       )}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              add();
-            }
-          }}
-          placeholder={placeholder}
-          className="flex-1 bg-bb-elevated border border-bb-border rounded-lg px-3 py-1.5 text-white text-sm placeholder:text-bb-dim"
-        />
-        <button
-          type="button"
-          onClick={add}
-          className="px-3 py-1.5 bg-bb-elevated border border-bb-border rounded-lg text-sm text-bb-muted hover:text-white"
-        >
-          Add
-        </button>
+      <div className="relative">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onFocus={() => { if (suggestions.length) setShowSuggestions(true); }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setHighlightIdx((i) => Math.min(i + 1, suggestions.length - 1));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setHighlightIdx((i) => Math.max(i - 1, -1));
+              } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (highlightIdx >= 0 && suggestions[highlightIdx]) {
+                  add(suggestions[highlightIdx].handle || suggestions[highlightIdx].clientName);
+                } else {
+                  add();
+                }
+              } else if (e.key === "Escape") {
+                setShowSuggestions(false);
+              }
+            }}
+            placeholder={placeholder}
+            className="flex-1 bg-bb-elevated border border-bb-border rounded-lg px-3 py-1.5 text-white text-sm placeholder:text-bb-dim"
+          />
+          <button
+            type="button"
+            onClick={() => add()}
+            className="px-3 py-1.5 bg-bb-elevated border border-bb-border rounded-lg text-sm text-bb-muted hover:text-white"
+          >
+            Add
+          </button>
+        </div>
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="absolute z-50 left-0 right-12 mt-1 bg-bb-card border border-bb-border rounded-lg shadow-xl max-h-48 overflow-y-auto">
+            {suggestions.map((s, i) => (
+              <button
+                key={s.handle || s.clientName + i}
+                type="button"
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-bb-elevated transition-colors ${
+                  i === highlightIdx ? "bg-bb-elevated" : ""
+                }`}
+                onMouseEnter={() => setHighlightIdx(i)}
+                onClick={() => add(s.handle || s.clientName)}
+              >
+                {s.clientAvatar ? (
+                  <img src={s.clientAvatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-bb-elevated border border-bb-border flex items-center justify-center text-[10px] text-bb-muted">
+                    {(s.clientName || "?")[0]}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <span className="text-white truncate block">
+                    {s.handle ? `@${s.handle}` : s.clientName}
+                  </span>
+                  {s.handle && (
+                    <span className="text-[11px] text-bb-dim truncate block">{s.clientName}</span>
+                  )}
+                </div>
+                <span className="text-[10px] text-bb-dim uppercase">{s.platform}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -410,10 +500,12 @@ export default function ContentPostModal({
   // ─── Handlers ────────────────────────────────────────────────────────────
 
   const addHashtag = () => {
-    const tag = hashtagInput.trim().replace(/^#/, "");
-    if (tag && !hashtags.includes(tag)) {
-      setHashtags([...hashtags, tag]);
-    }
+    const raw = hashtagInput.trim();
+    if (!raw) { setHashtagInput(""); return; }
+    // Split by spaces, commas, or # to support pasting multiple hashtags at once
+    const tags = raw.split(/[\s,#]+/).map((t) => t.trim()).filter(Boolean);
+    const unique = tags.filter((t) => !hashtags.includes(t));
+    if (unique.length) setHashtags([...hashtags, ...unique]);
     setHashtagInput("");
   };
 
@@ -429,7 +521,8 @@ export default function ContentPostModal({
         setUploadError(`"${file.name}" exceeds the 50MB limit`);
         return;
       }
-      const fileType = file.type || (file.name.endsWith(".pdf") ? "application/pdf" : "");
+      const ext = file.name.toLowerCase().split(".").pop();
+      const fileType = file.type || ({ pdf: "application/pdf", heic: "image/heic", heif: "image/heif" }[ext || ""] || "");
       if (!ACCEPTED_TYPES.split(",").includes(fileType)) {
         setUploadError(`"${file.name}" is not a supported file type`);
         return;
@@ -918,7 +1011,7 @@ export default function ContentPostModal({
                     </div>
                     <p className="text-xs text-bb-dim text-center px-4">
                       Drag & drop or click to upload<br />
-                      <span className="text-bb-dim/70">JPEG, PNG, GIF, WebP, MP4, MOV, WebM, PDF &middot; Max 50MB</span>
+                      <span className="text-bb-dim/70">JPEG, PNG, GIF, WebP, HEIC, MP4, MOV, WebM, PDF &middot; Max 50MB</span>
                     </p>
                   </>
                 )}
@@ -1011,6 +1104,7 @@ export default function ContentPostModal({
                 <TagInput
                   values={taggedUsers}
                   onChange={setTaggedUsers}
+                  searchPlatform={platform}
                   placeholder={
                     platform === "INSTAGRAM"
                       ? "Tag in photo (username)..."
@@ -1039,6 +1133,7 @@ export default function ContentPostModal({
                 <TagInput
                   values={collaborators}
                   onChange={setCollaborators}
+                  searchPlatform={platform}
                   placeholder={
                     platform === "INSTAGRAM"
                       ? "Invite collaborator (username)..."
