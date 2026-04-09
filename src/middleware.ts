@@ -19,6 +19,7 @@ const PUBLIC_PATHS = [
   "/api/exchange-rate",
   "/api/oauth",
   "/api/dm-webhook",
+  "/api/migrate-heic",
 ];
 
 // In-memory rate limiter (Edge runtime compatible)
