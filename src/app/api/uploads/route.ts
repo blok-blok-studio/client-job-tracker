@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import crypto from "crypto";
-import heicConvert from "heic-convert";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const heicConvert = require("heic-convert");
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB

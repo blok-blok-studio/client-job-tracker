@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
-import heicConvert from "heic-convert";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const heicConvert = require("heic-convert");
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 
