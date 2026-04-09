@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
-import sharp from "sharp";
+import heicConvert from "heic-convert";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 
@@ -109,7 +109,8 @@ async function convertHeicUrl(url: string): Promise<{ newUrl: string }> {
   const buffer = Buffer.from(await res.arrayBuffer());
 
   // Convert to JPEG
-  const jpegBuffer = await sharp(buffer).jpeg({ quality: 90 }).toBuffer();
+  const converted = await heicConvert({ buffer, format: "JPEG", quality: 0.9 });
+  const jpegBuffer = Buffer.from(converted);
 
   // Upload as JPEG
   const id = crypto.randomUUID();

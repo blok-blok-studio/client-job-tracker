@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import crypto from "crypto";
-import sharp from "sharp";
+import heicConvert from "heic-convert";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -162,7 +162,8 @@ export async function POST(request: NextRequest) {
       let uploadExt = ext;
       let uploadContentType = file.type;
       if (file.type === "image/heic" || file.type === "image/heif") {
-        uploadBuffer = Buffer.from(await sharp(buffer).jpeg({ quality: 90 }).toBuffer());
+        const converted = await heicConvert({ buffer, format: "JPEG", quality: 0.9 });
+        uploadBuffer = Buffer.from(converted);
         uploadExt = ".jpg";
         uploadContentType = "image/jpeg";
       }
