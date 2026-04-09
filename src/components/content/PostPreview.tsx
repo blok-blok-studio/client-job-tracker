@@ -16,6 +16,31 @@ function isVideo(url: string) {
   return /\.(mp4|mov|webm)$/i.test(url);
 }
 
+function isPdf(url: string) {
+  return /\.pdf$/i.test(url);
+}
+
+function MediaItem({ url, iconSize = 32 }: { url: string; iconSize?: number }) {
+  if (isPdf(url)) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-gray-800 to-gray-900 gap-2">
+        <div className="w-16 h-20 bg-white/10 rounded-lg border border-white/20 flex items-center justify-center">
+          <Film size={24} className="text-red-400" />
+        </div>
+        <span className="text-xs text-white/60 font-medium">PDF Document</span>
+      </div>
+    );
+  }
+  if (isVideo(url)) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-black/40">
+        <Film size={iconSize} className="text-white/40" />
+      </div>
+    );
+  }
+  return <img src={url} alt="" className="w-full h-full object-cover" />;
+}
+
 // ─── Swipeable Carousel ─────────────────────────────────────────────────────
 
 function SwipeCarousel({
@@ -111,7 +136,9 @@ function SwipeCarousel({
         >
           {urls.map((url, i) => (
             <div key={url + i} className="h-full" style={{ width: `${100 / count}%` }}>
-              {isVideo(url) ? (
+              {isPdf(url) ? (
+                <MediaItem url={url} iconSize={36} />
+              ) : isVideo(url) ? (
                 <div className="w-full h-full flex items-center justify-center bg-black/60">
                   <Film size={36} className="text-white/50" />
                 </div>
@@ -181,16 +208,11 @@ function TwitterMediaGrid({ urls }: { urls: string[] }) {
   if (urls.length === 0) return null;
 
   if (urls.length === 1) {
-    const url = urls[0];
     return (
       <div className="rounded-2xl overflow-hidden border border-[#2F3336]">
-        {isVideo(url) ? (
-          <div className="w-full h-48 flex items-center justify-center bg-black/40">
-            <Film size={32} className="text-white/40" />
-          </div>
-        ) : (
-          <img src={url} alt="" className="w-full max-h-[280px] object-cover" />
-        )}
+        <div className="max-h-[280px]">
+          <MediaItem url={urls[0]} />
+        </div>
       </div>
     );
   }
@@ -200,13 +222,7 @@ function TwitterMediaGrid({ urls }: { urls: string[] }) {
       <div className="grid grid-cols-2 gap-0.5 rounded-2xl overflow-hidden border border-[#2F3336]">
         {urls.map((url) => (
           <div key={url} className="aspect-[4/5] overflow-hidden">
-            {isVideo(url) ? (
-              <div className="w-full h-full flex items-center justify-center bg-black/40">
-                <Film size={20} className="text-white/40" />
-              </div>
-            ) : (
-              <img src={url} alt="" className="w-full h-full object-cover" />
-            )}
+            <MediaItem url={url} iconSize={20} />
           </div>
         ))}
       </div>
@@ -217,23 +233,11 @@ function TwitterMediaGrid({ urls }: { urls: string[] }) {
     return (
       <div className="grid grid-cols-2 gap-0.5 rounded-2xl overflow-hidden border border-[#2F3336] h-[200px]">
         <div className="row-span-2 overflow-hidden">
-          {isVideo(urls[0]) ? (
-            <div className="w-full h-full flex items-center justify-center bg-black/40">
-              <Film size={24} className="text-white/40" />
-            </div>
-          ) : (
-            <img src={urls[0]} alt="" className="w-full h-full object-cover" />
-          )}
+          <MediaItem url={urls[0]} iconSize={24} />
         </div>
         {urls.slice(1, 3).map((url) => (
           <div key={url} className="overflow-hidden">
-            {isVideo(url) ? (
-              <div className="w-full h-full flex items-center justify-center bg-black/40">
-                <Film size={20} className="text-white/40" />
-              </div>
-            ) : (
-              <img src={url} alt="" className="w-full h-full object-cover" />
-            )}
+            <MediaItem url={url} iconSize={20} />
           </div>
         ))}
       </div>
@@ -245,13 +249,7 @@ function TwitterMediaGrid({ urls }: { urls: string[] }) {
     <div className="grid grid-cols-2 gap-0.5 rounded-2xl overflow-hidden border border-[#2F3336]">
       {urls.slice(0, 4).map((url) => (
         <div key={url} className="aspect-video overflow-hidden">
-          {isVideo(url) ? (
-            <div className="w-full h-full flex items-center justify-center bg-black/40">
-              <Film size={20} className="text-white/40" />
-            </div>
-          ) : (
-            <img src={url} alt="" className="w-full h-full object-cover" />
-          )}
+          <MediaItem url={url} iconSize={20} />
         </div>
       ))}
     </div>
@@ -379,13 +377,7 @@ function LinkedInPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
         />
       ) : mediaUrls.length === 1 ? (
         <div className="aspect-[4/3] overflow-hidden">
-          {isVideo(mediaUrls[0]) ? (
-            <div className="w-full h-full flex items-center justify-center bg-black/40">
-              <Film size={32} className="text-white/40" />
-            </div>
-          ) : (
-            <img src={mediaUrls[0]} alt="" className="w-full h-full object-cover" />
-          )}
+          <MediaItem url={mediaUrls[0]} />
         </div>
       ) : null}
 
@@ -452,13 +444,7 @@ function FacebookPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
         />
       ) : mediaUrls.length === 1 ? (
         <div className="aspect-[16/10] overflow-hidden">
-          {isVideo(mediaUrls[0]) ? (
-            <div className="w-full h-full flex items-center justify-center bg-black/40">
-              <Film size={32} className="text-white/40" />
-            </div>
-          ) : (
-            <img src={mediaUrls[0]} alt="" className="w-full h-full object-cover" />
-          )}
+          <MediaItem url={mediaUrls[0]} />
         </div>
       ) : null}
 
@@ -505,13 +491,7 @@ function TikTokPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
     <div className="bg-black rounded-xl border border-[#2F2F2F] overflow-hidden">
       <div className="relative aspect-[9/16] max-h-[320px] bg-[#121212] flex items-center justify-center">
         {mediaUrls.length > 0 ? (
-          isVideo(mediaUrls[0]) ? (
-            <div className="w-full h-full flex items-center justify-center">
-              <Film size={40} className="text-white/30" />
-            </div>
-          ) : (
-            <img src={mediaUrls[0]} alt="" className="w-full h-full object-cover" />
-          )
+          <MediaItem url={mediaUrls[0]} iconSize={40} />
         ) : (
           <span className="text-[#555] text-sm">No video attached</span>
         )}
@@ -574,6 +554,8 @@ function YouTubePreview({ title, body, hashtags, mediaUrls }: PostPreviewProps) 
                 <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-white border-b-[8px] border-b-transparent ml-1" />
               </div>
             </div>
+          ) : isPdf(mediaUrls[0]) ? (
+            <MediaItem url={mediaUrls[0]} />
           ) : (
             <img src={mediaUrls[0]} alt="" className="w-full h-full object-cover" />
           )

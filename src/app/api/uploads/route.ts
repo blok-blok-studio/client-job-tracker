@@ -29,6 +29,7 @@ const MAGIC_BYTES: Record<string, number[][]> = {
   "audio/ogg": [[0x4f, 0x67, 0x67, 0x53]], // OggS
   "audio/mp4": [[0x00, 0x00, 0x00]], // ftyp box (M4A)
   "audio/webm": [[0x1a, 0x45, 0xdf, 0xa3]], // EBML header
+  "application/pdf": [[0x25, 0x50, 0x44, 0x46]], // %PDF
 };
 
 const ALLOWED_EXTENSIONS: Record<string, string> = {
@@ -46,6 +47,7 @@ const ALLOWED_EXTENSIONS: Record<string, string> = {
   "audio/ogg": ".ogg",
   "audio/mp4": ".m4a",
   "audio/webm": ".weba",
+  "application/pdf": ".pdf",
 };
 
 function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
@@ -138,7 +140,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: `File type "${file.type}" is not allowed. Supported: JPEG, PNG, GIF, WebP, MP4, MOV, WebM`,
+            error: `File type "${file.type}" is not allowed. Supported: JPEG, PNG, GIF, WebP, MP4, MOV, WebM, PDF`,
           },
           { status: 400 }
         );

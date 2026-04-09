@@ -30,6 +30,8 @@ export interface PostContent {
   body: string;
   hashtags: string[];
   mediaUrls: string[];
+  documentUrl?: string;
+  documentTitle?: string;
 }
 
 export interface DecryptedCredential {
@@ -87,11 +89,17 @@ export async function publishPost(
 
   const decrypted = decryptCredential(credential);
 
+  const pdfUrl = post.mediaUrls.find((u) => /\.pdf$/i.test(u));
+  const imageVideoUrls = post.mediaUrls.filter((u) => !/\.pdf$/i.test(u));
+  const settings = (post.platformSettings as Record<string, unknown>) || {};
+
   const content: PostContent = {
     title: post.title || "",
     body: post.body || "",
     hashtags: post.hashtags,
-    mediaUrls: post.mediaUrls,
+    mediaUrls: imageVideoUrls,
+    documentUrl: pdfUrl,
+    documentTitle: (settings.documentTitle as string) || post.title || "Document",
   };
 
   switch (post.platform) {

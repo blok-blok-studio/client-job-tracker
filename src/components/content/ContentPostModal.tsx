@@ -72,6 +72,8 @@ interface PlatformSettings {
   // Instagram
   shareToFeed?: boolean;
   shareToStory?: boolean;
+  // Document carousel
+  documentTitle?: string;
 }
 
 interface CredentialOption {
@@ -107,7 +109,7 @@ interface ContentPostData {
 
 const PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "THREADS", "LINKEDIN", "YOUTUBE", "FACEBOOK"];
 const STATUSES = ["DRAFT", "SCHEDULED"];
-const ACCEPTED_TYPES = "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm";
+const ACCEPTED_TYPES = "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf";
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 const YOUTUBE_CATEGORIES = [
@@ -124,6 +126,10 @@ const FACEBOOK_FEELINGS = [
 
 function isVideo(url: string) {
   return /\.(mp4|mov|webm)$/i.test(url);
+}
+
+function isPdf(url: string) {
+  return /\.pdf$/i.test(url);
 }
 
 // ─── Reusable section toggle ─────────────────────────────────────────────────
@@ -423,7 +429,8 @@ export default function ContentPostModal({
         setUploadError(`"${file.name}" exceeds the 50MB limit`);
         return;
       }
-      if (!ACCEPTED_TYPES.split(",").includes(file.type)) {
+      const fileType = file.type || (file.name.endsWith(".pdf") ? "application/pdf" : "");
+      if (!ACCEPTED_TYPES.split(",").includes(fileType)) {
         setUploadError(`"${file.name}" is not a supported file type`);
         return;
       }
@@ -862,7 +869,12 @@ export default function ContentPostModal({
                       key={url}
                       className="relative group w-20 h-20 rounded-lg overflow-hidden border border-bb-border bg-bb-elevated shrink-0"
                     >
-                      {isVideo(url) ? (
+                      {isPdf(url) ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-bb-surface gap-1">
+                          <FileText size={20} className="text-red-400" />
+                          <span className="text-[8px] text-bb-dim font-medium">PDF</span>
+                        </div>
+                      ) : isVideo(url) ? (
                         <div className="w-full h-full flex items-center justify-center bg-bb-surface">
                           <Film size={24} className="text-bb-muted" />
                         </div>
@@ -906,7 +918,7 @@ export default function ContentPostModal({
                     </div>
                     <p className="text-xs text-bb-dim text-center px-4">
                       Drag & drop or click to upload<br />
-                      <span className="text-bb-dim/70">JPEG, PNG, GIF, WebP, MP4, MOV, WebM &middot; Max 50MB</span>
+                      <span className="text-bb-dim/70">JPEG, PNG, GIF, WebP, MP4, MOV, WebM, PDF &middot; Max 50MB</span>
                     </p>
                   </>
                 )}
@@ -1516,26 +1528,44 @@ export default function ContentPostModal({
 
             {/* ─── LinkedIn Article Mode ─────────────────────────── */}
             {platform === "LINKEDIN" && (
-              <div className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-2">
-                  <FileText size={14} className="text-bb-muted" />
-                  <div>
-                    <span className="text-sm text-bb-muted">Article Mode</span>
-                    <p className="text-[10px] text-bb-dim">Publish as a LinkedIn article instead of a post</p>
+              <>
+                <div className="flex items-center justify-between py-2">
+                  <div className="flex items-center gap-2">
+                    <FileText size={14} className="text-bb-muted" />
+                    <div>
+                      <span className="text-sm text-bb-muted">Article Mode</span>
+                      <p className="text-[10px] text-bb-dim">Publish as a LinkedIn article instead of a post</p>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => updatePlatformSetting("articleMode", !platformSettings.articleMode)}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${
+                      platformSettings.articleMode ? "bg-bb-orange" : "bg-bb-border"
+                    }`}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                      platformSettings.articleMode ? "left-5" : "left-0.5"
+                    }`} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => updatePlatformSetting("articleMode", !platformSettings.articleMode)}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${
-                    platformSettings.articleMode ? "bg-bb-orange" : "bg-bb-border"
-                  }`}
-                >
-                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                    platformSettings.articleMode ? "left-5" : "left-0.5"
-                  }`} />
-                </button>
-              </div>
+                {mediaUrls.some(isPdf) && (
+                  <div>
+                    <label className="block text-sm font-medium text-bb-muted mb-1">
+                      <FileText size={12} className="inline mr-1" />
+                      Document Title
+                      <span className="text-bb-dim font-normal ml-1.5">Carousel slide deck name</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={platformSettings.documentTitle || ""}
+                      onChange={(e) => updatePlatformSetting("documentTitle", e.target.value)}
+                      placeholder="e.g. 10 Tips for Social Media Growth"
+                      className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-1.5 text-white text-sm placeholder:text-bb-dim"
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {/* Quote tweet URL */}
