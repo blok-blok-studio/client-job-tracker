@@ -26,6 +26,10 @@ export async function GET(request: NextRequest) {
     where: {
       status: "SCHEDULED",
       scheduledAt: { lte: new Date() },
+      NOT: {
+        platform: { in: ["TWITTER", "THREADS"] },
+        client: { name: { contains: "Chase Haynes" } },
+      },
     },
     select: { id: true, platform: true, status: true, scheduledAt: true, title: true },
     orderBy: { scheduledAt: "asc" },
@@ -49,6 +53,11 @@ export async function POST(request: NextRequest) {
     where: {
       status: "SCHEDULED",
       scheduledAt: { lte: new Date() },
+      // Exclude auto-publishing X/Threads for Chase Haynes — manual publish only
+      NOT: {
+        platform: { in: ["TWITTER", "THREADS"] },
+        client: { name: { contains: "Chase Haynes" } },
+      },
     },
     orderBy: { scheduledAt: "asc" },
   });

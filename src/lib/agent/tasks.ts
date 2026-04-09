@@ -526,10 +526,19 @@ export async function schedulePost(params: {
 
   const parsed = schema.parse(params);
 
+  // Block auto-scheduling X/Threads for Chase Haynes — manual only
+  const platformUpper = parsed.platform.toUpperCase();
+  if (platformUpper === "TWITTER" || platformUpper === "THREADS") {
+    const client = await prisma.client.findUnique({ where: { id: parsed.clientId }, select: { name: true } });
+    if (client?.name?.includes("Chase Haynes")) {
+      return { success: false, message: `Auto-scheduling ${parsed.platform} posts for Chase Haynes is disabled` };
+    }
+  }
+
   const post = await prisma.contentPost.create({
     data: {
       clientId: parsed.clientId,
-      platform: parsed.platform.toUpperCase() as "INSTAGRAM",
+      platform: platformUpper as "INSTAGRAM",
       status: parsed.scheduledAt ? "SCHEDULED" : "DRAFT",
       body: parsed.body,
       hashtags: parsed.hashtags || [],

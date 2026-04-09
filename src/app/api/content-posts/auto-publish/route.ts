@@ -12,6 +12,11 @@ export async function POST() {
     where: {
       status: "SCHEDULED",
       scheduledAt: { lte: new Date() },
+      // Exclude auto-publishing X/Threads for Chase Haynes — manual publish only
+      NOT: {
+        platform: { in: ["TWITTER", "THREADS"] },
+        client: { name: { contains: "Chase Haynes" } },
+      },
     },
     orderBy: { scheduledAt: "asc" },
     take: 10, // Process up to 10 at a time to stay within function timeout
