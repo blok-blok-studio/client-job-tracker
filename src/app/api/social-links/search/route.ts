@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     ];
   }
 
-  const links = await prisma.socialLink.findMany({
+  const links = (await prisma.socialLink.findMany({
     where,
     select: {
       id: true,
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     },
     orderBy: { createdAt: "desc" },
     take: 20,
-  });
+  })) as { id: string; platform: string; handle: string | null; url: string; client: { id: string; name: string; avatarUrl: string | null } }[];
 
   return NextResponse.json(
     links.map((l) => ({
