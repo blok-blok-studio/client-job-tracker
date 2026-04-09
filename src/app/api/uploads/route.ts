@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import crypto from "crypto";
+import sharp from "sharp";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: `File type "${file.type}" is not allowed. Supported: JPEG, PNG, GIF, WebP, MP4, MOV, WebM, PDF`,
+            error: `File type "${file.type}" is not allowed. Supported: JPEG, PNG, GIF, WebP, HEIC, MP4, MOV, WebM, PDF`,
           },
           { status: 400 }
         );
@@ -156,13 +157,23 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Convert HEIC/HEIF to JPEG for browser preview compatibility + LinkedIn support
+      let uploadBuffer: Buffer | Uint8Array = buffer;
+      let uploadExt = ext;
+      let uploadContentType = file.type;
+      if (file.type === "image/heic" || file.type === "image/heif") {
+        uploadBuffer = await sharp(buffer).jpeg({ quality: 90 }).toBuffer();
+        uploadExt = ".jpg";
+        uploadContentType = "image/jpeg";
+      }
+
       const id = crypto.randomUUID();
-      const filename = `media/${id}${ext}`;
+      const filename = `media/${id}${uploadExt}`;
 
       // Upload to Vercel Blob for persistent storage
-      const blob = await put(filename, buffer, {
+      const blob = await put(filename, uploadBuffer, {
         access: "public",
-        contentType: file.type,
+        contentType: uploadContentType,
       });
 
       urls.push(blob.url);
