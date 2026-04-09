@@ -149,38 +149,11 @@ export async function GET(request: NextRequest) {
       console.error("[Cron] OAuth token refresh error:", err);
     }
 
-    // Publish due content posts (fallback if OpenClaw is offline)
-    let contentPublished = 0;
-    let contentFailed = 0;
-    try {
-      const duePosts = await prisma.contentPost.findMany({
-        where: { status: "SCHEDULED", scheduledAt: { lte: new Date() } },
-        select: { id: true },
-      });
-      if (duePosts.length > 0) {
-        const pubRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app"}/api/content-posts/publish-due`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.CRON_SECRET}`,
-            "Content-Type": "application/json",
-          },
-        });
-        const pubData = await pubRes.json().catch(() => ({}));
-        contentPublished = pubData.published || 0;
-        contentFailed = pubData.failed || 0;
-        if (contentPublished + contentFailed > 0) {
-          console.log(`[Cron] Content posts: ${contentPublished} published, ${contentFailed} failed`);
-        }
-      }
-    } catch (err) {
-      console.error("[Cron] Content publish error:", err);
-    }
-
     // Then run agent cycle
     const result = await runAgentCycle();
     return NextResponse.json({
       success: true,
-      data: { ...result, recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, contentPublished, contentFailed },
+      data: { ...result, recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";
