@@ -8,8 +8,7 @@ export async function GET() {
     },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const report = posts.map((p: any) => ({
+  const report = posts.map((p) => ({
     id: p.id,
     clientId: p.clientId,
     title: (p.title || "").slice(0, 40),
@@ -20,7 +19,7 @@ export async function GET() {
 
   return NextResponse.json({
     totalPosts: report.length,
-    postsWithHeic: report.filter((r: any) => r.hasHeic),
+    postsWithHeic: report.filter((r) => r.hasHeic),
     allPosts: report,
   });
 }
