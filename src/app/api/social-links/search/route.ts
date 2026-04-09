@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+type SocialLinkResult = {
+  id: string;
+  platform: string;
+  handle: string | null;
+  url: string;
+  client: { id: string; name: string; avatarUrl: string | null };
+};
+
 // GET /api/social-links/search?q=keyword&platform=INSTAGRAM
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q") || "";
@@ -16,7 +24,7 @@ export async function GET(request: NextRequest) {
     ];
   }
 
-  const links = (await prisma.socialLink.findMany({
+  const links = await prisma.socialLink.findMany({
     where,
     select: {
       id: true,
@@ -27,7 +35,7 @@ export async function GET(request: NextRequest) {
     },
     orderBy: { createdAt: "desc" },
     take: 20,
-  })) as { id: string; platform: string; handle: string | null; url: string; client: { id: string; name: string; avatarUrl: string | null } }[];
+  }) as unknown as SocialLinkResult[];
 
   return NextResponse.json(
     links.map((l) => ({
