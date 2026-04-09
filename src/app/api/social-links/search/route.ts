@@ -18,13 +18,19 @@ export async function GET(request: NextRequest) {
 
   const links = await prisma.socialLink.findMany({
     where,
-    include: { client: { select: { id: true, name: true, avatarUrl: true } } },
+    select: {
+      id: true,
+      platform: true,
+      handle: true,
+      url: true,
+      client: { select: { id: true, name: true, avatarUrl: true } },
+    },
     orderBy: { createdAt: "desc" },
     take: 20,
   });
 
   return NextResponse.json(
-    links.map((l: { id: string; platform: string; handle: string | null; url: string; client: { id: string; name: string; avatarUrl: string | null } }) => ({
+    links.map((l) => ({
       id: l.id,
       platform: l.platform,
       handle: l.handle,
