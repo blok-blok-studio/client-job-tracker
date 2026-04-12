@@ -530,12 +530,26 @@ export default function ContentPostModal({
     }
     setUploading(true);
     try {
-      const formData = new FormData();
-      fileArray.forEach((f) => formData.append("files", f));
-      const res = await fetch("/api/uploads", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!data.success) { setUploadError(data.error || "Upload failed"); return; }
-      setMediaUrls((prev) => [...prev, ...data.urls]);
+      const urls: string[] = [];
+      for (const file of fileArray) {
+        const res = await new Promise<string>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.addEventListener("load", () => {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              if (data.success && data.urls?.[0]) resolve(data.urls[0]);
+              else reject(new Error(data.error || "Upload failed"));
+            } catch { reject(new Error("Upload failed")); }
+          });
+          xhr.addEventListener("error", () => reject(new Error("Upload failed")));
+          const params = new URLSearchParams({ filename: file.name });
+          xhr.open("PUT", `/api/uploads/stream?${params}`);
+          xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+          xhr.send(file);
+        });
+        urls.push(res);
+      }
+      setMediaUrls((prev) => [...prev, ...urls]);
     } catch {
       setUploadError("Upload failed. Please try again.");
     } finally {
@@ -550,14 +564,24 @@ export default function ContentPostModal({
   ) => {
     const file = Array.from(files)[0];
     if (!file) return;
-    if (file.size > MAX_FILE_SIZE) { setUploadError(`"${file.name}" exceeds the 50MB limit`); return; }
     setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append("files", file);
-      const res = await fetch("/api/uploads", { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.success && data.urls?.[0]) setter(data.urls[0]);
+      const url = await new Promise<string>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.addEventListener("load", () => {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.success && data.urls?.[0]) resolve(data.urls[0]);
+            else reject(new Error(data.error || "Upload failed"));
+          } catch { reject(new Error("Upload failed")); }
+        });
+        xhr.addEventListener("error", () => reject(new Error("Upload failed")));
+        const params = new URLSearchParams({ filename: file.name });
+        xhr.open("PUT", `/api/uploads/stream?${params}`);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.send(file);
+      });
+      setter(url);
     } catch { /* silent */ } finally {
       setLoading(false);
     }

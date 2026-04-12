@@ -35,6 +35,40 @@ export async function GET(request: NextRequest) {
 // POST — manager uploads media for a client
 export async function POST(request: NextRequest) {
   try {
+    const contentType = request.headers.get("content-type") || "";
+
+    // JSON body = register a blob URL from streaming upload
+    if (contentType.includes("application/json")) {
+      const body = await request.json();
+      const { clientId, url, filename, fileType: mimeType, fileSize } = body;
+      if (!clientId || !url) {
+        return NextResponse.json({ success: false, error: "clientId and url required" }, { status: 400 });
+      }
+
+      const ft = (mimeType || "").startsWith("image/")
+        ? "IMAGE"
+        : (mimeType || "").startsWith("video/")
+        ? "VIDEO"
+        : (mimeType || "").startsWith("audio/")
+        ? "AUDIO"
+        : "DOCUMENT";
+
+      const record = await prisma.clientMedia.create({
+        data: {
+          clientId,
+          url,
+          filename: filename || "upload",
+          fileType: ft,
+          fileSize: fileSize || 0,
+          mimeType: mimeType || "application/octet-stream",
+          uploadedBy: "manager",
+        },
+      });
+
+      return NextResponse.json({ success: true, data: [record] }, { status: 201 });
+    }
+
+    // FormData body = legacy upload path
     const formData = await request.formData();
     const clientId = formData.get("clientId") as string;
     const files = formData.getAll("files") as File[];
@@ -43,7 +77,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "clientId and files required" }, { status: 400 });
     }
 
-    // Upload files directly to blob storage (no more self-fetch)
     const records = [];
     const errors = [];
 
