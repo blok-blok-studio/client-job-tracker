@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { uploadFileToBlob } from "@/lib/upload";
 
 // GET — list media, optionally filtered by client
 export async function GET(request: NextRequest) {
@@ -42,36 +43,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "clientId and files required" }, { status: 400 });
     }
 
-    // Upload files to blob storage
-    const uploadForm = new FormData();
-    files.forEach((f) => uploadForm.append("files", f));
+    // Upload files directly to blob storage (no more self-fetch)
+    const records = [];
+    const errors = [];
 
-    const uploadRes = await fetch(new URL("/api/uploads", request.url), {
-      method: "POST",
-      body: uploadForm,
-    });
-    const uploadData = await uploadRes.json();
+    for (const file of files) {
+      try {
+        const result = await uploadFileToBlob(file);
 
-    if (!uploadData.success) {
-      return NextResponse.json({ success: false, error: uploadData.error }, { status: 400 });
-    }
-
-    // Create media records
-    const records = await Promise.all(
-      uploadData.urls.map(async (url: string, i: number) => {
-        const file = files[i];
         const fileType = file.type.startsWith("image/")
           ? "IMAGE"
           : file.type.startsWith("video/")
           ? "VIDEO"
           : file.type.startsWith("audio/")
           ? "AUDIO"
-          : "IMAGE";
+          : "DOCUMENT";
 
-        return prisma.clientMedia.create({
+        const record = await prisma.clientMedia.create({
           data: {
             clientId,
-            url,
+            url: result.url,
             filename: file.name,
             fileType,
             fileSize: file.size,
@@ -79,10 +70,24 @@ export async function POST(request: NextRequest) {
             uploadedBy: "manager",
           },
         });
-      })
-    );
 
-    return NextResponse.json({ success: true, data: records }, { status: 201 });
+        records.push(record);
+      } catch (err) {
+        errors.push({
+          filename: file.name,
+          error: err instanceof Error ? err.message : "Upload failed",
+        });
+      }
+    }
+
+    if (records.length === 0 && errors.length > 0) {
+      return NextResponse.json(
+        { success: false, error: errors[0].error, errors },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ success: true, data: records, errors }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to upload media";
     return NextResponse.json({ success: false, error: message }, { status: 500 });
