@@ -115,36 +115,44 @@ export default function AudioPanel({ videoUrl, onAudioSelected, onMixComplete }:
     if (!file) return;
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("files", file);
-      const uploadRes = await fetch("/api/uploads", { method: "POST", body: formData });
-      const uploadData = await uploadRes.json();
-
-      if (uploadData.success && uploadData.urls?.[0]) {
-        const url = uploadData.urls[0];
-        // Save as audio track
-        await fetch("/api/audio-tracks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: uploadTitle || file.name.replace(/\.[^/.]+$/, ""),
-            url,
-            source: "upload",
-            duration: 0,
-          }),
+      const url = await new Promise<string>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.addEventListener("load", () => {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.success && data.urls?.[0]) resolve(data.urls[0]);
+            else reject(new Error(data.error || "Upload failed"));
+          } catch { reject(new Error("Upload failed")); }
         });
+        xhr.addEventListener("error", () => reject(new Error("Upload failed")));
+        const params = new URLSearchParams({ filename: file.name });
+        xhr.open("PUT", `/api/uploads/stream?${params}`);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.send(file);
+      });
 
-        setSelectedTrack({
-          id: "uploaded",
-          title: uploadTitle || file.name,
+      // Save as audio track
+      await fetch("/api/audio-tracks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: uploadTitle || file.name.replace(/\.[^/.]+$/, ""),
           url,
-          duration: 0,
           source: "upload",
-        });
-        onAudioSelected(url);
-        setUploadTitle("");
-        if (videoUrl) setTab("mix");
-      }
+          duration: 0,
+        }),
+      });
+
+      setSelectedTrack({
+        id: "uploaded",
+        title: uploadTitle || file.name,
+        url,
+        duration: 0,
+        source: "upload",
+      });
+      onAudioSelected(url);
+      setUploadTitle("");
+      if (videoUrl) setTab("mix");
     } catch { /* silent */ } finally {
       setUploading(false);
     }

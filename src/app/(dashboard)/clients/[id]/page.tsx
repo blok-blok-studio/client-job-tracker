@@ -404,21 +404,35 @@ export default function ClientDetailPage() {
     if (!files.length) return;
     setUploadingMedia(true);
     try {
-      const formData = new FormData();
-      formData.append("clientId", id);
-      Array.from(files).forEach((f) => formData.append("files", f));
-      const res = await fetch("/api/client-media", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.success) {
-        const count = data.data?.length || files.length;
-        toast(`${count} file${count !== 1 ? "s" : ""} uploaded successfully`, "success");
-        fetchClient();
-      } else {
-        toast(data.error || "Upload failed", "error");
+      let successCount = 0;
+      for (const file of Array.from(files)) {
+        // Stream each file via PUT to get blob URL, then register with client-media
+        const blobUrl = await new Promise<string>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.addEventListener("load", () => {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              if (data.success && data.urls?.[0]) resolve(data.urls[0]);
+              else reject(new Error(data.error || "Upload failed"));
+            } catch { reject(new Error("Upload failed")); }
+          });
+          xhr.addEventListener("error", () => reject(new Error("Upload failed")));
+          const params = new URLSearchParams({ filename: file.name });
+          xhr.open("PUT", `/api/uploads/stream?${params}`);
+          xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+          xhr.send(file);
+        });
+
+        // Register in DB as client media
+        await fetch("/api/client-media", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId: id, url: blobUrl, filename: file.name, fileType: file.type, fileSize: file.size }),
+        });
+        successCount++;
       }
+      toast(`${successCount} file${successCount !== 1 ? "s" : ""} uploaded successfully`, "success");
+      fetchClient();
     } catch { toast("Upload failed — check your connection", "error"); }
     finally { setUploadingMedia(false); }
   }
