@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import { Upload, CheckCircle, AlertCircle, Loader2, Film, Image as ImageIcon, Music, X, FileUp, Check, FileText } from "lucide-react";
 
 interface ClientInfo {
@@ -72,51 +73,45 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
       const file = files[i];
 
       try {
-        const result = await new Promise<UploadResult>((resolve) => {
-          // Stream file directly to blob storage via server endpoint
-          // Uses PUT with raw body to avoid serverless body parsing limits
-          const xhr = new XMLHttpRequest();
-
-          xhr.upload.addEventListener("progress", (e) => {
-            if (e.lengthComputable) {
-              const overall = uploadedSize + e.loaded;
-              setUploadProgress(Math.round((overall / totalSize) * 100));
-            }
-          });
-
-          xhr.addEventListener("load", () => {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              if (data.success && data.data?.[0]) {
-                resolve(data.data[0]);
-              } else {
-                resolve({ filename: file.name, error: data.error || "Upload failed" });
-              }
-            } catch {
-              resolve({ filename: file.name, error: "Upload failed" });
-            }
-          });
-
-          xhr.addEventListener("error", () => {
-            resolve({ filename: file.name, error: "Upload failed. Please try again." });
-          });
-
-          // Use streaming PUT endpoint — bypasses body parsing limit
-          const params = new URLSearchParams({ token, filename: file.name });
-          xhr.open("PUT", `/api/client-media/upload-stream?${params}`);
-          xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-          xhr.send(file);
+        // Upload directly browser → Vercel Blob via SDK (bypasses 4.5MB serverless limit)
+        const blob = await vercelBlobUpload(file.name, file, {
+          access: "public",
+          handleUploadUrl: "/api/client-media/upload-blob",
+          clientPayload: JSON.stringify({ token }),
+          multipart: true,
+          onUploadProgress: ({ loaded, total }) => {
+            const overall = uploadedSize + loaded;
+            setUploadProgress(Math.round((overall / Math.max(totalSize, total)) * 100));
+          },
         });
 
-        allResults.push(result);
-        uploadedSize += file.size;
-        setUploadProgress(Math.round((uploadedSize / totalSize) * 100));
-        setResults([...allResults]);
-      } catch {
-        allResults.push({ filename: file.name, error: "Upload failed" });
-        uploadedSize += file.size;
-        setResults([...allResults]);
+        // Register in database
+        const regRes = await fetch("/api/client-media/upload-portal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token,
+            blobUrl: blob.url,
+            filename: file.name,
+            contentType: blob.contentType || file.type,
+            size: file.size,
+          }),
+        });
+        const regData = await regRes.json();
+
+        if (regData.success && regData.data?.[0]) {
+          allResults.push(regData.data[0]);
+        } else {
+          allResults.push({ filename: file.name, url: blob.url });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Upload failed";
+        allResults.push({ filename: file.name, error: msg });
       }
+
+      uploadedSize += file.size;
+      setUploadProgress(Math.round((uploadedSize / totalSize) * 100));
+      setResults([...allResults]);
     }
 
     setFiles([]);

@@ -37,7 +37,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self'",
-              "connect-src 'self' https://api.stripe.com https://*.prisma-data.net",
+              "connect-src 'self' https://api.stripe.com https://*.prisma-data.net https://vercel.com https://*.public.blob.vercel-storage.com",
               "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
               "base-uri 'self'",
               "form-action 'self'",
