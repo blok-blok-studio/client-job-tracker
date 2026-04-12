@@ -73,10 +73,8 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
 
       try {
         const result = await new Promise<UploadResult>((resolve) => {
-          const formData = new FormData();
-          formData.append("token", token);
-          formData.append("files", file);
-
+          // Stream file directly to blob storage via server endpoint
+          // Uses PUT with raw body to avoid serverless body parsing limits
           const xhr = new XMLHttpRequest();
 
           xhr.upload.addEventListener("progress", (e) => {
@@ -103,8 +101,11 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
             resolve({ filename: file.name, error: "Upload failed. Please try again." });
           });
 
-          xhr.open("POST", "/api/client-media/upload-portal");
-          xhr.send(formData);
+          // Use streaming PUT endpoint — bypasses body parsing limit
+          const params = new URLSearchParams({ token, filename: file.name });
+          xhr.open("PUT", `/api/client-media/upload-stream?${params}`);
+          xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+          xhr.send(file);
         });
 
         allResults.push(result);
