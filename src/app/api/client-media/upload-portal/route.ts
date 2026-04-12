@@ -4,7 +4,10 @@ import { put } from "@vercel/blob";
 import { randomUUID } from "crypto";
 import { sendTelegramMessage } from "@/lib/telegram";
 
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB for client uploads (4K video)
+// No file size limit — clients upload 4K videos, large photo batches, etc.
+export const maxDuration = 300;
+
+// No artificial file size limit
 const ACCEPTED_MIMES = new Set([
   // Images
   "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif",
@@ -75,10 +78,6 @@ export async function POST(request: NextRequest) {
     const results = [];
 
     for (const file of files) {
-      if (file.size > MAX_FILE_SIZE) {
-        results.push({ filename: file.name, error: `Exceeds 500MB limit` });
-        continue;
-      }
       if (!ACCEPTED_MIMES.has(file.type)) {
         results.push({ filename: file.name, error: `Unsupported file type: ${file.type}` });
         continue;

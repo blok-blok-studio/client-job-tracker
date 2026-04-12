@@ -349,6 +349,13 @@ export default function FilesPage() {
                           >
                             <Copy size={14} />
                           </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(media.id); }}
+                            className="p-1.5 rounded-md bg-white/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                         <span className="text-[10px] text-white font-medium truncate max-w-[90%]">{media.filename}</span>
                         <span className="text-[9px] text-bb-dim">{formatSize(media.fileSize)} · {media.client.name}</span>

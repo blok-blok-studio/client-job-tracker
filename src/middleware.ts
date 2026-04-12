@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   "/api/onboard",
   "/api/contract",
   "/api/client-media/upload-portal",
+  "/api/client-media/upload-blob",
   "/api/telegram/webhook",
   "/api/stripe/webhook",
   "/api/cron",
