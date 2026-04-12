@@ -32,6 +32,7 @@ export async function PUT(request: NextRequest) {
 
     const blob = await put(blobPath, request.body, {
       access: "public",
+      allowOverwrite: true,
       contentType,
     });
 

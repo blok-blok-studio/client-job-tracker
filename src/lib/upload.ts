@@ -208,6 +208,7 @@ export async function uploadFileToBlob(
 
   const blob = await put(filename, uploadBuffer, {
     access: "public",
+    allowOverwrite: true,
     contentType: uploadContentType,
   });
 

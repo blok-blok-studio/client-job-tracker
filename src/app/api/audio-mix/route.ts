@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     // Upload result to blob storage
     const { readFile } = await import("fs/promises");
     const outputBuffer = await readFile(outputPath);
-    const blob = await put(`mixed-media/${randomUUID()}.mp4`, outputBuffer, { access: "public" });
+    const blob = await put(`mixed-media/${randomUUID()}.mp4`, outputBuffer, { access: "public", allowOverwrite: true });
 
     // Cleanup temp files
     await Promise.all([

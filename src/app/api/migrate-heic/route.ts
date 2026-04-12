@@ -117,6 +117,7 @@ async function convertHeicUrl(url: string): Promise<{ newUrl: string }> {
   const filename = `media/${id}.jpg`;
   const blob = await put(filename, jpegBuffer, {
     access: "public",
+    allowOverwrite: true,
     contentType: "image/jpeg",
   });
 

@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
       const blobPath = `client-media/${client.id}/${randomUUID()}${ext}`;
 
-      const blob = await put(blobPath, file, { access: "public" });
+      const blob = await put(blobPath, file, { access: "public", allowOverwrite: true });
 
       const fileType = file.type.startsWith("image/")
         ? "IMAGE"
