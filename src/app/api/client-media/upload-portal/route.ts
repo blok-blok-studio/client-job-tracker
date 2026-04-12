@@ -50,8 +50,16 @@ export async function GET(request: NextRequest) {
 }
 
 // POST — client uploads files via their portal link
+// Accepts either: multipart FormData (small files) or JSON body (register blob URL for large files)
 export async function POST(request: NextRequest) {
   try {
+    const contentType = request.headers.get("content-type") || "";
+
+    // JSON body = registering a blob URL from client-side upload
+    if (contentType.includes("application/json")) {
+      return handleBlobRegistration(request);
+    }
+
     const formData = await request.formData();
     const token = formData.get("token") as string;
     const files = formData.getAll("files") as File[];
@@ -137,6 +145,70 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: results }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Upload failed";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}
+
+// Register a file that was uploaded directly to Vercel Blob from the client
+async function handleBlobRegistration(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { token, blobUrl, filename, contentType, size } = body;
+
+    if (!token || !blobUrl || !filename) {
+      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { uploadToken: token },
+      select: { id: true, name: true, type: true },
+    });
+
+    if (!client || client.type === "ARCHIVED") {
+      return NextResponse.json({ success: false, error: "Invalid upload link" }, { status: !client ? 404 : 410 });
+    }
+
+    const fileType = (contentType || "").startsWith("image/")
+      ? "IMAGE"
+      : (contentType || "").startsWith("video/")
+      ? "VIDEO"
+      : (contentType || "").startsWith("audio/")
+      ? "AUDIO"
+      : "DOCUMENT";
+
+    const record = await prisma.clientMedia.create({
+      data: {
+        clientId: client.id,
+        url: blobUrl,
+        filename,
+        fileType: fileType as "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT",
+        fileSize: size || 0,
+        mimeType: contentType || "application/octet-stream",
+        uploadedBy: "client",
+      },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        clientId: client.id,
+        actor: client.name,
+        action: "client_media_uploaded",
+        details: `${client.name} uploaded: ${filename}`,
+      },
+    });
+
+    const chaseChatId = process.env.ADMIN_TELEGRAM_CHAT_ID;
+    if (chaseChatId) {
+      sendTelegramMessage(
+        chaseChatId,
+        `📸 <b>${client.name}</b> uploaded: ${filename}`,
+        "HTML"
+      ).catch((err) => console.error("[Telegram] Upload notification failed:", err));
+    }
+
+    return NextResponse.json({ success: true, data: [{ filename, url: blobUrl, id: record.id }] }, { status: 201 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to register upload";
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

@@ -4,5 +4,16 @@
       "path": "/api/cron/agent-run",
       "schedule": "0 9 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/uploads/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/client-media/upload-portal/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/client-media/route.ts": {
+      "maxDuration": 300
+    }
+  }
 }
