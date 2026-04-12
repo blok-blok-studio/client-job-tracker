@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   "/api/contract",
   "/api/client-media/upload-portal",
   "/api/client-media/upload-blob",
+  "/api/client-media/upload-stream",
   "/api/telegram/webhook",
   "/api/stripe/webhook",
   "/api/cron",
@@ -138,7 +139,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Block suspiciously large payloads on non-upload routes
-    if (!pathname.startsWith("/api/uploads") && !pathname.startsWith("/api/content-posts/bulk") && !pathname.startsWith("/api/client-media/upload-portal")) {
+    if (!pathname.startsWith("/api/uploads") && !pathname.startsWith("/api/content-posts/bulk") && !pathname.startsWith("/api/client-media/upload")) {
       const contentLength = request.headers.get("content-length");
       if (contentLength && parseInt(contentLength) > 5 * 1024 * 1024) {
         return addSecurityHeaders(
