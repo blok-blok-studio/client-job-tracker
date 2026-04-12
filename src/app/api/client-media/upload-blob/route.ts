@@ -27,6 +27,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
         return {
           maximumSizeInBytes: 500 * 1024 * 1024, // 500MB
+          allowOverwrite: true,
           tokenPayload: JSON.stringify({ clientId: client.id }),
         };
       },

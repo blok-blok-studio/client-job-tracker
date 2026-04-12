@@ -74,7 +74,10 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
 
       try {
         // Upload directly browser → Vercel Blob via SDK (bypasses 4.5MB serverless limit)
-        const blob = await vercelBlobUpload(file.name, file, {
+        // Use a UUID prefix to avoid filename collisions
+        const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
+        const blobPathname = `client-media/${crypto.randomUUID()}${ext}`;
+        const blob = await vercelBlobUpload(blobPathname, file, {
           access: "public",
           handleUploadUrl: "/api/client-media/upload-blob",
           clientPayload: JSON.stringify({ token }),
