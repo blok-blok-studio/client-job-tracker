@@ -8,6 +8,7 @@ import {
   Calendar, User, HardDrive, Tag, StickyNote,
   FolderOpen, Grid, List, Users, Loader2,
 } from "lucide-react";
+import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import TopBar from "@/components/layout/TopBar";
 import VideoThumbnail from "@/components/shared/VideoThumbnail";
 import { useToast } from "@/components/shared/Toast";
@@ -88,24 +89,14 @@ export default function FilesPage() {
 
     for (const file of Array.from(droppedFiles)) {
       try {
-        // Step 1: stream upload to blob storage
-        const params = new URLSearchParams({ filename: file.name });
-        const uploadRes = await fetch(`/api/uploads/stream?${params}`, {
-          method: "PUT",
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          body: file,
+        // Step 1: upload directly browser → Vercel Blob (no size limit)
+        const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
+        const blobPath = `media/${crypto.randomUUID()}${ext}`;
+        const blob = await vercelBlobUpload(blobPath, file, {
+          access: "public",
+          handleUploadUrl: "/api/uploads/blob",
+          multipart: true,
         });
-
-        if (!uploadRes.ok) {
-          errors.push(`${file.name}: upload HTTP ${uploadRes.status}`);
-          continue;
-        }
-
-        const uploadData = await uploadRes.json();
-        if (!uploadData.success || !uploadData.urls?.[0]) {
-          errors.push(`${file.name}: ${uploadData.error || "no URL returned"}`);
-          continue;
-        }
 
         // Step 2: register in database
         const regRes = await fetch("/api/client-media", {
@@ -113,7 +104,7 @@ export default function FilesPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             clientId,
-            url: uploadData.urls[0],
+            url: blob.url,
             filename: file.name,
             fileType: file.type,
             fileSize: file.size,

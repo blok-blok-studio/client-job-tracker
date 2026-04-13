@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload, Pen, Type, RotateCcw, Eye, EyeOff, Lock, Image as ImageIcon } from "lucide-react";
+import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -406,34 +407,28 @@ export default function ClientDetailPage() {
     try {
       let successCount = 0;
       for (const file of Array.from(files)) {
-        // Stream each file via PUT to get blob URL, then register with client-media
-        const blobUrl = await new Promise<string>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.addEventListener("load", () => {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              if (data.success && data.urls?.[0]) resolve(data.urls[0]);
-              else reject(new Error(data.error || "Upload failed"));
-            } catch { reject(new Error("Upload failed")); }
-          });
-          xhr.addEventListener("error", () => reject(new Error("Upload failed")));
-          const params = new URLSearchParams({ filename: file.name });
-          xhr.open("PUT", `/api/uploads/stream?${params}`);
-          xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-          xhr.send(file);
+        // Upload directly browser → Vercel Blob (no size limit)
+        const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
+        const blobPath = `client-media/${id}/${crypto.randomUUID()}${ext}`;
+        const blob = await vercelBlobUpload(blobPath, file, {
+          access: "public",
+          handleUploadUrl: "/api/uploads/blob",
+          multipart: true,
         });
 
         // Register in DB as client media
         await fetch("/api/client-media", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clientId: id, url: blobUrl, filename: file.name, fileType: file.type, fileSize: file.size }),
+          body: JSON.stringify({ clientId: id, url: blob.url, filename: file.name, fileType: file.type, fileSize: file.size }),
         });
         successCount++;
       }
       toast(`${successCount} file${successCount !== 1 ? "s" : ""} uploaded successfully`, "success");
       fetchClient();
-    } catch { toast("Upload failed — check your connection", "error"); }
+    } catch (err) {
+      toast(`Upload failed: ${err instanceof Error ? err.message : "check your connection"}`, "error");
+    }
     finally { setUploadingMedia(false); }
   }
 
