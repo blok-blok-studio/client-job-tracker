@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Download, Trash2, X, ChevronLeft, ChevronRight,
-  Music, ExternalLink,
+  Music, ExternalLink, Upload,
   Edit2, Check, Copy, Info, Eye, FileText, Search,
   Calendar, User, HardDrive, Tag, StickyNote,
-  FolderOpen, Grid, List, Users,
+  FolderOpen, Grid, List, Users, Loader2,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import VideoThumbnail from "@/components/shared/VideoThumbnail";
@@ -58,6 +58,83 @@ export default function FilesPage() {
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
   const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragCounter = useRef(0);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  // Drag-and-drop upload handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.types.includes("Files")) setDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) setDragOver(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    setDragOver(false);
+
+    const droppedFiles = e.dataTransfer.files;
+    if (!droppedFiles.length) return;
+
+    // Need a client selected to know where to upload
+    if (filterClient === "ALL") {
+      toast("Select a client from the dropdown first, then drag files to upload", "error");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      let successCount = 0;
+      for (const file of Array.from(droppedFiles)) {
+        // Stream upload to get blob URL
+        const params = new URLSearchParams({ filename: file.name });
+        const uploadRes = await fetch(`/api/uploads/stream?${params}`, {
+          method: "PUT",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
+        const uploadData = await uploadRes.json();
+        if (!uploadData.success || !uploadData.urls?.[0]) continue;
+
+        // Register as client media
+        await fetch("/api/client-media", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: filterClient,
+            url: uploadData.urls[0],
+            filename: file.name,
+            fileType: file.type,
+            fileSize: file.size,
+          }),
+        });
+        successCount++;
+      }
+      if (successCount > 0) {
+        toast(`${successCount} file${successCount !== 1 ? "s" : ""} uploaded`, "success");
+        fetchFiles();
+      }
+    } catch {
+      toast("Upload failed", "error");
+    } finally {
+      setUploading(false);
+    }
+  }, [filterClient, toast, fetchFiles]);
 
   // Fetch full client list once (for dropdown)
   useEffect(() => {
@@ -191,7 +268,40 @@ export default function FilesPage() {
   const hoveredMedia = hoveredId ? files.find((m) => m.id === hoveredId) : null;
 
   return (
-    <div>
+    <div
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className="relative"
+    >
+      {/* Drag overlay */}
+      {dragOver && (
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center gap-3 p-8 rounded-2xl border-2 border-dashed border-bb-orange bg-bb-orange/5">
+            <div className="p-4 rounded-full bg-bb-orange/10">
+              <Upload size={32} className="text-bb-orange" />
+            </div>
+            <p className="text-lg font-medium text-bb-orange">Drop files to upload</p>
+            <p className="text-sm text-bb-dim">
+              {filterClient !== "ALL"
+                ? `Upload to ${allClients.find((c) => c.id === filterClient)?.name || "selected client"}`
+                : "Select a client first to upload"}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Upload progress overlay */}
+      {uploading && (
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3 p-8 rounded-2xl bg-bb-surface border border-bb-border">
+            <Loader2 size={32} className="text-bb-orange animate-spin" />
+            <p className="text-sm text-white">Uploading files...</p>
+          </div>
+        </div>
+      )}
+
       <TopBar title="Files" subtitle="All client media files" />
       <div className="px-4 lg:px-6 pb-8">
 
