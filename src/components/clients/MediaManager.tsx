@@ -387,24 +387,47 @@ export default function MediaManager({
                       : "border-bb-border hover:border-bb-muted"
                   }`}
                 >
-                  {/* Thumbnail */}
+                  {/* Thumbnail — real preview for images and videos */}
                   {media.fileType === "IMAGE" ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
                   ) : media.fileType === "VIDEO" ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-500/10 to-transparent">
-                      <Film size={24} className="text-purple-400 mb-1" />
-                      <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
+                    <div className="w-full h-full relative">
+                      <video
+                        src={media.url}
+                        muted
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                        onLoadedData={(e) => {
+                          // Seek to 1s to show a meaningful frame instead of black
+                          const v = e.currentTarget;
+                          if (v.duration > 1) v.currentTime = 1;
+                        }}
+                      />
+                      {/* Play indicator */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                          <Film size={16} className="text-white ml-0.5" />
+                        </div>
+                      </div>
                     </div>
                   ) : media.fileType === "AUDIO" ? (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
-                      <Music size={24} className="text-green-400 mb-1" />
+                      <Music size={28} className="text-green-400 mb-2" />
                       <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
                     </div>
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-orange-500/10 to-transparent">
-                      <FileText size={24} className="text-orange-400 mb-1" />
+                      <FileText size={28} className="text-orange-400 mb-2" />
                       <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
+                    </div>
+                  )}
+
+                  {/* Bottom filename bar — always visible on non-image tiles */}
+                  {media.fileType !== "IMAGE" && (
+                    <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-gradient-to-t from-black/80 to-transparent">
+                      <p className="text-[10px] text-white truncate">{media.filename}</p>
+                      <p className="text-[9px] text-white/50">{formatSize(media.fileSize)}</p>
                     </div>
                   )}
 
@@ -482,11 +505,19 @@ export default function MediaManager({
           {/* Side panel — file details (hidden in select mode) */}
           {selectedMedia && !selectMode && (
             <div className="w-64 shrink-0 rounded-lg border border-bb-border bg-bb-black p-3 space-y-3 max-h-[500px] overflow-y-auto">
-              {/* Preview thumbnail */}
+              {/* Preview thumbnail — real preview for images and videos */}
               <div className="rounded-lg overflow-hidden bg-bb-surface aspect-video flex items-center justify-center">
                 {selectedMedia.fileType === "IMAGE" ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={selectedMedia.url} alt="" className="w-full h-full object-contain" />
+                ) : selectedMedia.fileType === "VIDEO" ? (
+                  <video
+                    src={selectedMedia.url}
+                    controls
+                    muted
+                    preload="metadata"
+                    className="w-full h-full object-contain"
+                  />
                 ) : (
                   getFileIcon(selectedMedia.fileType, 32)
                 )}
@@ -666,8 +697,8 @@ export default function MediaManager({
         loading={deleting}
       />
 
-      {/* Hover preview tooltip */}
-      {hoveredMedia && !selectedId && !selectMode && hoveredMedia.fileType === "IMAGE" && (
+      {/* Hover preview tooltip — images and videos */}
+      {hoveredMedia && !selectedId && !selectMode && (hoveredMedia.fileType === "IMAGE" || hoveredMedia.fileType === "VIDEO") && (
         <div
           ref={previewRef}
           className="fixed z-[100] pointer-events-none"
@@ -677,8 +708,21 @@ export default function MediaManager({
           }}
         >
           <div className="w-52 rounded-lg overflow-hidden bg-bb-surface border border-bb-border shadow-modal">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={hoveredMedia.url} alt="" className="w-full aspect-video object-cover" />
+            {hoveredMedia.fileType === "IMAGE" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={hoveredMedia.url} alt="" className="w-full aspect-video object-cover" />
+            ) : (
+              <video
+                src={hoveredMedia.url}
+                muted
+                preload="metadata"
+                className="w-full aspect-video object-cover"
+                onLoadedData={(e) => {
+                  const v = e.currentTarget;
+                  if (v.duration > 1) v.currentTime = 1;
+                }}
+              />
+            )}
             <div className="px-2 py-1.5">
               <p className="text-[10px] text-white truncate">{hoveredMedia.filename}</p>
               <p className="text-[9px] text-bb-dim">
@@ -771,12 +815,20 @@ export default function MediaManager({
                   <p className="text-white font-medium">{media.filename}</p>
                   <audio src={media.url} controls autoPlay className="w-80" onClick={(e) => e.stopPropagation()} />
                 </div>
+              ) : media.mimeType === "application/pdf" ? (
+                <iframe
+                  src={media.url}
+                  className="w-full max-w-4xl h-[80vh] rounded-lg bg-white"
+                  title={media.filename}
+                  onClick={(e) => e.stopPropagation()}
+                />
               ) : (
                 <div className="flex flex-col items-center gap-4">
                   <div className="w-32 h-32 rounded-2xl bg-white/5 flex items-center justify-center">
                     <FileText size={48} className="text-orange-400" />
                   </div>
                   <p className="text-white font-medium">{media.filename}</p>
+                  <p className="text-sm text-bb-dim">{formatSize(media.fileSize)} &middot; {media.mimeType}</p>
                   <button
                     onClick={() => handleDownload(media)}
                     className="px-4 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors text-sm flex items-center gap-2"
@@ -811,9 +863,16 @@ export default function MediaManager({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={thumb.url} alt="" className="w-full h-full object-cover" />
                     ) : thumb.fileType === "VIDEO" ? (
-                      <div className="w-full h-full bg-bb-surface flex items-center justify-center">
-                        <Film size={14} className="text-purple-400" />
-                      </div>
+                      <video
+                        src={thumb.url}
+                        muted
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                        onLoadedData={(e) => {
+                          const v = e.currentTarget;
+                          if (v.duration > 1) v.currentTime = 1;
+                        }}
+                      />
                     ) : thumb.fileType === "AUDIO" ? (
                       <div className="w-full h-full bg-bb-surface flex items-center justify-center">
                         <Music size={14} className="text-green-400" />
