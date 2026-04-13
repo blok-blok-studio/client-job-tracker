@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   "/api/telegram/webhook",
   "/api/stripe/webhook",
   "/api/cron",
+  "/api/client-media/generate-thumbnails",
   "/api/exchange-rate",
   "/api/oauth",
   "/api/dm-webhook",

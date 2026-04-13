@@ -20,6 +20,15 @@ export const maxDuration = 300;
  * Protected by cron secret or session auth (middleware).
  */
 export async function POST(request: NextRequest) {
+  // Auth: accept cron secret header or session cookie
+  const authHeader = request.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET;
+  const sessionCookie = request.cookies.get("bb_session")?.value;
+
+  if (!sessionCookie && (!cronSecret || authHeader !== `Bearer ${cronSecret}`)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json().catch(() => ({}));
     const singleId = body?.id as string | undefined;
