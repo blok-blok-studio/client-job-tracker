@@ -394,15 +394,11 @@ export default function MediaManager({
                   ) : media.fileType === "VIDEO" ? (
                     <div className="w-full h-full relative">
                       <video
-                        src={media.url}
+                        src={`${media.url}#t=0.5`}
                         muted
-                        preload="metadata"
+                        preload="auto"
+                        playsInline
                         className="w-full h-full object-cover"
-                        onLoadedData={(e) => {
-                          // Seek to 1s to show a meaningful frame instead of black
-                          const v = e.currentTarget;
-                          if (v.duration > 1) v.currentTime = 1;
-                        }}
                       />
                       {/* Play indicator */}
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -515,7 +511,7 @@ export default function MediaManager({
                     src={selectedMedia.url}
                     controls
                     muted
-                    preload="metadata"
+                    preload="auto"
                     className="w-full h-full object-contain"
                   />
                 ) : (
@@ -713,14 +709,11 @@ export default function MediaManager({
               <img src={hoveredMedia.url} alt="" className="w-full aspect-video object-cover" />
             ) : (
               <video
-                src={hoveredMedia.url}
+                src={`${hoveredMedia.url}#t=0.5`}
                 muted
-                preload="metadata"
+                preload="auto"
+                playsInline
                 className="w-full aspect-video object-cover"
-                onLoadedData={(e) => {
-                  const v = e.currentTarget;
-                  if (v.duration > 1) v.currentTime = 1;
-                }}
               />
             )}
             <div className="px-2 py-1.5">
@@ -864,14 +857,11 @@ export default function MediaManager({
                       <img src={thumb.url} alt="" className="w-full h-full object-cover" />
                     ) : thumb.fileType === "VIDEO" ? (
                       <video
-                        src={thumb.url}
+                        src={`${thumb.url}#t=0.5`}
                         muted
-                        preload="metadata"
+                        preload="auto"
+                        playsInline
                         className="w-full h-full object-cover"
-                        onLoadedData={(e) => {
-                          const v = e.currentTarget;
-                          if (v.duration > 1) v.currentTime = 1;
-                        }}
                       />
                     ) : thumb.fileType === "AUDIO" ? (
                       <div className="w-full h-full bg-bb-surface flex items-center justify-center">

@@ -300,14 +300,11 @@ export default function FilesPage() {
                       ) : media.fileType === "VIDEO" ? (
                         <div className="w-full h-full relative">
                           <video
-                            src={media.url}
+                            src={`${media.url}#t=0.5`}
                             muted
-                            preload="metadata"
+                            preload="auto"
+                            playsInline
                             className="w-full h-full object-cover"
-                            onLoadedData={(e) => {
-                              const v = e.currentTarget;
-                              if (v.duration > 1) v.currentTime = 1;
-                            }}
                           />
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
@@ -410,8 +407,7 @@ export default function FilesPage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={media.url} alt="" className="w-full h-full object-cover" />
                         ) : media.fileType === "VIDEO" ? (
-                          <video src={media.url} muted preload="metadata" className="w-full h-full object-cover"
-                            onLoadedData={(e) => { const v = e.currentTarget; if (v.duration > 1) v.currentTime = 1; }} />
+                          <video src={`${media.url}#t=0.5`} muted preload="auto" playsInline className="w-full h-full object-cover" />
                         ) : media.fileType === "AUDIO" ? (
                           <div className="w-full h-full flex items-center justify-center"><Music size={16} className="text-green-400" /></div>
                         ) : (
@@ -457,7 +453,7 @@ export default function FilesPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={selectedMedia.url} alt="" className="w-full h-full object-contain" />
                   ) : selectedMedia.fileType === "VIDEO" ? (
-                    <video src={selectedMedia.url} controls muted preload="metadata" className="w-full h-full object-contain" />
+                    <video src={selectedMedia.url} controls muted preload="auto" className="w-full h-full object-contain" />
                   ) : selectedMedia.fileType === "AUDIO" ? (
                     <Music size={32} className="text-green-400" />
                   ) : (
@@ -594,8 +590,7 @@ export default function FilesPage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={hoveredMedia.url} alt="" className="w-full aspect-video object-cover" />
               ) : (
-                <video src={hoveredMedia.url} muted preload="metadata" className="w-full aspect-video object-cover"
-                  onLoadedData={(e) => { const v = e.currentTarget; if (v.duration > 1) v.currentTime = 1; }} />
+                <video src={`${hoveredMedia.url}#t=0.5`} muted preload="auto" playsInline className="w-full aspect-video object-cover" />
               )}
               <div className="px-2 py-1.5">
                 <p className="text-[10px] text-white truncate">{hoveredMedia.filename}</p>
@@ -693,8 +688,7 @@ export default function FilesPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={thumb.url} alt="" className="w-full h-full object-cover" />
                       ) : thumb.fileType === "VIDEO" ? (
-                        <video src={thumb.url} muted preload="metadata" className="w-full h-full object-cover"
-                          onLoadedData={(e) => { const v = e.currentTarget; if (v.duration > 1) v.currentTime = 1; }} />
+                        <video src={`${thumb.url}#t=0.5`} muted preload="auto" playsInline className="w-full h-full object-cover" />
                       ) : thumb.fileType === "AUDIO" ? (
                         <div className="w-full h-full bg-bb-surface flex items-center justify-center"><Music size={14} className="text-green-400" /></div>
                       ) : (
