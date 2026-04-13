@@ -68,34 +68,46 @@ export default function FilesPage() {
   filterClientRef.current = filterClient;
   const fetchFilesRef = useRef<() => void>(() => {});
 
-  // Upload function for native DOM drop handler
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Shared upload function — used by both drag-drop and file input
   const doUpload = useCallback(async (droppedFiles: FileList) => {
     if (!droppedFiles.length) return;
 
     const clientId = filterClientRef.current;
     if (clientId === "ALL") {
-      toast("Select a client from the dropdown first, then drag files to upload", "error");
+      toast("Select a client from the dropdown first", "error");
       return;
     }
 
     setUploading(true);
+    toast(`Uploading ${droppedFiles.length} file${droppedFiles.length !== 1 ? "s" : ""}...`, "success");
+
     let successCount = 0;
-    let lastError = "";
+    const errors: string[] = [];
 
     for (const file of Array.from(droppedFiles)) {
       try {
+        // Step 1: stream upload to blob storage
         const params = new URLSearchParams({ filename: file.name });
         const uploadRes = await fetch(`/api/uploads/stream?${params}`, {
           method: "PUT",
           headers: { "Content-Type": file.type || "application/octet-stream" },
           body: file,
         });
-        const uploadData = await uploadRes.json();
-        if (!uploadData.success || !uploadData.urls?.[0]) {
-          lastError = uploadData.error || "Upload failed";
+
+        if (!uploadRes.ok) {
+          errors.push(`${file.name}: upload HTTP ${uploadRes.status}`);
           continue;
         }
 
+        const uploadData = await uploadRes.json();
+        if (!uploadData.success || !uploadData.urls?.[0]) {
+          errors.push(`${file.name}: ${uploadData.error || "no URL returned"}`);
+          continue;
+        }
+
+        // Step 2: register in database
         const regRes = await fetch("/api/client-media", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -107,25 +119,34 @@ export default function FilesPage() {
             fileSize: file.size,
           }),
         });
-        const regData = await regRes.json();
-        if (!regData.success) {
-          lastError = regData.error || "Failed to register file";
+
+        if (!regRes.ok) {
+          errors.push(`${file.name}: register HTTP ${regRes.status}`);
           continue;
         }
+
+        const regData = await regRes.json();
+        if (!regData.success) {
+          errors.push(`${file.name}: ${regData.error || "register failed"}`);
+          continue;
+        }
+
         successCount++;
       } catch (err) {
-        lastError = err instanceof Error ? err.message : "Upload failed";
+        errors.push(`${file.name}: ${err instanceof Error ? err.message : "unknown error"}`);
       }
     }
 
-    if (successCount > 0) {
-      toast(`${successCount} file${successCount !== 1 ? "s" : ""} uploaded`, "success");
-      fetchFilesRef.current();
-    } else if (lastError) {
-      toast(`Upload failed: ${lastError}`, "error");
-    }
-
     setUploading(false);
+
+    if (successCount > 0) {
+      toast(`${successCount} file${successCount !== 1 ? "s" : ""} uploaded successfully`, "success");
+      fetchFilesRef.current();
+    }
+    if (errors.length > 0) {
+      toast(`Failed: ${errors[0]}`, "error");
+      console.error("[Upload errors]", errors);
+    }
   }, [toast]);
 
   // Native DOM drop listeners — more reliable than React synthetic events
@@ -401,6 +422,28 @@ export default function FilesPage() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+
+          {/* Upload button */}
+          {filterClient !== "ALL" && (
+            <label className="flex items-center gap-1.5 px-3 py-2 bg-bb-orange text-white text-xs font-medium rounded-lg hover:bg-bb-orange-light cursor-pointer transition-colors">
+              <Upload size={14} />
+              {uploading ? "Uploading..." : "Upload"}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
+                className="hidden"
+                disabled={uploading}
+                onChange={(e) => {
+                  if (e.target.files?.length) {
+                    doUpload(e.target.files);
+                    e.target.value = "";
+                  }
+                }}
+              />
+            </label>
+          )}
 
           {/* View toggle */}
           <div className="flex border border-bb-border rounded-lg overflow-hidden">
