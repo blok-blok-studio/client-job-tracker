@@ -63,11 +63,12 @@ export default function FilesPage() {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Store filterClient in a ref so native DOM listeners always see current value
+  // Refs so native DOM listeners always see current values
   const filterClientRef = useRef(filterClient);
   filterClientRef.current = filterClient;
+  const fetchFilesRef = useRef<() => void>(() => {});
 
-  // Upload function extracted so it can be called from native DOM handler
+  // Upload function for native DOM drop handler
   const doUpload = useCallback(async (droppedFiles: FileList) => {
     if (!droppedFiles.length) return;
 
@@ -119,13 +120,13 @@ export default function FilesPage() {
 
     if (successCount > 0) {
       toast(`${successCount} file${successCount !== 1 ? "s" : ""} uploaded`, "success");
-      fetchFiles();
+      fetchFilesRef.current();
     } else if (lastError) {
       toast(`Upload failed: ${lastError}`, "error");
     }
 
     setUploading(false);
-  }, [toast, fetchFiles]);
+  }, [toast]);
 
   // Native DOM drop listeners — more reliable than React synthetic events
   useEffect(() => {
@@ -200,6 +201,7 @@ export default function FilesPage() {
     finally { setLoading(false); }
   }, [filterType, search, filterClient]);
 
+  fetchFilesRef.current = fetchFiles;
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
   // Derived
