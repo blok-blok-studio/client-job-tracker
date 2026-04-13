@@ -207,8 +207,11 @@ export async function storeOAuthCredential(params: StoreCredentialParams): Promi
   const encryptedPassword = encrypt(accessToken);
   const encryptedNotes = refreshTok ? encrypt(refreshTok) : null;
 
-  // Check for existing credential for this platform + user combo
+  // Check for existing credential for this platform + client combo
+  // Match by label too so different accounts (e.g. two IG accounts) don't overwrite each other
   const existing = await prisma.credential.findFirst({
+    where: { clientId, platform, label },
+  }) || await prisma.credential.findFirst({
     where: { clientId, platform },
   });
 

@@ -105,22 +105,24 @@ async function handleMetaCallback(
     );
   }
 
-  // Store credentials for each discovered account
-  for (const account of accounts) {
-    await storeOAuthCredential({
-      clientId,
-      platform: account.platform,
-      label: account.label,
-      userId: account.userId,
-      accessToken,
-      expiresAt,
-    });
-  }
+  // Store discovered accounts in an encrypted cookie and redirect to account picker
+  const pendingData = Buffer.from(
+    JSON.stringify({ clientId, accessToken, expiresAt: expiresAt.toISOString(), accounts })
+  ).toString("base64url");
 
-  const platformNames = accounts.map((a) => a.platform).join(", ");
-  return NextResponse.redirect(
-    `${redirectBase}?oauth_success=${encodeURIComponent(`Connected: ${platformNames}`)}`
-  );
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const pickerUrl = `${baseUrl}/oauth/select-accounts?clientId=${clientId}&returnTo=${encodeURIComponent(redirectBase)}`;
+
+  const cookieStore = await cookies();
+  cookieStore.set("oauth_pending_accounts", pendingData, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600, // 10 minutes to complete selection
+    path: "/",
+  });
+
+  return NextResponse.redirect(pickerUrl);
 }
 
 async function handleStandardCallback(
