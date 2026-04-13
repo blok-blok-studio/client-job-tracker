@@ -99,16 +99,6 @@ export default function ClientDetailPage() {
   const [eurRate, setEurRate] = useState<number | null>(null);
   // Assets section state
   const [assetsTab, setAssetsTab] = useState<"passwords" | "media" | "contracts">("media");
-  // Prevent browser from opening files when drag-dropped anywhere on the page
-  useEffect(() => {
-    const prevent = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); };
-    window.addEventListener("dragover", prevent);
-    window.addEventListener("drop", prevent);
-    return () => {
-      window.removeEventListener("dragover", prevent);
-      window.removeEventListener("drop", prevent);
-    };
-  }, []);
   const [revealedCred, setRevealedCred] = useState<Record<string, { username: string; password: string; notes: string | null }>>({});
   const [revealingCred, setRevealingCred] = useState<string | null>(null);
   const [revealPassword, setRevealPassword] = useState("");
