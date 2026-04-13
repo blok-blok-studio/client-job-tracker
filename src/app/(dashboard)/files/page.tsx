@@ -58,50 +58,31 @@ export default function FilesPage() {
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
   const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
   const dragCounter = useRef(0);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Drag-and-drop upload handlers
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current++;
-    if (e.dataTransfer.types.includes("Files")) setDragOver(true);
-  }, []);
+  // Store filterClient in a ref so native DOM listeners always see current value
+  const filterClientRef = useRef(filterClient);
+  filterClientRef.current = filterClient;
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current--;
-    if (dragCounter.current === 0) setDragOver(false);
-  }, []);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current = 0;
-    setDragOver(false);
-
-    const droppedFiles = e.dataTransfer.files;
+  // Upload function extracted so it can be called from native DOM handler
+  const doUpload = useCallback(async (droppedFiles: FileList) => {
     if (!droppedFiles.length) return;
 
-    // Need a client selected to know where to upload
-    if (filterClient === "ALL") {
+    const clientId = filterClientRef.current;
+    if (clientId === "ALL") {
       toast("Select a client from the dropdown first, then drag files to upload", "error");
       return;
     }
 
     setUploading(true);
-    try {
-      let successCount = 0;
-      for (const file of Array.from(droppedFiles)) {
-        // Stream upload to get blob URL
+    let successCount = 0;
+    let lastError = "";
+
+    for (const file of Array.from(droppedFiles)) {
+      try {
         const params = new URLSearchParams({ filename: file.name });
         const uploadRes = await fetch(`/api/uploads/stream?${params}`, {
           method: "PUT",
@@ -109,32 +90,95 @@ export default function FilesPage() {
           body: file,
         });
         const uploadData = await uploadRes.json();
-        if (!uploadData.success || !uploadData.urls?.[0]) continue;
+        if (!uploadData.success || !uploadData.urls?.[0]) {
+          lastError = uploadData.error || "Upload failed";
+          continue;
+        }
 
-        // Register as client media
-        await fetch("/api/client-media", {
+        const regRes = await fetch("/api/client-media", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            clientId: filterClient,
+            clientId,
             url: uploadData.urls[0],
             filename: file.name,
             fileType: file.type,
             fileSize: file.size,
           }),
         });
+        const regData = await regRes.json();
+        if (!regData.success) {
+          lastError = regData.error || "Failed to register file";
+          continue;
+        }
         successCount++;
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : "Upload failed";
       }
-      if (successCount > 0) {
-        toast(`${successCount} file${successCount !== 1 ? "s" : ""} uploaded`, "success");
-        fetchFiles();
-      }
-    } catch {
-      toast("Upload failed", "error");
-    } finally {
-      setUploading(false);
     }
-  }, [filterClient, toast, fetchFiles]);
+
+    if (successCount > 0) {
+      toast(`${successCount} file${successCount !== 1 ? "s" : ""} uploaded`, "success");
+      fetchFiles();
+    } else if (lastError) {
+      toast(`Upload failed: ${lastError}`, "error");
+    }
+
+    setUploading(false);
+  }, [toast, fetchFiles]);
+
+  // Native DOM drop listeners — more reliable than React synthetic events
+  useEffect(() => {
+    const el = dropZoneRef.current;
+    if (!el) return;
+
+    const onDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter.current++;
+      if (e.dataTransfer?.types.includes("Files")) {
+        setDragOver(true);
+      }
+    };
+
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    };
+
+    const onDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter.current--;
+      if (dragCounter.current <= 0) {
+        dragCounter.current = 0;
+        setDragOver(false);
+      }
+    };
+
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter.current = 0;
+      setDragOver(false);
+      if (e.dataTransfer?.files.length) {
+        doUpload(e.dataTransfer.files);
+      }
+    };
+
+    el.addEventListener("dragenter", onDragEnter);
+    el.addEventListener("dragover", onDragOver);
+    el.addEventListener("dragleave", onDragLeave);
+    el.addEventListener("drop", onDrop);
+
+    return () => {
+      el.removeEventListener("dragenter", onDragEnter);
+      el.removeEventListener("dragover", onDragOver);
+      el.removeEventListener("dragleave", onDragLeave);
+      el.removeEventListener("drop", onDrop);
+    };
+  }, [doUpload]);
 
   // Fetch full client list once (for dropdown)
   useEffect(() => {
@@ -268,13 +312,7 @@ export default function FilesPage() {
   const hoveredMedia = hoveredId ? files.find((m) => m.id === hoveredId) : null;
 
   return (
-    <div
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      className="relative"
-    >
+    <div ref={dropZoneRef} className="relative">
       {/* Drag overlay */}
       {dragOver && (
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center pointer-events-none">

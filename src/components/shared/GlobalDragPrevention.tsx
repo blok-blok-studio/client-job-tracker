@@ -3,38 +3,39 @@
 import { useEffect } from "react";
 
 /**
- * Prevents the browser's default behavior of opening files in a new tab
- * when drag-and-dropped anywhere on the page. This runs at the document
- * level so component drop zones (MediaManager) can still handle their
- * own events.
+ * Prevents the browser from opening files in a new tab when dragged onto the page.
  *
- * Works across all browsers including Vivaldi, Chrome, Firefox, Safari.
+ * How it works:
+ * - dragover: preventDefault in CAPTURE phase (required for drop to work at all)
+ * - drop: preventDefault in BUBBLE phase on WINDOW (last resort fallback)
+ *   This only catches drops that weren't handled by a component's onDrop.
+ *   React synthetic event handlers fire before window bubble handlers.
  */
 export default function GlobalDragPrevention() {
   useEffect(() => {
-    // preventDefault on dragover is REQUIRED to make drop work at all.
-    // Without it, the browser ignores drop events entirely.
-    // We do NOT stopPropagation so component handlers still fire.
+    // dragover MUST be prevented for drop events to fire at all.
+    // Using capture phase so it runs early, but only calling preventDefault
+    // (not stopPropagation) so the event still reaches React components.
     const preventDragOver = (e: DragEvent) => {
       e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = "copy";
+      }
     };
 
-    // Prevent the browser from navigating to the dropped file.
-    // Components that handle drops call stopPropagation() in the
-    // bubble phase, so their handler runs first. If a component
-    // handled it, defaultPrevented will already be true. If not
-    // (dropped outside a drop zone), we prevent it here.
+    // Drop fallback on window — catches any drops not handled by components.
+    // React's onDrop handlers fire earlier (on the root element in bubble phase),
+    // so component handlers process first. This is just the safety net.
     const preventDrop = (e: DragEvent) => {
       e.preventDefault();
     };
 
-    // Use bubble phase (not capture) so component handlers run first
-    document.addEventListener("dragover", preventDragOver);
-    document.addEventListener("drop", preventDrop);
+    document.addEventListener("dragover", preventDragOver, true);
+    window.addEventListener("drop", preventDrop);
 
     return () => {
-      document.removeEventListener("dragover", preventDragOver);
-      document.removeEventListener("drop", preventDrop);
+      document.removeEventListener("dragover", preventDragOver, true);
+      window.removeEventListener("drop", preventDrop);
     };
   }, []);
 

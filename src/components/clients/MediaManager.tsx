@@ -82,6 +82,7 @@ export default function MediaManager({
   // Drag-and-drop state
   const [dragOver, setDragOver] = useState(false);
   const dragCounter = useRef(0);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const selectedMedia = selectedId ? mediaFiles.find((m) => m.id === selectedId) : null;
   const hoveredMedia = hoveredId ? mediaFiles.find((m) => m.id === hoveredId) : null;
@@ -96,38 +97,50 @@ export default function MediaManager({
     DOCUMENT: mediaFiles.filter((m) => m.fileType === "DOCUMENT").length,
   };
 
-  // Drag-and-drop handlers
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current++;
-    if (e.dataTransfer.types.includes("Files")) {
-      setDragOver(true);
-    }
-  }, []);
+  // Native DOM drop listeners — more reliable than React synthetic events
+  useEffect(() => {
+    const el = dropZoneRef.current;
+    if (!el) return;
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current--;
-    if (dragCounter.current === 0) {
+    const onDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter.current++;
+      if (e.dataTransfer?.types.includes("Files")) setDragOver(true);
+    };
+
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    };
+
+    const onDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter.current--;
+      if (dragCounter.current <= 0) { dragCounter.current = 0; setDragOver(false); }
+    };
+
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter.current = 0;
       setDragOver(false);
-    }
-  }, []);
+      if (e.dataTransfer?.files.length) onUpload(e.dataTransfer.files);
+    };
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
+    el.addEventListener("dragenter", onDragEnter);
+    el.addEventListener("dragover", onDragOver);
+    el.addEventListener("dragleave", onDragLeave);
+    el.addEventListener("drop", onDrop);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current = 0;
-    setDragOver(false);
-    if (e.dataTransfer.files.length > 0) {
-      onUpload(e.dataTransfer.files);
-    }
+    return () => {
+      el.removeEventListener("dragenter", onDragEnter);
+      el.removeEventListener("dragover", onDragOver);
+      el.removeEventListener("dragleave", onDragLeave);
+      el.removeEventListener("drop", onDrop);
+    };
   }, [onUpload]);
 
   // Multi-select helpers
@@ -278,13 +291,7 @@ export default function MediaManager({
   }, [selectedId, selectedMedia]);
 
   return (
-    <div
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      className="relative"
-    >
+    <div ref={dropZoneRef} className="relative">
       {/* Drag overlay */}
       {dragOver && (
         <div className="absolute inset-0 z-50 rounded-xl border-2 border-dashed border-bb-orange bg-bb-orange/5 flex flex-col items-center justify-center pointer-events-none">
