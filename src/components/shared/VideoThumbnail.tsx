@@ -5,6 +5,7 @@ import { Film } from "lucide-react";
 
 interface VideoThumbnailProps {
   src: string;
+  thumbnailUrl?: string | null;
   className?: string;
   iconSize?: number;
   showPlayIcon?: boolean;
@@ -17,15 +18,22 @@ interface VideoThumbnailProps {
  */
 export default function VideoThumbnail({
   src,
+  thumbnailUrl,
   className = "w-full h-full object-cover",
   iconSize = 16,
   showPlayIcon = true,
 }: VideoThumbnailProps) {
-  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const [thumbUrl, setThumbUrl] = useState<string | null>(thumbnailUrl || null);
   const [failed, setFailed] = useState(false);
   const attempted = useRef(false);
 
   useEffect(() => {
+    // If we already have a server-generated thumbnail, use it
+    if (thumbnailUrl) {
+      setThumbUrl(thumbnailUrl);
+      return;
+    }
+
     if (attempted.current) return;
     attempted.current = true;
 
@@ -42,7 +50,7 @@ export default function VideoThumbnail({
         });
       }
     });
-  }, [src]);
+  }, [src, thumbnailUrl]);
 
   if (thumbUrl) {
     return (

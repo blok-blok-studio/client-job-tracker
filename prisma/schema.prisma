@@ -487,6 +487,8 @@ model ClientMedia {
   width       Int?                  // Pixels (for image/video)
   height      Int?                  // Pixels (for image/video)
 
+  thumbnailUrl String?               // JPEG thumbnail for videos (generated server-side)
+
   label       String?               // Optional user-given label
   notes       String?               // Notes about this file
   uploadedBy  String        @default("client") // "client" or "manager"

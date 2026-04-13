@@ -21,6 +21,7 @@ interface MediaFile {
   uploadedBy: string;
   label: string | null;
   notes?: string | null;
+  thumbnailUrl?: string | null;
   createdAt: string;
 }
 
@@ -400,7 +401,7 @@ export default function MediaManager({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
                   ) : media.fileType === "VIDEO" ? (
-                    <VideoThumbnail src={media.url} />
+                    <VideoThumbnail src={media.url} thumbnailUrl={media.thumbnailUrl} />
                   ) : media.fileType === "AUDIO" ? (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
                       <Music size={28} className="text-green-400 mb-2" />
@@ -702,7 +703,7 @@ export default function MediaManager({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={hoveredMedia.url} alt="" className="w-full aspect-video object-cover" />
             ) : (
-              <VideoThumbnail src={hoveredMedia.url} className="w-full aspect-video object-cover" showPlayIcon={false} />
+              <VideoThumbnail src={hoveredMedia.url} thumbnailUrl={hoveredMedia.thumbnailUrl} className="w-full aspect-video object-cover" showPlayIcon={false} />
             )}
             <div className="px-2 py-1.5">
               <p className="text-[10px] text-white truncate">{hoveredMedia.filename}</p>
@@ -844,7 +845,7 @@ export default function MediaManager({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={thumb.url} alt="" className="w-full h-full object-cover" />
                     ) : thumb.fileType === "VIDEO" ? (
-                      <VideoThumbnail src={thumb.url} showPlayIcon={false} iconSize={10} />
+                      <VideoThumbnail src={thumb.url} thumbnailUrl={thumb.thumbnailUrl} showPlayIcon={false} iconSize={10} />
                     ) : thumb.fileType === "AUDIO" ? (
                       <div className="w-full h-full bg-bb-surface flex items-center justify-center">
                         <Music size={14} className="text-green-400" />
