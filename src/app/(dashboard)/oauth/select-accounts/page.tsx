@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Instagram, Facebook, AtSign, CheckSquare, Square,
@@ -20,6 +20,18 @@ const PLATFORM_ICONS: Record<string, { icon: typeof Instagram; color: string }> 
 };
 
 export default function SelectAccountsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 text-bb-dim animate-spin" />
+      </div>
+    }>
+      <SelectAccountsContent />
+    </Suspense>
+  );
+}
+
+function SelectAccountsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
