@@ -42,7 +42,7 @@ export default function FilesPage() {
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<"ALL" | "IMAGE" | "VIDEO" | "AUDIO">("ALL");
+  const [filterType, setFilterType] = useState<"ALL" | "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT">("ALL");
   const [filterClient, setFilterClient] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -89,6 +89,7 @@ export default function FilesPage() {
     IMAGE: files.filter((m) => m.fileType === "IMAGE").length,
     VIDEO: files.filter((m) => m.fileType === "VIDEO").length,
     AUDIO: files.filter((m) => m.fileType === "AUDIO").length,
+    DOCUMENT: files.filter((m) => m.fileType === "DOCUMENT").length,
   };
 
   const totalSize = files.reduce((acc, f) => acc + f.fileSize, 0);
@@ -220,19 +221,21 @@ export default function FilesPage() {
 
           {/* Type pills */}
           <div className="flex gap-1">
-            {(["ALL", "IMAGE", "VIDEO", "AUDIO"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setFilterType(t)}
-                className={`text-[11px] px-2.5 py-1 rounded-full transition-colors ${
-                  filterType === t
-                    ? "bg-bb-orange/20 text-bb-orange"
-                    : "bg-bb-elevated text-bb-dim hover:text-white"
-                }`}
-              >
-                {t === "ALL" ? "All" : t === "IMAGE" ? "Images" : t === "VIDEO" ? "Videos" : "Audio"}
-                {counts[t] > 0 && ` (${counts[t]})`}
-              </button>
+            {(["ALL", "IMAGE", "VIDEO", "AUDIO", "DOCUMENT"] as const).map((t) => (
+              counts[t] > 0 && (
+                <button
+                  key={t}
+                  onClick={() => setFilterType(t)}
+                  className={`text-[11px] px-2.5 py-1 rounded-full transition-colors ${
+                    filterType === t
+                      ? "bg-bb-orange/20 text-bb-orange"
+                      : "bg-bb-elevated text-bb-dim hover:text-white"
+                  }`}
+                >
+                  {t === "ALL" ? "All" : t === "IMAGE" ? "Images" : t === "VIDEO" ? "Videos" : t === "AUDIO" ? "Audio" : "Docs"}
+                  {` (${counts[t]})`}
+                </button>
+              )
             ))}
           </div>
 
@@ -295,13 +298,31 @@ export default function FilesPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
                       ) : media.fileType === "VIDEO" ? (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-500/10 to-transparent">
-                          <Film size={24} className="text-purple-400 mb-1" />
+                        <div className="w-full h-full relative">
+                          <video
+                            src={media.url}
+                            muted
+                            preload="metadata"
+                            className="w-full h-full object-cover"
+                            onLoadedData={(e) => {
+                              const v = e.currentTarget;
+                              if (v.duration > 1) v.currentTime = 1;
+                            }}
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                              <Film size={16} className="text-white ml-0.5" />
+                            </div>
+                          </div>
+                        </div>
+                      ) : media.fileType === "AUDIO" ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
+                          <Music size={28} className="text-green-400 mb-2" />
                           <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
                         </div>
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
-                          <Music size={24} className="text-green-400 mb-1" />
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-orange-500/10 to-transparent">
+                          <FileText size={28} className="text-orange-400 mb-2" />
                           <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
                         </div>
                       )}
@@ -389,9 +410,12 @@ export default function FilesPage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={media.url} alt="" className="w-full h-full object-cover" />
                         ) : media.fileType === "VIDEO" ? (
-                          <div className="w-full h-full flex items-center justify-center"><Film size={16} className="text-purple-400" /></div>
-                        ) : (
+                          <video src={media.url} muted preload="metadata" className="w-full h-full object-cover"
+                            onLoadedData={(e) => { const v = e.currentTarget; if (v.duration > 1) v.currentTime = 1; }} />
+                        ) : media.fileType === "AUDIO" ? (
                           <div className="w-full h-full flex items-center justify-center"><Music size={16} className="text-green-400" /></div>
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center"><FileText size={16} className="text-orange-400" /></div>
                         )}
                       </div>
                       <div className="min-w-0">
@@ -433,9 +457,11 @@ export default function FilesPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={selectedMedia.url} alt="" className="w-full h-full object-contain" />
                   ) : selectedMedia.fileType === "VIDEO" ? (
-                    <Film size={32} className="text-purple-400" />
-                  ) : (
+                    <video src={selectedMedia.url} controls muted preload="metadata" className="w-full h-full object-contain" />
+                  ) : selectedMedia.fileType === "AUDIO" ? (
                     <Music size={32} className="text-green-400" />
+                  ) : (
+                    <FileText size={32} className="text-orange-400" />
                   )}
                 </div>
 
@@ -555,7 +581,7 @@ export default function FilesPage() {
         )}
 
         {/* Hover preview tooltip */}
-        {hoveredMedia && !selectedId && hoveredMedia.fileType === "IMAGE" && (
+        {hoveredMedia && !selectedId && (hoveredMedia.fileType === "IMAGE" || hoveredMedia.fileType === "VIDEO") && (
           <div
             className="fixed z-[100] pointer-events-none"
             style={{
@@ -564,8 +590,13 @@ export default function FilesPage() {
             }}
           >
             <div className="w-52 rounded-lg overflow-hidden bg-bb-surface border border-bb-border shadow-modal">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={hoveredMedia.url} alt="" className="w-full aspect-video object-cover" />
+              {hoveredMedia.fileType === "IMAGE" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={hoveredMedia.url} alt="" className="w-full aspect-video object-cover" />
+              ) : (
+                <video src={hoveredMedia.url} muted preload="metadata" className="w-full aspect-video object-cover"
+                  onLoadedData={(e) => { const v = e.currentTarget; if (v.duration > 1) v.currentTime = 1; }} />
+              )}
               <div className="px-2 py-1.5">
                 <p className="text-[10px] text-white truncate">{hoveredMedia.filename}</p>
                 <p className="text-[9px] text-bb-dim">{formatSize(hoveredMedia.fileSize)} · {hoveredMedia.client.name}</p>
@@ -617,13 +648,28 @@ export default function FilesPage() {
                   <img src={media.url} alt={media.filename} className="max-w-full max-h-full object-contain rounded-lg" />
                 ) : media.fileType === "VIDEO" ? (
                   <video src={media.url} controls autoPlay className="max-w-full max-h-full rounded-lg" onClick={(e) => e.stopPropagation()} />
-                ) : (
+                ) : media.fileType === "AUDIO" ? (
                   <div className="flex flex-col items-center gap-4">
                     <div className="w-32 h-32 rounded-2xl bg-white/5 flex items-center justify-center">
                       <Music size={48} className="text-green-400" />
                     </div>
                     <p className="text-white font-medium">{media.filename}</p>
                     <audio src={media.url} controls autoPlay className="w-80" onClick={(e) => e.stopPropagation()} />
+                  </div>
+                ) : media.mimeType === "application/pdf" ? (
+                  <iframe src={media.url} className="w-full max-w-4xl h-[80vh] rounded-lg bg-white" title={media.filename}
+                    onClick={(e) => e.stopPropagation()} />
+                ) : (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-32 h-32 rounded-2xl bg-white/5 flex items-center justify-center">
+                      <FileText size={48} className="text-orange-400" />
+                    </div>
+                    <p className="text-white font-medium">{media.filename}</p>
+                    <p className="text-sm text-bb-dim">{formatSize(media.fileSize)} &middot; {media.mimeType}</p>
+                    <button onClick={() => handleDownload(media)}
+                      className="px-4 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors text-sm flex items-center gap-2">
+                      <Download size={14} /> Download to view
+                    </button>
                   </div>
                 )}
                 {viewerIndex < total - 1 && (
@@ -647,9 +693,12 @@ export default function FilesPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={thumb.url} alt="" className="w-full h-full object-cover" />
                       ) : thumb.fileType === "VIDEO" ? (
-                        <div className="w-full h-full bg-bb-surface flex items-center justify-center"><Film size={14} className="text-purple-400" /></div>
-                      ) : (
+                        <video src={thumb.url} muted preload="metadata" className="w-full h-full object-cover"
+                          onLoadedData={(e) => { const v = e.currentTarget; if (v.duration > 1) v.currentTime = 1; }} />
+                      ) : thumb.fileType === "AUDIO" ? (
                         <div className="w-full h-full bg-bb-surface flex items-center justify-center"><Music size={14} className="text-green-400" /></div>
+                      ) : (
+                        <div className="w-full h-full bg-bb-surface flex items-center justify-center"><FileText size={14} className="text-orange-400" /></div>
                       )}
                     </button>
                   ))}
