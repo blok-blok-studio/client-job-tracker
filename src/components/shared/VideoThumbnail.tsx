@@ -11,9 +11,11 @@ interface VideoThumbnailProps {
 }
 
 /**
- * Generates a real thumbnail from a video by loading it offscreen,
- * seeking to 0.5s, drawing the frame to a canvas, and displaying it
- * as an image. Falls back to a Film icon if extraction fails.
+ * Generates a real thumbnail from a video by:
+ * 1. Loading it through a proxy API that fixes content-type headers
+ * 2. Drawing the frame to a canvas
+ * 3. Displaying it as a JPEG image
+ * Falls back to a Film icon if extraction fails.
  */
 export default function VideoThumbnail({
   src,
@@ -35,6 +37,9 @@ export default function VideoThumbnail({
     video.playsInline = true;
     video.preload = "auto";
 
+    // Use proxy to fix content-type for .mov files
+    const proxiedSrc = `/api/client-media/thumb?url=${encodeURIComponent(src)}`;
+
     const timeoutId = { current: 0 as unknown as ReturnType<typeof setTimeout> };
 
     const cleanup = () => {
@@ -55,7 +60,6 @@ export default function VideoThumbnail({
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-          // Check if the frame is actually valid (not all black)
           if (dataUrl.length > 1000) {
             setThumbUrl(dataUrl);
           } else {
@@ -65,14 +69,12 @@ export default function VideoThumbnail({
           setFailed(true);
         }
       } catch {
-        // Canvas tainted or other error
         setFailed(true);
       }
       cleanup();
     };
 
     const onLoaded = () => {
-      // Seek to 0.5s or 10% of duration, whichever is less
       const seekTo = Math.min(0.5, video.duration * 0.1 || 0.5);
       video.currentTime = seekTo;
     };
@@ -82,22 +84,20 @@ export default function VideoThumbnail({
       cleanup();
     };
 
-    // Timeout after 8 seconds
     timeoutId.current = setTimeout(() => {
       setFailed(true);
       cleanup();
-    }, 8000);
+    }, 10000);
 
     video.addEventListener("loadeddata", onLoaded);
     video.addEventListener("seeked", onSeeked);
     video.addEventListener("error", onError);
-    video.src = src;
+    video.src = proxiedSrc;
     video.load();
 
     return cleanup;
   }, [src]);
 
-  // Successfully extracted a thumbnail
   if (thumbUrl) {
     return (
       <div className="relative w-full h-full">
@@ -114,7 +114,6 @@ export default function VideoThumbnail({
     );
   }
 
-  // Failed or still loading — show icon fallback
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-500/10 to-transparent relative">
       <Film size={iconSize + 8} className="text-purple-400" />
