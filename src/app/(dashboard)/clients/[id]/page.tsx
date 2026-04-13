@@ -98,7 +98,17 @@ export default function ClientDetailPage() {
   // Live exchange rate for EUR conversion
   const [eurRate, setEurRate] = useState<number | null>(null);
   // Assets section state
-  const [assetsTab, setAssetsTab] = useState<"passwords" | "media" | "contracts">("passwords");
+  const [assetsTab, setAssetsTab] = useState<"passwords" | "media" | "contracts">("media");
+  // Prevent browser from opening files when drag-dropped anywhere on the page
+  useEffect(() => {
+    const prevent = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+    window.addEventListener("dragover", prevent);
+    window.addEventListener("drop", prevent);
+    return () => {
+      window.removeEventListener("dragover", prevent);
+      window.removeEventListener("drop", prevent);
+    };
+  }, []);
   const [revealedCred, setRevealedCred] = useState<Record<string, { username: string; password: string; notes: string | null }>>({});
   const [revealingCred, setRevealingCred] = useState<string | null>(null);
   const [revealPassword, setRevealPassword] = useState("");
@@ -443,6 +453,25 @@ export default function ClientDetailPage() {
       await fetch(`/api/client-media/${mediaId}`, { method: "DELETE" });
       fetchClient();
     } catch { /* silently fail */ }
+  }
+
+  async function handleBatchDeleteMedia(ids: string[]) {
+    try {
+      const res = await fetch("/api/client-media/batch", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast(`${data.deleted} file${data.deleted !== 1 ? "s" : ""} deleted`, "success");
+      } else {
+        toast(data.error || "Delete failed", "error");
+      }
+      fetchClient();
+    } catch {
+      toast("Failed to delete files", "error");
+    }
   }
 
   if (error) return (
@@ -908,7 +937,14 @@ export default function ClientDetailPage() {
             </div>
 
             {/* ─── Unified Assets Section ─── */}
-            <div className="bg-bb-surface border border-bb-border rounded-lg overflow-hidden">
+            <div
+              className="bg-bb-surface border border-bb-border rounded-lg overflow-hidden"
+              onDragEnter={(e) => {
+                if (e.dataTransfer.types.includes("Files") && assetsTab !== "media") {
+                  setAssetsTab("media");
+                }
+              }}
+            >
               {/* Tab bar */}
               <div className="flex border-b border-bb-border">
                 {([
@@ -1055,6 +1091,7 @@ export default function ClientDetailPage() {
                     uploadingMedia={uploadingMedia}
                     onUpload={handleUploadMedia}
                     onDelete={handleDeleteMedia}
+                    onBatchDelete={handleBatchDeleteMedia}
                     onRefresh={fetchClient}
                     toast={toast}
                   />

@@ -6,7 +6,9 @@ import {
   Film, Music, ExternalLink, Image as ImageIcon,
   Edit2, Check, Copy, Info, Eye, FileText,
   Calendar, User, HardDrive, Tag, StickyNote,
+  CheckSquare, Square, Loader2,
 } from "lucide-react";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 
 interface MediaFile {
   id: string;
@@ -27,9 +29,12 @@ interface MediaManagerProps {
   uploadingMedia: boolean;
   onUpload: (files: FileList) => void;
   onDelete: (id: string) => void;
+  onBatchDelete: (ids: string[]) => Promise<void>;
   onRefresh: () => void;
   toast: (msg: string, type: "success" | "error") => void;
 }
+
+const ACCEPTED_FILES = "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf";
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -46,11 +51,12 @@ function formatDate(dateStr: string) {
 function getFileIcon(fileType: string, size: number) {
   if (fileType === "IMAGE") return <ImageIcon size={size} className="text-blue-400" />;
   if (fileType === "VIDEO") return <Film size={size} className="text-purple-400" />;
-  return <Music size={size} className="text-green-400" />;
+  if (fileType === "AUDIO") return <Music size={size} className="text-green-400" />;
+  return <FileText size={size} className="text-orange-400" />;
 }
 
 export default function MediaManager({
-  mediaFiles, uploadToken, uploadingMedia, onUpload, onDelete, onRefresh, toast,
+  mediaFiles, uploadingMedia, onUpload, onDelete, onBatchDelete, onRefresh, toast,
 }: MediaManagerProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -62,9 +68,19 @@ export default function MediaManager({
   const [notesValue, setNotesValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"ALL" | "IMAGE" | "VIDEO" | "AUDIO">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT">("ALL");
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+
+  // Multi-select state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Drag-and-drop state
+  const [dragOver, setDragOver] = useState(false);
+  const dragCounter = useRef(0);
 
   const selectedMedia = selectedId ? mediaFiles.find((m) => m.id === selectedId) : null;
   const hoveredMedia = hoveredId ? mediaFiles.find((m) => m.id === hoveredId) : null;
@@ -76,6 +92,78 @@ export default function MediaManager({
     IMAGE: mediaFiles.filter((m) => m.fileType === "IMAGE").length,
     VIDEO: mediaFiles.filter((m) => m.fileType === "VIDEO").length,
     AUDIO: mediaFiles.filter((m) => m.fileType === "AUDIO").length,
+    DOCUMENT: mediaFiles.filter((m) => m.fileType === "DOCUMENT").length,
+  };
+
+  // Drag-and-drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setDragOver(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) {
+      onUpload(e.dataTransfer.files);
+    }
+  }, [onUpload]);
+
+  // Multi-select helpers
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(filtered.map((m) => m.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setDeleting(true);
+    try {
+      await onBatchDelete(Array.from(selectedIds));
+      exitSelectMode();
+    } catch {
+      toast("Failed to delete files", "error");
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteOpen(false);
+    }
   };
 
   // Force download via proxy route
@@ -167,6 +255,17 @@ export default function MediaManager({
     return () => window.removeEventListener("keydown", handler);
   }, [viewerIndex, filtered.length]);
 
+  // Escape key exits select mode
+  useEffect(() => {
+    if (!selectMode) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") exitSelectMode();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectMode]);
+
   // When selecting a file, set label/notes values
   useEffect(() => {
     if (selectedMedia) {
@@ -178,14 +277,31 @@ export default function MediaManager({
   }, [selectedId, selectedMedia]);
 
   return (
-    <div>
+    <div
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className="relative"
+    >
+      {/* Drag overlay */}
+      {dragOver && (
+        <div className="absolute inset-0 z-50 rounded-xl border-2 border-dashed border-bb-orange bg-bb-orange/5 flex flex-col items-center justify-center pointer-events-none">
+          <div className="p-4 rounded-full bg-bb-orange/10 mb-3">
+            <Upload size={32} className="text-bb-orange" />
+          </div>
+          <p className="text-sm font-medium text-bb-orange">Drop files to upload</p>
+          <p className="text-xs text-bb-dim mt-1">Photos, videos, audio, and documents</p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <p className="text-xs text-bb-dim">{mediaFiles.length} files</p>
           {/* Type filter pills */}
           <div className="flex gap-1 ml-2">
-            {(["ALL", "IMAGE", "VIDEO", "AUDIO"] as const).map((t) => (
+            {(["ALL", "IMAGE", "VIDEO", "AUDIO", "DOCUMENT"] as const).map((t) => (
               counts[t] > 0 && (
                 <button
                   key={t}
@@ -196,111 +312,175 @@ export default function MediaManager({
                       : "bg-bb-elevated text-bb-dim hover:text-white"
                   }`}
                 >
-                  {t === "ALL" ? "All" : t === "IMAGE" ? "Images" : t === "VIDEO" ? "Videos" : "Audio"} ({counts[t]})
+                  {t === "ALL" ? "All" : t === "IMAGE" ? "Images" : t === "VIDEO" ? "Videos" : t === "AUDIO" ? "Audio" : "Docs"} ({counts[t]})
                 </button>
               )
             ))}
           </div>
         </div>
-        <label className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1 cursor-pointer">
-          <Upload size={14} />
-          {uploadingMedia ? "Uploading..." : "Upload"}
-          <input
-            type="file"
-            multiple
-            accept="image/*,video/*,audio/*,.pdf"
-            className="hidden"
-            onChange={(e) => e.target.files && onUpload(e.target.files)}
-            disabled={uploadingMedia}
-          />
-        </label>
+        <div className="flex items-center gap-2">
+          {/* Select mode toggle */}
+          {filtered.length > 0 && (
+            selectMode ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={selectedIds.size === filtered.length ? deselectAll : selectAll}
+                  className="text-[11px] text-bb-dim hover:text-white transition-colors"
+                >
+                  {selectedIds.size === filtered.length ? "Deselect All" : "Select All"}
+                </button>
+                <button
+                  onClick={exitSelectMode}
+                  className="text-[11px] text-bb-dim hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setSelectMode(true); setSelectedId(null); }}
+                className="text-[11px] text-bb-dim hover:text-white flex items-center gap-1 transition-colors"
+              >
+                <CheckSquare size={13} />
+                Select
+              </button>
+            )
+          )}
+          <label className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1 cursor-pointer">
+            <Upload size={14} />
+            {uploadingMedia ? "Uploading..." : "Upload"}
+            <input
+              type="file"
+              multiple
+              accept={ACCEPTED_FILES}
+              className="hidden"
+              onChange={(e) => e.target.files && onUpload(e.target.files)}
+              disabled={uploadingMedia}
+            />
+          </label>
+        </div>
       </div>
 
       {filtered.length > 0 ? (
         <div className="flex gap-3">
           {/* File Grid */}
-          <div className={`grid gap-2 flex-1 ${selectedId ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-3 lg:grid-cols-4"}`}>
-            {filtered.map((media, idx) => (
-              <div
-                key={media.id}
-                onMouseEnter={(e) => handleMouseEnter(e, media.id)}
-                onMouseLeave={handleMouseLeave}
-                className={`group relative rounded-lg overflow-hidden bg-bb-black border aspect-square cursor-pointer transition-all ${
-                  selectedId === media.id
-                    ? "border-bb-orange ring-1 ring-bb-orange/30"
-                    : "border-bb-border hover:border-bb-muted"
-                }`}
-              >
-                {/* Thumbnail */}
-                {media.fileType === "IMAGE" ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
-                ) : media.fileType === "VIDEO" ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-500/10 to-transparent">
-                    <Film size={24} className="text-purple-400 mb-1" />
-                    <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
-                  </div>
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
-                    <Music size={24} className="text-green-400 mb-1" />
-                    <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
-                  </div>
-                )}
+          <div className={`grid gap-2 flex-1 ${selectedId && !selectMode ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-3 lg:grid-cols-4"}`}>
+            {filtered.map((media, idx) => {
+              const isSelected = selectedIds.has(media.id);
+              return (
+                <div
+                  key={media.id}
+                  onMouseEnter={(e) => !selectMode && handleMouseEnter(e, media.id)}
+                  onMouseLeave={() => !selectMode && handleMouseLeave()}
+                  onClick={() => {
+                    if (selectMode) {
+                      toggleSelect(media.id);
+                    } else {
+                      setSelectedId(selectedId === media.id ? null : media.id);
+                    }
+                  }}
+                  className={`group relative rounded-lg overflow-hidden bg-bb-black border aspect-square cursor-pointer transition-all ${
+                    selectMode && isSelected
+                      ? "border-bb-orange ring-1 ring-bb-orange/30"
+                      : selectedId === media.id
+                      ? "border-bb-orange ring-1 ring-bb-orange/30"
+                      : "border-bb-border hover:border-bb-muted"
+                  }`}
+                >
+                  {/* Thumbnail */}
+                  {media.fileType === "IMAGE" ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
+                  ) : media.fileType === "VIDEO" ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-500/10 to-transparent">
+                      <Film size={24} className="text-purple-400 mb-1" />
+                      <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
+                    </div>
+                  ) : media.fileType === "AUDIO" ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
+                      <Music size={24} className="text-green-400 mb-1" />
+                      <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-orange-500/10 to-transparent">
+                      <FileText size={24} className="text-orange-400 mb-1" />
+                      <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
+                    </div>
+                  )}
 
-                {/* Label badge */}
-                {media.label && (
-                  <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-bb-orange/80 text-[9px] text-white font-medium truncate max-w-[80%]">
-                    {media.label}
-                  </div>
-                )}
+                  {/* Select mode checkbox */}
+                  {selectMode && (
+                    <div className="absolute top-1.5 left-1.5 z-10">
+                      {isSelected ? (
+                        <CheckSquare size={18} className="text-bb-orange drop-shadow-md" />
+                      ) : (
+                        <Square size={18} className="text-white/60 drop-shadow-md" />
+                      )}
+                    </div>
+                  )}
 
-                {/* Upload source badge */}
-                <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-bb-dim">
-                  {media.uploadedBy === "client" ? "Client" : "You"}
+                  {/* Label badge */}
+                  {media.label && !selectMode && (
+                    <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-bb-orange/80 text-[9px] text-white font-medium truncate max-w-[80%]">
+                      {media.label}
+                    </div>
+                  )}
+
+                  {/* Upload source badge */}
+                  <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-bb-dim">
+                    {media.uploadedBy === "client" ? "Client" : "You"}
+                  </div>
+
+                  {/* Hover overlay with actions — only in normal mode */}
+                  {!selectMode && (
+                    <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setViewerIndex(idx); }}
+                          className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
+                          title="Preview"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedId(selectedId === media.id ? null : media.id); }}
+                          className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
+                          title="Info & Edit"
+                        >
+                          <Info size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDownload(media); }}
+                          className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
+                          title="Download"
+                          disabled={downloading === media.id}
+                        >
+                          <Download size={14} className={downloading === media.id ? "animate-bounce" : ""} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); copyUrl(media.url); }}
+                          className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
+                          title="Copy link"
+                        >
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-white font-medium truncate max-w-[90%]">{media.filename}</span>
+                      <span className="text-[9px] text-bb-dim">{formatSize(media.fileSize)}</span>
+                    </div>
+                  )}
+
+                  {/* Select mode dim overlay for selected items */}
+                  {selectMode && isSelected && (
+                    <div className="absolute inset-0 bg-bb-orange/10 pointer-events-none" />
+                  )}
                 </div>
-
-                {/* Hover overlay with actions */}
-                <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setViewerIndex(idx); }}
-                      className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
-                      title="Preview"
-                    >
-                      <Eye size={14} />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSelectedId(selectedId === media.id ? null : media.id); }}
-                      className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
-                      title="Info & Edit"
-                    >
-                      <Info size={14} />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDownload(media); }}
-                      className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
-                      title="Download"
-                      disabled={downloading === media.id}
-                    >
-                      <Download size={14} className={downloading === media.id ? "animate-bounce" : ""} />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); copyUrl(media.url); }}
-                      className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
-                      title="Copy link"
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </div>
-                  <span className="text-[10px] text-white font-medium truncate max-w-[90%]">{media.filename}</span>
-                  <span className="text-[9px] text-bb-dim">{formatSize(media.fileSize)}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* Side panel — file details */}
-          {selectedMedia && (
+          {/* Side panel — file details (hidden in select mode) */}
+          {selectedMedia && !selectMode && (
             <div className="w-64 shrink-0 rounded-lg border border-bb-border bg-bb-black p-3 space-y-3 max-h-[500px] overflow-y-auto">
               {/* Preview thumbnail */}
               <div className="rounded-lg overflow-hidden bg-bb-surface aspect-video flex items-center justify-center">
@@ -436,7 +616,7 @@ export default function MediaManager({
                   Open in new tab
                 </button>
                 <button
-                  onClick={() => { if (confirm("Delete this file?")) { onDelete(selectedMedia.id); setSelectedId(null); } }}
+                  onClick={() => { onDelete(selectedMedia.id); setSelectedId(null); }}
                   className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-bb-elevated text-red-400 hover:bg-red-500/10 transition-colors w-full"
                 >
                   <Trash2 size={13} />
@@ -450,14 +630,44 @@ export default function MediaManager({
         <div className="text-center py-6">
           <ImageIcon size={24} className="mx-auto text-bb-dim mb-2" />
           <p className="text-sm text-bb-dim">No media files yet</p>
-          {uploadToken && (
-            <p className="text-[10px] text-bb-dim mt-1">Share the upload portal link for your client to upload</p>
-          )}
+          <p className="text-[10px] text-bb-dim mt-1">Drag & drop files here or use the Upload button</p>
         </div>
       )}
 
+      {/* Batch delete toolbar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="sticky bottom-0 mt-3 flex items-center justify-between px-4 py-3 rounded-xl bg-bb-surface border border-bb-border shadow-lg">
+          <span className="text-sm text-white font-medium">
+            {selectedIds.size} file{selectedIds.size !== 1 ? "s" : ""} selected
+          </span>
+          <button
+            onClick={() => setConfirmDeleteOpen(true)}
+            disabled={deleting}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            {deleting ? (
+              <><Loader2 size={14} className="animate-spin" /> Deleting...</>
+            ) : (
+              <><Trash2 size={14} /> Delete {selectedIds.size} file{selectedIds.size !== 1 ? "s" : ""}</>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Batch delete confirmation dialog */}
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={handleBatchDelete}
+        title="Delete Files"
+        message={`Are you sure you want to delete ${selectedIds.size} file${selectedIds.size !== 1 ? "s" : ""}? This cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.size} file${selectedIds.size !== 1 ? "s" : ""}`}
+        confirmVariant="danger"
+        loading={deleting}
+      />
+
       {/* Hover preview tooltip */}
-      {hoveredMedia && !selectedId && hoveredMedia.fileType === "IMAGE" && (
+      {hoveredMedia && !selectedId && !selectMode && hoveredMedia.fileType === "IMAGE" && (
         <div
           ref={previewRef}
           className="fixed z-[100] pointer-events-none"
@@ -522,7 +732,7 @@ export default function MediaManager({
                   <ExternalLink size={16} />
                 </button>
                 <button
-                  onClick={() => { if (confirm("Delete this file?")) { onDelete(media.id); setViewerIndex(null); } }}
+                  onClick={() => { onDelete(media.id); setViewerIndex(null); }}
                   className="p-2 rounded-lg bg-white/10 text-white hover:bg-red-500 transition-colors"
                   title="Delete"
                 >
@@ -553,13 +763,26 @@ export default function MediaManager({
                 <img src={media.url} alt={media.filename} className="max-w-full max-h-full object-contain rounded-lg" />
               ) : media.fileType === "VIDEO" ? (
                 <video src={media.url} controls autoPlay className="max-w-full max-h-full rounded-lg" onClick={(e) => e.stopPropagation()} />
-              ) : (
+              ) : media.fileType === "AUDIO" ? (
                 <div className="flex flex-col items-center gap-4">
                   <div className="w-32 h-32 rounded-2xl bg-white/5 flex items-center justify-center">
                     <Music size={48} className="text-green-400" />
                   </div>
                   <p className="text-white font-medium">{media.filename}</p>
                   <audio src={media.url} controls autoPlay className="w-80" onClick={(e) => e.stopPropagation()} />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-32 h-32 rounded-2xl bg-white/5 flex items-center justify-center">
+                    <FileText size={48} className="text-orange-400" />
+                  </div>
+                  <p className="text-white font-medium">{media.filename}</p>
+                  <button
+                    onClick={() => handleDownload(media)}
+                    className="px-4 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors text-sm flex items-center gap-2"
+                  >
+                    <Download size={14} /> Download to view
+                  </button>
                 </div>
               )}
 
@@ -591,9 +814,13 @@ export default function MediaManager({
                       <div className="w-full h-full bg-bb-surface flex items-center justify-center">
                         <Film size={14} className="text-purple-400" />
                       </div>
-                    ) : (
+                    ) : thumb.fileType === "AUDIO" ? (
                       <div className="w-full h-full bg-bb-surface flex items-center justify-center">
                         <Music size={14} className="text-green-400" />
+                      </div>
+                    ) : (
+                      <div className="w-full h-full bg-bb-surface flex items-center justify-center">
+                        <FileText size={14} className="text-orange-400" />
                       </div>
                     )}
                   </button>
