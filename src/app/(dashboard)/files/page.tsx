@@ -9,6 +9,7 @@ import {
   FolderOpen, Grid, List, Users, Loader2,
 } from "lucide-react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
+import { extractThumbnailFromFile } from "@/lib/video-thumbnail";
 import TopBar from "@/components/layout/TopBar";
 import VideoThumbnail from "@/components/shared/VideoThumbnail";
 import { useToast } from "@/components/shared/Toast";
@@ -121,6 +122,26 @@ export default function FilesPage() {
         if (!regData.success) {
           errors.push(`${file.name}: ${regData.error || "register failed"}`);
           continue;
+        }
+
+        // Step 3: generate and upload thumbnail for videos
+        if (file.type.startsWith("video/") && regData.data?.[0]?.id) {
+          const mediaId = regData.data[0].id;
+          try {
+            const thumbBlob = await extractThumbnailFromFile(file);
+            if (thumbBlob) {
+              const thumbFile = new File([thumbBlob], "thumb.jpg", { type: "image/jpeg" });
+              const thumbUpload = await vercelBlobUpload(`thumbnails/${mediaId}.jpg`, thumbFile, {
+                access: "public",
+                handleUploadUrl: "/api/uploads/blob",
+              });
+              await fetch(`/api/client-media/${mediaId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ thumbnailUrl: thumbUpload.url }),
+              });
+            }
+          } catch { /* thumbnail generation is best-effort */ }
         }
 
         successCount++;
@@ -326,6 +347,53 @@ export default function FilesPage() {
 
   const hoveredMedia = hoveredId ? files.find((m) => m.id === hoveredId) : null;
 
+  // Count videos missing thumbnails
+  const missingThumbs = files.filter((f) => f.fileType === "VIDEO" && !f.thumbnailUrl).length;
+
+  // Generate thumbnails for existing videos by downloading them as blobs
+  const [generatingThumbs, setGeneratingThumbs] = useState(false);
+  const generateMissingThumbnails = useCallback(async () => {
+    const videos = files.filter((f) => f.fileType === "VIDEO" && !f.thumbnailUrl);
+    if (!videos.length) return;
+
+    setGeneratingThumbs(true);
+    let done = 0;
+
+    for (const video of videos) {
+      try {
+        // Download video as blob to create a local object URL (bypasses CORS/content-type issues)
+        const res = await fetch(video.url);
+        if (!res.ok) continue;
+        const videoBlob = await res.blob();
+        const localFile = new File([videoBlob], video.filename, { type: video.mimeType || "video/mp4" });
+
+        const thumbBlob = await extractThumbnailFromFile(localFile);
+        if (!thumbBlob) continue;
+
+        const thumbFile = new File([thumbBlob], "thumb.jpg", { type: "image/jpeg" });
+        const thumbUpload = await vercelBlobUpload(`thumbnails/${video.id}.jpg`, thumbFile, {
+          access: "public",
+          handleUploadUrl: "/api/uploads/blob",
+        });
+
+        await fetch(`/api/client-media/${video.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ thumbnailUrl: thumbUpload.url }),
+        });
+
+        done++;
+        toast(`Generated ${done}/${videos.length} thumbnails...`, "success");
+      } catch {
+        // Skip failed videos
+      }
+    }
+
+    setGeneratingThumbs(false);
+    if (done > 0) fetchFilesRef.current();
+    toast(`Generated ${done} thumbnail${done !== 1 ? "s" : ""}`, "success");
+  }, [files, toast]);
+
   return (
     <div ref={dropZoneRef} className="relative">
       {/* Drag overlay */}
@@ -368,6 +436,19 @@ export default function FilesPage() {
             <span className="text-bb-border">|</span>
             <span>{allClients.length} clients</span>
           </div>
+          {missingThumbs > 0 && (
+            <button
+              onClick={generateMissingThumbnails}
+              disabled={generatingThumbs}
+              className="text-xs text-bb-orange hover:text-bb-orange-light flex items-center gap-1 disabled:opacity-50"
+            >
+              {generatingThumbs ? (
+                <><Loader2 size={12} className="animate-spin" /> Generating thumbnails...</>
+              ) : (
+                <>{missingThumbs} video{missingThumbs !== 1 ? "s" : ""} missing preview — Fix</>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Toolbar */}

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload, Pen, Type, RotateCcw, Eye, EyeOff, Lock, Image as ImageIcon } from "lucide-react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
+import { extractThumbnailFromFile } from "@/lib/video-thumbnail";
 import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -417,11 +418,32 @@ export default function ClientDetailPage() {
         });
 
         // Register in DB as client media
-        await fetch("/api/client-media", {
+        const regRes = await fetch("/api/client-media", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ clientId: id, url: blob.url, filename: file.name, fileType: file.type, fileSize: file.size }),
         });
+        const regData = await regRes.json();
+
+        // Generate and upload thumbnail for videos
+        if (file.type.startsWith("video/") && regData.data?.[0]?.id) {
+          try {
+            const thumbBlob = await extractThumbnailFromFile(file);
+            if (thumbBlob) {
+              const thumbFile = new File([thumbBlob], "thumb.jpg", { type: "image/jpeg" });
+              const thumbUpload = await vercelBlobUpload(`thumbnails/${regData.data[0].id}.jpg`, thumbFile, {
+                access: "public",
+                handleUploadUrl: "/api/uploads/blob",
+              });
+              await fetch(`/api/client-media/${regData.data[0].id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ thumbnailUrl: thumbUpload.url }),
+              });
+            }
+          } catch { /* best-effort */ }
+        }
+
         successCount++;
       }
       toast(`${successCount} file${successCount !== 1 ? "s" : ""} uploaded successfully`, "success");

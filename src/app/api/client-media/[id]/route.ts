@@ -10,13 +10,14 @@ export async function PATCH(
   const { id } = await params;
   try {
     const body = await request.json();
-    const { label, notes } = body;
+    const { label, notes, thumbnailUrl } = body;
 
     const media = await prisma.clientMedia.update({
       where: { id },
       data: {
         ...(label !== undefined && { label }),
         ...(notes !== undefined && { notes }),
+        ...(thumbnailUrl !== undefined && { thumbnailUrl }),
       },
     });
 
