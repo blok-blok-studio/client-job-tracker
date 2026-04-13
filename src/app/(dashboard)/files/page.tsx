@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Download, Trash2, X, ChevronLeft, ChevronRight,
-  Film, Music, ExternalLink,
+  Music, ExternalLink,
   Edit2, Check, Copy, Info, Eye, FileText, Search,
   Calendar, User, HardDrive, Tag, StickyNote,
   FolderOpen, Grid, List, Users,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
+import VideoThumbnail from "@/components/shared/VideoThumbnail";
 import { useToast } from "@/components/shared/Toast";
 
 interface MediaFile {
@@ -298,20 +299,7 @@ export default function FilesPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
                       ) : media.fileType === "VIDEO" ? (
-                        <div className="w-full h-full relative">
-                          <video
-                            src={`${media.url}#t=0.5`}
-                            muted
-                            preload="auto"
-                            playsInline
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                              <Film size={16} className="text-white ml-0.5" />
-                            </div>
-                          </div>
-                        </div>
+                        <VideoThumbnail src={media.url} />
                       ) : media.fileType === "AUDIO" ? (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
                           <Music size={28} className="text-green-400 mb-2" />
@@ -407,7 +395,7 @@ export default function FilesPage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={media.url} alt="" className="w-full h-full object-cover" />
                         ) : media.fileType === "VIDEO" ? (
-                          <video src={`${media.url}#t=0.5`} muted preload="auto" playsInline className="w-full h-full object-cover" />
+                          <VideoThumbnail src={media.url} showPlayIcon={false} />
                         ) : media.fileType === "AUDIO" ? (
                           <div className="w-full h-full flex items-center justify-center"><Music size={16} className="text-green-400" /></div>
                         ) : (
@@ -590,7 +578,7 @@ export default function FilesPage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={hoveredMedia.url} alt="" className="w-full aspect-video object-cover" />
               ) : (
-                <video src={`${hoveredMedia.url}#t=0.5`} muted preload="auto" playsInline className="w-full aspect-video object-cover" />
+                <VideoThumbnail src={hoveredMedia.url} className="w-full aspect-video object-cover" showPlayIcon={false} />
               )}
               <div className="px-2 py-1.5">
                 <p className="text-[10px] text-white truncate">{hoveredMedia.filename}</p>
@@ -688,7 +676,7 @@ export default function FilesPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={thumb.url} alt="" className="w-full h-full object-cover" />
                       ) : thumb.fileType === "VIDEO" ? (
-                        <video src={`${thumb.url}#t=0.5`} muted preload="auto" playsInline className="w-full h-full object-cover" />
+                        <VideoThumbnail src={thumb.url} showPlayIcon={false} iconSize={10} />
                       ) : thumb.fileType === "AUDIO" ? (
                         <div className="w-full h-full bg-bb-surface flex items-center justify-center"><Music size={14} className="text-green-400" /></div>
                       ) : (
