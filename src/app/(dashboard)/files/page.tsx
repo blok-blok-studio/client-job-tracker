@@ -565,7 +565,7 @@ export default function FilesPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
                       ) : media.fileType === "VIDEO" ? (
-                        <VideoThumbnail src={media.url} thumbnailUrl={media.thumbnailUrl} />
+                        <VideoThumbnail src={media.url} thumbnailUrl={media.thumbnailUrl} filename={media.filename} />
                       ) : media.fileType === "AUDIO" ? (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
                           <Music size={28} className="text-green-400 mb-2" />
