@@ -11,11 +11,9 @@ interface VideoThumbnailProps {
 }
 
 /**
- * Generates a real thumbnail from a video by:
- * 1. Loading it through a proxy API that fixes content-type headers
- * 2. Drawing the frame to a canvas
- * 3. Displaying it as a JPEG image
- * Falls back to a Film icon if extraction fails.
+ * Generates a real thumbnail from a video by loading it, seeking, and
+ * drawing the frame to a canvas. Tries direct URL first, then falls
+ * back to a proxy that fixes content-type headers for old .mov files.
  */
 export default function VideoThumbnail({
   src,
@@ -31,71 +29,19 @@ export default function VideoThumbnail({
     if (attempted.current) return;
     attempted.current = true;
 
-    const video = document.createElement("video");
-    video.crossOrigin = "anonymous";
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = "auto";
-
-    // Use proxy to fix content-type for .mov files
-    const proxiedSrc = `/api/client-media/thumb?url=${encodeURIComponent(src)}`;
-
-    const timeoutId = { current: 0 as unknown as ReturnType<typeof setTimeout> };
-
-    const cleanup = () => {
-      clearTimeout(timeoutId.current);
-      video.removeEventListener("seeked", onSeeked);
-      video.removeEventListener("error", onError);
-      video.removeEventListener("loadeddata", onLoaded);
-      video.src = "";
-      video.load();
-    };
-
-    const onSeeked = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth || 320;
-        canvas.height = video.videoHeight || 180;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-          if (dataUrl.length > 1000) {
-            setThumbUrl(dataUrl);
-          } else {
-            setFailed(true);
-          }
-        } else {
-          setFailed(true);
-        }
-      } catch {
-        setFailed(true);
+    // Try direct URL first, then proxy if it fails
+    extractFrame(src).then((dataUrl) => {
+      if (dataUrl) {
+        setThumbUrl(dataUrl);
+      } else {
+        // Retry through proxy (fixes content-type for old .mov files)
+        const proxied = `/api/client-media/thumb?url=${encodeURIComponent(src)}`;
+        extractFrame(proxied).then((dataUrl2) => {
+          if (dataUrl2) setThumbUrl(dataUrl2);
+          else setFailed(true);
+        });
       }
-      cleanup();
-    };
-
-    const onLoaded = () => {
-      const seekTo = Math.min(0.5, video.duration * 0.1 || 0.5);
-      video.currentTime = seekTo;
-    };
-
-    const onError = () => {
-      setFailed(true);
-      cleanup();
-    };
-
-    timeoutId.current = setTimeout(() => {
-      setFailed(true);
-      cleanup();
-    }, 10000);
-
-    video.addEventListener("loadeddata", onLoaded);
-    video.addEventListener("seeked", onSeeked);
-    video.addEventListener("error", onError);
-    video.src = proxiedSrc;
-    video.load();
-
-    return cleanup;
+    });
   }, [src]);
 
   if (thumbUrl) {
@@ -126,4 +72,65 @@ export default function VideoThumbnail({
       )}
     </div>
   );
+}
+
+/** Try to load a video URL and extract a frame as a JPEG data URL. */
+function extractFrame(videoSrc: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve(null);
+    }, 8000);
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("error", onError);
+      video.removeEventListener("loadeddata", onLoaded);
+      video.src = "";
+      video.load();
+    };
+
+    const onSeeked = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth || 320;
+        canvas.height = video.videoHeight || 180;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          cleanup();
+          resolve(dataUrl.length > 1000 ? dataUrl : null);
+        } else {
+          cleanup();
+          resolve(null);
+        }
+      } catch {
+        cleanup();
+        resolve(null);
+      }
+    };
+
+    const onLoaded = () => {
+      video.currentTime = Math.min(0.5, video.duration * 0.1 || 0.5);
+    };
+
+    const onError = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    video.addEventListener("loadeddata", onLoaded);
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("error", onError);
+    video.src = videoSrc;
+    video.load();
+  });
 }

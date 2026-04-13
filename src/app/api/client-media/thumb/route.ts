@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const maxDuration = 30;
+
 /**
  * GET /api/client-media/thumb?url=...
  *
  * Proxies a Vercel Blob video URL with the correct Content-Type header.
- * This fixes the issue where .mov files stored with content-type: text/plain
- * can't be loaded by <video> elements in Chrome.
- *
- * Only proxies the first 5MB (enough for thumbnail extraction).
+ * Streams the response to avoid Vercel's 4.5MB body size limit.
+ * Used as fallback for old .mov files stored with content-type: text/plain.
  */
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
@@ -22,16 +22,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Fetch with a range header to limit download to first 5MB
+    // Request first 4MB — enough for most video decoders to extract a frame
     const res = await fetch(url, {
-      headers: { Range: "bytes=0-5242879" },
+      headers: { Range: "bytes=0-4194303" },
     });
 
     if (!res.ok && res.status !== 206) {
-      return NextResponse.json({ error: "Failed to fetch" }, { status: res.status });
+      return NextResponse.json({ error: `Fetch failed: ${res.status}` }, { status: res.status });
     }
-
-    const buffer = await res.arrayBuffer();
 
     // Determine correct content-type from the URL extension
     const ext = url.split("?")[0].split(".").pop()?.toLowerCase() || "";
@@ -50,11 +48,12 @@ export async function GET(request: NextRequest) {
     };
     const contentType = mimeMap[ext] || "video/mp4";
 
-    return new NextResponse(buffer, {
+    // Stream the response body through to avoid buffering the whole thing
+    return new NextResponse(res.body, {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400, immutable",
+        "Cache-Control": "public, max-age=86400, s-maxage=86400",
         "Access-Control-Allow-Origin": "*",
       },
     });
