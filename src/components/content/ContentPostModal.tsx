@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
+const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 import Modal from "@/components/shared/Modal";
 import PlatformIcon, { getPlatformLabel } from "./PlatformIcon";
 import PostPreview from "./PostPreview";
@@ -385,6 +387,8 @@ export default function ContentPostModal({
   const [status, setStatus] = useState("DRAFT");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [hashtagInput, setHashtagInput] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
@@ -860,10 +864,48 @@ export default function ContentPostModal({
 
             {/* Body / Caption */}
             <div>
-              <label className="block text-sm font-medium text-bb-muted mb-1">
-                {platform === "YOUTUBE" ? "Description" : platform === "TWITTER" ? "Tweet" : "Caption"}
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium text-bb-muted">
+                  {platform === "YOUTUBE" ? "Description" : platform === "TWITTER" ? "Tweet" : "Caption"}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className={`text-lg px-2 py-0.5 rounded hover:bg-bb-elevated transition-colors ${showEmojiPicker ? "bg-bb-elevated" : ""}`}
+                  title="Emoji picker"
+                >
+                  😊
+                </button>
+              </div>
+              {showEmojiPicker && (
+                <div className="mb-2">
+                  <EmojiPicker
+                    onEmojiClick={(emojiData) => {
+                      const textarea = bodyRef.current;
+                      if (textarea) {
+                        const start = textarea.selectionStart;
+                        const end = textarea.selectionEnd;
+                        const newBody = body.slice(0, start) + emojiData.emoji + body.slice(end);
+                        setBody(newBody);
+                        requestAnimationFrame(() => {
+                          textarea.focus();
+                          const pos = start + emojiData.emoji.length;
+                          textarea.setSelectionRange(pos, pos);
+                        });
+                      } else {
+                        setBody(body + emojiData.emoji);
+                      }
+                    }}
+                    width="100%"
+                    height={300}
+                    theme={"dark" as import("emoji-picker-react").Theme}
+                    searchPlaceholder="Search emojis..."
+                    previewConfig={{ showPreview: false }}
+                  />
+                </div>
+              )}
               <textarea
+                ref={bodyRef}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder={
@@ -875,8 +917,8 @@ export default function ContentPostModal({
                     ? "Share your thoughts..."
                     : "Write your caption..."
                 }
-                rows={platform === "TWITTER" ? 3 : 4}
-                className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-white text-sm placeholder:text-bb-dim resize-none"
+                rows={platform === "TWITTER" ? 3 : 6}
+                className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-white text-sm placeholder:text-bb-dim resize-y whitespace-pre-wrap"
               />
               <CharCount current={body.length} max={limits.body} />
             </div>
