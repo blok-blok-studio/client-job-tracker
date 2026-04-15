@@ -8,7 +8,7 @@ import { onPaymentConfirmed } from "@/lib/pipeline";
 import { z } from "zod";
 
 // Allow up to 120s for exchange rate fetch + Stripe API calls + email sending
-export const maxDuration = 3000;
+export const maxDuration = 300;
 
 const milestoneSchema = z.object({
   label: z.string(), // "deposit" | "milestone" | "completion"

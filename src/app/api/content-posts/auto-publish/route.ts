@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { publishPost, sanitizePublishError } from "@/lib/social/publisher";
 import { humanDelay } from "@/lib/social/http";
 
-export const maxDuration = 3000;
+export const maxDuration = 300;
 
 // POST: Auto-publish due posts (called by content calendar polling)
 // Session-authenticated via middleware — no extra auth needed

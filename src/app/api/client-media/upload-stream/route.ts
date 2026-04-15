@@ -4,7 +4,7 @@ import { put } from "@vercel/blob";
 import { randomUUID } from "crypto";
 import { sendTelegramMessage } from "@/lib/telegram";
 
-export const maxDuration = 3000;
+export const maxDuration = 300;
 
 // PUT — stream a single file directly to Vercel Blob
 // The file body is sent as raw bytes (not multipart), so Vercel's body parser

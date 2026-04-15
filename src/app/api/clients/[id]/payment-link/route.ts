@@ -5,7 +5,7 @@ import { z } from "zod";
 import { sendPaymentLinkEmail } from "@/lib/email";
 
 // Allow up to 60s for Stripe API calls + email sending
-export const maxDuration = 3000;
+export const maxDuration = 300;
 
 const createSchema = z.object({
   amount: z.number().positive("Amount must be greater than 0"),

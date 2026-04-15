@@ -10,7 +10,7 @@ import {
 } from "@/lib/email";
 
 // Allow up to 60s for pipeline processing after payment
-export const maxDuration = 3000;
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   const body = await request.text();

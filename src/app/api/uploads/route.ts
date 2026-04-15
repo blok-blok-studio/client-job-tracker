@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { uploadFileToBlob } from "@/lib/upload";
 
-export const maxDuration = 3000;
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   // Rate limit: 20 uploads per minute per IP
