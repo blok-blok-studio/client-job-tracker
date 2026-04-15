@@ -57,10 +57,7 @@ export default function FilesPage() {
   const [notesValue, setNotesValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
   const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
-  const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const dragCounter = useRef(0);
   const [dragOver, setDragOver] = useState(false);
@@ -334,19 +331,6 @@ export default function FilesPage() {
     return () => window.removeEventListener("keydown", handler);
   }, [viewerIndex, filtered.length]);
 
-  const handleMouseEnter = (e: React.MouseEvent, id: string) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setHoverPos({ x: rect.right + 8, y: rect.top });
-    if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
-    hoverTimeout.current = setTimeout(() => setHoveredId(id), 300);
-  };
-  const handleMouseLeave = () => {
-    if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
-    setHoveredId(null);
-  };
-
-  const hoveredMedia = hoveredId ? files.find((m) => m.id === hoveredId) : null;
-
   // Count videos missing thumbnails
   const missingThumbs = files.filter((f) => f.fileType === "VIDEO" && !f.thumbnailUrl).length;
 
@@ -553,8 +537,6 @@ export default function FilesPage() {
                   {filtered.map((media, idx) => (
                     <div
                       key={media.id}
-                      onMouseEnter={(e) => handleMouseEnter(e, media.id)}
-                      onMouseLeave={handleMouseLeave}
                       className={`group relative rounded-lg overflow-hidden bg-bb-black border aspect-square cursor-pointer transition-all ${
                         selectedId === media.id
                           ? "border-bb-orange ring-1 ring-bb-orange/30"
@@ -830,29 +812,6 @@ export default function FilesPage() {
           </div>
         )}
 
-        {/* Hover preview tooltip */}
-        {hoveredMedia && !selectedId && (hoveredMedia.fileType === "IMAGE" || hoveredMedia.fileType === "VIDEO") && (
-          <div
-            className="fixed z-[100] pointer-events-none"
-            style={{
-              left: Math.min(hoverPos.x, typeof window !== "undefined" ? window.innerWidth - 220 : 800),
-              top: Math.max(8, Math.min(hoverPos.y, typeof window !== "undefined" ? window.innerHeight - 180 : 600)),
-            }}
-          >
-            <div className="w-52 rounded-lg overflow-hidden bg-bb-surface border border-bb-border shadow-modal">
-              {hoveredMedia.fileType === "IMAGE" ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={hoveredMedia.url} alt="" className="w-full aspect-video object-cover" />
-              ) : (
-                <VideoThumbnail src={hoveredMedia.url} thumbnailUrl={hoveredMedia.thumbnailUrl} className="w-full aspect-video object-cover" showPlayIcon={false} />
-              )}
-              <div className="px-2 py-1.5">
-                <p className="text-[10px] text-white truncate">{hoveredMedia.filename}</p>
-                <p className="text-[9px] text-bb-dim">{formatSize(hoveredMedia.fileSize)} · {hoveredMedia.client.name}</p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Full-screen viewer */}
         {viewerIndex !== null && filtered[viewerIndex] && (() => {
