@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { upload } from "@vercel/blob/client";
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 import Modal from "@/components/shared/Modal";
 import PlatformIcon, { getPlatformLabel } from "./PlatformIcon";
@@ -544,24 +545,12 @@ export default function ContentPostModal({
       for (const file of fileArray) {
         const fext = file.name.toLowerCase().split(".").pop() || "";
         const mimeType = file.type || EXT_MIME_MAP[fext] || "application/octet-stream";
-        const res = await new Promise<string>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.addEventListener("load", () => {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              if (data.success && data.urls?.[0]) resolve(data.urls[0]);
-              else reject(new Error(data.error || `Upload failed (${xhr.status})`));
-            } catch { reject(new Error(`Upload failed (${xhr.status}: ${xhr.statusText})`)); }
-          });
-          xhr.addEventListener("error", () => reject(new Error("Upload failed — network error")));
-          xhr.addEventListener("timeout", () => reject(new Error("Upload timed out")));
-          xhr.timeout = 300000;
-          const params = new URLSearchParams({ filename: file.name });
-          xhr.open("PUT", `/api/uploads/stream?${params}`);
-          xhr.setRequestHeader("Content-Type", mimeType);
-          xhr.send(file);
+        const blob = await upload(file.name, file, {
+          access: "public",
+          handleUploadUrl: "/api/uploads/blob",
+          contentType: mimeType,
         });
-        urls.push(res);
+        urls.push(blob.url);
       }
       setMediaUrls((prev) => [...prev, ...urls]);
     } catch (err) {
@@ -580,22 +569,14 @@ export default function ContentPostModal({
     if (!file) return;
     setLoading(true);
     try {
-      const url = await new Promise<string>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.addEventListener("load", () => {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            if (data.success && data.urls?.[0]) resolve(data.urls[0]);
-            else reject(new Error(data.error || "Upload failed"));
-          } catch { reject(new Error("Upload failed")); }
-        });
-        xhr.addEventListener("error", () => reject(new Error("Upload failed")));
-        const params = new URLSearchParams({ filename: file.name });
-        xhr.open("PUT", `/api/uploads/stream?${params}`);
-        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-        xhr.send(file);
+      const fext = file.name.toLowerCase().split(".").pop() || "";
+      const mimeType = file.type || EXT_MIME_MAP[fext] || "application/octet-stream";
+      const blob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/uploads/blob",
+        contentType: mimeType,
       });
-      setter(url);
+      setter(blob.url);
     } catch { /* silent */ } finally {
       setLoading(false);
     }
