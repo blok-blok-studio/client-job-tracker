@@ -113,6 +113,12 @@ const PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "THREADS", "LINKEDIN", "YOU
 const STATUSES = ["DRAFT", "SCHEDULED"];
 const ACCEPTED_TYPES = "image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm,application/pdf";
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB — Pro plan
+const EXT_MIME_MAP: Record<string, string> = {
+  pdf: "application/pdf", heic: "image/heic", heif: "image/heif",
+  mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm",
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+  gif: "image/gif", webp: "image/webp",
+};
 
 const YOUTUBE_CATEGORIES = [
   "Film & Animation", "Autos & Vehicles", "Music", "Pets & Animals",
@@ -525,10 +531,10 @@ export default function ContentPostModal({
         setUploadError(`"${file.name}" exceeds the 500MB limit`);
         return;
       }
-      const ext = file.name.toLowerCase().split(".").pop();
-      const fileType = file.type || ({ pdf: "application/pdf", heic: "image/heic", heif: "image/heif" }[ext || ""] || "");
+      const ext = file.name.toLowerCase().split(".").pop() || "";
+      const fileType = file.type || EXT_MIME_MAP[ext] || "";
       if (!ACCEPTED_TYPES.split(",").includes(fileType)) {
-        setUploadError(`"${file.name}" is not a supported file type`);
+        setUploadError(`"${file.name}" is not a supported file type (${fileType || ext})`);
         return;
       }
     }
@@ -536,26 +542,30 @@ export default function ContentPostModal({
     try {
       const urls: string[] = [];
       for (const file of fileArray) {
+        const fext = file.name.toLowerCase().split(".").pop() || "";
+        const mimeType = file.type || EXT_MIME_MAP[fext] || "application/octet-stream";
         const res = await new Promise<string>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.addEventListener("load", () => {
             try {
               const data = JSON.parse(xhr.responseText);
               if (data.success && data.urls?.[0]) resolve(data.urls[0]);
-              else reject(new Error(data.error || "Upload failed"));
-            } catch { reject(new Error("Upload failed")); }
+              else reject(new Error(data.error || `Upload failed (${xhr.status})`));
+            } catch { reject(new Error(`Upload failed (${xhr.status}: ${xhr.statusText})`)); }
           });
-          xhr.addEventListener("error", () => reject(new Error("Upload failed")));
+          xhr.addEventListener("error", () => reject(new Error("Upload failed — network error")));
+          xhr.addEventListener("timeout", () => reject(new Error("Upload timed out")));
+          xhr.timeout = 300000;
           const params = new URLSearchParams({ filename: file.name });
           xhr.open("PUT", `/api/uploads/stream?${params}`);
-          xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+          xhr.setRequestHeader("Content-Type", mimeType);
           xhr.send(file);
         });
         urls.push(res);
       }
       setMediaUrls((prev) => [...prev, ...urls]);
-    } catch {
-      setUploadError("Upload failed. Please try again.");
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed. Please try again.");
     } finally {
       setUploading(false);
     }
