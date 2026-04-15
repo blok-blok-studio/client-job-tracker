@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 import { sendTelegramMessage } from "@/lib/telegram";
 
 // No file size limit — clients upload 4K videos, large photo batches, etc.
-export const maxDuration = 300;
+export const maxDuration = 3000;
 
 // No artificial file size limit
 const ACCEPTED_MIMES = new Set([

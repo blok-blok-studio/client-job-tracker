@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Film } from "lucide-react";
 
 interface VideoThumbnailProps {
@@ -27,13 +28,35 @@ export default function VideoThumbnail({
   iconSize = 16,
   showPlayIcon = true,
 }: VideoThumbnailProps) {
+  const [imgError, setImgError] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+
   // If we have a server-generated thumbnail, use it (instant)
-  if (thumbnailUrl) {
+  if (thumbnailUrl && !imgError) {
     return (
       <div className="relative w-full h-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={thumbnailUrl} alt={filename || ""} className={className} />
+        <img
+          src={thumbnailUrl}
+          alt={filename || ""}
+          className={className}
+          onError={() => setImgError(true)}
+        />
         {showPlayIcon && <PlayOverlay size={iconSize} />}
+      </div>
+    );
+  }
+
+  // If video can't be decoded, show a fallback icon instead of a black box
+  if (videoError) {
+    return (
+      <div className="relative w-full h-full bg-black/80 flex items-center justify-center">
+        <Film size={iconSize * 2} className="text-white/40" />
+        {filename && (
+          <div className="absolute bottom-0 left-0 right-0 px-1.5 py-1 bg-gradient-to-t from-black/80 to-transparent">
+            <p className="text-[9px] text-white/80 truncate">{filename}</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -52,6 +75,7 @@ export default function VideoThumbnail({
           const v = e.currentTarget;
           v.currentTime = Math.min(0.5, v.duration * 0.1 || 0.5);
         }}
+        onError={() => setVideoError(true)}
       />
       {showPlayIcon && <PlayOverlay size={iconSize} />}
       {/* Filename overlay at bottom so you can identify the video even if frame doesn't render */}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const maxDuration = 30;
+export const maxDuration = 300;
 
 /**
  * GET /api/client-media/thumb?url=...

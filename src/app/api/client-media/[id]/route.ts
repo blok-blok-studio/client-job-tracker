@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { del } from "@vercel/blob";
 
-// PATCH — update media label/notes
+// PATCH — update media label/notes/thumbnailUrl
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -11,6 +11,26 @@ export async function PATCH(
   try {
     const body = await request.json();
     const { label, notes, thumbnailUrl } = body;
+
+    // Validate input types and lengths
+    if (label !== undefined && (typeof label !== "string" || label.length > 500)) {
+      return NextResponse.json({ success: false, error: "Label must be a string under 500 characters" }, { status: 400 });
+    }
+    if (notes !== undefined && (typeof notes !== "string" || notes.length > 5000)) {
+      return NextResponse.json({ success: false, error: "Notes must be a string under 5000 characters" }, { status: 400 });
+    }
+    if (thumbnailUrl !== undefined && typeof thumbnailUrl !== "string") {
+      return NextResponse.json({ success: false, error: "thumbnailUrl must be a string" }, { status: 400 });
+    }
+    if (thumbnailUrl && !thumbnailUrl.startsWith("https://")) {
+      return NextResponse.json({ success: false, error: "thumbnailUrl must be a valid HTTPS URL" }, { status: 400 });
+    }
+
+    // Verify the media record exists
+    const existing = await prisma.clientMedia.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) {
+      return NextResponse.json({ success: false, error: "Media not found" }, { status: 404 });
+    }
 
     const media = await prisma.clientMedia.update({
       where: { id },

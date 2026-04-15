@@ -3,13 +3,30 @@
     {
       "path": "/api/cron/agent-run",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/publish-posts",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "0 */6 * * *"
     }
   ],
   "functions": {
+    "src/app/api/cron/route.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/cron/publish-posts/route.ts": {
-      "maxDuration": 120
+      "maxDuration": 300
     },
     "src/app/api/uploads/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/uploads/stream/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/uploads/blob/route.ts": {
       "maxDuration": 300
     },
     "src/app/api/client-media/upload-portal/route.ts": {
@@ -19,6 +36,27 @@
       "maxDuration": 300
     },
     "src/app/api/client-media/upload-stream/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/client-media/upload-blob/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/client-media/generate-thumbnails/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/content-posts/auto-publish/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/content-posts/publish-due/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/agent/run/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/clients/[id]/contract/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/stripe/webhook/route.ts": {
       "maxDuration": 300
     }
   }

@@ -112,7 +112,7 @@ interface ContentPostData {
 const PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "THREADS", "LINKEDIN", "YOUTUBE", "FACEBOOK"];
 const STATUSES = ["DRAFT", "SCHEDULED"];
 const ACCEPTED_TYPES = "image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm,application/pdf";
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB — Pro plan
 
 const YOUTUBE_CATEGORIES = [
   "Film & Animation", "Autos & Vehicles", "Music", "Pets & Animals",

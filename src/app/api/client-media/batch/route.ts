@@ -15,6 +15,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Max 100 files per batch" }, { status: 400 });
     }
 
+    // Ensure all IDs are non-empty strings
+    if (!ids.every((id) => typeof id === "string" && id.length > 0)) {
+      return NextResponse.json({ success: false, error: "All IDs must be non-empty strings" }, { status: 400 });
+    }
+
     const mediaFiles = await prisma.clientMedia.findMany({
       where: { id: { in: ids } },
       select: { id: true, url: true, filename: true, clientId: true },

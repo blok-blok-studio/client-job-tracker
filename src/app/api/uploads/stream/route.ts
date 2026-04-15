@@ -3,7 +3,7 @@ import { put } from "@vercel/blob";
 import crypto from "crypto";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
-export const maxDuration = 300;
+export const maxDuration = 3000;
 
 // PUT — stream a single file directly to Vercel Blob
 // Receives raw file body (not multipart), so it bypasses the 4.5MB body parsing limit.

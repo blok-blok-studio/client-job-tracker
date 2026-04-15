@@ -7,7 +7,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { randomUUID } from "crypto";
 
-export const maxDuration = 300;
+export const maxDuration = 3000;
 
 /**
  * POST /api/client-media/generate-thumbnails

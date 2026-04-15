@@ -16,18 +16,19 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Proxy the file from Vercel Blob to force download
+  // Proxy the file from Vercel Blob to force download (stream to avoid buffering large files in memory)
   const res = await fetch(media.url);
-  if (!res.ok) {
+  if (!res.ok || !res.body) {
     return NextResponse.json({ error: "Failed to fetch file" }, { status: 502 });
   }
 
-  const blob = await res.blob();
+  const headers: Record<string, string> = {
+    "Content-Type": media.mimeType || "application/octet-stream",
+    "Content-Disposition": `attachment; filename="${encodeURIComponent(media.filename)}"`,
+  };
 
-  return new NextResponse(blob, {
-    headers: {
-      "Content-Type": media.mimeType || "application/octet-stream",
-      "Content-Disposition": `attachment; filename="${encodeURIComponent(media.filename)}"`,
-    },
-  });
+  const contentLength = res.headers.get("content-length");
+  if (contentLength) headers["Content-Length"] = contentLength;
+
+  return new NextResponse(res.body, { headers });
 }
