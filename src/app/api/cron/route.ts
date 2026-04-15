@@ -5,6 +5,8 @@ import prisma from "@/lib/prisma";
 import { sendPaymentReminderEmail } from "@/lib/email";
 import crypto from "crypto";
 import { refreshExpiringCredentials } from "@/lib/oauth/refresh";
+import { publishPost, sanitizePublishError } from "@/lib/social/publisher";
+import { humanDelay } from "@/lib/social/http";
 
 function verifyBearerToken(authHeader: string | null): boolean {
   const secret = process.env.CRON_SECRET;
@@ -149,11 +151,75 @@ export async function GET(request: NextRequest) {
       console.error("[Cron] OAuth token refresh error:", err);
     }
 
+    // Publish any scheduled posts that are due
+    let postsPublished = 0;
+    let postsFailed = 0;
+    try {
+      const duePosts = await prisma.contentPost.findMany({
+        where: {
+          status: "SCHEDULED",
+          scheduledAt: { lte: new Date() },
+          NOT: {
+            platform: { in: ["TWITTER", "THREADS"] },
+            client: { name: { contains: "Chase Haynes" } },
+          },
+        },
+        orderBy: { scheduledAt: "asc" },
+      });
+
+      for (const post of duePosts) {
+        await prisma.contentPost.update({ where: { id: post.id }, data: { status: "PUBLISHING" } });
+
+        const credentials = post.credentialId
+          ? await prisma.credential.findMany({ where: { id: post.credentialId } })
+          : await prisma.credential.findMany({ where: { clientId: post.clientId } });
+
+        let published = false;
+        let lastError = "";
+
+        for (let attempt = 0; attempt <= 2; attempt++) {
+          try {
+            if (attempt > 0) await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 2000 + Math.random() * 2000));
+            const result = await publishPost(post, credentials);
+            await prisma.contentPost.update({
+              where: { id: post.id },
+              data: { status: "PUBLISHED", publishedAt: new Date(), externalId: result.externalId || null, externalUrl: result.externalUrl || null, publishError: null },
+            });
+            await prisma.activityLog.create({
+              data: { clientId: post.clientId, actor: "cron", action: "content_published", details: `Published ${post.platform} post: ${post.title || "(untitled)"}` },
+            });
+            postsPublished++;
+            published = true;
+            break;
+          } catch (err) {
+            lastError = sanitizePublishError(err instanceof Error ? err.message : "Unknown error");
+            if (lastError.includes("credentials") || lastError.includes("Unauthorized") || lastError.includes("401")) break;
+          }
+        }
+
+        if (!published) {
+          await prisma.contentPost.update({ where: { id: post.id }, data: { status: "FAILED", publishError: lastError } });
+          await prisma.activityLog.create({
+            data: { clientId: post.clientId, actor: "cron", action: "content_publish_failed", details: `Failed: ${post.platform} post: ${lastError}` },
+          });
+          postsFailed++;
+        }
+
+        if (duePosts.indexOf(post) < duePosts.length - 1) await humanDelay(2000, 5000);
+      }
+
+      if (postsPublished + postsFailed > 0) {
+        console.log(`[Cron] Posts: ${postsPublished} published, ${postsFailed} failed`);
+      }
+    } catch (err) {
+      console.error("[Cron] Post publishing error:", err);
+    }
+
     // Then run agent cycle
     const result = await runAgentCycle();
     return NextResponse.json({
       success: true,
-      data: { ...result, recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed },
+      data: { ...result, recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";
