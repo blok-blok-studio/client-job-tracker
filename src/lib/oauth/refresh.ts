@@ -17,14 +17,14 @@ function isExpiringSoon(expiryIso: string | null, windowMs: number): boolean {
 /** Map platform names to OAuth provider keys */
 function platformToProvider(platform: string): string | null {
   const map: Record<string, string> = {
-    Instagram: "meta",
-    Facebook: "meta",
-    Threads: "meta",
+    INSTAGRAM: "meta",
+    FACEBOOK: "meta",
+    THREADS: "meta",
     TWITTER: "twitter",
     LINKEDIN: "linkedin",
     YOUTUBE: "google",
   };
-  return map[platform] || null;
+  return map[platform] || map[platform.toUpperCase()] || null;
 }
 
 /** Refresh a single credential's token. Returns true if refreshed. */
