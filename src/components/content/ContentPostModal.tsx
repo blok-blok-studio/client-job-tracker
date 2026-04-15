@@ -522,7 +522,7 @@ export default function ContentPostModal({
     const fileArray = Array.from(files);
     for (const file of fileArray) {
       if (file.size > MAX_FILE_SIZE) {
-        setUploadError(`"${file.name}" exceeds the 50MB limit`);
+        setUploadError(`"${file.name}" exceeds the 500MB limit`);
         return;
       }
       const ext = file.name.toLowerCase().split(".").pop();
@@ -1077,7 +1077,7 @@ export default function ContentPostModal({
                     </div>
                     <p className="text-xs text-bb-dim text-center px-4">
                       Drag & drop or click to upload<br />
-                      <span className="text-bb-dim/70">JPEG, PNG, GIF, WebP, HEIC, MP4, MOV, WebM, PDF &middot; Max 50MB</span>
+                      <span className="text-bb-dim/70">JPEG, PNG, GIF, WebP, HEIC, MP4, MOV, WebM, PDF &middot; Max 500MB</span>
                     </p>
                   </>
                 )}
