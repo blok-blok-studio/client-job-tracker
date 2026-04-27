@@ -729,9 +729,9 @@ export default function ContentPostModal({
       title={initialData?.id ? "Edit Post" : "New Content Post"}
       className="max-w-2xl"
     >
-      <div className="max-w-2xl w-full">
+      <div className="w-full min-w-0">
         {/* Tab Bar */}
-        <div className="flex border-b border-bb-border mb-4 -mt-2 overflow-x-auto">
+        <div className="flex border-b border-bb-border mb-4 -mt-2 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:-mx-6 sm:px-6">
           {([
             { key: "compose" as const, label: "Compose", icon: Hash },
             { key: "media" as const, label: "Media", icon: FolderOpen },
@@ -1832,23 +1832,25 @@ export default function ContentPostModal({
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {/* ACTIONS */}
         {/* ═══════════════════════════════════════════════════════════════════ */}
-        <div className="flex items-center justify-between gap-3 mt-6 pt-4 border-t border-bb-border">
-          <div className="flex items-center gap-1 text-[10px] text-bb-dim">
-            <PlatformIcon platform={platform} size={12} />
-            {getPlatformLabel(platform)}
+        <div className="sticky bottom-0 -mx-4 -mb-4 px-4 sm:-mx-6 sm:-mb-6 sm:px-6 mt-6 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:pb-4 border-t border-bb-border bg-bb-surface flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 z-10">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-bb-dim min-w-0">
+            <span className="flex items-center gap-1">
+              <PlatformIcon platform={platform} size={12} />
+              {getPlatformLabel(platform)}
+            </span>
             {mediaUrls.length > 0 && <span>· {mediaUrls.length} media</span>}
             {hashtags.length > 0 && <span>· {hashtags.length} tags</span>}
-          </div>
-          <div className="flex items-center gap-3">
             {(platform === "INSTAGRAM" || platform === "TIKTOK") && mediaUrls.some((u) => /\.(mp4|mov|webm)$/i.test(u)) && (
-              <span className="text-[10px] text-purple-400 flex items-center gap-1">
+              <span className="text-purple-400 flex items-center gap-1">
                 <Smartphone size={10} /> Post via app
               </span>
             )}
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors"
+              className="px-3 sm:px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors"
             >
               Cancel
             </button>
@@ -1856,7 +1858,7 @@ export default function ContentPostModal({
               type="button"
               onClick={handleSubmit}
               disabled={!clientId || saving || uploading}
-              className="px-5 py-2 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange/90 transition-colors disabled:opacity-50"
+              className="flex-1 sm:flex-initial px-4 sm:px-5 py-2 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange/90 transition-colors disabled:opacity-50 whitespace-nowrap"
             >
               {saving ? "Saving..." : initialData?.id ? "Update" : "Create Post"}
             </button>
