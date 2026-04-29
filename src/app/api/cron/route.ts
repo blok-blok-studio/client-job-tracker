@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { refreshExpiringCredentials } from "@/lib/oauth/refresh";
 import { publishPost, sanitizePublishError } from "@/lib/social/publisher";
 import { humanDelay } from "@/lib/social/http";
+import { backfillMissingThumbnails } from "@/lib/server-video-thumbnail";
 
 function verifyBearerToken(authHeader: string | null): boolean {
   const secret = process.env.CRON_SECRET;
@@ -215,11 +216,23 @@ export async function GET(request: NextRequest) {
       console.error("[Cron] Post publishing error:", err);
     }
 
+    // Backfill thumbnails for any videos still missing one (best-effort)
+    let thumbnailsGenerated = 0;
+    try {
+      const thumbResult = await backfillMissingThumbnails(10);
+      thumbnailsGenerated = thumbResult.generated;
+      if (thumbResult.total > 0) {
+        console.log(`[Cron] Thumbnails: ${thumbResult.generated}/${thumbResult.total} generated`);
+      }
+    } catch (err) {
+      console.error("[Cron] Thumbnail backfill error:", err);
+    }
+
     // Then run agent cycle
     const result = await runAgentCycle();
     return NextResponse.json({
       success: true,
-      data: { ...result, recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed },
+      data: { ...result, recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";

@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { put } from "@vercel/blob";
 import { randomUUID } from "crypto";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { generateVideoThumbnail } from "@/lib/server-video-thumbnail";
 
 // No file size limit — clients upload 4K videos, large photo batches, etc.
 export const maxDuration = 300;
@@ -116,6 +117,21 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      if (fileType === "VIDEO") {
+        const serverThumbUrl = await generateVideoThumbnail(blob.url, record.id).catch(
+          (err) => {
+            console.error("[upload-portal] server thumbnail failed:", err);
+            return null;
+          }
+        );
+        if (serverThumbUrl) {
+          await prisma.clientMedia.update({
+            where: { id: record.id },
+            data: { thumbnailUrl: serverThumbUrl },
+          }).catch(() => {});
+        }
+      }
+
       results.push({ filename: file.name, url: blob.url, id: record.id });
     }
 
@@ -153,11 +169,19 @@ export async function POST(request: NextRequest) {
 async function handleBlobRegistration(request: NextRequest) {
   try {
     const body = await request.json();
-    const { token, blobUrl, filename, contentType, size } = body;
+    const { token, blobUrl, filename, contentType, size, thumbnailUrl } = body;
 
     if (!token || !blobUrl || !filename) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
     }
+
+    // Optional thumbnail URL — only accept Vercel Blob HTTPS URLs.
+    const validThumbUrl =
+      typeof thumbnailUrl === "string" &&
+      thumbnailUrl.startsWith("https://") &&
+      thumbnailUrl.includes(".public.blob.vercel-storage.com/")
+        ? thumbnailUrl
+        : null;
 
     const client = await prisma.client.findUnique({
       where: { uploadToken: token },
@@ -185,8 +209,27 @@ async function handleBlobRegistration(request: NextRequest) {
         fileSize: size || 0,
         mimeType: contentType || "application/octet-stream",
         uploadedBy: "client",
+        ...(validThumbUrl && fileType === "VIDEO" ? { thumbnailUrl: validThumbUrl } : {}),
       },
     });
+
+    // Browser-side thumbnail extraction can't decode HEVC .mov in Chrome/Android,
+    // so any video that arrived without a thumbnail gets one generated server-side
+    // via ffmpeg before we return.
+    if (fileType === "VIDEO" && !validThumbUrl) {
+      const serverThumbUrl = await generateVideoThumbnail(blobUrl, record.id).catch(
+        (err) => {
+          console.error("[upload-portal] server thumbnail failed:", err);
+          return null;
+        }
+      );
+      if (serverThumbUrl) {
+        await prisma.clientMedia.update({
+          where: { id: record.id },
+          data: { thumbnailUrl: serverThumbUrl },
+        }).catch(() => {});
+      }
+    }
 
     await prisma.activityLog.create({
       data: {
