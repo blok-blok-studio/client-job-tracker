@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { put } from "@vercel/blob";
 import { randomUUID } from "crypto";
 import { sendTelegramMessage } from "@/lib/telegram";
-import { generateVideoThumbnail } from "@/lib/server-video-thumbnail";
+import { generateVideoThumbnail, transcodeToWebMp4 } from "@/lib/server-video-thumbnail";
 
 // No file size limit — clients upload 4K videos, large photo batches, etc.
 export const maxDuration = 300;
@@ -130,6 +130,23 @@ export async function POST(request: NextRequest) {
             data: { thumbnailUrl: serverThumbUrl },
           }).catch(() => {});
         }
+
+        // Transcode anything not already mp4 so it plays in any browser.
+        // mp4 files almost always have an h264 stream and skip transcoding.
+        if (file.type !== "video/mp4") {
+          const playbackUrl = await transcodeToWebMp4(blob.url, record.id).catch(
+            (err) => {
+              console.error("[upload-portal] server transcode failed:", err);
+              return null;
+            }
+          );
+          if (playbackUrl) {
+            await prisma.clientMedia.update({
+              where: { id: record.id },
+              data: { playbackUrl },
+            }).catch(() => {});
+          }
+        }
       }
 
       results.push({ filename: file.name, url: blob.url, id: record.id });
@@ -227,6 +244,21 @@ async function handleBlobRegistration(request: NextRequest) {
         await prisma.clientMedia.update({
           where: { id: record.id },
           data: { thumbnailUrl: serverThumbUrl },
+        }).catch(() => {});
+      }
+    }
+
+    if (fileType === "VIDEO" && contentType !== "video/mp4") {
+      const playbackUrl = await transcodeToWebMp4(blobUrl, record.id).catch(
+        (err) => {
+          console.error("[upload-portal] server transcode failed:", err);
+          return null;
+        }
+      );
+      if (playbackUrl) {
+        await prisma.clientMedia.update({
+          where: { id: record.id },
+          data: { playbackUrl },
         }).catch(() => {});
       }
     }

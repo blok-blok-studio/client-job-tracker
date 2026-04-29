@@ -7,7 +7,7 @@ import crypto from "crypto";
 import { refreshExpiringCredentials } from "@/lib/oauth/refresh";
 import { publishPost, sanitizePublishError } from "@/lib/social/publisher";
 import { humanDelay } from "@/lib/social/http";
-import { backfillMissingThumbnails } from "@/lib/server-video-thumbnail";
+import { backfillMissingThumbnails, backfillMissingPlayback } from "@/lib/server-video-thumbnail";
 
 function verifyBearerToken(authHeader: string | null): boolean {
   const secret = process.env.CRON_SECRET;
@@ -228,11 +228,23 @@ export async function GET(request: NextRequest) {
       console.error("[Cron] Thumbnail backfill error:", err);
     }
 
+    // Backfill web-safe playback transcodes (slower; only 2 per run)
+    let playbacksGenerated = 0;
+    try {
+      const playbackResult = await backfillMissingPlayback(2);
+      playbacksGenerated = playbackResult.generated;
+      if (playbackResult.total > 0) {
+        console.log(`[Cron] Playback transcodes: ${playbackResult.generated}/${playbackResult.total} generated`);
+      }
+    } catch (err) {
+      console.error("[Cron] Playback backfill error:", err);
+    }
+
     // Then run agent cycle
     const result = await runAgentCycle();
     return NextResponse.json({
       success: true,
-      data: { ...result, recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated },
+      data: { ...result, recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";

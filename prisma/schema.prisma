@@ -488,6 +488,7 @@ model ClientMedia {
   height      Int?                  // Pixels (for image/video)
 
   thumbnailUrl String?               // JPEG thumbnail for videos (generated server-side)
+  playbackUrl  String?               // Web-safe H.264 MP4 transcode for in-browser playback (HEVC .mov etc.)
 
   label       String?               // Optional user-given label
   notes       String?               // Notes about this file

@@ -25,6 +25,7 @@ interface MediaFile {
   label: string | null;
   notes: string | null;
   thumbnailUrl: string | null;
+  playbackUrl: string | null;
   createdAt: string;
   client: { id: string; name: string; company: string | null; type: string };
 }
@@ -386,6 +387,39 @@ export default function FilesPage() {
     generateMissingThumbnails();
   }, [missingThumbs, generatingThumbs, generateMissingThumbnails]);
 
+  // Background transcode of any non-mp4 videos that don't have a web-safe
+  // playback URL yet — fires once per session, walks the backlog 3 at a time
+  // (each transcode can take up to ~90s and the function caps at 300s).
+  const autoTranscodedRef = useRef(false);
+  const missingPlayback = files.filter(
+    (f) => f.fileType === "VIDEO" && !f.playbackUrl && f.mimeType !== "video/mp4"
+  ).length;
+  useEffect(() => {
+    if (autoTranscodedRef.current) return;
+    if (missingPlayback === 0) return;
+    autoTranscodedRef.current = true;
+    (async () => {
+      let processed = 0;
+      while (processed < missingPlayback) {
+        try {
+          const res = await fetch("/api/client-media/transcode-playback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+          });
+          if (!res.ok) break;
+          const data = await res.json();
+          const generated = data?.generated ?? 0;
+          if (!generated) break;
+          processed += generated;
+          fetchFilesRef.current();
+        } catch {
+          break;
+        }
+      }
+    })();
+  }, [missingPlayback]);
+
   return (
     <div ref={dropZoneRef} className="relative">
       {/* Drag overlay */}
@@ -697,7 +731,7 @@ export default function FilesPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={selectedMedia.url} alt="" className="w-full h-full object-contain" />
                   ) : selectedMedia.fileType === "VIDEO" ? (
-                    <video src={selectedMedia.url} controls muted preload="auto" className="w-full h-full object-contain" />
+                    <video src={selectedMedia.playbackUrl || selectedMedia.url} controls muted preload="auto" className="w-full h-full object-contain" />
                   ) : selectedMedia.fileType === "AUDIO" ? (
                     <Music size={32} className="text-green-400" />
                   ) : (
@@ -863,7 +897,7 @@ export default function FilesPage() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={media.url} alt={media.filename} className="max-w-full max-h-full object-contain rounded-lg" />
                 ) : media.fileType === "VIDEO" ? (
-                  <video src={media.url} controls autoPlay className="max-w-full max-h-full rounded-lg" onClick={(e) => e.stopPropagation()} />
+                  <video src={media.playbackUrl || media.url} controls autoPlay className="max-w-full max-h-full rounded-lg" onClick={(e) => e.stopPropagation()} />
                 ) : media.fileType === "AUDIO" ? (
                   <div className="flex flex-col items-center gap-4">
                     <div className="w-32 h-32 rounded-2xl bg-white/5 flex items-center justify-center">

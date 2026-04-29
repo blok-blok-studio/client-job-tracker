@@ -9,6 +9,7 @@ const nextConfig = {
     "/api/client-media": ["./node_modules/@ffmpeg-installer/**/*"],
     "/api/client-media/upload-portal": ["./node_modules/@ffmpeg-installer/**/*"],
     "/api/client-media/generate-thumbnails": ["./node_modules/@ffmpeg-installer/**/*"],
+    "/api/client-media/transcode-playback": ["./node_modules/@ffmpeg-installer/**/*"],
   },
   async headers() {
     return [
