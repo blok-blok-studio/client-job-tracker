@@ -334,48 +334,37 @@ export default function FilesPage() {
   // Count videos missing thumbnails
   const missingThumbs = files.filter((f) => f.fileType === "VIDEO" && !f.thumbnailUrl).length;
 
-  // Generate thumbnails for existing videos by downloading them as blobs
+  // Generate thumbnails for existing videos via the server-side ffmpeg endpoint.
+  // The endpoint handles HEVC .mov files that browsers can't decode.
   const [generatingThumbs, setGeneratingThumbs] = useState(false);
   const generateMissingThumbnails = useCallback(async () => {
-    const videos = files.filter((f) => f.fileType === "VIDEO" && !f.thumbnailUrl);
-    if (!videos.length) return;
+    const total = files.filter((f) => f.fileType === "VIDEO" && !f.thumbnailUrl).length;
+    if (!total) return;
 
     setGeneratingThumbs(true);
     let done = 0;
 
-    for (const video of videos) {
+    while (done < total) {
       try {
-        // Download video as blob to create a local object URL (bypasses CORS/content-type issues)
-        const res = await fetch(video.url);
-        if (!res.ok) continue;
-        const videoBlob = await res.blob();
-        const localFile = new File([videoBlob], video.filename, { type: video.mimeType || "video/mp4" });
-
-        const thumbBlob = await extractThumbnailFromFile(localFile);
-        if (!thumbBlob) continue;
-
-        const thumbFile = new File([thumbBlob], "thumb.jpg", { type: "image/jpeg" });
-        const thumbUpload = await vercelBlobUpload(`thumbnails/${video.id}.jpg`, thumbFile, {
-          access: "public",
-          handleUploadUrl: "/api/uploads/blob",
-        });
-
-        await fetch(`/api/client-media/${video.id}`, {
-          method: "PATCH",
+        const res = await fetch("/api/client-media/generate-thumbnails", {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ thumbnailUrl: thumbUpload.url }),
+          body: "{}",
         });
-
-        done++;
-        toast(`Generated ${done}/${videos.length} thumbnails...`, "success");
+        if (!res.ok) break;
+        const data = await res.json();
+        const generated = data?.generated ?? 0;
+        if (!generated) break;
+        done += generated;
+        toast(`Generated ${done}/${total} thumbnails...`, "success");
       } catch {
-        // Skip failed videos
+        break;
       }
     }
 
     setGeneratingThumbs(false);
     if (done > 0) fetchFilesRef.current();
-    toast(`Generated ${done} thumbnail${done !== 1 ? "s" : ""}`, "success");
+    toast(`Generated ${done} thumbnail${done !== 1 ? "s" : ""}`, done > 0 ? "success" : "error");
   }, [files, toast]);
 
   return (
