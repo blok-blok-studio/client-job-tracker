@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { uploadFileToBlob } from "@/lib/upload";
+import { generateVideoThumbnail } from "@/lib/server-video-thumbnail";
+
+export const maxDuration = 300;
 
 // GET — list media, optionally filtered by client
 export async function GET(request: NextRequest) {
@@ -65,7 +68,18 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      return NextResponse.json({ success: true, data: [record] }, { status: 201 });
+      let finalRecord = record;
+      if (ft === "VIDEO") {
+        const thumbUrl = await generateVideoThumbnail(url, record.id).catch(() => null);
+        if (thumbUrl) {
+          finalRecord = await prisma.clientMedia.update({
+            where: { id: record.id },
+            data: { thumbnailUrl: thumbUrl },
+          });
+        }
+      }
+
+      return NextResponse.json({ success: true, data: [finalRecord] }, { status: 201 });
     }
 
     // FormData body = legacy upload path
@@ -104,7 +118,18 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        records.push(record);
+        let finalRecord = record;
+        if (fileType === "VIDEO") {
+          const thumbUrl = await generateVideoThumbnail(result.url, record.id).catch(() => null);
+          if (thumbUrl) {
+            finalRecord = await prisma.clientMedia.update({
+              where: { id: record.id },
+              data: { thumbnailUrl: thumbUrl },
+            });
+          }
+        }
+
+        records.push(finalRecord);
       } catch (err) {
         errors.push({
           filename: file.name,

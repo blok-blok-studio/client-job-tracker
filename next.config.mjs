@@ -6,6 +6,7 @@ const nextConfig = {
   serverExternalPackages: ["@ffmpeg-installer/ffmpeg"],
   outputFileTracingIncludes: {
     "/api/cron": ["./node_modules/@ffmpeg-installer/**/*"],
+    "/api/client-media": ["./node_modules/@ffmpeg-installer/**/*"],
     "/api/client-media/upload-portal": ["./node_modules/@ffmpeg-installer/**/*"],
     "/api/client-media/generate-thumbnails": ["./node_modules/@ffmpeg-installer/**/*"],
   },

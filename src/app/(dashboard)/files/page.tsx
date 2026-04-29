@@ -367,6 +367,17 @@ export default function FilesPage() {
     toast(`Generated ${done} thumbnail${done !== 1 ? "s" : ""}`, done > 0 ? "success" : "error");
   }, [files, toast]);
 
+  // Auto-fire the backfill once per session whenever files load and there's a backlog.
+  // This way the user never has to click anything — old uploads heal themselves.
+  const autoBackfilledRef = useRef(false);
+  useEffect(() => {
+    if (autoBackfilledRef.current) return;
+    if (generatingThumbs) return;
+    if (missingThumbs === 0) return;
+    autoBackfilledRef.current = true;
+    generateMissingThumbnails();
+  }, [missingThumbs, generatingThumbs, generateMissingThumbnails]);
+
   return (
     <div ref={dropZoneRef} className="relative">
       {/* Drag overlay */}
