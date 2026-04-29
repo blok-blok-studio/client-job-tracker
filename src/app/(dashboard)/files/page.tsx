@@ -343,6 +343,7 @@ export default function FilesPage() {
 
     setGeneratingThumbs(true);
     let done = 0;
+    let lastErrorSample: string | null = null;
 
     while (done < total) {
       try {
@@ -354,6 +355,7 @@ export default function FilesPage() {
         if (!res.ok) break;
         const data = await res.json();
         const generated = data?.generated ?? 0;
+        if (Array.isArray(data?.errors) && data.errors.length) lastErrorSample = data.errors[0];
         if (!generated) break;
         done += generated;
         toast(`Generated ${done}/${total} thumbnails...`, "success");
@@ -364,7 +366,13 @@ export default function FilesPage() {
 
     setGeneratingThumbs(false);
     if (done > 0) fetchFilesRef.current();
-    toast(`Generated ${done} thumbnail${done !== 1 ? "s" : ""}`, done > 0 ? "success" : "error");
+    if (done > 0) {
+      toast(`Generated ${done} thumbnail${done !== 1 ? "s" : ""}`, "success");
+    } else if (lastErrorSample) {
+      toast(`Thumbnail failed: ${lastErrorSample}`, "error");
+    } else {
+      toast(`No thumbnails generated`, "error");
+    }
   }, [files, toast]);
 
   // Auto-fire the backfill once per session whenever files load and there's a backlog.

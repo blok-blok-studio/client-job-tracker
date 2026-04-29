@@ -22,15 +22,51 @@ async function getFfmpegPath(): Promise<string> {
   return cachedFfmpegPath;
 }
 
+// QuickTime/.mov files often store the moov atom (metadata index) at the END
+// of the file, so a 10MB head-only download isn't enough for ffmpeg to decode
+// — that's the most common cause of "ffmpeg failed" on iPhone HEVC uploads.
+// Cap the full-download retry at 500MB to avoid OOM on huge files.
+const MAX_FULL_DOWNLOAD_BYTES = 500 * 1024 * 1024;
+
+async function runFfmpeg(inputPath: string, outputPath: string, mediaId: string): Promise<{ ok: boolean; stderr: string }> {
+  const ffmpegPath = await getFfmpegPath();
+  return new Promise((resolve) => {
+    const proc = spawn(
+      ffmpegPath,
+      [
+        "-i", inputPath,
+        "-ss", "0.5",
+        "-vframes", "1",
+        "-q:v", "4",
+        "-vf", "scale=640:-1",
+        "-y",
+        outputPath,
+      ],
+      { timeout: 60000 }
+    );
+
+    let stderr = "";
+    proc.stderr?.on("data", (d) => { stderr += d.toString(); });
+
+    proc.on("close", (code) => {
+      if (code !== 0) {
+        console.error(`[Thumbnail] ffmpeg exit ${code} for ${mediaId}:`, stderr.slice(-500));
+      }
+      resolve({ ok: code === 0, stderr });
+    });
+
+    proc.on("error", (err) => {
+      console.error(`[Thumbnail] ffmpeg spawn error for ${mediaId}:`, err);
+      resolve({ ok: false, stderr: String(err) });
+    });
+  });
+}
+
 /**
- * Download the first ~10MB of a video URL, run ffmpeg to extract a JPEG frame
- * at 0.5s, upload the JPEG to Vercel Blob, and return its public URL.
- *
- * Uses the bundled ffmpeg binary from @ffmpeg-installer/ffmpeg so it works in
- * Vercel serverless functions (system ffmpeg is not available there).
- *
- * Returns null on any failure — callers should treat thumbnail generation as
- * best-effort and continue without one.
+ * Download a video URL and extract a JPEG frame at 0.5s via the bundled ffmpeg.
+ * Tries a 10MB head-only fetch first (fast for most files); on ffmpeg failure,
+ * retries with a full download up to MAX_FULL_DOWNLOAD_BYTES — needed for
+ * iPhone HEVC .mov files where the moov atom sits at the end of the file.
  */
 export async function generateVideoThumbnail(
   videoUrl: string,
@@ -43,50 +79,36 @@ export async function generateVideoThumbnail(
   const outputPath = join(workDir, "thumb.jpg");
 
   try {
-    const res = await fetch(videoUrl, {
-      headers: { Range: "bytes=0-10485759" },
-    });
-    if (!res.ok && res.status !== 206) {
-      const fullRes = await fetch(videoUrl);
-      if (!fullRes.ok) return null;
-      await writeFile(inputPath, Buffer.from(await fullRes.arrayBuffer()));
-    } else {
-      await writeFile(inputPath, Buffer.from(await res.arrayBuffer()));
+    const headRes = await fetch(videoUrl, { headers: { Range: "bytes=0-10485759" } });
+    if (!headRes.ok && headRes.status !== 206) {
+      console.error(`[Thumbnail] head fetch failed for ${mediaId}: ${headRes.status}`);
+      return null;
     }
+    await writeFile(inputPath, Buffer.from(await headRes.arrayBuffer()));
 
-    const ffmpegPath = await getFfmpegPath();
-    const success = await new Promise<boolean>((resolve) => {
-      const proc = spawn(
-        ffmpegPath,
-        [
-          "-i", inputPath,
-          "-ss", "0.5",
-          "-vframes", "1",
-          "-q:v", "4",
-          "-vf", "scale=640:-1",
-          "-y",
-          outputPath,
-        ],
-        { timeout: 30000 }
-      );
+    let result = await runFfmpeg(inputPath, outputPath, mediaId);
 
-      let stderr = "";
-      proc.stderr?.on("data", (d) => { stderr += d.toString(); });
-
-      proc.on("close", (code) => {
-        if (code !== 0) {
-          console.error(`[Thumbnail] ffmpeg failed for ${mediaId}:`, stderr.slice(-500));
-        }
-        resolve(code === 0);
-      });
-
-      proc.on("error", (err) => {
-        console.error(`[Thumbnail] ffmpeg spawn error for ${mediaId}:`, err);
-        resolve(false);
-      });
-    });
-
-    if (!success) return null;
+    if (!result.ok) {
+      // Fall back to full download — the moov atom is likely at the file's end
+      const fullRes = await fetch(videoUrl);
+      if (!fullRes.ok) {
+        console.error(`[Thumbnail] full fetch failed for ${mediaId}: ${fullRes.status}`);
+        return null;
+      }
+      const contentLength = Number(fullRes.headers.get("content-length") || "0");
+      if (contentLength > MAX_FULL_DOWNLOAD_BYTES) {
+        console.error(`[Thumbnail] file too large for ${mediaId}: ${contentLength}`);
+        return null;
+      }
+      const buf = Buffer.from(await fullRes.arrayBuffer());
+      if (buf.length > MAX_FULL_DOWNLOAD_BYTES) {
+        console.error(`[Thumbnail] body too large for ${mediaId}: ${buf.length}`);
+        return null;
+      }
+      await writeFile(inputPath, buf);
+      result = await runFfmpeg(inputPath, outputPath, mediaId);
+      if (!result.ok) return null;
+    }
 
     const thumbBuffer = await readFile(outputPath);
     if (thumbBuffer.length < 100) return null;
