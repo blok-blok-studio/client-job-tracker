@@ -1,5 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // @ffmpeg-installer dynamically resolves the platform binary at runtime.
+  // Webpack can't statically trace the require(), so leave it as an external
+  // and explicitly bundle the linux-x64 binary into the serverless function.
+  serverExternalPackages: ["@ffmpeg-installer/ffmpeg"],
+  outputFileTracingIncludes: {
+    "/api/cron": ["./node_modules/@ffmpeg-installer/**/*"],
+    "/api/client-media/upload-portal": ["./node_modules/@ffmpeg-installer/**/*"],
+    "/api/client-media/generate-thumbnails": ["./node_modules/@ffmpeg-installer/**/*"],
+  },
   async headers() {
     return [
       {

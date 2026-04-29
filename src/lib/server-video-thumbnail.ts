@@ -4,10 +4,23 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { put } from "@vercel/blob";
-import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import prisma from "@/lib/prisma";
 
-const FFMPEG_PATH = ffmpegInstaller.path;
+// Resolve the bundled ffmpeg binary path lazily — @ffmpeg-installer/ffmpeg's
+// platform-binary lookup runs at module-load time and would fail during Next's
+// build-time page-data collection if the linux-x64 sub-package isn't yet
+// installed. Loading on first call defers it to runtime on the deployed function.
+let cachedFfmpegPath: string | null = null;
+async function getFfmpegPath(): Promise<string> {
+  if (cachedFfmpegPath) return cachedFfmpegPath;
+  const mod = await import("@ffmpeg-installer/ffmpeg");
+  // CommonJS interop: the package's `module.exports = { path, ... }` may surface
+  // either as the default export (with esModuleInterop) or as the namespace itself.
+  const installer = (mod as { default?: { path: string }; path?: string }).default
+    ?? (mod as unknown as { path: string });
+  cachedFfmpegPath = installer.path;
+  return cachedFfmpegPath;
+}
 
 /**
  * Download the first ~10MB of a video URL, run ffmpeg to extract a JPEG frame
@@ -41,9 +54,10 @@ export async function generateVideoThumbnail(
       await writeFile(inputPath, Buffer.from(await res.arrayBuffer()));
     }
 
+    const ffmpegPath = await getFfmpegPath();
     const success = await new Promise<boolean>((resolve) => {
       const proc = spawn(
-        FFMPEG_PATH,
+        ffmpegPath,
         [
           "-i", inputPath,
           "-ss", "0.5",
