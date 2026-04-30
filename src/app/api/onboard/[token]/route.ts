@@ -358,21 +358,27 @@ export async function POST(
       });
     }
 
-    // Create credentials (encrypted with AES-256-GCM)
+    // Create credentials (encrypted with AES-256-GCM, JSON-IV format matching /api/vault)
     if (parsed.credentials && parsed.credentials.length > 0) {
       step = "encrypting credentials";
       for (const cred of parsed.credentials) {
-        const { encrypted, iv } = encrypt(cred.password);
+        const encryptedUsername = encrypt(cred.username);
+        const encryptedPassword = encrypt(cred.password);
+        const encryptedNotes = cred.notes ? encrypt(cred.notes) : null;
         step = "saving credentials";
         await prisma.credential.create({
           data: {
             clientId: client.id,
             platform: cred.platform,
-            username: cred.username,
-            password: encrypted,
-            iv,
+            username: encryptedUsername.encrypted,
+            password: encryptedPassword.encrypted,
+            notes: encryptedNotes?.encrypted || null,
             url: cred.url || null,
-            notes: cred.notes || null,
+            iv: JSON.stringify({
+              username: encryptedUsername.iv,
+              password: encryptedPassword.iv,
+              notes: encryptedNotes?.iv || null,
+            }),
           },
         });
       }

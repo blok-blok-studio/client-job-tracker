@@ -24,22 +24,34 @@ export async function POST(
   }
 
   try {
-    let ivData: Record<string, string | null>;
+    // Two storage formats exist:
+    //  - new: iv = JSON {username, password, notes} with all three fields encrypted
+    //  - legacy (onboarding flow): iv = plain base64 string, only password encrypted; username/notes stored plaintext
+    let username: string;
+    let password_decrypted: string;
+    let notes: string | null;
+
+    let ivData: Record<string, string | null> | null = null;
     try {
-      ivData = JSON.parse(credential.iv);
+      const parsed = JSON.parse(credential.iv);
+      if (parsed && typeof parsed === "object" && parsed.username && parsed.password) {
+        ivData = parsed;
+      }
     } catch {
-      return NextResponse.json({ success: false, error: "Credential data corrupted" }, { status: 500 });
+      // legacy format — single IV string, not JSON
     }
 
-    if (!ivData.username || !ivData.password) {
-      return NextResponse.json({ success: false, error: "Credential data corrupted" }, { status: 500 });
+    if (ivData) {
+      username = decrypt(credential.username, ivData.username!);
+      password_decrypted = decrypt(credential.password, ivData.password!);
+      notes = credential.notes && ivData.notes
+        ? decrypt(credential.notes, ivData.notes)
+        : null;
+    } else {
+      username = credential.username;
+      password_decrypted = decrypt(credential.password, credential.iv);
+      notes = credential.notes;
     }
-
-    const username = decrypt(credential.username, ivData.username);
-    const password_decrypted = decrypt(credential.password, ivData.password);
-    const notes = credential.notes && ivData.notes
-      ? decrypt(credential.notes, ivData.notes)
-      : null;
 
     // Audit log — track every credential reveal
     await prisma.activityLog.create({
