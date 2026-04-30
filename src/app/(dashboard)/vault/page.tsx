@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Eye, EyeOff, Copy, ExternalLink, RotateCcw, Trash2 } from "lucide-react";
+import { Search, Plus, Eye, EyeOff, Copy, ExternalLink, RotateCcw, Trash2, Link2 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
@@ -16,6 +16,8 @@ interface Credential {
   password: string;
   url: string | null;
   lastRotated: string | null;
+  isOAuth?: boolean;
+  tokenExpiresAt?: string | null;
   client: { id: string; name: string };
 }
 
@@ -189,15 +191,22 @@ export default function VaultPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {creds.map((cred) => {
                 const rev = revealed[cred.id];
+                const isOAuth = cred.isOAuth;
+                const expired = cred.tokenExpiresAt ? new Date(cred.tokenExpiresAt) < new Date() : false;
                 return (
                   <div key={cred.id} className={`bg-bb-surface border border-bb-border border-l-4 ${platformColors[cred.platform] || "border-l-bb-dim"} rounded-lg p-4`}>
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-sm text-white">{cred.platform}</span>
                         {cred.label && <span className="text-xs text-bb-dim">({cred.label})</span>}
+                        {isOAuth && (
+                          <span className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${expired ? "bg-red-500/20 text-red-300" : "bg-green-500/20 text-green-300"}`}>
+                            <Link2 size={10} /> {expired ? "Token Expired" : "OAuth Connected"}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
-                        {cred.url && (
+                        {cred.url && !isOAuth && (
                           <a href={cred.url} target="_blank" rel="noopener noreferrer" className="p-1 text-bb-dim hover:text-white">
                             <ExternalLink size={14} />
                           </a>
@@ -208,46 +217,64 @@ export default function VaultPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-bb-dim">Username</span>
-                        <div className="flex items-center gap-1">
-                          <span className="font-mono text-white">{rev ? rev.username : cred.username}</span>
-                          <button
-                            onClick={() => copyToClipboard(rev?.username || cred.username, `u-${cred.id}`)}
-                            className="p-1 text-bb-dim hover:text-white"
-                          >
-                            <Copy size={12} />
-                          </button>
-                          {copiedId === `u-${cred.id}` && <span className="text-xs text-green-400">Copied</span>}
-                        </div>
+                    {isOAuth ? (
+                      <div className="space-y-1 text-sm">
+                        <p className="text-xs text-bb-dim">
+                          This account is linked via OAuth for posting/automation. There is no password to reveal \u2014 log in to {cred.platform} directly with your own credentials.
+                        </p>
+                        {cred.tokenExpiresAt && (
+                          <p className="text-xs text-bb-dim">
+                            Token expires: {new Date(cred.tokenExpiresAt).toLocaleString()}
+                          </p>
+                        )}
+                        {cred.lastRotated && (
+                          <div className="flex items-center gap-1 text-xs text-bb-dim">
+                            <RotateCcw size={10} /> Last connected: {new Date(cred.lastRotated).toLocaleDateString()}
+                          </div>
+                        )}
                       </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-bb-dim">Password</span>
-                        <div className="flex items-center gap-1">
-                          <span className="font-mono text-white">{rev ? rev.password : "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"}</span>
-                          <button onClick={() => handleReveal(cred.id)} className="p-1 text-bb-dim hover:text-white">
-                            {rev ? <EyeOff size={12} /> : <Eye size={12} />}
-                          </button>
-                          {rev && (
+                    ) : (
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-bb-dim">Username</span>
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono text-white">{rev ? rev.username : cred.username}</span>
                             <button
-                              onClick={() => copyToClipboard(rev.password, `p-${cred.id}`)}
+                              onClick={() => copyToClipboard(rev?.username || cred.username, `u-${cred.id}`)}
                               className="p-1 text-bb-dim hover:text-white"
                             >
                               <Copy size={12} />
                             </button>
-                          )}
-                          {copiedId === `p-${cred.id}` && <span className="text-xs text-green-400">Copied</span>}
+                            {copiedId === `u-${cred.id}` && <span className="text-xs text-green-400">Copied</span>}
+                          </div>
                         </div>
-                      </div>
 
-                      {cred.lastRotated && (
-                        <div className="flex items-center gap-1 text-xs text-bb-dim">
-                          <RotateCcw size={10} /> Last rotated: {new Date(cred.lastRotated).toLocaleDateString()}
+                        <div className="flex items-center justify-between">
+                          <span className="text-bb-dim">Password</span>
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono text-white">{rev ? rev.password : "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"}</span>
+                            <button onClick={() => handleReveal(cred.id)} className="p-1 text-bb-dim hover:text-white">
+                              {rev ? <EyeOff size={12} /> : <Eye size={12} />}
+                            </button>
+                            {rev && (
+                              <button
+                                onClick={() => copyToClipboard(rev.password, `p-${cred.id}`)}
+                                className="p-1 text-bb-dim hover:text-white"
+                              >
+                                <Copy size={12} />
+                              </button>
+                            )}
+                            {copiedId === `p-${cred.id}` && <span className="text-xs text-green-400">Copied</span>}
+                          </div>
                         </div>
-                      )}
-                    </div>
+
+                        {cred.lastRotated && (
+                          <div className="flex items-center gap-1 text-xs text-bb-dim">
+                            <RotateCcw size={10} /> Last rotated: {new Date(cred.lastRotated).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}

@@ -20,13 +20,21 @@ export async function GET() {
     orderBy: [{ client: { name: "asc" } }, { platform: "asc" }],
   });
 
-  // Never expose encrypted blobs — only safe metadata
-  const masked = credentials.map((c) => ({
-    ...c,
-    username: "••••••••",
-    password: "••••••••",
-    notes: c.notes ? "[encrypted]" : null,
-  }));
+  // OAuth-stored credentials use the `url` field for token expiry (ISO timestamp).
+  // Manually-entered credentials either have a real URL or null. Use this to flag them.
+  const isoPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+  const masked = credentials.map((c) => {
+    const isOAuth = !!c.url && isoPattern.test(c.url);
+    return {
+      ...c,
+      username: "••••••••",
+      password: "••••••••",
+      notes: c.notes ? "[encrypted]" : null,
+      isOAuth,
+      tokenExpiresAt: isOAuth ? c.url : null,
+      url: isOAuth ? null : c.url,
+    };
+  });
 
   return NextResponse.json({ success: true, data: masked });
 }
