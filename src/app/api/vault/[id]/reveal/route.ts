@@ -1,52 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
-import { verifyPassword } from "@/lib/auth";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Rate limit vault reveals — strict to prevent brute force
   const ip = getClientIp(request);
-  const rl = rateLimit(ip, { max: 3, windowMs: 5 * 60 * 1000, prefix: "vault-reveal" });
+  const rl = rateLimit(ip, { max: 30, windowMs: 60 * 1000, prefix: "vault-reveal" });
   if (!rl.allowed) {
     return NextResponse.json(
-      { success: false, error: "Too many reveal attempts. Try again in 5 minutes." },
-      { status: 429, headers: { "Retry-After": "300" } }
+      { success: false, error: "Too many reveal attempts. Try again shortly." },
+      { status: 429, headers: { "Retry-After": "60" } }
     );
   }
 
   const { id } = await params;
-
-  // Require password re-authentication for credential reveal
-  const body = await request.json().catch(() => ({}));
-  const password = (body as Record<string, unknown>)?.password;
-  if (!password || typeof password !== "string") {
-    return NextResponse.json(
-      { success: false, error: "Password required to reveal credentials" },
-      { status: 401 }
-    );
-  }
-  if (!verifyPassword(password)) {
-    // Log failed reveal attempt for security audit
-    const credential = await prisma.credential.findUnique({ where: { id }, select: { clientId: true, platform: true, label: true } });
-    if (credential) {
-      await prisma.activityLog.create({
-        data: {
-          clientId: credential.clientId,
-          actor: "security",
-          action: "credential_reveal_failed",
-          details: `Failed password verification for ${credential.platform} credential (${credential.label || "unlabeled"})`,
-        },
-      }).catch(() => {});
-    }
-    return NextResponse.json(
-      { success: false, error: "Invalid password" },
-      { status: 403 }
-    );
-  }
 
   const credential = await prisma.credential.findUnique({ where: { id } });
   if (!credential) {

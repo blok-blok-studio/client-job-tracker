@@ -89,16 +89,9 @@ export default function VaultPage() {
       });
       return;
     }
-    // Require password re-authentication
-    const password = prompt("Enter your password to reveal credentials:");
-    if (!password) return;
 
     try {
-      const res = await fetch(`/api/vault/${id}/reveal`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
+      const res = await fetch(`/api/vault/${id}/reveal`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
         setRevealed((prev) => ({ ...prev, [id]: data.data }));
