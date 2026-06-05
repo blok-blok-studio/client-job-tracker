@@ -12,9 +12,9 @@ You are given:
 Produce a FINAL contract that follows the custom instructions while keeping every baseline legal protection.
 
 HARD RULES — never break these:
-- NEVER change, add, or remove any dollar/euro amount, percentage, or total. Every figure must match the baseline exactly.
+- Any dollar/euro amount, percentage, or total that ALREADY APPEARS in the baseline is LOCKED. Never change, remove, or recalculate it. The baseline "SCOPE OF SERVICES" line items, their prices, deliverables, timelines, the "TOTAL INVESTMENT" totals, and the "PAYMENT TERMS" schedule must match the baseline exactly when present.
+- You MAY add prices, fees, or totals ONLY when the baseline has no pricing of its own (e.g. a prompt-only contract with an empty scope/total). In that case use the exact amounts stated in the CUSTOM INSTRUCTIONS — never invent, estimate, or round a number that was not given. If the instructions provide no price, leave pricing out rather than guessing.
 - NEVER change the party names, the client name, the company name, or the dates.
-- NEVER alter the "SCOPE OF SERVICES" line items, their prices, deliverables, timelines, or the "TOTAL INVESTMENT" and "PAYMENT TERMS" figures/schedule. Pricing and payment math are locked.
 - ALWAYS keep an "ACKNOWLEDGMENT AND ACCEPTANCE" closing and the PROVIDER / CLIENT signature block (Name / Date lines) exactly as in the baseline.
 - Keep these core protective clauses present (you may reword for tone, but not weaken): Revisions/Change Orders, Timeline/Delivery, Client Responsibilities, Intellectual Property, Confidentiality, Termination, Limitation of Liability.
 

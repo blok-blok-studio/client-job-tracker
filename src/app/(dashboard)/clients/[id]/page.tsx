@@ -1910,7 +1910,7 @@ export default function ClientDetailPage() {
             />
             <p className="text-[10px] text-bb-dim mt-1">
               {customPrompt.trim()
-                ? "AI will rewrite the contract from these instructions on top of the baseline legal standards. Pricing, scope, payment schedule, and signatures stay locked."
+                ? "AI tailors the contract from these instructions on top of the baseline legal standards. Figures from any service you select above stay locked; with no service selected, the AI uses only prices you state here (no Stripe link is auto-created — send payment manually)."
                 : "Leave blank to use the standard template. Add instructions to have AI tailor the wording and clauses while keeping the baseline protections and all figures."}
             </p>
           </div>
