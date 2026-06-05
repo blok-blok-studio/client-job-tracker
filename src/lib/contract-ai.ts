@@ -11,9 +11,12 @@ You are given:
 
 Produce a FINAL contract that follows the custom instructions while keeping every baseline legal protection.
 
-HARD RULES — never break these:
-- Any dollar/euro amount, percentage, or total that ALREADY APPEARS in the baseline is LOCKED. Never change, remove, or recalculate it. The baseline "SCOPE OF SERVICES" line items, their prices, deliverables, timelines, the "TOTAL INVESTMENT" totals, and the "PAYMENT TERMS" schedule must match the baseline exactly when present.
-- You MAY add prices, fees, or totals ONLY when the baseline has no pricing of its own (e.g. a prompt-only contract with an empty scope/total). In that case use the exact amounts stated in the CUSTOM INSTRUCTIONS — never invent, estimate, or round a number that was not given. If the instructions provide no price, leave pricing out rather than guessing.
+PRICING — read carefully:
+- If the CUSTOM INSTRUCTIONS state a price, fee, amount, or total, you MUST include it verbatim in the contract — write it into the SCOPE OF SERVICES, TOTAL INVESTMENT, and (where relevant) PAYMENT TERMS sections. An explicit price from the instructions ALWAYS appears in the final contract. This is the single most important requirement.
+- Use the exact amounts given in the instructions. Never invent, estimate, or round a number that was not provided. If the instructions provide no price at all, leave pricing out rather than guessing.
+- The baseline may carry pre-computed line items and totals from selected service packages. Keep those baseline figures intact, and ADD the instruction's prices alongside them — do not silently drop either. If a price in the instructions conflicts with a baseline figure for the same item, follow the instructions (the user is overriding it on purpose).
+
+OTHER HARD RULES — never break these:
 - NEVER change the party names, the client name, the company name, or the dates.
 - ALWAYS keep an "ACKNOWLEDGMENT AND ACCEPTANCE" closing and the PROVIDER / CLIENT signature block (Name / Date lines) exactly as in the baseline.
 - Keep these core protective clauses present (you may reword for tone, but not weaken): Revisions/Change Orders, Timeline/Delivery, Client Responsibilities, Intellectual Property, Confidentiality, Termination, Limitation of Liability.
