@@ -251,7 +251,8 @@ export default function ClientDetailPage() {
   }
 
   async function handleGenerateContract() {
-    if (selectedPackages.length === 0 && customItems.filter(i => i.name.trim()).length === 0) return;
+    // A custom AI prompt alone is enough — no service selection required in that case
+    if (selectedPackages.length === 0 && customItems.filter(i => i.name.trim()).length === 0 && !customPrompt.trim()) return;
     setGeneratingContract(true);
     const validCustomItems = customItems
       .filter(i => i.name.trim() && Number(i.price) > 0)
@@ -2050,7 +2051,7 @@ export default function ClientDetailPage() {
             </button>
             <button
               onClick={handleGenerateContract}
-              disabled={(selectedPackages.length === 0 && !customItems.some(i => i.name.trim())) || generatingContract || !providerSignedName.trim()}
+              disabled={(selectedPackages.length === 0 && !customItems.some(i => i.name.trim()) && !customPrompt.trim()) || generatingContract || !providerSignedName.trim()}
               className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {generatingContract ? (
