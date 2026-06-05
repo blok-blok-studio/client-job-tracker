@@ -77,6 +77,8 @@ export default function ClientDetailPage() {
   const [reviewContract, setReviewContract] = useState<{ id: string; token: string; status: string; contractBody: string } | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [sendingContract, setSendingContract] = useState(false);
+  // When AI drafting fails, this holds a clear explanation shown to the user (toast + banner)
+  const [aiFallbackNote, setAiFallbackNote] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDescription, setPaymentDescription] = useState("");
@@ -250,10 +252,26 @@ export default function ClientDetailPage() {
     } catch { /* stay on form */ }
   }
 
+  // Turn a raw AI error into a clear, actionable message
+  function friendlyAiError(raw: string): string {
+    const r = (raw || "").toLowerCase();
+    if (r.includes("credit balance") || r.includes("too low") || r.includes("billing") || r.includes("insufficient")) {
+      return "AI drafting is OFF: the Anthropic account is out of credits. The contract used the plain template (prices you typed in the AI prompt were NOT added). Fix: add credits at console.anthropic.com → Plans & Billing, then regenerate.";
+    }
+    if (r.includes("authentication") || r.includes("401") || r.includes("api_key") || r.includes("api key") || r.includes("not set")) {
+      return "AI drafting is OFF: the Anthropic API key is missing or invalid in Vercel. The contract used the plain template. Fix: set a valid ANTHROPIC_API_KEY, then regenerate.";
+    }
+    if (r.includes("rate") || r.includes("429") || r.includes("overloaded") || r.includes("529")) {
+      return "AI drafting was rate-limited and used the plain template. Wait a moment and regenerate.";
+    }
+    return `AI drafting failed and used the plain template (prices typed into the AI prompt were NOT added). Reason: ${raw}`;
+  }
+
   async function handleGenerateContract() {
     // A custom AI prompt alone is enough — no service selection required in that case
     if (selectedPackages.length === 0 && customItems.filter(i => i.name.trim()).length === 0 && !customPrompt.trim()) return;
     setGeneratingContract(true);
+    setAiFallbackNote(null);
     const validCustomItems = customItems
       .filter(i => i.name.trim() && Number(i.price) > 0)
       .map(i => ({ name: i.name.trim(), price: Number(i.price), recurring: i.recurring }));
@@ -294,7 +312,11 @@ export default function ClientDetailPage() {
         setContractSchedule("50/50");
         fetchClient();
         if (data.data?.aiError) {
-          toast(`Note: AI drafting fell back to the standard template (${data.data.aiError}).`, "error");
+          const note = friendlyAiError(data.data.aiError);
+          setAiFallbackNote(note);
+          toast(note, "error");
+        } else {
+          setAiFallbackNote(null);
         }
         if (data.data?.isDraft) {
           // Open the review modal instead of sending — owner reads it over first
@@ -2071,9 +2093,15 @@ export default function ClientDetailPage() {
       </Modal>
 
       {/* Draft Contract Review Modal */}
-      <Modal open={!!reviewContract} onClose={() => setReviewContract(null)} title="Review Contract" className="max-w-3xl">
+      <Modal open={!!reviewContract} onClose={() => { setReviewContract(null); setAiFallbackNote(null); }} title="Review Contract" className="max-w-3xl">
         {reviewContract && (
           <div className="space-y-4">
+            {aiFallbackNote && (
+              <div className="flex items-start gap-2 p-3 rounded-lg border border-red-500/40 bg-red-500/10">
+                <X size={16} className="text-red-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-red-300 leading-relaxed">{aiFallbackNote}</p>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
