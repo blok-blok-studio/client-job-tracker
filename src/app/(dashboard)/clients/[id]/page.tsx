@@ -69,8 +69,14 @@ export default function ClientDetailPage() {
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [customItems, setCustomItems] = useState<{ name: string; price: string; recurring: boolean }[]>([]);
   const [customTerms, setCustomTerms] = useState("");
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [contractDraftMode, setContractDraftMode] = useState(true);
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractCopied, setContractCopied] = useState<string | null>(null);
+  // Draft review modal: shows the generated body before it's sent to the client
+  const [reviewContract, setReviewContract] = useState<{ id: string; token: string; status: string; contractBody: string } | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [sendingContract, setSendingContract] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDescription, setPaymentDescription] = useState("");
@@ -259,11 +265,13 @@ export default function ClientDetailPage() {
           addons: selectedAddons,
           customItems: validCustomItems.length > 0 ? validCustomItems : undefined,
           customTerms: customTerms.trim() || undefined,
+          customPrompt: customPrompt.trim() || undefined,
           packageCustomizations: Object.keys(contractCustomizations).length > 0 ? contractCustomizations : undefined,
           providerSignedName,
           providerSignatureData: providerSignatureMode === "draw" ? providerSignatureData : undefined,
           country: contractCountry,
           skipPayment: contractSchedule === "no-payment",
+          draft: contractDraftMode,
           paymentSchedule: contractSchedule === "50/50"
             ? [{ label: "deposit", percent: 50 }, { label: "completion", percent: 50 }]
             : contractSchedule === "50/25/25"
@@ -278,12 +286,25 @@ export default function ClientDetailPage() {
         setSelectedAddons([]);
         setCustomItems([]);
         setCustomTerms("");
+        setCustomPrompt("");
         setContractCustomizations({});
         setContractExpandedPkgs([]);
         setContractCountry("DE");
         setContractSchedule("50/50");
         fetchClient();
-        if (data.data?.paymentLinkError) {
+        if (data.data?.aiError) {
+          toast(`Note: AI drafting fell back to the standard template (${data.data.aiError}).`, "error");
+        }
+        if (data.data?.isDraft) {
+          // Open the review modal instead of sending — owner reads it over first
+          setReviewContract({
+            id: data.data.id,
+            token: data.data.token,
+            status: data.data.status,
+            contractBody: data.data.contractBody || "",
+          });
+          toast("Draft contract created. Review it, then send to the client.", "success");
+        } else if (data.data?.paymentLinkError) {
           toast(`Contract created, but payment links failed: ${data.data.paymentLinkError}`, "error");
         } else if (data.data?.paymentLinks?.length > 0) {
           toast(`Contract generated with ${data.data.paymentLinks.length} payment link(s). Deposit link sent to client.`, "success");
@@ -295,6 +316,49 @@ export default function ClientDetailPage() {
       }
     } catch { alert("Network error generating contract"); }
     finally { setGeneratingContract(false); }
+  }
+
+  // Open the review modal for an existing draft (fetches its body)
+  async function handleOpenReview(contractId: string) {
+    setReviewLoading(true);
+    try {
+      const res = await fetch(`/api/clients/${id}/contract/${contractId}`);
+      const data = await res.json();
+      if (data.success) {
+        setReviewContract({
+          id: data.data.id,
+          token: data.data.token,
+          status: data.data.status,
+          contractBody: data.data.contractBody || "",
+        });
+      } else {
+        toast(data.error || "Failed to load contract", "error");
+      }
+    } catch { toast("Network error loading contract", "error"); }
+    finally { setReviewLoading(false); }
+  }
+
+  // Send a reviewed draft to the client (payment links + signing/onboarding emails)
+  async function handleSendContract(contractId: string) {
+    setSendingContract(true);
+    try {
+      const res = await fetch(`/api/clients/${id}/contract/${contractId}/send`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setReviewContract(null);
+        fetchClient();
+        if (data.data?.paymentLinkError) {
+          toast(`Contract sent, but payment links failed: ${data.data.paymentLinkError}`, "error");
+        } else if (data.data?.paymentLinks?.length > 0) {
+          toast(`Contract sent with ${data.data.paymentLinks.length} payment link(s). Deposit link emailed to client.`, "success");
+        } else {
+          toast("Contract sent to client for signing.", "success");
+        }
+      } else {
+        toast(data.error || "Failed to send contract", "error");
+      }
+    } catch { toast("Network error sending contract", "error"); }
+    finally { setSendingContract(false); }
   }
 
   function handleCopyContractLink(token: string) {
@@ -1127,9 +1191,11 @@ export default function ClientDetailPage() {
                                     ? "bg-green-500/10 text-green-400"
                                     : contract.status === "EXPIRED"
                                     ? "bg-red-500/10 text-red-400"
+                                    : contract.status === "DRAFT"
+                                    ? "bg-bb-orange/10 text-bb-orange"
                                     : "bg-yellow-500/10 text-yellow-400"
                                 }`}>
-                                  {contract.status === "SIGNED" ? "Signed" : contract.status === "EXPIRED" ? "Expired" : "Pending"}
+                                  {contract.status === "SIGNED" ? "Signed" : contract.status === "EXPIRED" ? "Expired" : contract.status === "DRAFT" ? "Draft" : "Pending"}
                                 </span>
                                 <button
                                   onClick={async () => {
@@ -1156,6 +1222,18 @@ export default function ClientDetailPage() {
                                   className="text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
                                 >
                                   View Certificate
+                                </button>
+                              </div>
+                            )}
+                            {contract.status === "DRAFT" && (
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs text-bb-dim">Not sent yet — review and send when ready.</p>
+                                <button
+                                  onClick={() => handleOpenReview(contract.id)}
+                                  disabled={reviewLoading}
+                                  className="flex items-center gap-1.5 text-xs font-medium text-bb-orange hover:text-bb-orange-light transition-colors shrink-0 disabled:opacity-50"
+                                >
+                                  {reviewLoading ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />} Review &amp; Send
                                 </button>
                               </div>
                             )}
@@ -1814,7 +1892,43 @@ export default function ClientDetailPage() {
               className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
               placeholder="Any additional terms or conditions..."
             />
+            <p className="text-[10px] text-bb-dim mt-1">Added verbatim as an &quot;Additional Terms&quot; section.</p>
           </div>
+
+          {/* AI Custom Contract Prompt */}
+          <div>
+            <label className="block text-sm font-medium text-white mb-1.5">
+              Custom Contract Prompt <span className="text-[10px] px-1.5 py-0.5 rounded bg-bb-orange/10 text-bb-orange font-medium align-middle">AI</span>
+            </label>
+            <textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+              placeholder="e.g. Add a strict NDA and 6-month exclusivity clause, make the tone more formal, and emphasize that all source files are delivered on completion..."
+            />
+            <p className="text-[10px] text-bb-dim mt-1">
+              {customPrompt.trim()
+                ? "AI will rewrite the contract from these instructions on top of the baseline legal standards. Pricing, scope, payment schedule, and signatures stay locked."
+                : "Leave blank to use the standard template. Add instructions to have AI tailor the wording and clauses while keeping the baseline protections and all figures."}
+            </p>
+          </div>
+
+          {/* Draft / review-before-send toggle */}
+          <label className="flex items-start gap-3 p-3 rounded-lg border border-bb-border bg-bb-black cursor-pointer">
+            <input
+              type="checkbox"
+              checked={contractDraftMode}
+              onChange={(e) => setContractDraftMode(e.target.checked)}
+              className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
+            />
+            <div>
+              <span className="text-sm font-medium text-white">Review before sending</span>
+              <p className="text-[10px] text-bb-dim mt-0.5">
+                Create the contract as a draft so you can read it over. Nothing is emailed and no payment links are created until you click <span className="text-bb-muted">Send to client</span>.
+              </p>
+            </div>
+          </label>
 
           {/* Provider Counter-Signature */}
           <div className="space-y-3">
@@ -1942,17 +2056,88 @@ export default function ClientDetailPage() {
               {generatingContract ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  Generating...
+                  {customPrompt.trim() ? "Drafting with AI..." : "Generating..."}
                 </>
               ) : (
                 <>
                   <FileText size={14} />
-                  Generate Contract
+                  {contractDraftMode ? "Generate Draft" : "Generate & Send"}
                 </>
               )}
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Draft Contract Review Modal */}
+      <Modal open={!!reviewContract} onClose={() => setReviewContract(null)} title="Review Contract" className="max-w-3xl">
+        {reviewContract && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                  reviewContract.status === "DRAFT"
+                    ? "bg-yellow-500/10 text-yellow-400"
+                    : "bg-blue-500/10 text-blue-400"
+                }`}>
+                  {reviewContract.status === "DRAFT" ? "Draft — not sent" : reviewContract.status}
+                </span>
+                <span className="text-xs text-bb-dim">Read it over before sending to the client.</span>
+              </div>
+              <a
+                href={`/contract/${reviewContract.token}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-bb-dim hover:text-bb-muted"
+              >
+                <Eye size={12} /> Open full page
+              </a>
+            </div>
+
+            <div className="max-h-[55vh] overflow-y-auto rounded-lg border border-bb-border bg-bb-black p-4">
+              <pre className="whitespace-pre-wrap font-mono text-xs text-bb-muted leading-relaxed">{reviewContract.contractBody}</pre>
+            </div>
+
+            <div className="flex gap-3 justify-end items-center">
+              {reviewContract.status === "DRAFT" && (
+                <button
+                  onClick={async () => {
+                    if (!confirm("Delete this draft? This cannot be undone.")) return;
+                    await fetch(`/api/clients/${id}/contract/${reviewContract.id}`, { method: "DELETE" });
+                    setReviewContract(null);
+                    fetchClient();
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm text-bb-dim hover:text-red-400 transition-colors mr-auto"
+                >
+                  <Trash2 size={14} /> Delete draft
+                </button>
+              )}
+              <button
+                onClick={() => setReviewContract(null)}
+                className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors"
+              >
+                Close
+              </button>
+              {reviewContract.status === "DRAFT" && (
+                <button
+                  onClick={() => handleSendContract(reviewContract.id)}
+                  disabled={sendingContract}
+                  className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                >
+                  {sendingContract ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" /> Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={14} /> Send to client
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Generate Payment Link Modal */}

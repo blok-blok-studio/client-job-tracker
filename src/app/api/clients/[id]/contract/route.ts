@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { randomBytes, createHash } from "crypto";
-import { generateContractBody, SERVICE_PACKAGES, ADDON_PACKAGES } from "@/lib/contract-templates";
-import { createCheckoutSession, getCurrencyForCountry, CURRENCY_CONFIG } from "@/lib/stripe";
-import { sendPaymentLinkEmail, sendContractSigningEmail, sendOnboardingLinkEmail } from "@/lib/email";
-import { onPaymentConfirmed } from "@/lib/pipeline";
+import { generateContractBody } from "@/lib/contract-templates";
+import { getCurrencyForCountry } from "@/lib/stripe";
+import { generateAiContractBody } from "@/lib/contract-ai";
+import { sendContract } from "@/lib/contract-send";
 import { z } from "zod";
 
 // Allow up to 120s for exchange rate fetch + Stripe API calls + email sending
@@ -24,6 +24,8 @@ const generateSchema = z.object({
     recurring: z.boolean().optional().default(false),
   })).optional().default([]),
   customTerms: z.string().max(5000).optional(),
+  // Free-form instructions that route the contract through AI drafting on top of the baseline template
+  customPrompt: z.string().max(5000).optional(),
   packageCustomizations: z.record(z.string(), z.object({
     priceOverride: z.number().min(0).optional(),
     excludedDeliverables: z.array(z.number().int().min(0)).optional(),
@@ -34,6 +36,8 @@ const generateSchema = z.object({
   country: z.string().length(2).default("US"),
   paymentSchedule: z.array(milestoneSchema).optional(), // e.g. [{label:"deposit",percent:50},{label:"completion",percent:50}]
   skipPayment: z.boolean().optional().default(false), // true = contract only, no payment links
+  // true = create the contract but DON'T send to client yet (review first, send later)
+  draft: z.boolean().optional().default(false),
 });
 
 // POST — Generate a new contract for a client
@@ -82,7 +86,7 @@ export async function POST(
       }
     }
 
-    const contractBody = generateContractBody(
+    const baselineBody = generateContractBody(
       client.name,
       client.company,
       parsed.packages,
@@ -94,6 +98,21 @@ export async function POST(
       contractCurrency,
       exchangeRate
     );
+
+    // If a custom prompt is provided, run the baseline through AI drafting (figures stay locked).
+    // Falls back to the baseline body on any AI failure.
+    let contractBody = baselineBody;
+    let aiError: string | null = null;
+    if (parsed.customPrompt && parsed.customPrompt.trim()) {
+      const ai = await generateAiContractBody({
+        baselineBody,
+        customPrompt: parsed.customPrompt.trim(),
+        clientName: client.name,
+        companyName: client.company,
+      });
+      contractBody = ai.body;
+      if (!ai.usedAi) aiError = ai.error || "AI drafting unavailable — used baseline contract";
+    }
 
     // SHA-256 hash of the contract body for tamper detection
     const documentHash = createHash("sha256").update(contractBody).digest("hex");
@@ -110,17 +129,23 @@ export async function POST(
         token,
         contractBody,
         documentHash,
+        status: parsed.draft ? "DRAFT" : "PENDING",
         providerSignedName: parsed.providerSignedName,
         providerSignatureData: parsed.providerSignatureData || null,
         providerSignedAt: new Date(),
         providerIpAddress: providerIp,
         providerUserAgent: providerUa,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        // Persist the full generation params so the contract can be sent later (draft → send)
         selectedPackages: {
           packages: parsed.packages,
           addons: parsed.addons || [],
           customItems: parsed.customItems || [],
           packageCustomizations: parsed.packageCustomizations || {},
+          country: parsed.country,
+          paymentSchedule: parsed.paymentSchedule || null,
+          skipPayment: parsed.skipPayment,
+          exchangeRate: exchangeRate ?? null,
         },
       },
     });
@@ -157,265 +182,15 @@ export async function POST(
       },
     });
 
-    // --- Auto-create payment links ---
-    // Contract signing link is sent AFTER payment is confirmed (via pipeline.ts onPaymentConfirmed)
-    // Default to a single 100% payment if no schedule is provided ("No Split")
-    const paymentLinksCreated: Array<{ milestone: string; url: string; amount: number }> = [];
+    // Draft mode: create the contract but DON'T send anything yet — owner reviews first,
+    // then calls POST /api/clients/[id]/contract/[contractId]/send to dispatch it.
+    let paymentLinks: Array<{ milestone: string; url: string; amount: number }> = [];
     let paymentLinkError: string | null = null;
 
-    const schedule = (parsed.paymentSchedule && parsed.paymentSchedule.length > 0)
-      ? parsed.paymentSchedule
-      : [{ label: "deposit" as const, percent: 100 }];
-
-    if (!parsed.skipPayment) {
-      try {
-        // Calculate total one-time amount from selected packages (converted to target currency)
-        const convertAmount = (usd: number) =>
-          exchangeRate ? Math.round(usd * exchangeRate * 100) / 100 : usd;
-        const allItems = [
-          ...SERVICE_PACKAGES.filter((p) => parsed.packages.includes(p.id)),
-          ...ADDON_PACKAGES.filter((a) => (parsed.addons || []).includes(a.id)),
-        ];
-        const getPrice = (item: { id: string; price: number }) =>
-          convertAmount(parsed.packageCustomizations?.[item.id]?.priceOverride ?? item.price);
-        const oneTimeTotal = allItems.filter((i) => !i.recurring).reduce((s, i) => s + getPrice(i), 0)
-          + (parsed.customItems || []).filter(i => !i.recurring).reduce((s, i) => s + convertAmount(i.price), 0);
-
-        // Recurring items: packages + custom items marked as recurring
-        const recurringItems = [
-          ...allItems.filter((i) => i.recurring).map((i) => ({ name: i.name || i.id, price: getPrice(i) })),
-          ...(parsed.customItems || []).filter(i => i.recurring).map(i => ({ name: i.name, price: convertAmount(i.price) })),
-        ];
-        const recurringTotal = recurringItems.reduce((s, i) => s + i.price, 0);
-
-        if (oneTimeTotal === 0 && recurringTotal === 0) {
-          // $0 contract — skip payment, auto-confirm and send contract signing link directly
-          await onPaymentConfirmed(client.id);
-        } else if (oneTimeTotal > 0 || recurringTotal > 0) {
-          const currency = getCurrencyForCountry(parsed.country);
-          const currencyConfig = CURRENCY_CONFIG[currency];
-          let latestStripeCustomerId = client.stripeCustomerId;
-
-          for (const milestone of schedule) {
-            const milestoneAmount = Math.round(((oneTimeTotal * milestone.percent) / 100) * 100) / 100;
-            if (milestoneAmount <= 0) continue;
-
-            const milestoneLabel = milestone.label === "deposit" ? "Deposit"
-              : milestone.label === "milestone" ? "Milestone"
-              : "Completion";
-            const description = `${milestoneLabel} (${milestone.percent}%) — ${client.name}`;
-
-            const result = await createCheckoutSession({
-              clientId: client.id,
-              clientName: client.name,
-              clientEmail: client.email,
-              stripeCustomerId: latestStripeCustomerId,
-              amount: milestoneAmount,
-              description,
-              currency,
-              country: parsed.country,
-              contractId: contract.id,
-              milestone: milestone.label,
-            });
-
-            // Reuse the Stripe customer for subsequent milestones
-            latestStripeCustomerId = result.stripeCustomerId;
-
-            paymentLinksCreated.push({
-              milestone: milestone.label,
-              url: result.url,
-              amount: milestoneAmount,
-            });
-
-            // Log each payment link
-            await prisma.activityLog.create({
-              data: {
-                clientId: client.id,
-                actor: "chase",
-                action: "payment_link_created",
-                details: `${milestoneLabel} payment link created: ${currencyConfig.symbol}${milestoneAmount.toLocaleString()} (${milestone.percent}%) for contract`,
-              },
-            });
-          }
-
-          // Create subscription checkout sessions for recurring items
-          for (const item of recurringItems) {
-            if (item.price <= 0) continue;
-
-            const result = await createCheckoutSession({
-              clientId: client.id,
-              clientName: client.name,
-              clientEmail: client.email,
-              stripeCustomerId: latestStripeCustomerId,
-              amount: item.price,
-              description: `${item.name} (monthly) — ${client.name}`,
-              currency,
-              country: parsed.country,
-              contractId: contract.id,
-              recurring: true,
-              interval: "month",
-            });
-
-            latestStripeCustomerId = result.stripeCustomerId;
-
-            paymentLinksCreated.push({
-              milestone: "subscription",
-              url: result.url,
-              amount: item.price,
-            });
-
-            await prisma.activityLog.create({
-              data: {
-                clientId: client.id,
-                actor: "chase",
-                action: "payment_link_created",
-                details: `Subscription link created: ${currencyConfig.symbol}${item.price.toLocaleString()}/mo for ${item.name}`,
-              },
-            });
-          }
-
-          // Auto-send first payment link via email (deposit or full payment)
-          const firstLink = paymentLinksCreated[0];
-          if (firstLink && client.email) {
-            const amountFormatted = new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: currency.toUpperCase(),
-            }).format(firstLink.amount);
-
-            const isFullPayment = schedule.length === 1 && schedule[0].percent === 100;
-            try {
-              const emailResult = await sendPaymentLinkEmail({
-                to: client.email,
-                clientName: client.name,
-                amount: amountFormatted,
-                description: isFullPayment ? `Payment — ${client.name}` : `Deposit — ${client.name}`,
-                paymentUrl: firstLink.url,
-                recurring: false,
-                interval: null,
-              });
-              if (emailResult) {
-                await prisma.activityLog.create({
-                  data: {
-                    clientId: client.id,
-                    actor: "agent",
-                    action: "payment_email_sent",
-                    details: `Payment link email sent to ${client.email} for ${amountFormatted}`,
-                  },
-                });
-              } else {
-                console.warn("[Email] Payment link email returned null (RESEND_API_KEY missing?)");
-                await prisma.activityLog.create({
-                  data: {
-                    clientId: client.id,
-                    actor: "agent",
-                    action: "pipeline_error",
-                    details: `Payment link email skipped — email service not configured`,
-                  },
-                });
-              }
-            } catch (emailErr) {
-              console.error("[Email] Payment link email error:", emailErr);
-              await prisma.activityLog.create({
-                data: {
-                  clientId: client.id,
-                  actor: "agent",
-                  action: "pipeline_error",
-                  details: `Payment link email failed: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
-                },
-              });
-            }
-          }
-        }
-      } catch (err) {
-        console.error("[Contract] Failed to create payment links:", err);
-        paymentLinkError = err instanceof Error ? err.message : "Failed to create payment links";
-        await prisma.activityLog.create({
-          data: {
-            clientId: client.id,
-            actor: "agent",
-            action: "pipeline_error",
-            details: `Contract created but payment links failed: ${paymentLinkError}`,
-          },
-        });
-      }
-    }
-
-    // Send contract signing + onboarding emails in parallel
-    if (client.email) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
-      const contractUrl = `${appUrl}/contract/${contract.token}`;
-
-      const emailTasks: Promise<void>[] = [];
-
-      // Contract signing email
-      emailTasks.push(
-        sendContractSigningEmail({
-          to: client.email,
-          clientName: client.name,
-          contractUrl,
-        }).then(async () => {
-          await prisma.activityLog.create({
-            data: {
-              clientId: client.id,
-              actor: "agent",
-              action: "pipeline_contract_signing_sent",
-              details: `Contract signing link sent to ${client.name} (${client.email}) immediately after contract creation`,
-            },
-          });
-        }).catch(async (emailErr) => {
-          console.error("[Email] Contract signing email error:", emailErr);
-          await prisma.activityLog.create({
-            data: {
-              clientId: client.id,
-              actor: "agent",
-              action: "pipeline_error",
-              details: `Failed to send contract signing email: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
-            },
-          });
-        })
-      );
-
-      // Onboarding email
-      emailTasks.push(
-        (async () => {
-          let onboardToken = (await prisma.client.findUnique({ where: { id: client.id }, select: { onboardToken: true } }))?.onboardToken;
-          if (!onboardToken) {
-            onboardToken = randomBytes(24).toString("hex");
-            await prisma.client.update({
-              where: { id: client.id },
-              data: { onboardToken },
-            });
-          }
-
-          const onboardUrl = `${appUrl}/onboard/${onboardToken}`;
-
-          await sendOnboardingLinkEmail({
-            to: client.email!,
-            clientName: client.name,
-            onboardUrl,
-          });
-          await prisma.activityLog.create({
-            data: {
-              clientId: client.id,
-              actor: "agent",
-              action: "pipeline_onboard_sent",
-              details: `Onboarding link sent to ${client.name} (${client.email}) immediately after contract creation`,
-            },
-          });
-        })().catch(async (emailErr) => {
-          console.error("[Email] Onboarding email error:", emailErr);
-          await prisma.activityLog.create({
-            data: {
-              clientId: client.id,
-              actor: "agent",
-              action: "pipeline_error",
-              details: `Failed to send onboarding email: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
-            },
-          });
-        })
-      );
-
-      await Promise.allSettled(emailTasks);
+    if (!parsed.draft) {
+      const sendResult = await sendContract(contract.id);
+      paymentLinks = sendResult.paymentLinks;
+      paymentLinkError = sendResult.paymentLinkError;
     }
 
     return NextResponse.json({
@@ -423,9 +198,12 @@ export async function POST(
       data: {
         id: contract.id,
         token: contract.token,
-        status: contract.status,
+        status: parsed.draft ? "DRAFT" : "PENDING",
         createdAt: contract.createdAt,
-        paymentLinks: paymentLinksCreated,
+        contractBody,        // returned so the UI can show a review preview
+        isDraft: parsed.draft,
+        aiError,
+        paymentLinks,
         paymentLinkError,
       },
     });

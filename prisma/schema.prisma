@@ -337,6 +337,7 @@ model ContractAuditLog {
 }
 
 enum ContractStatus {
+  DRAFT
   PENDING
   SIGNED
   EXPIRED

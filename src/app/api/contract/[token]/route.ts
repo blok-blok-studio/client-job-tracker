@@ -68,6 +68,14 @@ export async function GET(
       );
     }
 
+    // Drafts are not yet released to the client — treat as not found until sent
+    if (contract.status === "DRAFT") {
+      return NextResponse.json(
+        { success: false, error: "Invalid or expired contract link" },
+        { status: 404, headers: corsHeaders(request) }
+      );
+    }
+
     if (contract.expiresAt && new Date() > contract.expiresAt) {
       // Update status to EXPIRED
       await prisma.contractSignature.update({
@@ -162,6 +170,13 @@ export async function POST(
       return NextResponse.json(
         { success: false, error: "This contract has already been signed" },
         { status: 400, headers: corsHeaders(request) }
+      );
+    }
+
+    if (contract.status === "DRAFT") {
+      return NextResponse.json(
+        { success: false, error: "Invalid or expired contract link" },
+        { status: 404, headers: corsHeaders(request) }
       );
     }
 
