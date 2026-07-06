@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  verifyPassword,
+  authenticateUser,
   createSessionToken,
   getSessionCookieConfig,
   checkRateLimit,
@@ -18,26 +18,30 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { password } = await request.json();
+    const { email, password } = await request.json();
 
-    if (!password || typeof password !== "string") {
+    if (!email || typeof email !== "string" || !password || typeof password !== "string") {
       return NextResponse.json(
-        { error: "Password is required" },
+        { error: "Email and password are required" },
         { status: 400 }
       );
     }
 
-    if (!verifyPassword(password)) {
+    const user = await authenticateUser(email, password);
+    if (!user) {
       return NextResponse.json(
-        { error: "Invalid password" },
+        { error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
-    const token = createSessionToken();
+    const token = createSessionToken(user);
     const cookieConfig = getSessionCookieConfig(token);
 
-    const response = NextResponse.json({ success: true });
+    const response = NextResponse.json({
+      success: true,
+      user: { name: user.name, email: user.email, role: user.role },
+    });
     response.cookies.set(cookieConfig);
 
     return response;

@@ -8,6 +8,27 @@ datasource db {
   directUrl = env("DIRECT_DATABASE_URL")
 }
 
+// --- TEAM USERS (dashboard logins) ---
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(MEMBER)
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+enum UserRole {
+  OWNER
+  MEMBER
+}
+
 // --- CLIENTS ---
 model Client {
   id              String     @id @default(cuid())

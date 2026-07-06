@@ -17,6 +17,7 @@ import {
   PenSquare,
   Zap,
   Settings,
+  UsersRound,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -43,11 +44,25 @@ const navItems = [
   { href: "/agent/config", label: "Settings", icon: Settings },
 ];
 
+interface CurrentUser {
+  name: string;
+  email: string;
+  role: "OWNER" | "MEMBER";
+}
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { collapsed, toggle: toggleCollapsed } = useSidebar();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.user && setCurrentUser(d.user))
+      .catch(() => {});
+  }, []);
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -69,6 +84,11 @@ export default function Sidebar() {
     router.push("/login");
     router.refresh();
   }
+
+  const items =
+    currentUser?.role === "OWNER"
+      ? [...navItems, { href: "/team", label: "Team", icon: UsersRound }]
+      : navItems;
 
   const sidebarContent = (
     <>
@@ -101,7 +121,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/" && pathname.startsWith(item.href));
@@ -124,8 +144,21 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer — Agent Status + Logout */}
+      {/* Footer — Signed-in user + Agent Status + Logout */}
       <div className="border-t border-bb-border p-4 space-y-3">
+        {currentUser && (!collapsed || mobileOpen) && (
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-full bg-bb-elevated flex items-center justify-center text-xs font-semibold text-white shrink-0">
+              {currentUser.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-white truncate">{currentUser.name}</p>
+              <p className="text-[10px] text-bb-dim truncate capitalize">
+                {currentUser.role.toLowerCase()}
+              </p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shrink-0" />
           {(!collapsed || mobileOpen) && (
