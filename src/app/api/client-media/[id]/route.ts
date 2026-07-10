@@ -10,11 +10,15 @@ export async function PATCH(
   const { id } = await params;
   try {
     const body = await request.json();
-    const { label, notes, thumbnailUrl } = body;
+    const { label, folder, notes, thumbnailUrl } = body;
 
     // Validate input types and lengths
     if (label !== undefined && (typeof label !== "string" || label.length > 500)) {
       return NextResponse.json({ success: false, error: "Label must be a string under 500 characters" }, { status: 400 });
+    }
+    // folder can be a string (assign) or null (unfile)
+    if (folder !== undefined && folder !== null && (typeof folder !== "string" || folder.length > 200)) {
+      return NextResponse.json({ success: false, error: "Folder must be a string under 200 characters" }, { status: 400 });
     }
     if (notes !== undefined && (typeof notes !== "string" || notes.length > 5000)) {
       return NextResponse.json({ success: false, error: "Notes must be a string under 5000 characters" }, { status: 400 });
@@ -36,6 +40,7 @@ export async function PATCH(
       where: { id },
       data: {
         ...(label !== undefined && { label }),
+        ...(folder !== undefined && { folder: folder ? folder.trim() || null : null }),
         ...(notes !== undefined && { notes }),
         ...(thumbnailUrl !== undefined && { thumbnailUrl }),
       },

@@ -2,6 +2,39 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { del } from "@vercel/blob";
 
+// PATCH — batch assign multiple media files to an event/folder (or unfile with folder: null)
+export async function PATCH(request: NextRequest) {
+  try {
+    const { ids, folder } = await request.json();
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ success: false, error: "No IDs provided" }, { status: 400 });
+    }
+    if (ids.length > 500) {
+      return NextResponse.json({ success: false, error: "Max 500 files per batch" }, { status: 400 });
+    }
+    if (!ids.every((id) => typeof id === "string" && id.length > 0)) {
+      return NextResponse.json({ success: false, error: "All IDs must be non-empty strings" }, { status: 400 });
+    }
+    if (folder !== null && (typeof folder !== "string" || folder.length > 200)) {
+      return NextResponse.json({ success: false, error: "Folder must be a string under 200 characters" }, { status: 400 });
+    }
+
+    const value = typeof folder === "string" ? folder.trim() || null : null;
+
+    const result = await prisma.clientMedia.updateMany({
+      where: { id: { in: ids } },
+      data: { folder: value },
+    });
+
+    return NextResponse.json({ success: true, updated: result.count, folder: value });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Batch update failed";
+    console.error("[Batch Assign Folder] Error:", message);
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}
+
 // DELETE — batch delete multiple media files
 export async function DELETE(request: NextRequest) {
   try {

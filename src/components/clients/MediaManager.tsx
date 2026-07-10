@@ -6,7 +6,7 @@ import {
   Film, Music, ExternalLink, Image as ImageIcon,
   Edit2, Check, Copy, Info, Eye, FileText,
   Calendar, User, HardDrive, Tag, StickyNote,
-  CheckSquare, Square, Loader2,
+  CheckSquare, Square, Loader2, Folder, FolderInput,
 } from "lucide-react";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import VideoThumbnail from "@/components/shared/VideoThumbnail";
@@ -20,6 +20,7 @@ interface MediaFile {
   mimeType: string;
   uploadedBy: string;
   label: string | null;
+  folder?: string | null;
   notes?: string | null;
   thumbnailUrl?: string | null;
   createdAt: string;
@@ -32,9 +33,12 @@ interface MediaManagerProps {
   onUpload: (files: FileList) => void;
   onDelete: (id: string) => void;
   onBatchDelete: (ids: string[]) => Promise<void>;
+  onBatchAssignFolder?: (ids: string[], folder: string | null) => Promise<void>;
   onRefresh: () => void;
   toast: (msg: string, type: "success" | "error") => void;
 }
+
+const UNFILED = "__unfiled__";
 
 const ACCEPTED_FILES = "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf";
 
@@ -58,7 +62,7 @@ function getFileIcon(fileType: string, size: number) {
 }
 
 export default function MediaManager({
-  mediaFiles, uploadingMedia, onUpload, onDelete, onBatchDelete, onRefresh, toast,
+  mediaFiles, uploadingMedia, onUpload, onDelete, onBatchDelete, onBatchAssignFolder, onRefresh, toast,
 }: MediaManagerProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -68,9 +72,14 @@ export default function MediaManager({
   const [labelValue, setLabelValue] = useState("");
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState("");
+  const [editingFolder, setEditingFolder] = useState(false);
+  const [folderValue, setFolderValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [filter, setFilter] = useState<"ALL" | "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT">("ALL");
+  const [folderFilter, setFolderFilter] = useState<string>("ALL"); // "ALL" | UNFILED | folder name
+  const [batchFolderInput, setBatchFolderInput] = useState("");
+  const [assigning, setAssigning] = useState(false);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -88,7 +97,43 @@ export default function MediaManager({
   const selectedMedia = selectedId ? mediaFiles.find((m) => m.id === selectedId) : null;
   const hoveredMedia = hoveredId ? mediaFiles.find((m) => m.id === hoveredId) : null;
 
-  const filtered = filter === "ALL" ? mediaFiles : mediaFiles.filter((m) => m.fileType === filter);
+  // Distinct event folders across all of this client's media (+ counts)
+  const folderCounts = new Map<string, number>();
+  let unfiledCount = 0;
+  for (const m of mediaFiles) {
+    if (m.folder) folderCounts.set(m.folder, (folderCounts.get(m.folder) || 0) + 1);
+    else unfiledCount++;
+  }
+  const folders = Array.from(folderCounts.keys()).sort((a, b) => a.localeCompare(b));
+  const hasFolders = folders.length > 0;
+
+  // Apply type filter, then event/folder filter
+  const typeFiltered = filter === "ALL" ? mediaFiles : mediaFiles.filter((m) => m.fileType === filter);
+  const folderScoped =
+    folderFilter === "ALL"
+      ? typeFiltered
+      : folderFilter === UNFILED
+      ? typeFiltered.filter((m) => !m.folder)
+      : typeFiltered.filter((m) => m.folder === folderFilter);
+
+  // In the "All events" view, order by folder (named folders A→Z, unfiled last) so
+  // same-event files sit together — and so grouped render order matches viewer index.
+  const filtered =
+    folderFilter === "ALL" && hasFolders
+      ? [...folderScoped].sort((a, b) => (a.folder || "￿").localeCompare(b.folder || "￿"))
+      : folderScoped;
+
+  // Contiguous event groups for the "All events" view (filtered is already ordered by folder)
+  const showGroups = folderFilter === "ALL" && hasFolders;
+  const orderedGroups: { name: string | null; items: MediaFile[] }[] = [];
+  if (showGroups) {
+    for (const m of filtered) {
+      const last = orderedGroups[orderedGroups.length - 1];
+      if (last && (last.name || "") === (m.folder || "")) last.items.push(m);
+      else orderedGroups.push({ name: m.folder || null, items: [m] });
+    }
+  }
+  const indexById = new Map(filtered.map((m, i) => [m.id, i] as const));
 
   const counts = {
     ALL: mediaFiles.length,
@@ -232,6 +277,37 @@ export default function MediaManager({
     finally { setSaving(false); setEditingNotes(false); }
   };
 
+  // Save event/folder for a single file
+  const saveFolder = async () => {
+    if (!selectedMedia) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/client-media/${selectedMedia.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder: folderValue.trim() || null }),
+      });
+      if ((await res.json()).success) {
+        toast("Event updated", "success");
+        onRefresh();
+      }
+    } catch { toast("Failed to save", "error"); }
+    finally { setSaving(false); setEditingFolder(false); }
+  };
+
+  // Assign the current multi-selection to an event (or clear it with an empty value)
+  const applyBatchFolder = async () => {
+    if (!onBatchAssignFolder || selectedIds.size === 0) return;
+    setAssigning(true);
+    try {
+      await onBatchAssignFolder(Array.from(selectedIds), batchFolderInput.trim() || null);
+      setBatchFolderInput("");
+      exitSelectMode();
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   // Copy URL
   const copyUrl = (url: string) => {
     navigator.clipboard.writeText(url);
@@ -279,13 +355,152 @@ export default function MediaManager({
     if (selectedMedia) {
       setLabelValue(selectedMedia.label || "");
       setNotesValue((selectedMedia as MediaFile & { notes?: string | null }).notes || "");
+      setFolderValue(selectedMedia.folder || "");
       setEditingLabel(false);
       setEditingNotes(false);
+      setEditingFolder(false);
     }
   }, [selectedId, selectedMedia]);
 
+  const gridCls = `grid gap-2 ${selectedId && !selectMode ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-3 lg:grid-cols-4"}`;
+  const folderPillCls = (active: boolean) =>
+    `text-[10px] px-2 py-0.5 rounded-full transition-colors max-w-[160px] truncate ${
+      active ? "bg-bb-orange/20 text-bb-orange" : "bg-bb-elevated text-bb-dim hover:text-white"
+    }`;
+
+  const renderTile = (media: MediaFile, idx: number) => {
+    const isSelected = selectedIds.has(media.id);
+    return (
+      <div
+        key={media.id}
+        onMouseEnter={(e) => !selectMode && handleMouseEnter(e, media.id)}
+        onMouseLeave={() => !selectMode && handleMouseLeave()}
+        onClick={() => {
+          if (selectMode) {
+            toggleSelect(media.id);
+          } else {
+            setSelectedId(selectedId === media.id ? null : media.id);
+          }
+        }}
+        className={`group relative rounded-lg overflow-hidden bg-bb-black border aspect-square cursor-pointer transition-all ${
+          selectMode && isSelected
+            ? "border-bb-orange ring-1 ring-bb-orange/30"
+            : selectedId === media.id
+            ? "border-bb-orange ring-1 ring-bb-orange/30"
+            : "border-bb-border hover:border-bb-muted"
+        }`}
+      >
+        {/* Thumbnail — real preview for images and videos */}
+        {media.fileType === "IMAGE" ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
+        ) : media.fileType === "VIDEO" ? (
+          <VideoThumbnail src={media.url} thumbnailUrl={media.thumbnailUrl} filename={media.filename} />
+        ) : media.fileType === "AUDIO" ? (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
+            <Music size={28} className="text-green-400 mb-2" />
+            <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
+          </div>
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-orange-500/10 to-transparent">
+            <FileText size={28} className="text-orange-400 mb-2" />
+            <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
+          </div>
+        )}
+
+        {/* Bottom filename bar — always visible on non-image tiles */}
+        {media.fileType !== "IMAGE" && (
+          <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-gradient-to-t from-black/80 to-transparent">
+            <p className="text-[10px] text-white truncate">{media.filename}</p>
+            <p className="text-[9px] text-white/50">{formatSize(media.fileSize)}</p>
+          </div>
+        )}
+
+        {/* Select mode checkbox */}
+        {selectMode && (
+          <div className="absolute top-1.5 left-1.5 z-10">
+            {isSelected ? (
+              <CheckSquare size={18} className="text-bb-orange drop-shadow-md" />
+            ) : (
+              <Square size={18} className="text-white/60 drop-shadow-md" />
+            )}
+          </div>
+        )}
+
+        {/* Label badge */}
+        {media.label && !selectMode && (
+          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-bb-orange/80 text-[9px] text-white font-medium truncate max-w-[80%]">
+            {media.label}
+          </div>
+        )}
+
+        {/* Event/folder chip — only when a specific event isn't already the active view */}
+        {media.folder && !selectMode && !media.label && folderFilter !== media.folder && (
+          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-bb-orange font-medium truncate max-w-[80%] flex items-center gap-0.5">
+            <Folder size={9} /> {media.folder}
+          </div>
+        )}
+
+        {/* Upload source badge */}
+        <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-bb-dim">
+          {media.uploadedBy === "client" ? "Client" : "You"}
+        </div>
+
+        {/* Hover overlay with actions — only in normal mode */}
+        {!selectMode && (
+          <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={(e) => { e.stopPropagation(); setViewerIndex(idx); }}
+                className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
+                title="Preview"
+              >
+                <Eye size={14} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setSelectedId(selectedId === media.id ? null : media.id); }}
+                className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
+                title="Info & Edit"
+              >
+                <Info size={14} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDownload(media); }}
+                className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
+                title="Download"
+                disabled={downloading === media.id}
+              >
+                <Download size={14} className={downloading === media.id ? "animate-bounce" : ""} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); copyUrl(media.url); }}
+                className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
+                title="Copy link"
+              >
+                <Copy size={14} />
+              </button>
+            </div>
+            <span className="text-[10px] text-white font-medium truncate max-w-[90%]">{media.filename}</span>
+            <span className="text-[9px] text-bb-dim">{formatSize(media.fileSize)}</span>
+          </div>
+        )}
+
+        {/* Select mode dim overlay for selected items */}
+        {selectMode && isSelected && (
+          <div className="absolute inset-0 bg-bb-orange/10 pointer-events-none" />
+        )}
+      </div>
+    );
+  };
+
   return (
     <div ref={dropZoneRef} className="relative">
+      {/* Event autocomplete options (shared by detail panel + batch move) */}
+      <datalist id="mm-event-folders">
+        {folders.map((f) => (
+          <option key={f} value={f} />
+        ))}
+      </datalist>
       {/* Drag overlay */}
       {dragOver && (
         <div className="absolute inset-0 z-50 rounded-xl border-2 border-dashed border-bb-orange bg-bb-orange/5 flex flex-col items-center justify-center pointer-events-none">
@@ -363,127 +578,56 @@ export default function MediaManager({
         </div>
       </div>
 
+      {/* Event / folder filter row */}
+      {hasFolders && (
+        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+          <span className="text-[10px] text-bb-dim uppercase tracking-wider flex items-center gap-1 mr-0.5">
+            <Folder size={11} /> Events
+          </span>
+          <button onClick={() => setFolderFilter("ALL")} className={folderPillCls(folderFilter === "ALL")}>
+            All ({mediaFiles.length})
+          </button>
+          {folders.map((f) => (
+            <button key={f} onClick={() => setFolderFilter(f)} className={folderPillCls(folderFilter === f)} title={f}>
+              {f} ({folderCounts.get(f)})
+            </button>
+          ))}
+          {unfiledCount > 0 && (
+            <button onClick={() => setFolderFilter(UNFILED)} className={folderPillCls(folderFilter === UNFILED)}>
+              Unsorted ({unfiledCount})
+            </button>
+          )}
+        </div>
+      )}
+
       {filtered.length > 0 ? (
         <div className="flex gap-3">
-          {/* File Grid */}
-          <div className={`grid gap-2 flex-1 ${selectedId && !selectMode ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-3 lg:grid-cols-4"}`}>
-            {filtered.map((media, idx) => {
-              const isSelected = selectedIds.has(media.id);
-              return (
-                <div
-                  key={media.id}
-                  onMouseEnter={(e) => !selectMode && handleMouseEnter(e, media.id)}
-                  onMouseLeave={() => !selectMode && handleMouseLeave()}
-                  onClick={() => {
-                    if (selectMode) {
-                      toggleSelect(media.id);
-                    } else {
-                      setSelectedId(selectedId === media.id ? null : media.id);
-                    }
-                  }}
-                  className={`group relative rounded-lg overflow-hidden bg-bb-black border aspect-square cursor-pointer transition-all ${
-                    selectMode && isSelected
-                      ? "border-bb-orange ring-1 ring-bb-orange/30"
-                      : selectedId === media.id
-                      ? "border-bb-orange ring-1 ring-bb-orange/30"
-                      : "border-bb-border hover:border-bb-muted"
-                  }`}
-                >
-                  {/* Thumbnail — real preview for images and videos */}
-                  {media.fileType === "IMAGE" ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
-                  ) : media.fileType === "VIDEO" ? (
-                    <VideoThumbnail src={media.url} thumbnailUrl={media.thumbnailUrl} filename={media.filename} />
-                  ) : media.fileType === "AUDIO" ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
-                      <Music size={28} className="text-green-400 mb-2" />
-                      <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
-                    </div>
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-orange-500/10 to-transparent">
-                      <FileText size={28} className="text-orange-400 mb-2" />
-                      <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
-                    </div>
-                  )}
-
-                  {/* Bottom filename bar — always visible on non-image tiles */}
-                  {media.fileType !== "IMAGE" && (
-                    <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-gradient-to-t from-black/80 to-transparent">
-                      <p className="text-[10px] text-white truncate">{media.filename}</p>
-                      <p className="text-[9px] text-white/50">{formatSize(media.fileSize)}</p>
-                    </div>
-                  )}
-
-                  {/* Select mode checkbox */}
-                  {selectMode && (
-                    <div className="absolute top-1.5 left-1.5 z-10">
-                      {isSelected ? (
-                        <CheckSquare size={18} className="text-bb-orange drop-shadow-md" />
+          {/* File Grid — grouped by event in the "All events" view */}
+          <div className="flex-1 min-w-0">
+            {showGroups ? (
+              <div className="space-y-4">
+                {orderedGroups.map((g) => (
+                  <div key={g.name || UNFILED}>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      {g.name ? (
+                        <Folder size={13} className="text-bb-orange shrink-0" />
                       ) : (
-                        <Square size={18} className="text-white/60 drop-shadow-md" />
+                        <FileText size={13} className="text-bb-dim shrink-0" />
                       )}
+                      <span className="text-xs font-medium text-white truncate">{g.name || "Unsorted"}</span>
+                      <span className="text-[10px] text-bb-dim shrink-0">{g.items.length}</span>
                     </div>
-                  )}
-
-                  {/* Label badge */}
-                  {media.label && !selectMode && (
-                    <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-bb-orange/80 text-[9px] text-white font-medium truncate max-w-[80%]">
-                      {media.label}
+                    <div className={gridCls}>
+                      {g.items.map((media) => renderTile(media, indexById.get(media.id)!))}
                     </div>
-                  )}
-
-                  {/* Upload source badge */}
-                  <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-bb-dim">
-                    {media.uploadedBy === "client" ? "Client" : "You"}
                   </div>
-
-                  {/* Hover overlay with actions — only in normal mode */}
-                  {!selectMode && (
-                    <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setViewerIndex(idx); }}
-                          className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
-                          title="Preview"
-                        >
-                          <Eye size={14} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setSelectedId(selectedId === media.id ? null : media.id); }}
-                          className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
-                          title="Info & Edit"
-                        >
-                          <Info size={14} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDownload(media); }}
-                          className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
-                          title="Download"
-                          disabled={downloading === media.id}
-                        >
-                          <Download size={14} className={downloading === media.id ? "animate-bounce" : ""} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); copyUrl(media.url); }}
-                          className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
-                          title="Copy link"
-                        >
-                          <Copy size={14} />
-                        </button>
-                      </div>
-                      <span className="text-[10px] text-white font-medium truncate max-w-[90%]">{media.filename}</span>
-                      <span className="text-[9px] text-bb-dim">{formatSize(media.fileSize)}</span>
-                    </div>
-                  )}
-
-                  {/* Select mode dim overlay for selected items */}
-                  {selectMode && isSelected && (
-                    <div className="absolute inset-0 bg-bb-orange/10 pointer-events-none" />
-                  )}
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            ) : (
+              <div className={gridCls}>
+                {filtered.map((media, idx) => renderTile(media, idx))}
+              </div>
+            )}
           </div>
 
           {/* Side panel — file details (hidden in select mode) */}
@@ -541,6 +685,43 @@ export default function MediaManager({
                     className="text-xs text-bb-muted hover:text-white flex items-center gap-1 w-full text-left"
                   >
                     {selectedMedia.label || "Add label..."}
+                    <Edit2 size={10} className="ml-auto shrink-0 text-bb-dim" />
+                  </button>
+                )}
+              </div>
+
+              {/* Event / folder field */}
+              <div>
+                <div className="flex items-center gap-1 mb-1">
+                  <Folder size={11} className="text-bb-dim" />
+                  <span className="text-[10px] text-bb-dim uppercase tracking-wider">Event</span>
+                </div>
+                {editingFolder ? (
+                  <div className="flex gap-1">
+                    <input
+                      value={folderValue}
+                      onChange={(e) => setFolderValue(e.target.value)}
+                      list="mm-event-folders"
+                      className="flex-1 min-w-0 text-xs bg-bb-surface border border-bb-border rounded px-2 py-1 text-white focus:outline-none focus:border-bb-orange"
+                      placeholder="e.g. Smith Wedding..."
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === "Enter") saveFolder(); if (e.key === "Escape") setEditingFolder(false); }}
+                    />
+                    <button onClick={saveFolder} disabled={saving} className="p-1 text-green-400 hover:text-green-300">
+                      <Check size={14} />
+                    </button>
+                    <button onClick={() => setEditingFolder(false)} className="p-1 text-bb-dim hover:text-white">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setEditingFolder(true)}
+                    className="text-xs flex items-center gap-1 w-full text-left hover:text-white"
+                  >
+                    <span className={selectedMedia.folder ? "text-bb-orange truncate" : "text-bb-muted"}>
+                      {selectedMedia.folder || "Assign to event..."}
+                    </span>
                     <Edit2 size={10} className="ml-auto shrink-0 text-bb-dim" />
                   </button>
                 )}
@@ -649,23 +830,60 @@ export default function MediaManager({
         </div>
       )}
 
-      {/* Batch delete toolbar */}
+      {/* Batch toolbar — move to event + delete */}
       {selectMode && selectedIds.size > 0 && (
-        <div className="sticky bottom-0 mt-3 flex items-center justify-between px-4 py-3 rounded-xl bg-bb-surface border border-bb-border shadow-lg">
-          <span className="text-sm text-white font-medium">
+        <div className="sticky bottom-0 mt-3 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-bb-surface border border-bb-border shadow-lg flex-wrap">
+          <span className="text-sm text-white font-medium shrink-0">
             {selectedIds.size} file{selectedIds.size !== 1 ? "s" : ""} selected
           </span>
-          <button
-            onClick={() => setConfirmDeleteOpen(true)}
-            disabled={deleting}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            {deleting ? (
-              <><Loader2 size={14} className="animate-spin" /> Deleting...</>
-            ) : (
-              <><Trash2 size={14} /> Delete {selectedIds.size} file{selectedIds.size !== 1 ? "s" : ""}</>
+          <div className="flex items-center gap-2 flex-wrap">
+            {onBatchAssignFolder && (
+              <div className="flex items-center gap-1">
+                <div className="relative">
+                  <Folder size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-bb-dim pointer-events-none" />
+                  <input
+                    value={batchFolderInput}
+                    onChange={(e) => setBatchFolderInput(e.target.value)}
+                    list="mm-event-folders"
+                    placeholder="Event name…"
+                    disabled={assigning}
+                    className="w-40 text-xs bg-bb-black border border-bb-border rounded-lg pl-7 pr-2 py-2 text-white focus:outline-none focus:border-bb-orange"
+                    onKeyDown={(e) => { if (e.key === "Enter" && batchFolderInput.trim()) applyBatchFolder(); }}
+                  />
+                </div>
+                <button
+                  onClick={applyBatchFolder}
+                  disabled={assigning || !batchFolderInput.trim()}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-bb-orange text-white text-sm font-medium hover:bg-bb-orange-light transition-colors disabled:opacity-50"
+                  title="Move selected files to this event"
+                >
+                  {assigning ? <Loader2 size={14} className="animate-spin" /> : <FolderInput size={14} />}
+                  Move
+                </button>
+                {folderFilter !== "ALL" && folderFilter !== UNFILED && (
+                  <button
+                    onClick={() => { setBatchFolderInput(""); onBatchAssignFolder(Array.from(selectedIds), null).then(exitSelectMode); }}
+                    disabled={assigning}
+                    className="px-3 py-2 rounded-lg bg-bb-elevated text-bb-dim text-sm hover:text-white transition-colors disabled:opacity-50"
+                    title="Remove selected files from their event"
+                  >
+                    Unsort
+                  </button>
+                )}
+              </div>
             )}
-          </button>
+            <button
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={deleting}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {deleting ? (
+                <><Loader2 size={14} className="animate-spin" /> Deleting...</>
+              ) : (
+                <><Trash2 size={14} /> Delete</>
+              )}
+            </button>
+          </div>
         </div>
       )}
 

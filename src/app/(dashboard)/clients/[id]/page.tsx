@@ -44,7 +44,7 @@ interface ClientDetail {
   activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; createdAt: string }>;
   contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
   paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; currency: string; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; milestone: string | null; contractId: string | null; createdAt: string }>;
-  mediaFiles: Array<{ id: string; url: string; filename: string; fileType: string; fileSize: number; mimeType: string; uploadedBy: string; label: string | null; createdAt: string }>;
+  mediaFiles: Array<{ id: string; url: string; filename: string; fileType: string; fileSize: number; mimeType: string; uploadedBy: string; label: string | null; folder?: string | null; thumbnailUrl?: string | null; notes?: string | null; createdAt: string }>;
 }
 
 const tierVariant: Record<string, "orange" | "gray" | "blue"> = { VIP: "orange", STANDARD: "gray", TRIAL: "blue" };
@@ -547,6 +547,30 @@ export default function ClientDetailPage() {
       await fetch(`/api/client-media/${mediaId}`, { method: "DELETE" });
       fetchClient();
     } catch { /* silently fail */ }
+  }
+
+  async function handleBatchAssignFolder(ids: string[], folder: string | null) {
+    try {
+      const res = await fetch("/api/client-media/batch", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, folder }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast(
+          folder
+            ? `${data.updated} file${data.updated !== 1 ? "s" : ""} moved to "${folder}"`
+            : `${data.updated} file${data.updated !== 1 ? "s" : ""} removed from event`,
+          "success"
+        );
+      } else {
+        toast(data.error || "Failed to move files", "error");
+      }
+      fetchClient();
+    } catch {
+      toast("Failed to move files", "error");
+    }
   }
 
   async function handleBatchDeleteMedia(ids: string[]) {
@@ -1186,6 +1210,7 @@ export default function ClientDetailPage() {
                     onUpload={handleUploadMedia}
                     onDelete={handleDeleteMedia}
                     onBatchDelete={handleBatchDeleteMedia}
+                    onBatchAssignFolder={handleBatchAssignFolder}
                     onRefresh={fetchClient}
                     toast={toast}
                   />

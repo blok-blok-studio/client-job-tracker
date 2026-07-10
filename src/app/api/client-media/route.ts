@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // JSON body = register a blob URL from streaming upload
     if (contentType.includes("application/json")) {
       const body = await request.json();
-      const { clientId, url, filename, fileType: mimeType, fileSize } = body;
+      const { clientId, url, filename, fileType: mimeType, fileSize, folder } = body;
       if (!clientId || !url) {
         return NextResponse.json({ success: false, error: "clientId and url required" }, { status: 400 });
       }
@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
           fileType: ft,
           fileSize: fileSize || 0,
           mimeType: mimeType || "application/octet-stream",
+          folder: typeof folder === "string" && folder.trim() ? folder.trim() : null,
           uploadedBy: "manager",
         },
       });

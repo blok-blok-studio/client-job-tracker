@@ -513,6 +513,7 @@ model ClientMedia {
   playbackUrl  String?               // Web-safe H.264 MP4 transcode for in-browser playback (HEVC .mov etc.)
 
   label       String?               // Optional user-given label
+  folder      String?               // Event / collection this file belongs to (for grouping uploads)
   notes       String?               // Notes about this file
   uploadedBy  String        @default("client") // "client" or "manager"
 
@@ -523,6 +524,7 @@ model ClientMedia {
 
   @@index([clientId])
   @@index([fileType])
+  @@index([folder])
   @@index([createdAt])
 }
 
