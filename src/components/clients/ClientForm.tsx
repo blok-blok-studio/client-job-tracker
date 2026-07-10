@@ -43,8 +43,8 @@ export default function ClientForm({
           <input name="firstName" required className={inputClass} placeholder="First name" />
         </div>
         <div>
-          <label className={labelClass}>Last Name *</label>
-          <input name="lastName" required className={inputClass} placeholder="Last name" />
+          <label className={labelClass}>Last Name</label>
+          <input name="lastName" className={inputClass} placeholder="Last name" />
         </div>
       </div>
 
