@@ -181,27 +181,20 @@ export default function MediaManager({
     }
   };
 
-  // Force download via proxy route
-  const handleDownload = useCallback(async (media: MediaFile) => {
+  // Force download via the download endpoint. Navigate an anchor straight at it
+  // (it streams from / redirects to the Blob CDN) rather than buffering the file
+  // in the tab with fetch()->blob(), which can crash on large client videos.
+  const handleDownload = useCallback((media: MediaFile) => {
     setDownloading(media.id);
-    try {
-      const res = await fetch(`/api/client-media/${media.id}/download`);
-      if (!res.ok) throw new Error("Download failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = media.filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      toast("Download failed", "error");
-    } finally {
-      setDownloading(null);
-    }
-  }, [toast]);
+    const a = document.createElement("a");
+    a.href = `/api/client-media/${media.id}/download`;
+    a.download = media.filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => setDownloading((cur) => (cur === media.id ? null : cur)), 1500);
+  }, []);
 
   // Save label
   const saveLabel = async () => {

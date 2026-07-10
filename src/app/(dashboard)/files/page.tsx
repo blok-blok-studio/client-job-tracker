@@ -250,23 +250,21 @@ export default function FilesPage() {
 
   const totalSize = files.reduce((acc, f) => acc + f.fileSize, 0);
 
-  // Download via proxy
-  const handleDownload = async (media: MediaFile) => {
+  // Download via the download endpoint. We navigate an anchor straight at the
+  // endpoint (which streams from / redirects to the Blob CDN) instead of
+  // fetch()->blob()->objectURL — buffering a multi-hundred-MB file in the tab's
+  // memory can crash the page. The browser streams directly to disk.
+  const handleDownload = (media: MediaFile) => {
     setDownloading(media.id);
-    try {
-      const res = await fetch(`/api/client-media/${media.id}/download`);
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = media.filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch { toast("Download failed", "error"); }
-    finally { setDownloading(null); }
+    const a = document.createElement("a");
+    a.href = `/api/client-media/${media.id}/download`;
+    a.download = media.filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // No completion event for a native download; clear the spinner shortly after.
+    setTimeout(() => setDownloading((cur) => (cur === media.id ? null : cur)), 1500);
   };
 
   const handleDelete = async (id: string) => {
@@ -338,7 +336,7 @@ export default function FilesPage() {
   // Generate thumbnails for existing videos via the server-side ffmpeg endpoint.
   // The endpoint handles HEVC .mov files that browsers can't decode.
   const [generatingThumbs, setGeneratingThumbs] = useState(false);
-  const generateMissingThumbnails = useCallback(async () => {
+  const generateMissingThumbnails = useCallback(async (silent = false) => {
     const total = files.filter((f) => f.fileType === "VIDEO" && !f.thumbnailUrl).length;
     if (!total) return;
 
@@ -369,6 +367,10 @@ export default function FilesPage() {
     if (done > 0) fetchFilesRef.current();
     if (done > 0) {
       toast(`Generated ${done} thumbnail${done !== 1 ? "s" : ""}`, "success");
+    } else if (silent) {
+      // Auto-backfill on page load: some files (very large or corrupt) can never
+      // be thumbnailed. Fail quietly instead of nagging the user every visit.
+      return;
     } else if (lastErrorSample) {
       toast(`Thumbnail failed: ${lastErrorSample}`, "error");
     } else {
@@ -384,7 +386,7 @@ export default function FilesPage() {
     if (generatingThumbs) return;
     if (missingThumbs === 0) return;
     autoBackfilledRef.current = true;
-    generateMissingThumbnails();
+    generateMissingThumbnails(true);
   }, [missingThumbs, generatingThumbs, generateMissingThumbnails]);
 
   // Background transcode of any non-mp4 videos that don't have a web-safe
@@ -464,7 +466,7 @@ export default function FilesPage() {
           </div>
           {missingThumbs > 0 && (
             <button
-              onClick={generateMissingThumbnails}
+              onClick={() => generateMissingThumbnails(false)}
               disabled={generatingThumbs}
               className="text-xs text-bb-orange hover:text-bb-orange-light flex items-center gap-1 disabled:opacity-50"
             >
