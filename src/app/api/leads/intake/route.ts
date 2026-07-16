@@ -17,6 +17,7 @@ const leadSchema = z.object({
   source: z.string().max(50),
   name: z.string().min(1).max(120),
   email: z.string().email().max(254),
+  phone: z.string().max(40).optional(),
   business: z.string().max(120).optional(),
   website: z.string().max(300).nullable().optional(),
   summary: z.string().max(5000).optional(),
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
         data: {
           notes: existing.notes ? `${existing.notes}\n\n${inquiry}` : inquiry,
           industry: existing.industry || lead.business || null,
+          phone: existing.phone || lead.phone || null,
         },
       });
       return NextResponse.json({ success: true, clientId: existing.id, created: false });
@@ -69,6 +71,7 @@ export async function POST(request: NextRequest) {
       data: {
         name: lead.name.trim(),
         email,
+        phone: lead.phone || null,
         type: "PROSPECT",
         source: lead.source,
         industry: lead.business || null,
