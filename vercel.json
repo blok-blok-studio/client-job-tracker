@@ -1,10 +1,6 @@
 {
   "crons": [
     {
-      "path": "/api/cron/agent-run",
-      "schedule": "0 9 * * *"
-    },
-    {
       "path": "/api/cron/publish-posts",
       "schedule": "*/15 * * * *"
     },
@@ -48,9 +44,6 @@
       "maxDuration": 300
     },
     "src/app/api/content-posts/publish-due/route.ts": {
-      "maxDuration": 300
-    },
-    "src/app/api/agent/run/route.ts": {
       "maxDuration": 300
     },
     "src/app/api/clients/[id]/contract/route.ts": {

@@ -191,7 +191,7 @@ export default function KanbanBoard() {
       priority: formData.get("priority") as Priority,
       category: formData.get("category") as TaskCategory,
       clientId: (formData.get("clientId") as string) || null,
-      assignedTo: formData.get("assignedTo") as string,
+      assignedTo: (formData.get("assignedTo") as string) || null,
       dueDate: (formData.get("dueDate") as string) || null,
       status: addModalStatus,
     };
@@ -263,7 +263,6 @@ export default function KanbanBoard() {
           </select>
           <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)} className="flex-1 min-w-[100px] px-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-bb-muted">
             <option value="">All Assignees</option>
-            <option value="agent">Agent (AI)</option>
             {team.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
           </select>
         </div>
@@ -354,8 +353,8 @@ export default function KanbanBoard() {
             </div>
             <div>
               <label className="block text-sm text-bb-muted mb-1">Assign To</label>
-              <select name="assignedTo" defaultValue="agent" className={inputClass}>
-                <option value="agent">Agent (AI)</option>
+              <select name="assignedTo" defaultValue="" className={inputClass}>
+                <option value="">Unassigned</option>
                 {team.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
               </select>
             </div>

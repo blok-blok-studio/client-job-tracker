@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Bot, User, Calendar, Trash2 } from "lucide-react";
+import { User, Calendar, Trash2 } from "lucide-react";
 import Badge from "@/components/shared/Badge";
 import { formatRelativeDate } from "@/lib/utils";
 import type { Priority, TaskCategory } from "@/types";
@@ -122,12 +122,12 @@ export default function TaskCard({
             </span>
           )}
         </div>
-        <span className="flex items-center gap-1 text-bb-dim min-w-0" title={assignedTo === "agent" ? "Agent (AI)" : assignedTo || "Unassigned"}>
-          {assignedTo === "agent" ? <Bot size={14} className="shrink-0" /> : <User size={14} className="shrink-0" />}
-          {assignedTo && assignedTo !== "agent" && (
+        {assignedTo && assignedTo !== "agent" && (
+          <span className="flex items-center gap-1 text-bb-dim min-w-0" title={assignedTo}>
+            <User size={14} className="shrink-0" />
             <span className="truncate max-w-[80px] text-[10px]">{assignedTo.split(" ")[0]}</span>
-          )}
-        </span>
+          </span>
+        )}
       </div>
     </div>
   );

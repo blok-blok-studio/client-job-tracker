@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Calendar, Bot, User, ClipboardList, Loader2 } from "lucide-react";
+import { Plus, Calendar, User, ClipboardList, Loader2 } from "lucide-react";
 import TaskDetailModal from "@/components/kanban/TaskDetailModal";
 import { STATUS_COLUMNS, type TaskStatus, type Priority } from "@/types";
 
@@ -164,10 +164,12 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
                   {new Date(t.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                 </span>
               )}
-              <span className="flex items-center gap-1 text-[10px] text-bb-dim shrink-0 max-w-[70px] truncate">
-                {t.assignedTo === "agent" ? <Bot size={11} /> : <User size={11} />}
-                <span className="hidden sm:inline truncate">{t.assignedTo === "agent" ? "AI" : t.assignedTo?.split(" ")[0]}</span>
-              </span>
+              {t.assignedTo && t.assignedTo !== "agent" && (
+                <span className="flex items-center gap-1 text-[10px] text-bb-dim shrink-0 max-w-[70px] truncate">
+                  <User size={11} />
+                  <span className="hidden sm:inline truncate">{t.assignedTo.split(" ")[0]}</span>
+                </span>
+              )}
               <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold shrink-0 ${STATUS_STYLE[t.status]}`}>
                 {STATUS_COLUMNS.find((c) => c.key === t.status)?.label || t.status}
               </span>

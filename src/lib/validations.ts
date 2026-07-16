@@ -45,7 +45,7 @@ export const taskSchema = z.object({
     ])
     .optional(),
   dueDate: dateString.nullable().optional(),
-  assignedTo: z.string().optional(),
+  assignedTo: z.string().nullable().optional(),
   isRecurring: z.boolean().optional(),
   recurPattern: z.string().optional().nullable(),
   tags: z.array(z.string()).optional(),

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runAgentCycle } from "@/lib/agent/engine";
 import { processRecurringTasks } from "@/lib/recurring-tasks";
 import prisma from "@/lib/prisma";
 import { sendPaymentReminderEmail } from "@/lib/email";
@@ -240,11 +239,9 @@ export async function GET(request: NextRequest) {
       console.error("[Cron] Playback backfill error:", err);
     }
 
-    // Then run agent cycle
-    const result = await runAgentCycle();
     return NextResponse.json({
       success: true,
-      data: { ...result, recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated },
+      data: { recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";

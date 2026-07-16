@@ -16,9 +16,8 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const token = authHeader?.replace("Bearer ", "");
   const cronSecret = process.env.CRON_SECRET;
-  const openclawToken = process.env.OPENCLAW_API_TOKEN;
 
-  if (!timingSafeTokenCheck(token, cronSecret) && !timingSafeTokenCheck(token, openclawToken)) {
+  if (!timingSafeTokenCheck(token, cronSecret)) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
@@ -43,9 +42,8 @@ export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const token = authHeader?.replace("Bearer ", "");
   const cronSecret = process.env.CRON_SECRET;
-  const openclawToken = process.env.OPENCLAW_API_TOKEN;
 
-  if (!timingSafeTokenCheck(token, cronSecret) && !timingSafeTokenCheck(token, openclawToken)) {
+  if (!timingSafeTokenCheck(token, cronSecret)) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 

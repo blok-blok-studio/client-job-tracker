@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { sendTelegramMessage, getWebhookSecret } from "@/lib/telegram";
-import { sendToOpenClaw } from "@/lib/openclaw/client";
-import { respondToTicket } from "@/lib/agent/ticket-responder";
-import { handleCortanaMessage } from "@/lib/agent/cortana";
 import { rateLimit } from "@/lib/rate-limit";
 
 interface TelegramUpdate {
@@ -65,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     const admin = isAdminChat(chatId, username);
 
-    // ─── ADMIN COMMANDS (Chase texting Cortana) ────────────────────────
+    // ─── ADMIN COMMANDS ─────────────────────────────────────────────────
     if (admin) {
       return handleAdminMessage(chatId, text);
     }
@@ -86,15 +83,12 @@ async function handleAdminMessage(chatId: string, text: string) {
   if (text === "/start") {
     // Auto-save chat ID so we don't need to configure it manually next time
     if (!process.env.ADMIN_TELEGRAM_CHAT_ID) {
-      console.log(`[Cortana] Admin chat ID detected: ${chatId} — set ADMIN_TELEGRAM_CHAT_ID=${chatId} in your env`);
+      console.log(`[Telegram] Admin chat ID detected: ${chatId} — set ADMIN_TELEGRAM_CHAT_ID=${chatId} in your env`);
     }
     await sendTelegramMessage(chatId, [
-      "Hey Chase. I'm online.",
+      "Hey Chase. Command center notifications are online.",
       "",
-      "Text me anything — I'll handle it.",
-      "Or use a command:",
       "/status — quick dashboard",
-      "/run — trigger agent cycle",
       "/tickets — open support tickets",
       "/help — all commands",
     ].join("\n"));
@@ -104,23 +98,11 @@ async function handleAdminMessage(chatId: string, text: string) {
   // /help
   if (text === "/help") {
     await sendTelegramMessage(chatId, [
-      "<b>Cortana Commands</b>",
+      "<b>Commands</b>",
       "",
       "/status — quick operational numbers",
-      "/run — trigger an agent cycle now",
       "/tickets — list open support tickets",
       "/clients — list active clients",
-      "",
-      "<b>Natural Language</b> (just type normally):",
-      '• "create a task for [client] to [thing]"',
-      '• "schedule a post for [client] on IG about [topic]"',
-      '• "draft content for [client] about [topic]"',
-      '• "remind [client] about [thing]"',
-      '• "what\'s going on" / "status" / "update"',
-      '• "what tasks are overdue"',
-      '• "how is [client] doing"',
-      "",
-      "I understand context — just tell me what you need.",
     ].join("\n"));
     return NextResponse.json({ ok: true });
   }
@@ -208,33 +190,6 @@ async function handleAdminMessage(chatId: string, text: string) {
     return NextResponse.json({ ok: true });
   }
 
-  // /run — trigger agent cycle
-  if (text === "/run") {
-    await sendTelegramMessage(chatId, "Running agent cycle...");
-    try {
-      const { runAgentCycle } = await import("@/lib/agent/engine");
-      const result = await runAgentCycle();
-      await sendTelegramMessage(chatId, [
-        `<b>Agent Cycle Complete</b>`,
-        "",
-        `Actions: <b>${result.actionsExecuted}</b>`,
-        `Errors: ${result.errors.length > 0 ? result.errors.join(", ") : "None"}`,
-        `Duration: ${(result.duration / 1000).toFixed(1)}s`,
-        "",
-        result.analysis ? `<i>${result.analysis.slice(0, 300)}</i>` : "",
-      ].join("\n"));
-    } catch (err) {
-      console.error("[Agent] Cycle error:", err);
-      await sendTelegramMessage(chatId, `Agent cycle failed: ${err instanceof Error ? err.message : "Unknown error"}`);
-    }
-    return NextResponse.json({ ok: true });
-  }
-
-  // Everything else → Cortana AI interprets and acts
-  handleCortanaMessage(chatId, text).catch((err) =>
-    console.error("[Cortana] Error:", err)
-  );
-
   return NextResponse.json({ ok: true });
 }
 
@@ -290,13 +245,6 @@ async function handleClientMessage(chatId: string, text: string, senderName: str
       );
     }
 
-    // Notify OpenClaw
-    await sendToOpenClaw(
-      "cortana",
-      `New support ticket from ${client.name}: "${ticket.subject}"`,
-      { clientId: client.id, ticketId: ticket.id }
-    );
-
     await prisma.activityLog.create({
       data: {
         clientId: client.id,
@@ -321,11 +269,6 @@ async function handleClientMessage(chatId: string, text: string, senderName: str
     where: { id: ticket.id },
     data: { updatedAt: new Date() },
   });
-
-  // Trigger instant agent response (non-blocking)
-  respondToTicket(ticket.id).catch((err) =>
-    console.error("[Webhook] Agent response failed:", err)
-  );
 
   return NextResponse.json({ ok: true });
 }
@@ -380,12 +323,6 @@ async function handleStartCommand(chatId: string, token: string, senderName: str
       `<b>${client.name}</b> just linked their Telegram.`
     );
   }
-
-  await sendToOpenClaw(
-    "cortana",
-    `${client.name} just linked their Telegram account for support.`,
-    { clientId: client.id }
-  );
 
   return NextResponse.json({ ok: true });
 }

@@ -142,7 +142,7 @@ model Task {
   category     TaskCategory @default(GENERAL)
   dueDate      DateTime?
   completedAt  DateTime?
-  assignedTo   String?      @default("agent")
+  assignedTo   String?
   isRecurring  Boolean      @default(false)
   recurPattern String?
   tags         String[]
@@ -398,22 +398,6 @@ enum PaymentStatus {
   ACTIVE
   EXPIRED
   CANCELLED
-}
-
-// --- AGENT CONFIG ---
-model AgentConfig {
-  id              String   @id @default("default")
-  isActive        Boolean  @default(true)
-  runIntervalMins Int      @default(30)
-  autoAssign      Boolean  @default(true)
-  autoRemind      Boolean  @default(true)
-  autoReport      Boolean  @default(true)
-  allowedActions  String[] @default(["create_task", "move_task", "send_reminder", "generate_report", "flag_overdue", "update_checklist", "create_checklist_item", "log_note", "reply_support_ticket", "mark_invoice_overdue", "send_payment_reminder", "close_stale_ticket"])
-  claudeModel     String   @default("claude-sonnet-4-20250514")
-  maxTokens       Int      @default(4096)
-  systemPrompt    String?  @db.Text
-
-  updatedAt DateTime @updatedAt
 }
 
 // --- CONTENT POSTS (Social Media Calendar) ---

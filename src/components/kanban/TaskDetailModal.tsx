@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Calendar, User, Bot, Trash2, Plus, Check, X, Send, Loader2, ArrowRight,
+  Calendar, User, Trash2, Plus, Check, X, Send, Loader2, ArrowRight,
 } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
@@ -236,8 +236,17 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
             <div>
               <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-bb-dim">Assigned</p>
               <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => task.assignedTo && patchTask({ assignedTo: null })}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                    !task.assignedTo
+                      ? "bg-bb-orange text-white"
+                      : "bg-bb-elevated text-bb-dim hover:bg-bb-border hover:text-white"
+                  }`}
+                >
+                  Unassigned
+                </button>
                 {[
-                  { key: "agent", label: "Agent (AI)" },
                   ...team.map((u) => ({ key: u.name, label: u.name })),
                   // Legacy assignee not in the team list (case-insensitive —
                   // old tasks stored lowercase names like "chase")
@@ -256,7 +265,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                         : "bg-bb-elevated text-bb-dim hover:bg-bb-border hover:text-white"
                     }`}
                   >
-                    {a.key === "agent" ? <Bot size={12} /> : <User size={12} />}
+                    <User size={12} />
                     {a.label}
                   </button>
                 ))}

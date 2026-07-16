@@ -12,7 +12,6 @@ const PUBLIC_PATHS = [
   "/contract",
   "/upload",
   "/api/auth/login",
-  "/api/openclaw/webhook",
   "/api/onboard",
   "/api/contract",
   "/api/client-media/upload-portal",

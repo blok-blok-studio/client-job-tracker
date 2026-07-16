@@ -25,11 +25,6 @@ export interface ActionResult {
   data?: unknown;
 }
 
-export interface AgentAction {
-  action: string;
-  [key: string]: unknown;
-}
-
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;

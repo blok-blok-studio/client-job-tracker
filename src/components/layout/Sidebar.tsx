@@ -11,12 +11,10 @@ import {
   Lock,
   FolderOpen,
   Receipt,
-  Bot,
   MessageCircle,
   Activity,
   PenSquare,
   Zap,
-  Settings,
   UsersRound,
   LogOut,
   ChevronLeft,
@@ -40,8 +38,6 @@ const navItems = [
   { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/support", label: "Support", icon: MessageCircle },
-  { href: "/agent", label: "Agent", icon: Bot },
-  { href: "/agent/config", label: "Settings", icon: Settings },
 ];
 
 interface CurrentUser {
@@ -144,7 +140,7 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer — Signed-in user + Agent Status + Logout */}
+      {/* Footer — Signed-in user + Logout */}
       <div className="border-t border-bb-border p-4 space-y-3">
         {currentUser && (!collapsed || mobileOpen) && (
           <div className="flex items-center gap-2 min-w-0">
@@ -159,12 +155,6 @@ export default function Sidebar() {
             </div>
           </div>
         )}
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shrink-0" />
-          {(!collapsed || mobileOpen) && (
-            <span className="text-xs text-bb-muted">Agent: Active</span>
-          )}
-        </div>
         <button
           onClick={handleLogout}
           className={cn(

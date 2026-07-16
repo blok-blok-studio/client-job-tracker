@@ -27,9 +27,6 @@ export async function syncEvent(event: SyncEvent) {
   // 2. Notify client via Telegram if they have a chatId and it's relevant
   promises.push(notifyClientTelegram(event));
 
-  // 3. Notify Chase via Cortana/OpenClaw for important events
-  promises.push(notifyCortana(event));
-
   // Execute all in parallel, don't block on failures
   await Promise.allSettled(promises);
 }
@@ -112,33 +109,3 @@ async function notifyClientTelegram(event: SyncEvent) {
   }
 }
 
-async function notifyCortana(event: SyncEvent) {
-  try {
-    const openclawUrl = process.env.OPENCLAW_API_URL;
-    const openclawKey = process.env.OPENCLAW_API_KEY;
-    if (!openclawUrl || !openclawKey) return;
-
-    // Only notify Cortana for important events
-    const importantEvents = ["invoice_created", "invoice_status_changed", "ticket_created", "task_status_changed"];
-    if (!importantEvents.includes(event.type)) return;
-
-    const client = await prisma.client.findUnique({
-      where: { id: event.clientId },
-      select: { name: true },
-    });
-
-    const { details } = getActivityDetails(event);
-    const message = `[Command Center] ${client?.name || "Unknown"}: ${details}`;
-
-    await fetch(openclawUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openclawKey}`,
-      },
-      body: JSON.stringify({ message }),
-    }).catch(() => {}); // fire-and-forget
-  } catch {
-    // Cortana notification is non-critical
-  }
-}
