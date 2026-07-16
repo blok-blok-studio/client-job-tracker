@@ -21,6 +21,26 @@ export async function notifySlack(text: string): Promise<void> {
   }
 }
 
+/**
+ * Lead alerts go to the #leads channel webhook, kept separate from task
+ * activity so a busy kanban never buries a fresh lead. Falls back to the
+ * main webhook if SLACK_LEADS_WEBHOOK_URL is not set.
+ */
+export async function notifySlackLead(text: string): Promise<void> {
+  const webhookUrl = process.env.SLACK_LEADS_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  try {
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+  } catch (err) {
+    console.error("[Slack] Failed to send lead notification:", err);
+  }
+}
+
 export async function notifySlackTaskDone(opts: {
   title: string;
   clientName?: string | null;

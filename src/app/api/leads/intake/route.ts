@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
-import { notifySlack } from "@/lib/slack";
+import { notifySlackLead } from "@/lib/slack";
 
 // Server-to-server lead intake for blokblokstudio.com (strategy call funnel +
 // contact form). Authenticated with a shared secret header, not a session.
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       `${email}${lead.phone ? ` · ${lead.phone}` : ""}${lead.business ? ` · ${lead.business}` : ""}`,
       existing ? "(existing client/prospect — inquiry appended to notes)" : null,
     ].filter(Boolean);
-    notifySlack(slackLines.join("\n")).catch(() => {});
+    notifySlackLead(slackLines.join("\n")).catch(() => {});
 
     if (existing) {
       await prisma.client.update({
