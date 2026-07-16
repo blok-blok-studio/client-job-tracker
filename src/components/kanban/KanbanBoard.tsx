@@ -159,27 +159,45 @@ export default function KanbanBoard() {
 
   async function handleDragEnd(event: DragEndEvent) {
     setActiveTask(null);
-    const { active } = event;
+    const { active, over } = event;
     const activeId = active.id as string;
     const movedTask = tasks.find((t) => t.id === activeId);
     if (!movedTask) return;
 
-    // Persist the change
-    const columnTasks = tasks
-      .filter((t) => t.status === movedTask.status)
+    // Resolve the destination status from the drop target itself — the
+    // `tasks` closure can be one render behind the last onDragOver update,
+    // which used to persist the OLD column and revert the move on refresh.
+    const overId = over ? (over.id as string) : null;
+    const overColumn = overId && STATUS_COLUMNS.some((c) => c.key === overId)
+      ? (overId as TaskStatus)
+      : null;
+    const overTaskStatus = overId ? tasks.find((t) => t.id === overId)?.status : undefined;
+    const newStatus: TaskStatus = overColumn ?? overTaskStatus ?? movedTask.status;
+
+    const next = tasks.map((t) => (t.id === activeId ? { ...t, status: newStatus } : t));
+    setTasks(next);
+
+    const columnTasks = next
+      .filter((t) => t.status === newStatus)
       .sort((a, b) => a.sortOrder - b.sortOrder);
 
     const updates = columnTasks.map((t, i) => ({
       id: t.id,
       sortOrder: i,
-      status: t.status,
+      status: newStatus,
     }));
 
-    await fetch("/api/tasks/reorder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ updates }),
-    });
+    try {
+      const res = await fetch("/api/tasks/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      // Server rejected the move — resync so the board reflects reality
+      fetchTasks();
+    }
   }
 
   async function handleAddTask(e: React.FormEvent<HTMLFormElement>) {
