@@ -62,6 +62,25 @@ export async function notifySlackTaskAssigned(opts: {
   );
 }
 
+/** Checklist item ticked off — includes running subtask progress. */
+export async function notifySlackChecklist(opts: {
+  taskTitle: string;
+  clientName?: string | null;
+  actor?: string | null;
+  itemLabel: string;
+  done: number;
+  total: number;
+}): Promise<void> {
+  const client = opts.clientName ? ` (*${opts.clientName}*)` : "";
+  const pct = opts.total > 0 ? Math.round((opts.done / opts.total) * 100) : 0;
+  const progress = opts.done === opts.total
+    ? `*${opts.done}/${opts.total}* — all subtasks complete :tada:`
+    : `${opts.done}/${opts.total} (${pct}%)`;
+  await notifySlack(
+    `:ballot_box_with_check: *${opts.actor || "Someone"}* checked off "${opts.itemLabel}" on *${opts.taskTitle}*${client} — ${progress}`
+  );
+}
+
 /** Board activity that isn't a completion: updates posted, moves, new tasks. */
 export async function notifySlackTaskEvent(opts: {
   kind: "update" | "moved" | "created";
