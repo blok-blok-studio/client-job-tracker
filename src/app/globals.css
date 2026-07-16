@@ -15,6 +15,17 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+/* iOS home-screen (standalone) mode: keep content clear of the notch and
+   home indicator now that the viewport extends edge-to-edge */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

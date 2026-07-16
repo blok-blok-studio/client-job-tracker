@@ -4,6 +4,9 @@ import { jwtVerify } from "jose";
 
 const PUBLIC_PATHS = [
   "/login",
+  "/manifest.webmanifest",
+  "/icons/",
+  "/apple-icon",
   "/payment",
   "/onboard",
   "/contract",
