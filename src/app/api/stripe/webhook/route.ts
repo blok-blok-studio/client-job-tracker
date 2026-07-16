@@ -8,6 +8,45 @@ import {
   sendPaymentFailedEmail,
   sendSubscriptionCancelledEmail,
 } from "@/lib/email";
+import { after } from "next/server";
+import { notifySlack } from "@/lib/slack";
+
+// Resolve (or create) a command-center client for a Stripe customer object.
+async function upsertClientFromStripeCustomer(customer: Stripe.Customer) {
+  let client = await prisma.client.findUnique({ where: { stripeCustomerId: customer.id } });
+  if (!client && customer.email) {
+    client = await prisma.client.findFirst({
+      where: { email: { equals: customer.email, mode: "insensitive" } },
+    });
+    if (client && !client.stripeCustomerId) {
+      client = await prisma.client.update({
+        where: { id: client.id },
+        data: { stripeCustomerId: customer.id, phone: client.phone || customer.phone || null },
+      });
+    }
+  }
+  if (!client && (customer.email || customer.name)) {
+    client = await prisma.client.create({
+      data: {
+        name: customer.name || customer.email || "Stripe customer",
+        email: customer.email?.toLowerCase() || null,
+        phone: customer.phone || null,
+        stripeCustomerId: customer.id,
+        source: "Stripe",
+        type: "ACTIVE",
+      },
+    });
+    await prisma.activityLog.create({
+      data: {
+        clientId: client.id,
+        actor: "stripe",
+        action: "created_client",
+        details: "Client created automatically from Stripe",
+      },
+    });
+  }
+  return client;
+}
 
 // Allow up to 60s for pipeline processing after payment
 export const maxDuration = 300;
@@ -195,15 +234,84 @@ export async function POST(request: NextRequest) {
 
       case "invoice.paid": {
         const paidInvoice = event.data.object as Stripe.Invoice;
+        if (!paidInvoice.id) break;
 
-        // Update our invoice record with the Stripe hosted URL if we have a matching record
-        if (paidInvoice.id && paidInvoice.hosted_invoice_url) {
-          await prisma.invoice.updateMany({
-            where: { stripeInvoiceId: paidInvoice.id },
-            data: { stripeInvoiceUrl: paidInvoice.hosted_invoice_url },
+        // Mark our record paid, or create one so Stripe-side invoices
+        // still land in the command center
+        const existing = await prisma.invoice.findUnique({
+          where: { stripeInvoiceId: paidInvoice.id },
+        });
+        const paidAt = paidInvoice.status_transitions?.paid_at
+          ? new Date(paidInvoice.status_transitions.paid_at * 1000)
+          : new Date();
+
+        let invClientId: string | null = existing?.clientId || null;
+        if (existing) {
+          await prisma.invoice.update({
+            where: { id: existing.id },
+            data: { status: "PAID", paidAt, stripeInvoiceUrl: paidInvoice.hosted_invoice_url || existing.stripeInvoiceUrl },
           });
+        } else {
+          const custId = typeof paidInvoice.customer === "string" ? paidInvoice.customer : paidInvoice.customer?.id;
+          if (custId) {
+            const customer = await stripe.customers.retrieve(custId).catch(() => null);
+            const client = customer && !("deleted" in customer && customer.deleted)
+              ? await upsertClientFromStripeCustomer(customer as Stripe.Customer)
+              : null;
+            if (client) {
+              invClientId = client.id;
+              await prisma.invoice.create({
+                data: {
+                  clientId: client.id,
+                  amount: (paidInvoice.amount_paid || 0) / 100,
+                  currency: (paidInvoice.currency || "usd").toUpperCase(),
+                  status: "PAID",
+                  paidAt,
+                  notes: paidInvoice.description || (paidInvoice.number ? `Stripe invoice ${paidInvoice.number}` : "Stripe payment"),
+                  stripeInvoiceId: paidInvoice.id,
+                  stripeInvoiceUrl: paidInvoice.hosted_invoice_url || null,
+                },
+              });
+            }
+          }
         }
 
+        if (invClientId) {
+          const payer = await prisma.client.findUnique({ where: { id: invClientId }, select: { name: true } });
+          const amt = ((paidInvoice.amount_paid || 0) / 100).toLocaleString("en-US", {
+            style: "currency",
+            currency: (paidInvoice.currency || "usd").toUpperCase(),
+          });
+          await prisma.activityLog.create({
+            data: {
+              clientId: invClientId,
+              actor: "stripe",
+              action: "invoice_paid",
+              details: `Invoice paid: ${amt}${paidInvoice.number ? ` (${paidInvoice.number})` : ""}`,
+            },
+          }).catch(() => {});
+          after(() =>
+            notifySlack(`:moneybag: Payment received — *${amt}* from *${payer?.name || "Unknown client"}*`).catch(() => {})
+          );
+        }
+
+        break;
+      }
+
+      case "customer.created":
+      case "customer.updated": {
+        const customer = event.data.object as Stripe.Customer;
+        const client = await upsertClientFromStripeCustomer(customer);
+        // On update: fill gaps only — never overwrite curated data
+        if (client && event.type === "customer.updated") {
+          await prisma.client.update({
+            where: { id: client.id },
+            data: {
+              email: client.email || customer.email?.toLowerCase() || null,
+              phone: client.phone || customer.phone || null,
+            },
+          }).catch(() => {});
+        }
         break;
       }
 

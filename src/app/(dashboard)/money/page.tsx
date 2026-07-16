@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Wallet, TrendingUp, Hourglass, FileText, Repeat, Receipt } from "lucide-react";
+import { Wallet, TrendingUp, Hourglass, FileText, Repeat, Receipt, RefreshCw } from "lucide-react";
+import { useToast } from "@/components/shared/Toast";
 import TopBar from "@/components/layout/TopBar";
 
 interface MoneySummary {
@@ -38,19 +39,56 @@ function Tile({ icon, label, value, sub, accent }: { icon: React.ReactNode; labe
 }
 
 export default function MoneyPage() {
+  const { toast } = useToast();
   const [data, setData] = useState<MoneySummary | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
-  useEffect(() => {
+  function loadSummary() {
     fetch("/api/money/summary")
       .then((r) => r.json())
       .then((d) => d.success && setData(d.data))
       .catch(() => {});
+  }
+
+  useEffect(() => {
+    loadSummary();
+    fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then((d) => setIsOwner(d?.user?.role === "OWNER")).catch(() => {});
   }, []);
+
+  async function syncStripe() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/stripe/sync", { method: "POST" });
+      const d = await res.json();
+      if (d.success) {
+        const r = d.data;
+        toast(`Stripe sync: ${r.clientsCreated} clients created, ${r.clientsLinked} linked, ${r.invoicesImported} payments imported`, "success");
+        loadSummary();
+      } else {
+        toast(d.error || "Sync failed", "error");
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   return (
     <div>
       <TopBar title="Money" subtitle="Collected, outstanding, and pipeline — live from invoices" />
       <div className="px-4 lg:px-6 pb-8 space-y-6">
+        {isOwner && (
+          <div className="flex justify-end">
+            <button
+              onClick={syncStripe}
+              disabled={syncing}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-bb-elevated hover:bg-bb-border text-bb-muted hover:text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors"
+            >
+              <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
+              {syncing ? "Syncing from Stripe…" : "Sync from Stripe"}
+            </button>
+          </div>
+        )}
         {!data ? (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
             {Array.from({ length: 6 }).map((_, i) => (
