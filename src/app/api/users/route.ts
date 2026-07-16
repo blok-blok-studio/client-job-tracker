@@ -23,6 +23,7 @@ export async function GET() {
       createdAt: true,
       slackUserId: true,
       color: true,
+      allowedPages: true,
     },
   });
 
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
       createdAt: true,
       slackUserId: true,
       color: true,
+      allowedPages: true,
     },
   });
 

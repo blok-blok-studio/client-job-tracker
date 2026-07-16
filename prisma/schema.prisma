@@ -19,6 +19,7 @@ model User {
   lastLoginAt  DateTime?
   slackUserId  String?  // Slack member ID (U…) for @-mentions in task alerts
   color        String?  // Profile hex color for avatars and task assignee accents
+  allowedPages String[] @default([]) // Sidebar tabs a member may open; empty = all
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -162,6 +163,27 @@ model Task {
   @@index([priority])
   @@index([dueDate])
   @@index([isRecurring])
+}
+
+// --- NEWSLETTER (subscriber list + sent campaigns) ---
+model NewsletterSubscriber {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  source         String    @default("manual") // manual, website, client-portal, import
+  subscribedAt   DateTime  @default(now())
+  unsubscribedAt DateTime?
+
+  @@index([subscribedAt])
+}
+
+model NewsletterCampaign {
+  id         String   @id @default(cuid())
+  subject    String
+  body       String   @db.Text
+  sentBy     String
+  recipients Int
+  sentAt     DateTime @default(now())
 }
 
 // --- TIME TRACKING (billable hours per task/client) ---

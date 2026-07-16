@@ -10,7 +10,7 @@ export async function GET() {
   // Profile color lives in the DB, not the JWT, so it reflects edits instantly
   const profile = await prisma.user.findUnique({
     where: { id: session.id },
-    select: { color: true },
+    select: { color: true, allowedPages: true },
   });
-  return NextResponse.json({ user: { ...session, color: profile?.color || null } });
+  return NextResponse.json({ user: { ...session, color: profile?.color || null, allowedPages: profile?.allowedPages || [] } });
 }

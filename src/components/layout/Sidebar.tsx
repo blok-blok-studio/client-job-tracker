@@ -18,6 +18,8 @@ import {
   UsersRound,
   ListTodo,
   BarChart3,
+  Mail,
+  Wallet,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -35,9 +37,11 @@ const navItems = [
   { href: "/my-tasks", label: "My Tasks", icon: ListTodo },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/content", label: "Content", icon: PenSquare },
+  { href: "/newsletter", label: "Newsletter", icon: Mail },
   { href: "/automation", label: "Automations", icon: Zap },
   { href: "/files", label: "Files", icon: FolderOpen },
   { href: "/vault", label: "Vault", icon: Lock },
+  { href: "/money", label: "Money", icon: Wallet },
   { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/reports", label: "Reports", icon: BarChart3 },
@@ -50,6 +54,7 @@ interface CurrentUser {
   email: string;
   role: "OWNER" | "MEMBER";
   color?: string | null;
+  allowedPages?: string[];
 }
 
 export default function Sidebar() {
@@ -88,10 +93,15 @@ export default function Sidebar() {
     router.refresh();
   }
 
+  // Members with a granted-pages list only see those tabs (dashboard always shows)
+  const granted =
+    currentUser && currentUser.role !== "OWNER" && (currentUser.allowedPages?.length || 0) > 0
+      ? navItems.filter((n) => n.href === "/" || currentUser.allowedPages!.includes(n.href.slice(1)))
+      : navItems;
   const items =
     currentUser?.role === "OWNER"
-      ? [...navItems, { href: "/team", label: "Team", icon: UsersRound }]
-      : navItems;
+      ? [...granted, { href: "/team", label: "Team", icon: UsersRound }]
+      : granted;
 
   const sidebarContent = (
     <>

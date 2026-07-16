@@ -12,7 +12,7 @@ export async function PATCH(
 
   const { id } = await params;
 
-  let body: { name?: string; role?: string; isActive?: boolean; password?: string; slackUserId?: string | null; color?: string | null };
+  let body: { name?: string; role?: string; isActive?: boolean; password?: string; slackUserId?: string | null; color?: string | null; allowedPages?: string[] };
   try {
     body = await request.json();
   } catch {
@@ -36,7 +36,17 @@ export async function PATCH(
     passwordHash?: string;
     slackUserId?: string | null;
     color?: string | null;
+    allowedPages?: string[];
   } = {};
+
+  const VALID_PAGES = ["clients", "kanban", "my-tasks", "calendar", "content", "newsletter", "automation", "files", "vault", "money", "invoices", "activity", "reports", "support"];
+  if (body.allowedPages !== undefined) {
+    if (session.role !== "OWNER")
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!Array.isArray(body.allowedPages) || !body.allowedPages.every((x) => VALID_PAGES.includes(x)))
+      return NextResponse.json({ error: "Invalid page list" }, { status: 400 });
+    data.allowedPages = body.allowedPages;
+  }
 
   if (body.color !== undefined) {
     const c = typeof body.color === "string" ? body.color.trim() : "";

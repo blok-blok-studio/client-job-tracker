@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Shield, User as UserIcon, Trash2, KeyRound, Power, AtSign } from "lucide-react";
+import { Plus, Shield, User as UserIcon, Trash2, KeyRound, Power, AtSign, PanelsTopLeft } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
@@ -18,7 +18,25 @@ interface TeamUser {
   createdAt: string;
   slackUserId?: string | null;
   color?: string | null;
+  allowedPages?: string[];
 }
+
+const PAGE_OPTIONS: Array<{ key: string; label: string }> = [
+  { key: "clients", label: "Clients" },
+  { key: "kanban", label: "Kanban" },
+  { key: "my-tasks", label: "My Tasks" },
+  { key: "calendar", label: "Calendar" },
+  { key: "content", label: "Content" },
+  { key: "newsletter", label: "Newsletter" },
+  { key: "automation", label: "Automations" },
+  { key: "files", label: "Files" },
+  { key: "vault", label: "Vault" },
+  { key: "money", label: "Money" },
+  { key: "invoices", label: "Invoices" },
+  { key: "activity", label: "Activity" },
+  { key: "reports", label: "Reports" },
+  { key: "support", label: "Support" },
+];
 
 export default function TeamPage() {
   const { toast } = useToast();
@@ -35,6 +53,8 @@ export default function TeamPage() {
   const [newPassword, setNewPassword] = useState("");
   const [slackFor, setSlackFor] = useState<TeamUser | null>(null);
   const [slackId, setSlackId] = useState("");
+  const [tabsFor, setTabsFor] = useState<TeamUser | null>(null);
+  const [tabsSel, setTabsSel] = useState<string[]>([]);
 
   const [deleteTarget, setDeleteTarget] = useState<TeamUser | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -234,6 +254,21 @@ export default function TeamPage() {
                       <option value="OWNER">Owner</option>
                     </select>
 
+                    {u.role !== "OWNER" && (
+                      <button
+                        onClick={() => {
+                          setTabsFor(u);
+                          setTabsSel(u.allowedPages || []);
+                        }}
+                        className={`p-2 rounded-md hover:bg-bb-elevated transition-colors ${
+                          (u.allowedPages?.length || 0) > 0 ? "text-bb-orange hover:text-bb-orange-light" : "text-bb-muted hover:text-white"
+                        }`}
+                        title={(u.allowedPages?.length || 0) > 0 ? `Limited to ${u.allowedPages!.length} tabs` : "Restrict which tabs they can open"}
+                      >
+                        <PanelsTopLeft size={15} />
+                      </button>
+                    )}
+
                     <button
                       onClick={() => {
                         setSlackFor(u);
@@ -388,6 +423,68 @@ export default function TeamPage() {
           >
             {saving ? "Saving..." : "Save"}
           </button>
+        </form>
+      </Modal>
+
+      {/* Tab access */}
+      <Modal open={!!tabsFor} onClose={() => setTabsFor(null)} title={`Tab access — ${tabsFor?.name || ""}`}>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!tabsFor) return;
+            setSaving(true);
+            const ok = await patchUser(
+              tabsFor,
+              { allowedPages: tabsSel },
+              tabsSel.length === 0 ? "Full access restored" : "Tab access updated"
+            );
+            setSaving(false);
+            if (ok) setTabsFor(null);
+          }}
+          className="space-y-4"
+        >
+          <p className="text-xs text-bb-muted">
+            Pick which tabs {tabsFor?.name?.split(" ")[0]} can open. Leave everything unchecked
+            for full access. The Dashboard is always visible.
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {PAGE_OPTIONS.map((pg) => {
+              const on = tabsSel.includes(pg.key);
+              return (
+                <button
+                  type="button"
+                  key={pg.key}
+                  onClick={() =>
+                    setTabsSel((prev) => (on ? prev.filter((k) => k !== pg.key) : [...prev, pg.key]))
+                  }
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-left transition-colors ${
+                    on ? "bg-bb-orange/15 text-bb-orange ring-1 ring-bb-orange/40" : "bg-bb-elevated text-bb-dim hover:text-white"
+                  }`}
+                >
+                  <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${on ? "bg-bb-orange border-bb-orange" : "border-bb-dim"}`}>
+                    {on && <span className="text-[9px] text-white leading-none">✓</span>}
+                  </span>
+                  {pg.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setTabsSel([])}
+              className="text-xs text-bb-dim hover:text-white transition-colors"
+            >
+              Clear (full access)
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save access"}
+            </button>
+          </div>
         </form>
       </Modal>
 

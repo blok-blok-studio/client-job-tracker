@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  ClipboardList, Flame, CheckCircle2, Clock, Users, LifeBuoy, Receipt,
+  ClipboardList, Flame, CheckCircle2, Clock, Users, LifeBuoy, Receipt, Mail,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import { STATUS_COLUMNS } from "@/types";
@@ -22,6 +22,8 @@ interface Summary {
   invoices: Array<{ status: string; count: number; total: number }>;
   openTickets: number;
   activeClients: number;
+  leadSources: Array<{ source: string; leads: number; won: number; winRate: number; revenue: number }>;
+  newsletterCount: number;
 }
 
 function fmtHours(mins: number): string {
@@ -110,6 +112,7 @@ export default function ReportsPage() {
               <StatTile icon={<CheckCircle2 size={13} />} label="Done · 30 days" value={data.tasks.completed30d} accent="text-emerald-400" />
               <StatTile icon={<Clock size={13} />} label="Hours this month" value={fmtHours(data.time.thisMonthMinutes)} accent="text-bb-orange" />
               <StatTile icon={<Users size={13} />} label="Active clients" value={data.activeClients} />
+              <StatTile icon={<Mail size={13} />} label="Newsletter list" value={data.newsletterCount} />
               <StatTile icon={<LifeBuoy size={13} />} label="Open tickets" value={data.openTickets} />
               {(() => {
                 const paid = data.invoices.find((i) => i.status === "PAID");
@@ -175,6 +178,38 @@ export default function ReportsPage() {
                     display: fmtHours(t.minutes),
                   }))}
                 />
+              </div>
+            </div>
+
+            {/* Lead source funnel */}
+            <div className="bg-bb-surface border border-bb-border rounded-lg overflow-hidden">
+              <h3 className="text-sm font-display font-semibold text-white px-4 pt-4 pb-3">Lead sources</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[480px]">
+                  <thead>
+                    <tr className="border-y border-bb-border text-left">
+                      <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim">Source</th>
+                      <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Leads</th>
+                      <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Won</th>
+                      <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Win rate</th>
+                      <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.leadSources.length === 0 && (
+                      <tr><td colSpan={5} className="px-4 py-6 text-center text-xs text-bb-dim">Set a source on your clients to see the funnel.</td></tr>
+                    )}
+                    {data.leadSources.map((ls) => (
+                      <tr key={ls.source} className="border-b border-bb-border last:border-b-0">
+                        <td className="px-4 py-2.5 text-sm text-white capitalize">{ls.source}</td>
+                        <td className="px-4 py-2.5 text-sm text-bb-muted text-right">{ls.leads}</td>
+                        <td className="px-4 py-2.5 text-sm text-bb-muted text-right">{ls.won}</td>
+                        <td className={`px-4 py-2.5 text-sm text-right ${ls.winRate >= 50 ? "text-emerald-400" : "text-bb-muted"}`}>{ls.winRate}%</td>
+                        <td className="px-4 py-2.5 text-sm font-semibold text-bb-orange text-right">{fmtMoney(ls.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </>

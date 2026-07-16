@@ -4,6 +4,7 @@ import { SidebarProvider } from "@/components/layout/SidebarContext";
 import DashboardContent from "@/components/layout/DashboardContent";
 import GlobalDragPrevention from "@/components/shared/GlobalDragPrevention";
 import CommandPalette from "@/components/shared/CommandPalette";
+import PageGuard from "@/components/shared/PageGuard";
 
 export default function DashboardLayout({
   children,
@@ -15,6 +16,7 @@ export default function DashboardLayout({
       <SidebarProvider>
         <GlobalDragPrevention />
         <CommandPalette />
+        <PageGuard />
         <div className="min-h-screen bg-bb-black">
           <Sidebar />
           <DashboardContent>

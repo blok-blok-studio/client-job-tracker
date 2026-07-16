@@ -689,3 +689,41 @@ export async function sendContractSignedAdminEmail(params: {
 
   return data;
 }
+
+export async function sendNewsletterEmail(params: {
+  to: string;
+  subject: string;
+  bodyHtml: string;
+  unsubscribeUrl: string;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: params.subject,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <div style="color: #333; font-size: 16px; line-height: 1.6;">
+          ${params.bodyHtml}
+        </div>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 40px 0 16px;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">
+          You're receiving this because you subscribed to Blok Blok Studio updates.<br/>
+          <a href="${params.unsubscribeUrl}" style="color: #999;">Unsubscribe</a>
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) throw new Error(error.message);
+  return data;
+}

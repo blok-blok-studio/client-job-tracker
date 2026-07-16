@@ -46,6 +46,36 @@ export async function GET() {
     prisma.client.count({ where: { type: "ACTIVE" } }),
   ]);
 
+  // Lead-source funnel: leads → active (won) → revenue, per client.source
+  const [allClients, paidInvoices, newsletterCount] = await Promise.all([
+    prisma.client.findMany({
+      where: { type: { not: "ARCHIVED" } },
+      select: { id: true, source: true, type: true },
+    }),
+    prisma.invoice.findMany({ where: { status: "PAID" }, select: { clientId: true, amount: true } }),
+    prisma.newsletterSubscriber.count({ where: { unsubscribedAt: null } }),
+  ]);
+  const revenueByClientId = new Map<string, number>();
+  for (const inv of paidInvoices) {
+    revenueByClientId.set(inv.clientId, (revenueByClientId.get(inv.clientId) || 0) + Number(inv.amount));
+  }
+  const bySource = new Map<string, { leads: number; won: number; revenue: number }>();
+  for (const c of allClients) {
+    const key = c.source?.trim() || "Unknown";
+    const row = bySource.get(key) || { leads: 0, won: 0, revenue: 0 };
+    row.leads++;
+    if (c.type === "ACTIVE" || c.type === "PAST") row.won++;
+    row.revenue += revenueByClientId.get(c.id) || 0;
+    bySource.set(key, row);
+  }
+  const leadSources = Array.from(bySource, ([source, r]) => ({
+    source,
+    leads: r.leads,
+    won: r.won,
+    winRate: r.leads > 0 ? Math.round((r.won / r.leads) * 100) : 0,
+    revenue: r.revenue,
+  })).sort((a, b) => b.revenue - a.revenue || b.leads - a.leads);
+
   // Resolve client names for the hours table
   const clientIds = timeByClient.map((t) => t.clientId).filter((id): id is string => !!id);
   const clients = clientIds.length
@@ -81,6 +111,8 @@ export async function GET() {
       })),
       openTickets: openTicketCount,
       activeClients: activeClientCount,
+      leadSources,
+      newsletterCount,
     },
   });
 }
