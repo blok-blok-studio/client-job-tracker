@@ -24,3 +24,26 @@ export async function GET(request: NextRequest) {
 
   return page("You've been unsubscribed. Sorry to see you go!");
 }
+
+// Server-to-server suppression: blokblokstudio.com forwards its own
+// unsubscribes here so someone who opts out on the site never lingers
+// on this list. Authenticated with the shared lead-webhook secret.
+export async function POST(request: NextRequest) {
+  const secret = process.env.LEAD_WEBHOOK_SECRET;
+  if (!secret || request.headers.get("x-webhook-secret") !== secret) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { email } = (await request.json()) as { email?: string };
+    if (!email || typeof email !== "string") {
+      return NextResponse.json({ success: false, error: "Missing email" }, { status: 400 });
+    }
+    await prisma.newsletterSubscriber
+      .update({ where: { email: email.toLowerCase() }, data: { unsubscribedAt: new Date() } })
+      .catch(() => {}); // not on the list — nothing to suppress
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 });
+  }
+}
