@@ -49,6 +49,7 @@ export default function KanbanBoard() {
   const [addModalStatus, setAddModalStatus] = useState<TaskStatus | null>(null);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
+  const [team, setTeam] = useState<Array<{ id: string; name: string }>>([]);
   const [view, setView] = useState<"board" | "calendar">("board");
 
   const sensors = useSensors(
@@ -86,6 +87,9 @@ export default function KanbanBoard() {
     fetch("/api/clients?type=ACTIVE").then((r) => r.json()).then((d) => {
       if (d.success) setClients(d.data.map((c: Record<string, string>) => ({ id: c.id, name: c.name })));
     });
+    fetch("/api/users/assignable").then((r) => r.json()).then((d) => {
+      if (d.success) setTeam(d.data);
+    }).catch(() => {});
   }, [fetchTasks]);
 
   const visibleTasks = useMemo(() => {
@@ -259,8 +263,8 @@ export default function KanbanBoard() {
           </select>
           <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)} className="flex-1 min-w-[100px] px-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-bb-muted">
             <option value="">All Assignees</option>
-            <option value="agent">Agent</option>
-            <option value="chase">Chase</option>
+            <option value="agent">Agent (AI)</option>
+            {team.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
           </select>
         </div>
       </div>
@@ -351,8 +355,8 @@ export default function KanbanBoard() {
             <div>
               <label className="block text-sm text-bb-muted mb-1">Assign To</label>
               <select name="assignedTo" defaultValue="agent" className={inputClass}>
-                <option value="agent">Agent</option>
-                <option value="chase">Chase</option>
+                <option value="agent">Agent (AI)</option>
+                {team.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
               </select>
             </div>
           </div>

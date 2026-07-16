@@ -63,6 +63,14 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
   const [newItem, setNewItem] = useState("");
   const [update, setUpdate] = useState("");
   const [posting, setPosting] = useState(false);
+  const [team, setTeam] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    fetch("/api/users/assignable")
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setTeam(d.data); })
+      .catch(() => {});
+  }, []);
 
   const fetchTask = useCallback(async () => {
     if (!taskId) return;
@@ -227,19 +235,26 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
             </div>
             <div>
               <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-bb-dim">Assigned</p>
-              <div className="flex gap-1.5">
-                {(["agent", "chase"] as const).map((a) => (
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { key: "agent", label: "Agent (AI)" },
+                  ...team.map((u) => ({ key: u.name, label: u.name })),
+                  // Legacy assignee not in the team list (e.g. deactivated user)
+                  ...(task.assignedTo && task.assignedTo !== "agent" && !team.some((u) => u.name === task.assignedTo)
+                    ? [{ key: task.assignedTo, label: task.assignedTo }]
+                    : []),
+                ].map((a) => (
                   <button
-                    key={a}
-                    onClick={() => a !== task.assignedTo && patchTask({ assignedTo: a })}
+                    key={a.key}
+                    onClick={() => a.key !== task.assignedTo && patchTask({ assignedTo: a.key })}
                     className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                      task.assignedTo === a
+                      task.assignedTo === a.key
                         ? "bg-bb-orange text-white"
                         : "bg-bb-elevated text-bb-dim hover:bg-bb-border hover:text-white"
                     }`}
                   >
-                    {a === "agent" ? <Bot size={12} /> : <User size={12} />}
-                    {a === "agent" ? "Agent" : "Chase"}
+                    {a.key === "agent" ? <Bot size={12} /> : <User size={12} />}
+                    {a.label}
                   </button>
                 ))}
               </div>

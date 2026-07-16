@@ -110,8 +110,11 @@ export default function TaskCard({
             </span>
           )}
         </div>
-        <span className="text-bb-dim">
-          {assignedTo === "agent" ? <Bot size={14} /> : <User size={14} />}
+        <span className="flex items-center gap-1 text-bb-dim min-w-0" title={assignedTo === "agent" ? "Agent (AI)" : assignedTo || "Unassigned"}>
+          {assignedTo === "agent" ? <Bot size={14} className="shrink-0" /> : <User size={14} className="shrink-0" />}
+          {assignedTo && assignedTo !== "agent" && (
+            <span className="truncate max-w-[80px] text-[10px]">{assignedTo.split(" ")[0]}</span>
+          )}
         </span>
       </div>
     </div>
