@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getStripe } from "@/lib/stripe";
 
 // Financial overview: collected, outstanding, pipeline, MRR, per-client revenue.
 export async function GET() {
@@ -49,12 +50,26 @@ export async function GET() {
     : [];
   const nameById = new Map(names.map((c) => [c.id, c.name]));
 
+  // Live Stripe balance — best-effort, page still renders if Stripe is down
+  let stripeBalance: { available: number; pending: number; currency: string } | null = null;
+  try {
+    const bal = await getStripe().balance.retrieve();
+    const sum = (arr: Array<{ amount: number; currency: string }>) =>
+      arr.reduce((a, b) => a + b.amount, 0) / 100;
+    stripeBalance = {
+      available: sum(bal.available),
+      pending: sum(bal.pending),
+      currency: (bal.available[0]?.currency || "usd").toUpperCase(),
+    };
+  } catch { /* no key locally / API hiccup */ }
+
   const mrr = activeClients.reduce((a, c) => a + Number(c.monthlyRetainer || 0), 0);
   const pipelineRetainers = prospectClients.reduce((a, c) => a + Number(c.monthlyRetainer || 0), 0);
 
   return NextResponse.json({
     success: true,
     data: {
+      stripeBalance,
       collected: Number(paidAll._sum.amount || 0),
       collectedCount: paidAll._count._all,
       collectedThisMonth: Number(paidMonth._sum.amount || 0),

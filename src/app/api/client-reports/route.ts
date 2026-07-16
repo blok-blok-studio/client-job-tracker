@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
-import { generateClientReport } from "@/lib/report-ai";
+import { generateClientReport, type GeneratedReport } from "@/lib/report-ai";
+import { getSession } from "@/lib/auth";
 
 export const maxDuration = 300;
 
@@ -38,12 +39,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Client not found" }, { status: 404 });
     }
 
+    // Prior months' metrics feed the growth trajectory
+    const priors = await prisma.clientReport.findMany({
+      where: { clientId, month: { lt: month } },
+      orderBy: { month: "desc" },
+      take: 5,
+      select: { month: true, report: true },
+    });
+    const priorReports = priors
+      .map((p) => {
+        const r = p.report as unknown as GeneratedReport | null;
+        return r?.metrics?.length
+          ? { month: p.month, metrics: r.metrics.map((m) => ({ label: m.label, value: m.value })) }
+          : null;
+      })
+      .filter((x): x is { month: string; metrics: Array<{ label: string; value: string }> } => !!x)
+      .reverse();
+
+    const session = await getSession();
     const { report, error } = await generateClientReport({
       clientName: client.name,
       company: client.company,
       month,
       rawData,
       notes,
+      priorReports,
     });
 
     if (!report) {
@@ -52,8 +72,8 @@ export async function POST(request: NextRequest) {
 
     const saved = await prisma.clientReport.upsert({
       where: { clientId_month: { clientId, month } },
-      update: { rawData, notes: notes || null, report: report as object, status: "DRAFT", sentAt: null, sentTo: null },
-      create: { clientId, month, rawData, notes: notes || null, report: report as object },
+      update: { rawData, notes: notes || null, report: report as object, status: "DRAFT", sentAt: null, sentTo: null, preparedBy: session?.name || null },
+      create: { clientId, month, rawData, notes: notes || null, report: report as object, preparedBy: session?.name || null },
       include: { client: { select: { id: true, name: true, company: true, email: true } } },
     });
 

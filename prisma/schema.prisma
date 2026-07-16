@@ -174,7 +174,8 @@ model ClientReport {
   month    String // "2026-07"
   rawData  String       @db.Text
   notes    String?      @db.Text
-  report   Json? // { metrics, highlights, summary, recommendations }
+  report     Json? // { metrics, highlights, summary, trajectory, recommendations }
+  preparedBy String?
   status   ReportStatus @default(DRAFT)
   sentAt   DateTime?
   sentTo   String?

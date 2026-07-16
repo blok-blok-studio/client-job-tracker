@@ -9,10 +9,17 @@ import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { useToast } from "@/components/shared/Toast";
 
 interface ReportMetric { label: string; value: string; change?: string | null }
+interface TrajectoryItem {
+  label: string;
+  points: Array<{ month: string; value: string }>;
+  direction: "up" | "down" | "flat";
+  note: string;
+}
 interface ReportBody {
   metrics: ReportMetric[];
   highlights: string[];
   summary: string[];
+  trajectory?: TrajectoryItem[];
   recommendations: string[];
 }
 interface ClientReport {
@@ -22,6 +29,7 @@ interface ClientReport {
   sentAt: string | null;
   sentTo: string | null;
   report: ReportBody | null;
+  preparedBy?: string | null;
   updatedAt: string;
   client: { id: string; name: string; company: string | null; email: string | null };
 }
@@ -249,6 +257,7 @@ export default function MonthlyReportsPage() {
                   <h2 className="text-lg font-display font-bold text-white">{monthLabel(selected.month)} Performance Report</h2>
                   <p className="text-xs text-bb-dim mt-0.5">
                     {selected.client.name}
+                    {selected.preparedBy && <span> · prepared by <span className="text-bb-orange">{selected.preparedBy}</span></span>}
                     {selected.status === "SENT" && selected.sentTo && (
                       <span className="text-emerald-400"> · sent to {selected.sentTo}</span>
                     )}
@@ -270,7 +279,12 @@ export default function MonthlyReportsPage() {
               {/* Metrics */}
               <div className="grid grid-cols-2 gap-2">
                 {body.metrics.map((m) => (
-                  <div key={m.label} className="rounded-lg border border-bb-border bg-bb-black p-3 text-center">
+                  <div
+                    key={m.label}
+                    className={`rounded-lg border border-bb-border border-l-4 bg-bb-black p-3 text-center ${
+                      !m.change ? "border-l-bb-border" : m.change.trim().startsWith("-") ? "border-l-red-500" : m.change.trim().startsWith("+") ? "border-l-emerald-500" : "border-l-amber-500"
+                    }`}
+                  >
                     <p className="text-xl font-display font-bold text-white">{m.value}</p>
                     <p className="text-[11px] text-bb-dim mt-0.5">{m.label}</p>
                     {m.change && (
@@ -281,6 +295,51 @@ export default function MonthlyReportsPage() {
                   </div>
                 ))}
               </div>
+
+              {(body.trajectory?.length || 0) > 0 && (
+                <div>
+                  <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-bb-dim mb-2">
+                    <TrendingUp size={12} /> Growth trajectory
+                  </h3>
+                  <div className="space-y-2">
+                    {body.trajectory!.map((t) => {
+                      const color = t.direction === "up" ? "emerald" : t.direction === "down" ? "red" : "amber";
+                      return (
+                        <div
+                          key={t.label}
+                          className={`rounded-lg border border-bb-border border-l-4 bg-bb-black p-3 ${
+                            color === "emerald" ? "border-l-emerald-500" : color === "red" ? "border-l-red-500" : "border-l-amber-500"
+                          }`}
+                        >
+                          <p className="text-sm font-semibold text-white mb-1.5">
+                            {t.label}{" "}
+                            <span className={color === "emerald" ? "text-emerald-400" : color === "red" ? "text-red-400" : "text-amber-400"}>
+                              {t.direction === "up" ? "▲" : t.direction === "down" ? "▼" : "▶"}
+                            </span>
+                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                            {t.points.map((pt, i) => (
+                              <span key={pt.month} className="flex items-center gap-1.5">
+                                {i > 0 && <span className="text-bb-dim text-[10px]">→</span>}
+                                <span
+                                  className={`rounded px-2 py-1 text-[11px] ${
+                                    i === t.points.length - 1
+                                      ? color === "emerald" ? "bg-emerald-500/20 text-emerald-300 font-semibold" : color === "red" ? "bg-red-500/20 text-red-300 font-semibold" : "bg-amber-500/20 text-amber-300 font-semibold"
+                                      : "bg-bb-elevated text-bb-muted"
+                                  }`}
+                                >
+                                  <span className="opacity-60">{pt.month.slice(5)}/{pt.month.slice(2, 4)}</span> {pt.value}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-xs text-bb-dim leading-relaxed">{t.note}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {body.highlights.length > 0 && (
                 <div>

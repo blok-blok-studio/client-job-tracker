@@ -5,6 +5,7 @@ import { Wallet, TrendingUp, Hourglass, FileText, Repeat, Receipt } from "lucide
 import TopBar from "@/components/layout/TopBar";
 
 interface MoneySummary {
+  stripeBalance: { available: number; pending: number; currency: string } | null;
   collected: number;
   collectedCount: number;
   collectedThisMonth: number;
@@ -65,6 +66,24 @@ export default function MoneyPage() {
               <Tile icon={<Repeat size={13} />} label="MRR (retainers)" value={money(data.mrr)} sub="active client retainers" accent="text-bb-orange" />
               <Tile icon={<FileText size={13} />} label="In pipeline" value={money(data.pipeline)} sub={`drafts + prospect retainers`} />
               <Tile icon={<Receipt size={13} />} label="Avg invoice (paid)" value={money(data.avgTicket)} />
+              {data.stripeBalance && (
+                <>
+                  <Tile
+                    icon={<Wallet size={13} />}
+                    label="Stripe · available"
+                    value={money(data.stripeBalance.available)}
+                    sub="ready to pay out"
+                    accent="text-emerald-400"
+                  />
+                  <Tile
+                    icon={<Hourglass size={13} />}
+                    label="Stripe · pending"
+                    value={money(data.stripeBalance.pending)}
+                    sub="clearing to your balance"
+                    accent="text-blue-400"
+                  />
+                </>
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -44,7 +44,9 @@ export async function POST(
       metrics: report.metrics || [],
       highlights: report.highlights || [],
       summary: report.summary || [],
+      trajectory: report.trajectory || [],
       recommendations: report.recommendations || [],
+      preparedBy: record.preparedBy,
     });
   } catch (err) {
     return NextResponse.json(
