@@ -17,6 +17,7 @@ interface TeamUser {
   lastLoginAt: string | null;
   createdAt: string;
   slackUserId?: string | null;
+  color?: string | null;
 }
 
 export default function TeamPage() {
@@ -178,13 +179,28 @@ export default function TeamPage() {
                     !u.isActive ? "opacity-60" : ""
                   }`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-bb-elevated flex items-center justify-center shrink-0">
+                  <label
+                    className="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 cursor-pointer ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow"
+                    style={{ backgroundColor: u.color || "#1E1E1E" }}
+                    title="Set profile color"
+                  >
                     {u.role === "OWNER" ? (
-                      <Shield size={16} className="text-bb-orange" />
+                      <Shield size={16} className={u.color ? "text-black/70" : "text-bb-orange"} />
                     ) : (
-                      <UserIcon size={16} className="text-bb-muted" />
+                      <UserIcon size={16} className={u.color ? "text-black/70" : "text-bb-muted"} />
                     )}
-                  </div>
+                    <input
+                      type="color"
+                      defaultValue={u.color || "#FF6B00"}
+                      onBlur={(e) => {
+                        if (e.target.value !== (u.color || "#FF6B00")) {
+                          patchUser(u, { color: e.target.value }, "Color updated");
+                        }
+                      }}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      aria-label={`Profile color for ${u.name}`}
+                    />
+                  </label>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-white truncate">{u.name}</span>

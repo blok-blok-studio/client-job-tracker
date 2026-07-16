@@ -239,9 +239,64 @@ export async function GET(request: NextRequest) {
       console.error("[Cron] Playback backfill error:", err);
     }
 
+    // Morning Slack digest — cron fires at UTC 0/6/12/18; only the 6:00 UTC
+    // run (8am Berlin in summer) sends, so the channel gets one digest a day.
+    let digestSent = false;
+    if (new Date().getUTCHours() === 6) {
+      try {
+        const now = new Date();
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const dueTasks = (await prisma.task.findMany({
+          where: { status: { notIn: ["DONE"] }, dueDate: { lt: endOfToday } },
+          select: {
+            title: true,
+            dueDate: true,
+            assignedTo: true,
+            client: { select: { name: true } },
+          },
+          orderBy: { dueDate: "asc" },
+          take: 25,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        })) as any as Array<{
+          title: string;
+          dueDate: Date | null;
+          assignedTo: string | null;
+          client: { name: string } | null;
+        }>;
+
+        if (dueTasks.length > 0) {
+          const users = await prisma.user.findMany({
+            where: { isActive: true },
+            select: { name: true, slackUserId: true },
+          });
+          const mention = (assignee: string | null) => {
+            if (!assignee) return "";
+            const u = users.find((x) => x.name.toLowerCase() === assignee.toLowerCase());
+            return u?.slackUserId ? ` — <@${u.slackUserId}>` : ` — ${assignee}`;
+          };
+          const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const overdueLines = dueTasks
+            .filter((t) => t.dueDate && t.dueDate < startOfToday)
+            .map((t) => `• *${t.title}*${t.client ? ` (${t.client.name})` : ""}${mention(t.assignedTo)}`);
+          const todayLines = dueTasks
+            .filter((t) => t.dueDate && t.dueDate >= startOfToday)
+            .map((t) => `• *${t.title}*${t.client ? ` (${t.client.name})` : ""}${mention(t.assignedTo)}`);
+
+          const { notifySlack } = await import("@/lib/slack");
+          const parts = [":sunrise: *Morning digest*"];
+          if (overdueLines.length) parts.push(`*Overdue (${overdueLines.length})*\n${overdueLines.join("\n")}`);
+          if (todayLines.length) parts.push(`*Due today (${todayLines.length})*\n${todayLines.join("\n")}`);
+          await notifySlack(parts.join("\n\n"));
+          digestSent = true;
+        }
+      } catch (err) {
+        console.error("[Cron] Digest error:", err);
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      data: { recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated },
+      data: { recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated, digestSent },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";

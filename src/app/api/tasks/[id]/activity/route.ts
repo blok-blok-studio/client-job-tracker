@@ -45,12 +45,26 @@ export async function POST(
       },
     });
 
+    // Convert "@Kyle" style mentions into real Slack pings
+    let slackDetail = details;
+    try {
+      const users = await prisma.user.findMany({
+        where: { isActive: true, slackUserId: { not: null } },
+        select: { name: true, slackUserId: true },
+      });
+      for (const u of users) {
+        const first = u.name.split(" ")[0];
+        const re = new RegExp(`@(${u.name}|${first})\\b`, "gi");
+        slackDetail = slackDetail.replace(re, `<@${u.slackUserId}>`);
+      }
+    } catch { /* mentions are best-effort */ }
+
     notifySlackTaskEvent({
       kind: "update",
       title: task.title,
       clientName: task.client?.name,
       actor: session?.name,
-      detail: details,
+      detail: slackDetail,
     }).catch(() => {});
 
     return NextResponse.json({ success: true, data: log }, { status: 201 });

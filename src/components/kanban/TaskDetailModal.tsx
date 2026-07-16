@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Calendar, User, Trash2, Plus, Check, X, Send, Loader2, ArrowRight,
+  Calendar, User, Trash2, Plus, Check, X, Send, Loader2, ArrowRight, Timer, Play, Square,
 } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
@@ -51,6 +51,13 @@ const PRIORITY_OPTIONS: { key: Priority; label: string; badge: "red" | "orange" 
   { key: "LOW", label: "Low", badge: "gray" },
 ];
 
+function fmtMinutes(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
 /** Black or white text depending on how light the background color is. */
 function contrastText(hex: string): string {
   const n = parseInt(hex.slice(1), 16);
@@ -78,6 +85,60 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
       .then((d) => { if (d.success) setTeam(d.data); })
       .catch(() => {});
   }, []);
+
+  // ── Time tracking ──
+  const [totalMinutes, setTotalMinutes] = useState(0);
+  const [customMins, setCustomMins] = useState("");
+  const [timerStart, setTimerStart] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  const fetchTime = useCallback(async () => {
+    if (!taskId) return;
+    const res = await fetch(`/api/tasks/${taskId}/time`);
+    const data = await res.json();
+    if (data.success) setTotalMinutes(data.data.totalMinutes);
+  }, [taskId]);
+
+  useEffect(() => {
+    if (!taskId) return;
+    fetchTime();
+    const saved = localStorage.getItem(`bb-timer-${taskId}`);
+    setTimerStart(saved ? Number(saved) : null);
+  }, [taskId, fetchTime]);
+
+  useEffect(() => {
+    if (!timerStart) return;
+    const tick = () => setElapsed(Math.floor((Date.now() - timerStart) / 1000));
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [timerStart]);
+
+  async function logMinutes(mins: number) {
+    if (!taskId || mins < 1) return;
+    await fetch(`/api/tasks/${taskId}/time`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ minutes: mins }),
+    });
+    fetchTime();
+  }
+
+  function startTimer() {
+    if (!taskId) return;
+    const now = Date.now();
+    localStorage.setItem(`bb-timer-${taskId}`, String(now));
+    setTimerStart(now);
+  }
+
+  async function stopTimer() {
+    if (!taskId || !timerStart) return;
+    const mins = Math.max(1, Math.round((Date.now() - timerStart) / 60000));
+    localStorage.removeItem(`bb-timer-${taskId}`);
+    setTimerStart(null);
+    setElapsed(0);
+    await logMinutes(mins);
+  }
 
   const fetchTask = useCallback(async () => {
     if (!taskId) return;
@@ -342,6 +403,65 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   className="p-1.5 rounded-lg bg-bb-elevated text-bb-dim hover:text-bb-orange disabled:opacity-40 transition-colors"
                 >
                   <Plus size={14} />
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Time tracking */}
+          <div>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-bb-dim">
+              Time logged {totalMinutes > 0 && <span className="text-bb-orange normal-case">· {fmtMinutes(totalMinutes)}</span>}
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {timerStart ? (
+                <button
+                  onClick={stopTimer}
+                  className="flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                >
+                  <Square size={11} />
+                  Stop · {fmtMinutes(Math.floor(elapsed / 60))} {String(elapsed % 60).padStart(2, "0")}s
+                </button>
+              ) : (
+                <button
+                  onClick={startTimer}
+                  className="flex items-center gap-1.5 rounded-lg bg-bb-elevated hover:bg-bb-border px-3 py-1.5 text-xs font-semibold text-bb-muted hover:text-white transition-colors"
+                >
+                  <Play size={11} />
+                  Start timer
+                </button>
+              )}
+              {[15, 30, 60].map((m) => (
+                <button
+                  key={m}
+                  onClick={() => logMinutes(m)}
+                  className="rounded-lg bg-bb-elevated hover:bg-bb-border px-2.5 py-1.5 text-xs font-semibold text-bb-dim hover:text-white transition-colors"
+                >
+                  +{m === 60 ? "1h" : `${m}m`}
+                </button>
+              ))}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const m = parseInt(customMins, 10);
+                  if (m > 0) { logMinutes(m); setCustomMins(""); }
+                }}
+                className="flex items-center gap-1"
+              >
+                <Timer size={12} className="text-bb-dim" />
+                <input
+                  value={customMins}
+                  onChange={(e) => setCustomMins(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="min"
+                  inputMode="numeric"
+                  className="w-14 px-2 py-1.5 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                />
+                <button
+                  type="submit"
+                  disabled={!customMins}
+                  className="rounded-lg bg-bb-elevated px-2 py-1.5 text-xs text-bb-dim hover:text-bb-orange disabled:opacity-40 transition-colors"
+                >
+                  <Plus size={12} />
                 </button>
               </form>
             </div>

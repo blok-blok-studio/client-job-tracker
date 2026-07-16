@@ -47,7 +47,9 @@ export default function FilesPage() {
   const { toast } = useToast();
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() =>
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("search") || "" : ""
+  );
   const [filterType, setFilterType] = useState<"ALL" | "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT">("ALL");
   const [filterClient, setFilterClient] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");

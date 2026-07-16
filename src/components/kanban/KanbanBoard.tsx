@@ -87,6 +87,12 @@ export default function KanbanBoard() {
     }
   }, []);
 
+  // Deep link: /kanban?task=<id> opens the task detail (used by ⌘K search)
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("task");
+    if (id) setDetailTaskId(id);
+  }, []);
+
   useEffect(() => {
     fetchTasks();
     fetch("/api/clients?type=ACTIVE").then((r) => r.json()).then((d) => {

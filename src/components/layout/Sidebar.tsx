@@ -16,6 +16,8 @@ import {
   PenSquare,
   Zap,
   UsersRound,
+  ListTodo,
+  BarChart3,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -30,6 +32,7 @@ const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/kanban", label: "Kanban", icon: Columns3 },
+  { href: "/my-tasks", label: "My Tasks", icon: ListTodo },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/content", label: "Content", icon: PenSquare },
   { href: "/automation", label: "Automations", icon: Zap },
@@ -37,6 +40,7 @@ const navItems = [
   { href: "/vault", label: "Vault", icon: Lock },
   { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/activity", label: "Activity", icon: Activity },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/support", label: "Support", icon: MessageCircle },
 ];
 

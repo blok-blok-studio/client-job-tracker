@@ -3,6 +3,7 @@ import { ToastProvider } from "@/components/shared/Toast";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
 import DashboardContent from "@/components/layout/DashboardContent";
 import GlobalDragPrevention from "@/components/shared/GlobalDragPrevention";
+import CommandPalette from "@/components/shared/CommandPalette";
 
 export default function DashboardLayout({
   children,
@@ -13,6 +14,7 @@ export default function DashboardLayout({
     <ToastProvider>
       <SidebarProvider>
         <GlobalDragPrevention />
+        <CommandPalette />
         <div className="min-h-screen bg-bb-black">
           <Sidebar />
           <DashboardContent>

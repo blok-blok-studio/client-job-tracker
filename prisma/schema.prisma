@@ -72,6 +72,7 @@ model Client {
   contentPosts     ContentPost[]
   mediaFiles       ClientMedia[]
   automationFlows  AutomationFlow[]
+  timeEntries      TimeEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -151,6 +152,7 @@ model Task {
 
   checklistItems ChecklistItem[]
   activityLogs   ActivityLog[]
+  timeEntries    TimeEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -160,6 +162,24 @@ model Task {
   @@index([priority])
   @@index([dueDate])
   @@index([isRecurring])
+}
+
+// --- TIME TRACKING (billable hours per task/client) ---
+model TimeEntry {
+  id       String  @id @default(cuid())
+  taskId   String
+  task     Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  userName String
+  minutes  Int
+  note     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@index([clientId])
+  @@index([createdAt])
 }
 
 enum TaskStatus {
