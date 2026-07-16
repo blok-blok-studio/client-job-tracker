@@ -16,6 +16,7 @@ interface Task {
   assignedTo: string | null;
   assigneeColor?: string | null;
   clientUnpaid?: number | null;
+  isRecurring?: boolean;
   checklistTotal: number;
   checklistDone: number;
 }

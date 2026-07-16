@@ -31,6 +31,8 @@ interface TaskDetail {
   category: TaskCategory;
   dueDate: string | null;
   assignedTo: string | null;
+  isRecurring: boolean;
+  recurPattern: string | null;
   tags: string[];
   client: { id: string; name: string } | null;
   checklistItems: ChecklistItem[];
@@ -288,7 +290,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
           </div>
 
           {/* Due date + assignee + category */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-bb-dim">Due date</p>
               <div className="flex items-center gap-1.5">
@@ -348,6 +350,24 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   );
                 })}
               </div>
+            </div>
+            <div>
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-bb-dim">Repeats</p>
+              <select
+                value={task.isRecurring ? task.recurPattern || "" : ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  patchTask({ isRecurring: !!v, recurPattern: v || null });
+                }}
+                className="w-full px-2 py-1.5 bg-bb-black border border-bb-border rounded-md text-xs text-white focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              >
+                <option value="">Never</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Every 2 weeks</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+              </select>
             </div>
             <div>
               <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-bb-dim">Category</p>

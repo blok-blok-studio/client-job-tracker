@@ -88,6 +88,13 @@ export async function processRecurringTasks(): Promise<number> {
       },
     });
 
+    // Advance the template's clock so the next cycle computes from this
+    // spawn, not from a stale completion date
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { completedAt: nextDue, dueDate: nextDue },
+    });
+
     // Log the activity
     await prisma.activityLog.create({
       data: {

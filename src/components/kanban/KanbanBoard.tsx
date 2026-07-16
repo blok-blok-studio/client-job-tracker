@@ -31,6 +31,7 @@ interface Task {
   category: TaskCategory;
   dueDate: string | null;
   assignedTo: string | null;
+  isRecurring?: boolean;
   sortOrder: number;
   clientName: string | null;
   clientId: string | null;
@@ -77,6 +78,7 @@ export default function KanbanBoard() {
           category: t.category,
           dueDate: t.dueDate,
           assignedTo: t.assignedTo,
+          isRecurring: !!t.isRecurring,
           sortOrder: t.sortOrder,
           clientName: (t.client as Record<string, string> | null)?.name || null,
           clientId: t.clientId,
@@ -245,6 +247,8 @@ export default function KanbanBoard() {
       assignedTo: (formData.get("assignedTo") as string) || null,
       dueDate: (formData.get("dueDate") as string) || null,
       status: addModalStatus,
+      isRecurring: !!(formData.get("recurPattern") as string),
+      recurPattern: (formData.get("recurPattern") as string) || null,
     };
 
     await fetch("/api/tasks", {
@@ -414,9 +418,22 @@ export default function KanbanBoard() {
               </select>
             </div>
           </div>
-          <div>
-            <label className="block text-sm text-bb-muted mb-1">Due Date</label>
-            <input name="dueDate" type="date" className={inputClass} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-bb-muted mb-1">Due Date</label>
+              <input name="dueDate" type="date" className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-sm text-bb-muted mb-1">Repeats</label>
+              <select name="recurPattern" defaultValue="" className={inputClass}>
+                <option value="">Never</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Every 2 weeks</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+              </select>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => setAddModalStatus(null)} className="px-4 py-2 text-sm text-bb-muted hover:text-white">Cancel</button>

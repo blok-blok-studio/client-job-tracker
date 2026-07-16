@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { User, Calendar, Trash2 } from "lucide-react";
+import { User, Calendar, Trash2, Repeat } from "lucide-react";
 import Badge from "@/components/shared/Badge";
 import { formatRelativeDate } from "@/lib/utils";
 import type { Priority, TaskCategory } from "@/types";
@@ -17,6 +17,7 @@ interface TaskCardProps {
   assignedTo: string | null;
   assigneeColor?: string | null;
   clientUnpaid?: number | null;
+  isRecurring?: boolean;
   checklistTotal: number;
   checklistDone: number;
   onClick: () => void;
@@ -54,6 +55,7 @@ export default function TaskCard({
   assignedTo,
   assigneeColor,
   clientUnpaid,
+  isRecurring,
   checklistTotal,
   checklistDone,
   onClick,
@@ -131,6 +133,11 @@ export default function TaskCard({
             <span className={`flex items-center gap-1 ${isOverdue ? "text-red-400" : "text-bb-dim"}`}>
               <Calendar size={10} />
               {formatRelativeDate(new Date(dueDate))}
+            </span>
+          )}
+          {isRecurring && (
+            <span className="flex items-center gap-0.5 text-bb-orange" title="Recurring task">
+              <Repeat size={10} />
             </span>
           )}
         </div>
