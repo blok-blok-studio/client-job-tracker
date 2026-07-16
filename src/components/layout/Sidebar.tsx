@@ -20,6 +20,7 @@ import {
   BarChart3,
   Mail,
   Wallet,
+  FileBarChart,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -45,6 +46,7 @@ const navItems = [
   { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/monthly-reports", label: "Monthly Reports", icon: FileBarChart },
   { href: "/support", label: "Support", icon: MessageCircle },
 ];
 

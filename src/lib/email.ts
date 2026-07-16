@@ -727,3 +727,88 @@ export async function sendNewsletterEmail(params: {
   if (error) throw new Error(error.message);
   return data;
 }
+
+export async function sendClientReportEmail(params: {
+  to: string;
+  clientName: string;
+  monthLabel: string;
+  metrics: Array<{ label: string; value: string; change?: string | null }>;
+  highlights: string[];
+  summary: string[];
+  recommendations: string[];
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const metricCells = params.metrics
+    .map(
+      (m) => `
+      <td style="padding: 12px 16px; border: 1px solid #eee; text-align: center;">
+        <div style="font-size: 22px; font-weight: 700; color: #111;">${esc(m.value)}</div>
+        <div style="font-size: 12px; color: #666; margin-top: 2px;">${esc(m.label)}</div>
+        ${m.change ? `<div style="font-size: 12px; font-weight: 600; margin-top: 2px; color: ${m.change.trim().startsWith("-") ? "#dc2626" : "#059669"};">${esc(m.change)}</div>` : ""}
+      </td>`
+    )
+    .join("");
+  // 2 metrics per row
+  const metricRows: string[] = [];
+  const cells = params.metrics.length;
+  for (let i = 0; i < cells; i += 2) {
+    const slice = params.metrics.slice(i, i + 2);
+    metricRows.push(
+      `<tr>${slice
+        .map(
+          (m) => `
+        <td width="50%" style="padding: 12px 16px; border: 1px solid #eee; text-align: center;">
+          <div style="font-size: 22px; font-weight: 700; color: #111;">${esc(m.value)}</div>
+          <div style="font-size: 12px; color: #666; margin-top: 2px;">${esc(m.label)}</div>
+          ${m.change ? `<div style="font-size: 12px; font-weight: 600; margin-top: 2px; color: ${m.change.trim().startsWith("-") ? "#dc2626" : "#059669"};">${esc(m.change)}</div>` : ""}
+        </td>`
+        )
+        .join("")}${slice.length === 1 ? "<td width=\"50%\" style=\"border: none;\"></td>" : ""}</tr>`
+    );
+  }
+  void metricCells;
+
+  const list = (items: string[]) =>
+    items.map((h) => `<li style="margin: 0 0 8px; color: #333; line-height: 1.6;">${esc(h)}</li>`).join("");
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: `Your ${params.monthLabel} Performance Report — Blok Blok Studio`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <h1 style="color: #111; font-size: 22px; margin: 0 0 4px;">${esc(params.monthLabel)} Performance Report</h1>
+        <p style="color: #666; font-size: 14px; margin: 0 0 24px;">Prepared for ${esc(params.clientName)}</p>
+
+        <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse: collapse; margin-bottom: 28px;">
+          ${metricRows.join("")}
+        </table>
+
+        ${params.highlights.length ? `<h3 style="color: #111; font-size: 16px; margin: 0 0 10px;">Highlights</h3><ul style="padding-left: 20px; margin: 0 0 24px;">${list(params.highlights)}</ul>` : ""}
+
+        ${params.summary.map((p) => `<p style="color: #333; font-size: 15px; line-height: 1.7; margin: 0 0 14px;">${esc(p)}</p>`).join("")}
+
+        ${params.recommendations.length ? `<h3 style="color: #111; font-size: 16px; margin: 24px 0 10px;">What's next</h3><ul style="padding-left: 20px; margin: 0 0 24px;">${list(params.recommendations)}</ul>` : ""}
+
+        <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0 16px;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">
+          Questions about this report? Just reply to this email.<br/>Blok Blok Studio · chase@blokblokstudio.com
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) throw new Error(error.message);
+  return data;
+}

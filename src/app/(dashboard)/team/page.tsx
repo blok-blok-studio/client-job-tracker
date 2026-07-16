@@ -35,6 +35,7 @@ const PAGE_OPTIONS: Array<{ key: string; label: string }> = [
   { key: "invoices", label: "Invoices" },
   { key: "activity", label: "Activity" },
   { key: "reports", label: "Reports" },
+  { key: "monthly-reports", label: "Monthly Reports" },
   { key: "support", label: "Support" },
 ];
 
