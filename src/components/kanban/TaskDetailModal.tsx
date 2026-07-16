@@ -51,6 +51,13 @@ const PRIORITY_OPTIONS: { key: Priority; label: string; badge: "red" | "orange" 
   { key: "LOW", label: "Low", badge: "gray" },
 ];
 
+/** Black or white text depending on how light the background color is. */
+function contrastText(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const luma = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return luma > 150 ? "rgba(0,0,0,0.85)" : "#fff";
+}
+
 function formatTimestamp(dateStr: string) {
   const d = new Date(dateStr);
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
@@ -63,7 +70,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
   const [newItem, setNewItem] = useState("");
   const [update, setUpdate] = useState("");
   const [posting, setPosting] = useState(false);
-  const [team, setTeam] = useState<Array<{ id: string; name: string }>>([]);
+  const [team, setTeam] = useState<Array<{ id: string; name: string; color?: string | null }>>([]);
 
   useEffect(() => {
     fetch("/api/users/assignable")
@@ -247,28 +254,38 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   Unassigned
                 </button>
                 {[
-                  ...team.map((u) => ({ key: u.name, label: u.name })),
+                  ...team.map((u) => ({ key: u.name, label: u.name, color: u.color || null })),
                   // Legacy assignee not in the team list (case-insensitive —
                   // old tasks stored lowercase names like "chase")
                   ...(task.assignedTo &&
                   task.assignedTo.toLowerCase() !== "agent" &&
                   !team.some((u) => u.name.toLowerCase() === task.assignedTo!.toLowerCase())
-                    ? [{ key: task.assignedTo, label: task.assignedTo }]
+                    ? [{ key: task.assignedTo, label: task.assignedTo, color: null }]
                     : []),
-                ].map((a) => (
-                  <button
-                    key={a.key}
-                    onClick={() => a.key !== task.assignedTo && patchTask({ assignedTo: a.key })}
-                    className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                      task.assignedTo?.toLowerCase() === a.key.toLowerCase()
-                        ? "bg-bb-orange text-white"
-                        : "bg-bb-elevated text-bb-dim hover:bg-bb-border hover:text-white"
-                    }`}
-                  >
-                    <User size={12} />
-                    {a.label}
-                  </button>
-                ))}
+                ].map((a) => {
+                  const selected = task.assignedTo?.toLowerCase() === a.key.toLowerCase();
+                  return (
+                    <button
+                      key={a.key}
+                      onClick={() => a.key !== task.assignedTo && patchTask({ assignedTo: a.key })}
+                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                        selected
+                          ? a.color
+                            ? ""
+                            : "bg-bb-orange text-white"
+                          : "bg-bb-elevated text-bb-dim hover:bg-bb-border hover:text-white"
+                      }`}
+                      style={selected && a.color ? { backgroundColor: a.color, color: contrastText(a.color) } : undefined}
+                    >
+                      {a.color && !selected ? (
+                        <span className="w-2 h-2 rounded-full ring-1 ring-white/20" style={{ backgroundColor: a.color }} />
+                      ) : (
+                        <User size={12} />
+                      )}
+                      {a.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div>

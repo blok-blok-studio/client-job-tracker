@@ -22,6 +22,7 @@ export async function GET() {
       lastLoginAt: true,
       createdAt: true,
       slackUserId: true,
+      color: true,
     },
   });
 
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
       lastLoginAt: true,
       createdAt: true,
       slackUserId: true,
+      color: true,
     },
   });
 

@@ -18,6 +18,7 @@ model User {
   isActive     Boolean  @default(true)
   lastLoginAt  DateTime?
   slackUserId  String?  // Slack member ID (U…) for @-mentions in task alerts
+  color        String?  // Profile hex color for avatars and task assignee accents
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

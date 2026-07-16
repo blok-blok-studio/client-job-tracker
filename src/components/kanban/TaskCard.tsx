@@ -15,6 +15,7 @@ interface TaskCardProps {
   category: TaskCategory;
   dueDate: string | null;
   assignedTo: string | null;
+  assigneeColor?: string | null;
   checklistTotal: number;
   checklistDone: number;
   onClick: () => void;
@@ -50,6 +51,7 @@ export default function TaskCard({
   category,
   dueDate,
   assignedTo,
+  assigneeColor,
   checklistTotal,
   checklistDone,
   onClick,
@@ -124,8 +126,20 @@ export default function TaskCard({
         </div>
         {assignedTo && assignedTo !== "agent" && (
           <span className="flex items-center gap-1 text-bb-dim min-w-0" title={assignedTo}>
-            <User size={14} className="shrink-0" />
-            <span className="truncate max-w-[80px] text-[10px]">{assignedTo.split(" ")[0]}</span>
+            {assigneeColor ? (
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/20"
+                style={{ backgroundColor: assigneeColor }}
+              />
+            ) : (
+              <User size={14} className="shrink-0" />
+            )}
+            <span
+              className="truncate max-w-[80px] text-[10px] font-medium"
+              style={assigneeColor ? { color: assigneeColor } : undefined}
+            >
+              {assignedTo.split(" ")[0]}
+            </span>
           </span>
         )}
       </div>

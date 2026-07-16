@@ -22,7 +22,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
 
@@ -41,9 +41,11 @@ const navItems = [
 ];
 
 interface CurrentUser {
+  id: string;
   name: string;
   email: string;
   role: "OWNER" | "MEMBER";
+  color?: string | null;
 }
 
 export default function Sidebar() {
@@ -52,6 +54,7 @@ export default function Sidebar() {
   const { collapsed, toggle: toggleCollapsed } = useSidebar();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const colorSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -144,9 +147,35 @@ export default function Sidebar() {
       <div className="border-t border-bb-border p-4 space-y-3">
         {currentUser && (!collapsed || mobileOpen) && (
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-full bg-bb-elevated flex items-center justify-center text-xs font-semibold text-white shrink-0">
-              {currentUser.name.charAt(0).toUpperCase()}
-            </div>
+            {/* Avatar doubles as the profile-color picker */}
+            <label
+              className="relative w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 cursor-pointer ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow"
+              style={{ backgroundColor: currentUser.color || "#1E1E1E" }}
+              title="Click to pick your profile color"
+            >
+              <span className={currentUser.color ? "text-black/80" : "text-white"}>
+                {currentUser.name.charAt(0).toUpperCase()}
+              </span>
+              <input
+                type="color"
+                value={currentUser.color || "#FF6B00"}
+                onChange={(e) => {
+                  const color = e.target.value;
+                  setCurrentUser((prev) => (prev ? { ...prev, color } : prev));
+                  // Color pickers fire continuously while dragging — save once settled
+                  if (colorSaveTimer.current) clearTimeout(colorSaveTimer.current);
+                  colorSaveTimer.current = setTimeout(() => {
+                    fetch(`/api/users/${currentUser.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ color }),
+                    }).catch(() => {});
+                  }, 500);
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                aria-label="Profile color"
+              />
+            </label>
             <div className="min-w-0">
               <p className="text-xs font-medium text-white truncate">{currentUser.name}</p>
               <p className="text-[10px] text-bb-dim truncate capitalize">

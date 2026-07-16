@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -49,13 +49,18 @@ export default function KanbanBoard() {
   const [addModalStatus, setAddModalStatus] = useState<TaskStatus | null>(null);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
-  const [team, setTeam] = useState<Array<{ id: string; name: string }>>([]);
+  const [team, setTeam] = useState<Array<{ id: string; name: string; color?: string | null }>>([]);
   const [view, setView] = useState<"board" | "calendar">("board");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  // Tracks the column the dragged card currently sits in, updated on every
+  // dragOver. Refs don't suffer from stale closures, so dragEnd can trust it
+  // even when it fires before React re-renders — state reads could not.
+  const dragStatusRef = useRef<TaskStatus | null>(null);
 
   const fetchTasks = useCallback(async () => {
     const res = await fetch("/api/tasks");
@@ -103,6 +108,11 @@ export default function KanbanBoard() {
     );
   }, [tasks, search, filterClient, filterPriority, filterAssignee]);
 
+  const teamColors = useMemo(
+    () => new Map(team.map((u) => [u.name.toLowerCase(), u.color || null])),
+    [team]
+  );
+
   const tasksByColumn = useMemo(() => {
     const map = new Map<TaskStatus, Task[]>();
     for (const col of STATUS_COLUMNS) map.set(col.key, []);
@@ -124,6 +134,7 @@ export default function KanbanBoard() {
   function handleDragStart(event: DragStartEvent) {
     const task = tasks.find((t) => t.id === event.active.id);
     setActiveTask(task || null);
+    dragStatusRef.current = task?.status || null;
   }
 
   function handleDragOver(event: DragOverEvent) {
@@ -140,6 +151,7 @@ export default function KanbanBoard() {
     const isOverColumn = STATUS_COLUMNS.some((c) => c.key === overId);
     if (isOverColumn) {
       const newStatus = overId as TaskStatus;
+      dragStatusRef.current = newStatus;
       if (activeTaskItem.status !== newStatus) {
         setTasks((prev) =>
           prev.map((t) => (t.id === activeId ? { ...t, status: newStatus } : t))
@@ -150,10 +162,13 @@ export default function KanbanBoard() {
 
     // Dropping over another task
     const overTask = tasks.find((t) => t.id === overId);
-    if (overTask && activeTaskItem.status !== overTask.status) {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === activeId ? { ...t, status: overTask.status } : t))
-      );
+    if (overTask && overId !== activeId) {
+      dragStatusRef.current = overTask.status;
+      if (activeTaskItem.status !== overTask.status) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === activeId ? { ...t, status: overTask.status } : t))
+        );
+      }
     }
   }
 
@@ -164,15 +179,21 @@ export default function KanbanBoard() {
     const movedTask = tasks.find((t) => t.id === activeId);
     if (!movedTask) return;
 
-    // Resolve the destination status from the drop target itself — the
-    // `tasks` closure can be one render behind the last onDragOver update,
-    // which used to persist the OLD column and revert the move on refresh.
+    // Resolve the destination status. Priority: the column dropped on, then a
+    // DIFFERENT task dropped on (other tasks' statuses are stable during a
+    // drag), then the ref tracked through dragOver. Never trust the dragged
+    // task's own entry in `tasks` — dnd-kit often reports the drop target as
+    // the dragged card itself, and the state closure can be a render behind,
+    // which silently persisted the OLD column (no move saved, no Slack ping).
     const overId = over ? (over.id as string) : null;
     const overColumn = overId && STATUS_COLUMNS.some((c) => c.key === overId)
       ? (overId as TaskStatus)
       : null;
-    const overTaskStatus = overId ? tasks.find((t) => t.id === overId)?.status : undefined;
-    const newStatus: TaskStatus = overColumn ?? overTaskStatus ?? movedTask.status;
+    const overOtherTaskStatus =
+      overId && overId !== activeId ? tasks.find((t) => t.id === overId)?.status : undefined;
+    const newStatus: TaskStatus =
+      overColumn ?? overOtherTaskStatus ?? dragStatusRef.current ?? movedTask.status;
+    dragStatusRef.current = null;
 
     const next = tasks.map((t) => (t.id === activeId ? { ...t, status: newStatus } : t));
     setTasks(next);
@@ -301,7 +322,10 @@ export default function KanbanBoard() {
                 key={col.key}
                 status={col.key}
                 label={col.label}
-                tasks={tasksByColumn.get(col.key) || []}
+                tasks={(tasksByColumn.get(col.key) || []).map((t) => ({
+                  ...t,
+                  assigneeColor: t.assignedTo ? teamColors.get(t.assignedTo.toLowerCase()) ?? null : null,
+                }))}
                 onAddTask={(status) => setAddModalStatus(status)}
                 onTaskClick={(id) => setDetailTaskId(id)}
                 onDeleteTask={handleDeleteTask}

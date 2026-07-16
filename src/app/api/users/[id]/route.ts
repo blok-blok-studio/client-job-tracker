@@ -9,16 +9,21 @@ export async function PATCH(
 ) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.role !== "OWNER")
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
 
-  let body: { name?: string; role?: string; isActive?: boolean; password?: string; slackUserId?: string | null };
+  let body: { name?: string; role?: string; isActive?: boolean; password?: string; slackUserId?: string | null; color?: string | null };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  // Owners can edit anyone; members may only change their own profile color
+  if (session.role !== "OWNER") {
+    const onlyColor = Object.keys(body).every((k) => k === "color");
+    if (session.id !== id || !onlyColor)
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const target = await prisma.user.findUnique({ where: { id } });
@@ -30,7 +35,15 @@ export async function PATCH(
     isActive?: boolean;
     passwordHash?: string;
     slackUserId?: string | null;
+    color?: string | null;
   } = {};
+
+  if (body.color !== undefined) {
+    const c = typeof body.color === "string" ? body.color.trim() : "";
+    if (c && !/^#[0-9a-fA-F]{6}$/.test(c))
+      return NextResponse.json({ error: "Color must be a hex value like #FF6B00" }, { status: 400 });
+    data.color = c || null;
+  }
 
   if (body.slackUserId !== undefined) {
     const sid = typeof body.slackUserId === "string" ? body.slackUserId.trim() : "";

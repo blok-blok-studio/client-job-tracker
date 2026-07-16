@@ -14,6 +14,7 @@ interface Task {
   category: TaskCategory;
   dueDate: string | null;
   assignedTo: string | null;
+  assigneeColor?: string | null;
   checklistTotal: number;
   checklistDone: number;
 }

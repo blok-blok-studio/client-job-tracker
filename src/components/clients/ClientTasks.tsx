@@ -40,6 +40,25 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
   const [adding, setAdding] = useState(false);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [teamColors, setTeamColors] = useState<Map<string, string | null>>(new Map());
+
+  useEffect(() => {
+    fetch("/api/users/assignable")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setTeamColors(
+            new Map(
+              (d.data as Array<{ name: string; color?: string | null }>).map((u) => [
+                u.name.toLowerCase(),
+                u.color || null,
+              ])
+            )
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -164,12 +183,21 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
                   {new Date(t.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                 </span>
               )}
-              {t.assignedTo && t.assignedTo !== "agent" && (
-                <span className="flex items-center gap-1 text-[10px] text-bb-dim shrink-0 max-w-[70px] truncate">
-                  <User size={11} />
-                  <span className="hidden sm:inline truncate">{t.assignedTo.split(" ")[0]}</span>
-                </span>
-              )}
+              {t.assignedTo && t.assignedTo !== "agent" && (() => {
+                const color = teamColors.get(t.assignedTo.toLowerCase()) || null;
+                return (
+                  <span className="flex items-center gap-1 text-[10px] text-bb-dim shrink-0 max-w-[70px] truncate" title={t.assignedTo}>
+                    {color ? (
+                      <span className="w-2 h-2 rounded-full shrink-0 ring-1 ring-white/20" style={{ backgroundColor: color }} />
+                    ) : (
+                      <User size={11} />
+                    )}
+                    <span className="hidden sm:inline truncate font-medium" style={color ? { color } : undefined}>
+                      {t.assignedTo.split(" ")[0]}
+                    </span>
+                  </span>
+                );
+              })()}
               <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold shrink-0 ${STATUS_STYLE[t.status]}`}>
                 {STATUS_COLUMNS.find((c) => c.key === t.status)?.label || t.status}
               </span>
