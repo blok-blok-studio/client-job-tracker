@@ -3,7 +3,7 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { sendNewsletterEmail } from "@/lib/email";
-import { unsubscribeSig } from "../unsubscribe/route";
+import { unsubscribeSig } from "@/lib/newsletter";
 
 export const maxDuration = 300;
 

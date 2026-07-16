@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 import prisma from "@/lib/prisma";
-
-export function unsubscribeSig(id: string): string {
-  return crypto
-    .createHmac("sha256", process.env.AUTH_SECRET || "")
-    .update(id)
-    .digest("hex")
-    .slice(0, 16);
-}
+import { unsubscribeSig } from "@/lib/newsletter";
 
 // PUBLIC — one-click unsubscribe from newsletter emails, signed so the
 // subscriber id can't be enumerated.
