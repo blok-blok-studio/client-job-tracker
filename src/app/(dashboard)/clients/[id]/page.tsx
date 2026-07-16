@@ -543,10 +543,17 @@ export default function ClientDetailPage() {
 
   async function handleDeleteMedia(mediaId: string) {
     if (!confirm("Delete this file?")) return;
+    // Optimistic: drop it from local state; only refetch if the server fails
+    setClient((prev) =>
+      prev ? { ...prev, mediaFiles: (prev.mediaFiles || []).filter((m) => m.id !== mediaId) } : prev
+    );
     try {
-      await fetch(`/api/client-media/${mediaId}`, { method: "DELETE" });
+      const res = await fetch(`/api/client-media/${mediaId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      toast("Failed to delete file", "error");
       fetchClient();
-    } catch { /* silently fail */ }
+    }
   }
 
   async function handleBatchAssignFolder(ids: string[], folder: string | null) {
@@ -564,10 +571,21 @@ export default function ClientDetailPage() {
             : `${data.updated} file${data.updated !== 1 ? "s" : ""} removed from event`,
           "success"
         );
+        const idSet = new Set(ids);
+        setClient((prev) =>
+          prev
+            ? {
+                ...prev,
+                mediaFiles: (prev.mediaFiles || []).map((m) =>
+                  idSet.has(m.id) ? { ...m, folder } : m
+                ),
+              }
+            : prev
+        );
       } else {
         toast(data.error || "Failed to move files", "error");
+        fetchClient();
       }
-      fetchClient();
     } catch {
       toast("Failed to move files", "error");
     }
@@ -583,10 +601,16 @@ export default function ClientDetailPage() {
       const data = await res.json();
       if (data.success) {
         toast(`${data.deleted} file${data.deleted !== 1 ? "s" : ""} deleted`, "success");
+        const idSet = new Set(ids);
+        setClient((prev) =>
+          prev
+            ? { ...prev, mediaFiles: (prev.mediaFiles || []).filter((m) => !idSet.has(m.id)) }
+            : prev
+        );
       } else {
         toast(data.error || "Delete failed", "error");
+        fetchClient();
       }
-      fetchClient();
     } catch {
       toast("Failed to delete files", "error");
     }

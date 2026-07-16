@@ -11,6 +11,7 @@ import {
   FolderOpen,
   X,
 } from "lucide-react";
+import { optimizedThumb } from "@/lib/media-thumb";
 
 interface MediaFile {
   id: string;
@@ -156,7 +157,7 @@ export default function MediaLibrary({ clientId, onSelect, selectedUrls, allowed
                 }`}
               >
                 {file.fileType === "IMAGE" ? (
-                  <img src={file.url} alt={file.filename} className="w-full h-full object-cover" />
+                  <img src={optimizedThumb(file.url, 256)} alt={file.filename} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 ) : file.fileType === "VIDEO" ? (
                   <div className="w-full h-full bg-bb-elevated flex flex-col items-center justify-center gap-1">
                     <Film size={20} className="text-purple-400" />

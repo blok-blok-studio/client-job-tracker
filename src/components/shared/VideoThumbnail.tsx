@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Film } from "lucide-react";
+import { optimizedThumb } from "@/lib/media-thumb";
 
 interface VideoThumbnailProps {
   src: string;
@@ -37,8 +38,10 @@ export default function VideoThumbnail({
       <div className="relative w-full h-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={thumbnailUrl}
+          src={optimizedThumb(thumbnailUrl, 384)}
           alt={filename || ""}
+          loading="lazy"
+          decoding="async"
           className={className}
           onError={() => setImgError(true)}
         />

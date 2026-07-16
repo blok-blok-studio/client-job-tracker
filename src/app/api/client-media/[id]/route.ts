@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import prisma from "@/lib/prisma";
 import { del } from "@vercel/blob";
 
@@ -68,23 +69,20 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     }
 
-    // Delete from blob storage
-    try {
-      await del(media.url);
-    } catch (err) {
-      console.warn("[Blob] Failed to delete blob:", err);
-    }
-
-    // Delete database record
+    // Delete the database record now; push the slow blob-storage round-trip
+    // and activity log past the response so the UI isn't held up.
     await prisma.clientMedia.delete({ where: { id } });
 
-    await prisma.activityLog.create({
-      data: {
-        clientId: media.clientId,
-        actor: "chase",
-        action: "media_deleted",
-        details: `Deleted media file: ${media.filename}`,
-      },
+    after(async () => {
+      await del(media.url).catch((err) => console.warn("[Blob] Failed to delete blob:", err));
+      await prisma.activityLog.create({
+        data: {
+          clientId: media.clientId,
+          actor: "chase",
+          action: "media_deleted",
+          details: `Deleted media file: ${media.filename}`,
+        },
+      }).catch(() => {});
     });
 
     return NextResponse.json({ success: true });

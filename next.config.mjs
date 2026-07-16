@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
+    ],
+    minimumCacheTTL: 2678400, // blob URLs are immutable — cache optimized variants for 31 days
+  },
   // @ffmpeg-installer dynamically resolves the platform binary at runtime.
   // Webpack can't statically trace the require(), so leave it as an external
   // and explicitly bundle the linux-x64 binary into the serverless function.

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import { extractThumbnailFromFile } from "@/lib/video-thumbnail";
+import { optimizedThumb } from "@/lib/media-thumb";
 import TopBar from "@/components/layout/TopBar";
 import VideoThumbnail from "@/components/shared/VideoThumbnail";
 import { useToast } from "@/components/shared/Toast";
@@ -220,18 +221,25 @@ export default function FilesPage() {
     }).catch(() => {});
   }, []);
 
+  // Debounce search so we don't hit the API on every keystroke
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const fetchFiles = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (filterType !== "ALL") params.set("fileType", filterType);
-      if (search) params.set("search", search);
+      if (debouncedSearch) params.set("search", debouncedSearch);
       if (filterClient !== "ALL") params.set("clientId", filterClient);
       const res = await fetch(`/api/client-media?${params}`);
       const data = await res.json();
       if (data.success) setFiles(data.data);
     } catch { /* silently fail */ }
     finally { setLoading(false); }
-  }, [filterType, search, filterClient]);
+  }, [filterType, debouncedSearch, filterClient]);
 
   fetchFilesRef.current = fetchFiles;
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
@@ -269,12 +277,17 @@ export default function FilesPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this file? This cannot be undone.")) return;
+    // Optimistic: remove immediately, restore via refetch if the server fails
+    setFiles((prev) => prev.filter((f) => f.id !== id));
+    if (selectedId === id) setSelectedId(null);
+    toast("File deleted", "success");
     try {
-      await fetch(`/api/client-media/${id}`, { method: "DELETE" });
-      setFiles((prev) => prev.filter((f) => f.id !== id));
-      if (selectedId === id) setSelectedId(null);
-      toast("File deleted", "success");
-    } catch { toast("Failed to delete", "error"); }
+      const res = await fetch(`/api/client-media/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      toast("Failed to delete — restoring", "error");
+      fetchFilesRef.current();
+    }
   };
 
   const copyUrl = (url: string) => {
@@ -290,7 +303,10 @@ export default function FilesPage() {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label: labelValue }),
       });
-      if ((await res.json()).success) { toast("Label updated", "success"); fetchFiles(); }
+      if ((await res.json()).success) {
+        toast("Label updated", "success");
+        setFiles((prev) => prev.map((f) => (f.id === selectedMedia.id ? { ...f, label: labelValue } : f)));
+      }
     } catch { toast("Failed to save", "error"); }
     finally { setSaving(false); setEditingLabel(false); }
   };
@@ -303,7 +319,10 @@ export default function FilesPage() {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes: notesValue }),
       });
-      if ((await res.json()).success) { toast("Notes updated", "success"); fetchFiles(); }
+      if ((await res.json()).success) {
+        toast("Notes updated", "success");
+        setFiles((prev) => prev.map((f) => (f.id === selectedMedia.id ? { ...f, notes: notesValue } : f)));
+      }
     } catch { toast("Failed to save", "error"); }
     finally { setSaving(false); setEditingNotes(false); }
   };
@@ -589,7 +608,7 @@ export default function FilesPage() {
                     >
                       {media.fileType === "IMAGE" ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
+                        <img src={optimizedThumb(media.url, 384)} alt={media.filename} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       ) : media.fileType === "VIDEO" ? (
                         <VideoThumbnail src={media.url} thumbnailUrl={media.thumbnailUrl} filename={media.filename} />
                       ) : media.fileType === "AUDIO" ? (
@@ -685,7 +704,7 @@ export default function FilesPage() {
                       <div className="w-10 h-10 rounded-md overflow-hidden bg-bb-black border border-bb-border shrink-0">
                         {media.fileType === "IMAGE" ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={media.url} alt="" className="w-full h-full object-cover" />
+                          <img src={optimizedThumb(media.url, 256)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         ) : media.fileType === "VIDEO" ? (
                           <VideoThumbnail src={media.url} thumbnailUrl={media.thumbnailUrl} showPlayIcon={false} />
                         ) : media.fileType === "AUDIO" ? (
@@ -731,7 +750,7 @@ export default function FilesPage() {
                 <div className="rounded-lg overflow-hidden bg-bb-surface aspect-video flex items-center justify-center">
                   {selectedMedia.fileType === "IMAGE" ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={selectedMedia.url} alt="" className="w-full h-full object-contain" />
+                    <img src={optimizedThumb(selectedMedia.url, 1080)} alt="" decoding="async" className="w-full h-full object-contain" />
                   ) : selectedMedia.fileType === "VIDEO" ? (
                     <video src={selectedMedia.playbackUrl || selectedMedia.url} controls muted preload="auto" className="w-full h-full object-contain" />
                   ) : selectedMedia.fileType === "AUDIO" ? (
@@ -943,7 +962,7 @@ export default function FilesPage() {
                     >
                       {thumb.fileType === "IMAGE" ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={thumb.url} alt="" className="w-full h-full object-cover" />
+                        <img src={optimizedThumb(thumb.url, 256)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       ) : thumb.fileType === "VIDEO" ? (
                         <VideoThumbnail src={thumb.url} thumbnailUrl={thumb.thumbnailUrl} showPlayIcon={false} iconSize={10} />
                       ) : thumb.fileType === "AUDIO" ? (

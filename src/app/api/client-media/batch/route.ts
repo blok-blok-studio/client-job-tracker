@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import prisma from "@/lib/prisma";
 import { del } from "@vercel/blob";
 
@@ -62,35 +63,35 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: "No files found" }, { status: 404 });
     }
 
-    // Delete blobs from Vercel Blob storage
-    const urls = mediaFiles.map((m) => m.url);
-    await del(urls).catch((err) =>
-      console.error("[Blob] Failed to delete some blobs:", err)
-    );
-
-    // Delete database records
+    // Delete database records now; blob cleanup and activity logs run after
+    // the response so the UI isn't held up by storage round-trips.
     await prisma.clientMedia.deleteMany({
       where: { id: { in: mediaFiles.map((m) => m.id) } },
     });
 
-    // Activity log — group by clientId
-    const byClient = new Map<string, string[]>();
-    for (const m of mediaFiles) {
-      const list = byClient.get(m.clientId) || [];
-      list.push(m.filename);
-      byClient.set(m.clientId, list);
-    }
+    after(async () => {
+      const urls = mediaFiles.map((m) => m.url);
+      await del(urls).catch((err) =>
+        console.error("[Blob] Failed to delete some blobs:", err)
+      );
 
-    for (const [clientId, filenames] of byClient) {
-      await prisma.activityLog.create({
-        data: {
+      // Activity log — group by clientId
+      const byClient = new Map<string, string[]>();
+      for (const m of mediaFiles) {
+        const list = byClient.get(m.clientId) || [];
+        list.push(m.filename);
+        byClient.set(m.clientId, list);
+      }
+
+      await prisma.activityLog.createMany({
+        data: Array.from(byClient, ([clientId, filenames]) => ({
           clientId,
           actor: "chase",
           action: "media_deleted",
           details: `Batch deleted ${filenames.length} file${filenames.length !== 1 ? "s" : ""}: ${filenames.join(", ")}`,
-        },
-      });
-    }
+        })),
+      }).catch(() => {});
+    });
 
     return NextResponse.json({ success: true, deleted: mediaFiles.length });
   } catch (err) {
