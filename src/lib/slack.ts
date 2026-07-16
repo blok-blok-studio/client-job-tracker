@@ -41,6 +41,27 @@ function humanStatus(status: string): string {
     .join(" ");
 }
 
+/** Render an assignee as a real @-mention when we know their Slack ID. */
+export function slackMention(name: string | null | undefined, slackUserId: string | null | undefined): string {
+  if (slackUserId) return `<@${slackUserId}>`;
+  return name ? `*${name}*` : "someone";
+}
+
+/** Task assigned to a team member — tags them so they get pinged. */
+export async function notifySlackTaskAssigned(opts: {
+  title: string;
+  clientName?: string | null;
+  actor?: string | null;
+  assigneeName: string;
+  assigneeSlackId?: string | null;
+}): Promise<void> {
+  const client = opts.clientName ? ` (*${opts.clientName}*)` : "";
+  const actor = opts.actor || "Someone";
+  await notifySlack(
+    `:bust_in_silhouette: ${actor} assigned *${opts.title}*${client} to ${slackMention(opts.assigneeName, opts.assigneeSlackId)}\n<${APP_URL}/kanban|Open the board>`
+  );
+}
+
 /** Board activity that isn't a completion: updates posted, moves, new tasks. */
 export async function notifySlackTaskEvent(opts: {
   kind: "update" | "moved" | "created";
@@ -60,7 +81,7 @@ export async function notifySlackTaskEvent(opts: {
       text = `:arrows_counterclockwise: *${actor}* moved *${opts.title}*${client} to *${humanStatus(opts.detail || "")}*`;
       break;
     case "created":
-      text = `:new: *${actor}* added task *${opts.title}*${client}`;
+      text = `:new: *${actor}* added task *${opts.title}*${client}${opts.detail || ""}`;
       break;
   }
   await notifySlack(text);

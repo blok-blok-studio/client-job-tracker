@@ -21,6 +21,7 @@ export async function GET() {
       isActive: true,
       lastLoginAt: true,
       createdAt: true,
+      slackUserId: true,
     },
   });
 
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
       isActive: true,
       lastLoginAt: true,
       createdAt: true,
+      slackUserId: true,
     },
   });
 

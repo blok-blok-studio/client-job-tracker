@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { taskSchema } from "@/lib/validations";
 import { getSession } from "@/lib/auth";
-import { notifySlackTaskEvent } from "@/lib/slack";
+import { notifySlackTaskEvent, slackMention } from "@/lib/slack";
 
 const VALID_STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "BLOCKED"] as const;
 const VALID_PRIORITIES = ["URGENT", "HIGH", "MEDIUM", "LOW"] as const;
@@ -67,11 +67,20 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    let assignedNote = "";
+    if (task.assignedTo && task.assignedTo.toLowerCase() !== "agent") {
+      const assignee = await prisma.user.findFirst({
+        where: { name: { equals: task.assignedTo, mode: "insensitive" } },
+        select: { name: true, slackUserId: true },
+      });
+      assignedNote = ` — assigned to ${slackMention(assignee?.name || task.assignedTo, assignee?.slackUserId)}`;
+    }
     notifySlackTaskEvent({
       kind: "created",
-      title: task.title,
+      title: `${task.title}`,
       clientName: task.client?.name,
       actor: session?.name,
+      detail: assignedNote,
     }).catch(() => {});
 
     return NextResponse.json({ success: true, data: task }, { status: 201 });

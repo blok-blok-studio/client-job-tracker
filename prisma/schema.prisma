@@ -17,6 +17,7 @@ model User {
   role         UserRole @default(MEMBER)
   isActive     Boolean  @default(true)
   lastLoginAt  DateTime?
+  slackUserId  String?  // Slack member ID (U…) for @-mentions in task alerts
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

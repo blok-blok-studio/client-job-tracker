@@ -14,7 +14,7 @@ export async function PATCH(
 
   const { id } = await params;
 
-  let body: { name?: string; role?: string; isActive?: boolean; password?: string };
+  let body: { name?: string; role?: string; isActive?: boolean; password?: string; slackUserId?: string | null };
   try {
     body = await request.json();
   } catch {
@@ -29,7 +29,18 @@ export async function PATCH(
     role?: "OWNER" | "MEMBER";
     isActive?: boolean;
     passwordHash?: string;
+    slackUserId?: string | null;
   } = {};
+
+  if (body.slackUserId !== undefined) {
+    const sid = typeof body.slackUserId === "string" ? body.slackUserId.trim() : "";
+    if (sid && !/^[UW][A-Z0-9]{5,20}$/.test(sid))
+      return NextResponse.json(
+        { error: "Slack member ID should look like U0123ABCDEF" },
+        { status: 400 }
+      );
+    data.slackUserId = sid || null;
+  }
 
   if (typeof body.name === "string") {
     const name = body.name.trim();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Shield, User as UserIcon, Trash2, KeyRound, Power } from "lucide-react";
+import { Plus, Shield, User as UserIcon, Trash2, KeyRound, Power, AtSign } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
@@ -16,6 +16,7 @@ interface TeamUser {
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  slackUserId?: string | null;
 }
 
 export default function TeamPage() {
@@ -31,6 +32,8 @@ export default function TeamPage() {
 
   const [resetFor, setResetFor] = useState<TeamUser | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [slackFor, setSlackFor] = useState<TeamUser | null>(null);
+  const [slackId, setSlackId] = useState("");
 
   const [deleteTarget, setDeleteTarget] = useState<TeamUser | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -217,6 +220,19 @@ export default function TeamPage() {
 
                     <button
                       onClick={() => {
+                        setSlackFor(u);
+                        setSlackId(u.slackUserId || "");
+                      }}
+                      className={`p-2 rounded-md hover:bg-bb-elevated transition-colors ${
+                        u.slackUserId ? "text-bb-orange hover:text-bb-orange-light" : "text-bb-muted hover:text-white"
+                      }`}
+                      title={u.slackUserId ? `Slack: ${u.slackUserId}` : "Link Slack account for @-mentions"}
+                    >
+                      <AtSign size={15} />
+                    </button>
+
+                    <button
+                      onClick={() => {
                         setResetFor(u);
                         setNewPassword("");
                       }}
@@ -321,6 +337,40 @@ export default function TeamPage() {
             className="w-full py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white font-medium rounded-md transition-colors disabled:opacity-50"
           >
             {saving ? "Saving..." : "Set new password"}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Link Slack account */}
+      <Modal open={!!slackFor} onClose={() => setSlackFor(null)} title={`Slack mentions — ${slackFor?.name || ""}`}>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!slackFor) return;
+            setSaving(true);
+            const ok = await patchUser(slackFor, { slackUserId: slackId }, slackId ? "Slack account linked" : "Slack link removed");
+            setSaving(false);
+            if (ok) setSlackFor(null);
+          }}
+          className="space-y-4"
+        >
+          <p className="text-xs text-bb-muted">
+            Paste their Slack member ID so task alerts @-mention them. In Slack: click their
+            profile → ⋯ → &quot;Copy member ID&quot;. Leave empty to unlink.
+          </p>
+          <input
+            type="text"
+            placeholder="U0123ABCDEF"
+            value={slackId}
+            onChange={(e) => setSlackId(e.target.value.trim())}
+            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange font-mono"
+          />
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white font-medium rounded-md transition-colors disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save"}
           </button>
         </form>
       </Modal>

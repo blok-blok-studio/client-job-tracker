@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { taskSchema } from "@/lib/validations";
 import { syncEvent } from "@/lib/sync";
-import { notifySlackTaskDone, notifySlackTaskEvent } from "@/lib/slack";
+import { notifySlackTaskDone, notifySlackTaskEvent, notifySlackTaskAssigned } from "@/lib/slack";
 import { getSession } from "@/lib/auth";
 
 export async function GET(
@@ -41,6 +41,32 @@ export async function PATCH(
 
     const oldTask = await prisma.task.findUnique({ where: { id } });
     const task = await prisma.task.update({ where: { id }, data });
+
+    // Assignment changed to a team member → tag them in Slack
+    if (
+      parsed.assignedTo &&
+      oldTask &&
+      parsed.assignedTo !== oldTask.assignedTo &&
+      parsed.assignedTo.toLowerCase() !== "agent"
+    ) {
+      const [assignee, client, session] = await Promise.all([
+        prisma.user.findFirst({
+          where: { name: { equals: parsed.assignedTo, mode: "insensitive" } },
+          select: { name: true, slackUserId: true },
+        }),
+        task.clientId
+          ? prisma.client.findUnique({ where: { id: task.clientId }, select: { name: true } })
+          : null,
+        getSession(),
+      ]);
+      notifySlackTaskAssigned({
+        title: task.title,
+        clientName: client?.name,
+        actor: session?.name,
+        assigneeName: assignee?.name || parsed.assignedTo,
+        assigneeSlackId: assignee?.slackUserId,
+      }).catch(() => {});
+    }
 
     if (parsed.status && oldTask && parsed.status !== oldTask.status) {
       const [client, session] = await Promise.all([
