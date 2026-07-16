@@ -312,14 +312,16 @@ enum InvoiceStatus {
 
 // --- ACTIVITY LOG ---
 model ActivityLog {
-  id       String  @id @default(cuid())
-  clientId String?
-  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  taskId   String?
-  task     Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  actor    String
-  action   String
-  details  String? @db.Text
+  id        String  @id @default(cuid())
+  clientId  String?
+  client    Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  taskId    String?
+  task      Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  actor     String
+  action    String
+  details   String? @db.Text
+  ipAddress String?
+  userAgent String?
 
   createdAt DateTime @default(now())
 

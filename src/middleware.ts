@@ -12,6 +12,8 @@ const PUBLIC_PATHS = [
   "/contract",
   "/upload",
   "/api/auth/login",
+  "/api/newsletter/subscribe",
+  "/api/newsletter/unsubscribe",
   "/api/onboard",
   "/api/contract",
   "/api/client-media/upload-portal",
@@ -23,7 +25,6 @@ const PUBLIC_PATHS = [
   "/api/client-media/generate-thumbnails",
   "/api/exchange-rate",
   "/api/oauth",
-  "/api/dm-webhook",
 ];
 
 // In-memory rate limiter (Edge runtime compatible)

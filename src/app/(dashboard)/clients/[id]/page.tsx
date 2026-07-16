@@ -42,7 +42,7 @@ interface ClientDetail {
   checklistItems: Array<{ id: string; label: string; checked: boolean }>;
   invoices: Array<{ id: string; amount: string | number; status: string; createdAt: string }>;
   socialLinks: Array<{ id: string; platform: string; url: string; handle: string | null }>;
-  activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; createdAt: string }>;
+  activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; ipAddress?: string | null; createdAt: string }>;
   contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
   paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; currency: string; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; milestone: string | null; contractId: string | null; createdAt: string }>;
   mediaFiles: Array<{ id: string; url: string; filename: string; fileType: string; fileSize: number; mimeType: string; uploadedBy: string; label: string | null; folder?: string | null; thumbnailUrl?: string | null; notes?: string | null; createdAt: string }>;
@@ -1389,7 +1389,10 @@ export default function ClientDetailPage() {
                       <span className="text-bb-muted">{log.action.replace(/_/g, " ")}</span>
                     </div>
                     {log.details && <p className="text-xs text-bb-dim mt-0.5 line-clamp-1">{log.details}</p>}
-                    <span className="text-xs text-bb-dim">{new Date(log.createdAt).toLocaleString()}</span>
+                    <span className="text-xs text-bb-dim">
+                      {new Date(log.createdAt).toLocaleString()}
+                      {log.ipAddress && <span> · IP {log.ipAddress}</span>}
+                    </span>
                   </div>
                 ))}
                 {client.activityLogs.length === 0 && <p className="text-sm text-bb-dim">No activity</p>}
@@ -1399,7 +1402,7 @@ export default function ClientDetailPage() {
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display font-semibold">Invoices</h3>
-                <Link href="/invoices" className="text-bb-orange hover:text-bb-orange-light text-sm">Manage</Link>
+                <Link href="/money" className="text-bb-orange hover:text-bb-orange-light text-sm">Money</Link>
               </div>
               <div className="space-y-2">
                 {client.invoices.map((inv) => (

@@ -4,11 +4,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
-import { formatRelativeDate } from "@/lib/utils";
 
 interface ActivityItem {
   id: string;
   actor: string;
+  ipAddress?: string | null;
   action: string;
   details: string | null;
   clientId: string | null;
@@ -197,7 +197,8 @@ export default function ActivityPage() {
                             </button>
                           )}
                           <span className="text-xs text-bb-dim ml-auto flex-shrink-0">
-                            {formatRelativeDate(new Date(activity.createdAt))}
+                            {new Date(activity.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                          {activity.ipAddress && <span className="text-bb-dim"> · {activity.ipAddress}</span>}
                           </span>
                         </div>
                         {activity.details && (

@@ -4,6 +4,7 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { notifySlackTaskEvent } from "@/lib/slack";
+import { requestMeta } from "@/lib/request-meta";
 
 export async function GET(
   _request: NextRequest,
@@ -43,6 +44,7 @@ export async function POST(
         actor: session?.name || "chase",
         action: "update",
         details,
+        ...requestMeta(request),
       },
     });
 

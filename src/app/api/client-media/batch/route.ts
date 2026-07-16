@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import prisma from "@/lib/prisma";
 import { del } from "@vercel/blob";
+import { requestMeta } from "@/lib/request-meta";
 
 // PATCH — batch assign multiple media files to an event/folder (or unfile with folder: null)
 export async function PATCH(request: NextRequest) {
@@ -38,6 +39,7 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE — batch delete multiple media files
 export async function DELETE(request: NextRequest) {
+  const meta = requestMeta(request);
   try {
     const { ids } = await request.json();
 
@@ -89,6 +91,7 @@ export async function DELETE(request: NextRequest) {
           actor: "chase",
           action: "media_deleted",
           details: `Batch deleted ${filenames.length} file${filenames.length !== 1 ? "s" : ""}: ${filenames.join(", ")}`,
+          ...meta,
         })),
       }).catch(() => {});
     });

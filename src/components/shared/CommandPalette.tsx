@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, Users, ClipboardList, FileText, Loader2, CornerDownLeft,
-  LayoutDashboard, Columns3, CalendarDays, PenSquare, FolderOpen, Receipt,
+  LayoutDashboard, Columns3, CalendarDays, PenSquare, FolderOpen,
 } from "lucide-react";
 
 interface Results {
@@ -21,7 +21,6 @@ const QUICK_NAV = [
   { label: "Calendar", href: "/calendar", icon: CalendarDays },
   { label: "Content", href: "/content", icon: PenSquare },
   { label: "Files", href: "/files", icon: FolderOpen },
-  { label: "Invoices", href: "/invoices", icon: Receipt },
 ];
 
 interface Item {

@@ -3,10 +3,11 @@ import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { sendClientReportEmail } from "@/lib/email";
 import type { GeneratedReport } from "@/lib/report-ai";
+import { requestMeta } from "@/lib/request-meta";
 
 // POST — email the report to the client (owner only)
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getSession();
@@ -66,6 +67,7 @@ export async function POST(
       actor: session.name,
       action: "report_sent",
       details: `Sent ${monthLabel} performance report to ${record.client.email}`,
+      ...requestMeta(request),
     },
   }).catch(() => {});
 

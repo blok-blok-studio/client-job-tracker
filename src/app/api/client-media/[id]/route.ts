@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import prisma from "@/lib/prisma";
 import { del } from "@vercel/blob";
+import { requestMeta } from "@/lib/request-meta";
 
 // PATCH — update media label/notes/thumbnailUrl
 export async function PATCH(
@@ -54,10 +55,11 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const meta = requestMeta(request);
 
   try {
     const media = await prisma.clientMedia.findUnique({
@@ -81,6 +83,7 @@ export async function DELETE(
           actor: "chase",
           action: "media_deleted",
           details: `Deleted media file: ${media.filename}`,
+          ...meta,
         },
       }).catch(() => {});
     });

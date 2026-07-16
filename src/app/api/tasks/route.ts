@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { taskSchema } from "@/lib/validations";
 import { getSession } from "@/lib/auth";
 import { notifySlackTaskEvent, slackMention } from "@/lib/slack";
+import { requestMeta } from "@/lib/request-meta";
 
 const VALID_STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "BLOCKED"] as const;
 const VALID_PRIORITIES = ["URGENT", "HIGH", "MEDIUM", "LOW"] as const;
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
         actor: session?.name || "chase",
         action: "created_task",
         details: `Created task: ${task.title}`,
+        ...requestMeta(request),
       },
     });
 

@@ -5,6 +5,8 @@ import {
   getSessionCookieConfig,
   checkRateLimit,
 } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { requestMeta } from "@/lib/request-meta";
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
@@ -27,13 +29,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const meta = requestMeta(request);
     const user = await authenticateUser(email, password);
     if (!user) {
+      // Audit trail: failed attempt with source IP
+      await prisma.activityLog.create({
+        data: { actor: email.slice(0, 100), action: "login_failed", details: "Failed sign-in attempt", ...meta },
+      }).catch(() => {});
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
       );
     }
+
+    // Audit trail: successful sign-in with source IP
+    await prisma.activityLog.create({
+      data: { actor: user.name, action: "login", details: `${user.name} signed in`, ...meta },
+    }).catch(() => {});
 
     const token = createSessionToken(user);
     const cookieConfig = getSessionCookieConfig(token);

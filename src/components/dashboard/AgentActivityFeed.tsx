@@ -33,15 +33,15 @@ export default function AgentActivityFeed({ activities }: { activities: Activity
       <div className="px-5 py-4 border-b border-bb-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-bb-orange animate-pulse" />
-          <h2 className="font-display font-semibold">Agent Activity</h2>
+          <h2 className="font-display font-semibold">Recent Activity</h2>
         </div>
-        <Link href="/agent" className="text-xs text-bb-orange hover:text-bb-orange-light">
+        <Link href="/activity" className="text-xs text-bb-orange hover:text-bb-orange-light">
           View All
         </Link>
       </div>
       <div className="divide-y divide-bb-border max-h-[500px] overflow-y-auto">
         {activities.length === 0 ? (
-          <p className="px-5 py-8 text-center text-bb-dim text-sm">No agent activity yet</p>
+          <p className="px-5 py-8 text-center text-bb-dim text-sm">No recent activity yet</p>
         ) : (
           activities.map((entry) => (
             <div key={entry.id} className="px-5 py-3 hover:bg-bb-elevated/50 transition-colors">

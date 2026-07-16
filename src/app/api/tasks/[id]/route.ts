@@ -5,6 +5,7 @@ import { taskSchema } from "@/lib/validations";
 import { syncEvent } from "@/lib/sync";
 import { notifySlackTaskDone, notifySlackTaskEvent, notifySlackTaskAssigned } from "@/lib/slack";
 import { getSession } from "@/lib/auth";
+import { requestMeta } from "@/lib/request-meta";
 
 export async function GET(
   _request: NextRequest,
@@ -102,9 +103,10 @@ export async function PATCH(
         data: {
           taskId: id,
           clientId: task.clientId,
-          actor: "chase",
+          actor: session?.name || "chase",
           action: "moved_task",
           details: `Moved "${task.title}" from ${oldTask.status} to ${parsed.status}`,
+          ...requestMeta(request),
         },
       });
 
