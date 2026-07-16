@@ -11,6 +11,40 @@ import {
 import { after } from "next/server";
 import { notifySlack } from "@/lib/slack";
 
+// Recalculate a client's monthly retainer from their LIVE active Stripe
+// subscriptions (yearly plans normalized to /12). Returns the new value.
+async function recalcRetainer(stripeCustomerId: string): Promise<number | null> {
+  const client = await prisma.client.findUnique({ where: { stripeCustomerId } });
+  if (!client) return null;
+
+  let monthly = 0;
+  const subs = await stripe.subscriptions.list({ customer: stripeCustomerId, status: "active", limit: 100 });
+  for (const sub of subs.data) {
+    for (const item of sub.items.data) {
+      const price = item.price;
+      if (!price?.unit_amount || !price.recurring) continue;
+      const amt = (price.unit_amount / 100) * (item.quantity || 1);
+      monthly += price.recurring.interval === "year" ? amt / 12
+        : price.recurring.interval === "week" ? amt * 4.33
+        : amt; // month
+    }
+  }
+  monthly = Math.round(monthly * 100) / 100;
+
+  if (Number(client.monthlyRetainer || 0) !== monthly) {
+    await prisma.client.update({ where: { id: client.id }, data: { monthlyRetainer: monthly } });
+    await prisma.activityLog.create({
+      data: {
+        clientId: client.id,
+        actor: "stripe",
+        action: "retainer_updated",
+        details: `Monthly retainer recalculated from active subscriptions: $${monthly}/mo`,
+      },
+    }).catch(() => {});
+  }
+  return monthly;
+}
+
 // Resolve (or create) a command-center client for a Stripe customer object.
 async function upsertClientFromStripeCustomer(customer: Stripe.Customer) {
   let client = await prisma.client.findUnique({ where: { stripeCustomerId: customer.id } });
@@ -198,6 +232,24 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
 
+        // Churn: recalc the client's retainer and raise the alarm in Slack
+        {
+          const custId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+          if (custId) {
+            const newRetainer = await recalcRetainer(custId).catch(() => null);
+            const churnClient = await prisma.client.findUnique({ where: { stripeCustomerId: custId }, select: { name: true } });
+            const lostItem = subscription.items?.data?.[0];
+            const lost = lostItem?.price?.unit_amount
+              ? ((lostItem.price.unit_amount / 100) * (lostItem.quantity || 1)).toLocaleString("en-US", { style: "currency", currency: (lostItem.price.currency || "usd").toUpperCase() })
+              : "a subscription";
+            after(() =>
+              notifySlack(
+                `:rotating_light: *Subscription canceled* — ${lost}/${lostItem?.price?.recurring?.interval || "mo"} from *${churnClient?.name || "Unknown client"}*${newRetainer != null ? ` · retainer now $${newRetainer}/mo` : ""}`
+              ).catch(() => {})
+            );
+          }
+        }
+
         await prisma.paymentLink.updateMany({
           where: { stripeSubscriptionId: subscription.id },
           data: { status: "CANCELLED" },
@@ -365,7 +417,27 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      case "customer.subscription.created": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const custId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+        if (custId) {
+          const newRetainer = await recalcRetainer(custId).catch(() => null);
+          const client = await prisma.client.findUnique({ where: { stripeCustomerId: custId }, select: { name: true } });
+          if (newRetainer != null) {
+            after(() =>
+              notifySlack(`:chart_with_upwards_trend: *New subscription* for *${client?.name || "Unknown client"}* · retainer now $${newRetainer}/mo`).catch(() => {})
+            );
+          }
+        }
+        break;
+      }
+
       case "customer.subscription.updated": {
+        {
+          const subscription = event.data.object as Stripe.Subscription;
+          const custId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+          if (custId) await recalcRetainer(custId).catch(() => {});
+        }
         const subscription = event.data.object as Stripe.Subscription;
 
         const subRecord = await prisma.paymentLink.findFirst({
