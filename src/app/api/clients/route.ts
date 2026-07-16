@@ -53,6 +53,27 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = clientSchema.parse(body);
 
+    // Guard against duplicate clients (e.g. re-adding someone to send a new
+    // onboarding link — regenerate the link on the existing client instead)
+    if (parsed.email) {
+      const existing = await prisma.client.findFirst({
+        where: {
+          email: { equals: parsed.email, mode: "insensitive" },
+          type: { not: "ARCHIVED" },
+        },
+        select: { id: true, name: true },
+      });
+      if (existing) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `A client with this email already exists (${existing.name}). Open their profile to regenerate an onboarding link instead of creating a duplicate.`,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const onboardToken = randomBytes(24).toString("hex");
     const uploadToken = randomBytes(24).toString("hex");
 
