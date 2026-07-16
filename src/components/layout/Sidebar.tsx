@@ -94,9 +94,9 @@ export default function Sidebar() {
           <Image
             src="/bb_logo_wordmark_subhead_WHT_PNG.png"
             alt="Blok Blok"
-            width={140}
-            height={32}
-            className="h-8 w-auto"
+            width={240}
+            height={129}
+            className="h-16 w-auto"
           />
         )}
         {/* Desktop collapse button */}
