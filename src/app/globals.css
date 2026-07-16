@@ -55,6 +55,50 @@ body {
   background: #444;
 }
 
+/* Brand text selection */
+::selection {
+  background: rgba(255, 107, 0, 0.35);
+  color: #fff;
+}
+
+/* Smooth interactive-state transitions (150ms per motion guidelines) */
+button,
+a,
+select,
+input[type="checkbox"] {
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+    opacity 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Skeleton shimmer for loading states */
+.skeleton {
+  background: linear-gradient(90deg, #141414 25%, #1e1e1e 50%, #141414 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+  border-radius: 0.5rem;
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Respect users who opt out of motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Focus styles */
 *:focus-visible {
   outline: 2px solid #FF6B00;

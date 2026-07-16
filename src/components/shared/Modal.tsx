@@ -39,7 +39,7 @@ export default function Modal({ open, onClose, title, children, className }: Mod
       <div className="flex items-end sm:items-center justify-center min-h-full sm:p-4">
         <div
           className={cn(
-            "bg-bb-surface border border-bb-border rounded-t-xl sm:rounded-xl shadow-modal w-full max-w-lg overflow-x-hidden overflow-y-auto max-h-[90dvh] sm:max-h-[85vh]",
+            "bg-bb-surface border border-bb-border rounded-t-xl sm:rounded-xl shadow-modal w-full max-w-lg overflow-x-hidden overflow-y-auto max-h-[90dvh] sm:max-h-[85vh] animate-fade-in-up",
             className
           )}
           onClick={(e) => e.stopPropagation()}

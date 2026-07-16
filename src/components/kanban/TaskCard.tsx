@@ -74,7 +74,7 @@ export default function TaskCard({
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`group bg-bb-surface border border-bb-border border-l-4 ${priorityBorder[priority]} rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-bb-orange/30 transition-colors`}
+      className={`group bg-bb-surface border border-bb-border border-l-4 ${priorityBorder[priority]} rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-bb-orange/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-[transform,box-shadow,border-color] duration-200`}
     >
       <div className="flex items-start justify-between gap-1 mb-2">
         <p className="text-sm font-medium line-clamp-2">{title}</p>
