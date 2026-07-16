@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -59,13 +60,15 @@ export async function POST(
       }
     } catch { /* mentions are best-effort */ }
 
-    notifySlackTaskEvent({
-      kind: "update",
-      title: task.title,
-      clientName: task.client?.name,
-      actor: session?.name,
-      detail: slackDetail,
-    }).catch(() => {});
+    after(() =>
+      notifySlackTaskEvent({
+        kind: "update",
+        title: task.title,
+        clientName: task.client?.name,
+        actor: session?.name,
+        detail: slackDetail,
+      }).catch(() => {})
+    );
 
     return NextResponse.json({ success: true, data: log }, { status: 201 });
   } catch {

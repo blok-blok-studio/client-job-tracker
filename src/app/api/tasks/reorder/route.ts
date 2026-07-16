@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import prisma from "@/lib/prisma";
 import { reorderSchema } from "@/lib/validations";
 import { getSession } from "@/lib/auth";
@@ -34,20 +35,27 @@ export async function POST(request: NextRequest) {
       const session = await getSession();
       for (const u of statusChanged) {
         const prev = beforeById.get(u.id)!;
+        // after() keeps the serverless function alive past the response —
+        // un-awaited fetches were killed when the lambda froze, so drag
+        // moves often never reached Slack.
         if (u.status === "DONE") {
-          notifySlackTaskDone({
-            title: prev.title,
-            clientName: prev.client?.name,
-            actor: session?.name,
-          }).catch(() => {});
+          after(() =>
+            notifySlackTaskDone({
+              title: prev.title,
+              clientName: prev.client?.name,
+              actor: session?.name,
+            }).catch(() => {})
+          );
         } else {
-          notifySlackTaskEvent({
-            kind: "moved",
-            title: prev.title,
-            clientName: prev.client?.name,
-            actor: session?.name,
-            detail: u.status,
-          }).catch(() => {});
+          after(() =>
+            notifySlackTaskEvent({
+              kind: "moved",
+              title: prev.title,
+              clientName: prev.client?.name,
+              actor: session?.name,
+              detail: u.status,
+            }).catch(() => {})
+          );
         }
       }
     }

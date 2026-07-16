@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { notifySlackChecklist } from "@/lib/slack";
@@ -35,14 +36,16 @@ export async function PATCH(
         getSession(),
       ]);
       if (task) {
-        notifySlackChecklist({
-          taskTitle: task.title,
-          clientName: task.client?.name,
-          actor: session?.name,
-          itemLabel: item.label,
-          done: doneCount,
-          total: totalCount,
-        }).catch(() => {});
+        after(() =>
+          notifySlackChecklist({
+            taskTitle: task.title,
+            clientName: task.client?.name,
+            actor: session?.name,
+            itemLabel: item.label,
+            done: doneCount,
+            total: totalCount,
+          }).catch(() => {})
+        );
       }
     }
 

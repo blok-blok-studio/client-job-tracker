@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import prisma from "@/lib/prisma";
 import { taskSchema } from "@/lib/validations";
 import { syncEvent } from "@/lib/sync";
@@ -59,13 +60,15 @@ export async function PATCH(
           : null,
         getSession(),
       ]);
-      notifySlackTaskAssigned({
-        title: task.title,
-        clientName: client?.name,
-        actor: session?.name,
-        assigneeName: assignee?.name || parsed.assignedTo,
-        assigneeSlackId: assignee?.slackUserId,
-      }).catch(() => {});
+      after(() =>
+        notifySlackTaskAssigned({
+          title: task.title,
+          clientName: client?.name,
+          actor: session?.name,
+          assigneeName: assignee?.name || parsed.assignedTo!,
+          assigneeSlackId: assignee?.slackUserId,
+        }).catch(() => {})
+      );
     }
 
     if (parsed.status && oldTask && parsed.status !== oldTask.status) {
@@ -76,19 +79,23 @@ export async function PATCH(
         getSession(),
       ]);
       if (parsed.status === "DONE") {
-        notifySlackTaskDone({
-          title: task.title,
-          clientName: client?.name,
-          actor: session?.name,
-        }).catch(() => {});
+        after(() =>
+          notifySlackTaskDone({
+            title: task.title,
+            clientName: client?.name,
+            actor: session?.name,
+          }).catch(() => {})
+        );
       } else {
-        notifySlackTaskEvent({
-          kind: "moved",
-          title: task.title,
-          clientName: client?.name,
-          actor: session?.name,
-          detail: parsed.status,
-        }).catch(() => {});
+        after(() =>
+          notifySlackTaskEvent({
+            kind: "moved",
+            title: task.title,
+            clientName: client?.name,
+            actor: session?.name,
+            detail: parsed.status,
+          }).catch(() => {})
+        );
       }
 
       await prisma.activityLog.create({

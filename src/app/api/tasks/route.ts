@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import prisma from "@/lib/prisma";
 import { taskSchema } from "@/lib/validations";
 import { getSession } from "@/lib/auth";
@@ -76,13 +77,15 @@ export async function POST(request: NextRequest) {
       });
       assignedNote = ` — assigned to ${slackMention(assignee?.name || task.assignedTo, assignee?.slackUserId)}`;
     }
-    notifySlackTaskEvent({
-      kind: "created",
-      title: `${task.title}`,
-      clientName: task.client?.name,
-      actor: session?.name,
-      detail: assignedNote,
-    }).catch(() => {});
+    after(() =>
+      notifySlackTaskEvent({
+        kind: "created",
+        title: `${task.title}`,
+        clientName: task.client?.name,
+        actor: session?.name,
+        detail: assignedNote,
+      }).catch(() => {})
+    );
 
     return NextResponse.json({ success: true, data: task }, { status: 201 });
   } catch {
