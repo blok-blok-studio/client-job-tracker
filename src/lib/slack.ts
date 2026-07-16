@@ -32,3 +32,36 @@ export async function notifySlackTaskDone(opts: {
     `:white_check_mark: *${opts.title}*${client} is done${by}\n<${APP_URL}/kanban|Open the board>`
   );
 }
+
+function humanStatus(status: string): string {
+  return status
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/** Board activity that isn't a completion: updates posted, moves, new tasks. */
+export async function notifySlackTaskEvent(opts: {
+  kind: "update" | "moved" | "created";
+  title: string;
+  clientName?: string | null;
+  actor?: string | null;
+  detail?: string | null; // update text, or new status for "moved"
+}): Promise<void> {
+  const client = opts.clientName ? ` (*${opts.clientName}*)` : "";
+  const actor = opts.actor || "Someone";
+  let text: string;
+  switch (opts.kind) {
+    case "update":
+      text = `:speech_balloon: *${actor}* logged an update on *${opts.title}*${client}:\n> ${opts.detail || ""}`;
+      break;
+    case "moved":
+      text = `:arrows_counterclockwise: *${actor}* moved *${opts.title}*${client} to *${humanStatus(opts.detail || "")}*`;
+      break;
+    case "created":
+      text = `:new: *${actor}* added task *${opts.title}*${client}`;
+      break;
+  }
+  await notifySlack(text);
+}

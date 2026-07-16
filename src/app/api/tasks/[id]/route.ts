@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { taskSchema } from "@/lib/validations";
 import { syncEvent } from "@/lib/sync";
-import { notifySlackTaskDone } from "@/lib/slack";
+import { notifySlackTaskDone, notifySlackTaskEvent } from "@/lib/slack";
 import { getSession } from "@/lib/auth";
 
 export async function GET(
@@ -43,17 +43,25 @@ export async function PATCH(
     const task = await prisma.task.update({ where: { id }, data });
 
     if (parsed.status && oldTask && parsed.status !== oldTask.status) {
+      const [client, session] = await Promise.all([
+        task.clientId
+          ? prisma.client.findUnique({ where: { id: task.clientId }, select: { name: true } })
+          : null,
+        getSession(),
+      ]);
       if (parsed.status === "DONE") {
-        const [client, session] = await Promise.all([
-          task.clientId
-            ? prisma.client.findUnique({ where: { id: task.clientId }, select: { name: true } })
-            : null,
-          getSession(),
-        ]);
         notifySlackTaskDone({
           title: task.title,
           clientName: client?.name,
           actor: session?.name,
+        }).catch(() => {});
+      } else {
+        notifySlackTaskEvent({
+          kind: "moved",
+          title: task.title,
+          clientName: client?.name,
+          actor: session?.name,
+          detail: parsed.status,
         }).catch(() => {});
       }
 

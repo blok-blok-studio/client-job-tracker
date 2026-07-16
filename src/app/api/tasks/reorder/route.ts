@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { reorderSchema } from "@/lib/validations";
 import { getSession } from "@/lib/auth";
-import { notifySlackTaskDone } from "@/lib/slack";
+import { notifySlackTaskDone, notifySlackTaskEvent } from "@/lib/slack";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,20 +25,30 @@ export async function POST(request: NextRequest) {
       )
     );
 
-    const newlyDone = updates.filter((u) => {
+    const statusChanged = updates.filter((u) => {
       const prev = beforeById.get(u.id);
-      return prev && u.status === "DONE" && prev.status !== "DONE";
+      return prev && u.status !== prev.status;
     });
 
-    if (newlyDone.length > 0) {
+    if (statusChanged.length > 0) {
       const session = await getSession();
-      for (const u of newlyDone) {
+      for (const u of statusChanged) {
         const prev = beforeById.get(u.id)!;
-        notifySlackTaskDone({
-          title: prev.title,
-          clientName: prev.client?.name,
-          actor: session?.name,
-        }).catch(() => {});
+        if (u.status === "DONE") {
+          notifySlackTaskDone({
+            title: prev.title,
+            clientName: prev.client?.name,
+            actor: session?.name,
+          }).catch(() => {});
+        } else {
+          notifySlackTaskEvent({
+            kind: "moved",
+            title: prev.title,
+            clientName: prev.client?.name,
+            actor: session?.name,
+            detail: u.status,
+          }).catch(() => {});
+        }
       }
     }
 

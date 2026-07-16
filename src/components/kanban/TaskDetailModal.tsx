@@ -239,8 +239,11 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                 {[
                   { key: "agent", label: "Agent (AI)" },
                   ...team.map((u) => ({ key: u.name, label: u.name })),
-                  // Legacy assignee not in the team list (e.g. deactivated user)
-                  ...(task.assignedTo && task.assignedTo !== "agent" && !team.some((u) => u.name === task.assignedTo)
+                  // Legacy assignee not in the team list (case-insensitive —
+                  // old tasks stored lowercase names like "chase")
+                  ...(task.assignedTo &&
+                  task.assignedTo.toLowerCase() !== "agent" &&
+                  !team.some((u) => u.name.toLowerCase() === task.assignedTo!.toLowerCase())
                     ? [{ key: task.assignedTo, label: task.assignedTo }]
                     : []),
                 ].map((a) => (
@@ -248,7 +251,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                     key={a.key}
                     onClick={() => a.key !== task.assignedTo && patchTask({ assignedTo: a.key })}
                     className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                      task.assignedTo === a.key
+                      task.assignedTo?.toLowerCase() === a.key.toLowerCase()
                         ? "bg-bb-orange text-white"
                         : "bg-bb-elevated text-bb-dim hover:bg-bb-border hover:text-white"
                     }`}

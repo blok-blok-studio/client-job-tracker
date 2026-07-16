@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { notifySlackTaskEvent } from "@/lib/slack";
 
 export async function GET(
   _request: NextRequest,
@@ -25,7 +26,10 @@ export async function POST(
     const body = await request.json();
     const { details } = z.object({ details: z.string().min(1).max(2000) }).parse(body);
 
-    const task = await prisma.task.findUnique({ where: { id }, select: { clientId: true } });
+    const task = await prisma.task.findUnique({
+      where: { id },
+      select: { clientId: true, title: true, client: { select: { name: true } } },
+    });
     if (!task) {
       return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
     }
@@ -40,6 +44,14 @@ export async function POST(
         details,
       },
     });
+
+    notifySlackTaskEvent({
+      kind: "update",
+      title: task.title,
+      clientName: task.client?.name,
+      actor: session?.name,
+      detail: details,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, data: log }, { status: 201 });
   } catch {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { taskSchema } from "@/lib/validations";
+import { getSession } from "@/lib/auth";
+import { notifySlackTaskEvent } from "@/lib/slack";
 
 const VALID_STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "BLOCKED"] as const;
 const VALID_PRIORITIES = ["URGENT", "HIGH", "MEDIUM", "LOW"] as const;
@@ -51,17 +53,26 @@ export async function POST(request: NextRequest) {
         dueDate: parsed.dueDate ? new Date(parsed.dueDate) : null,
         recurPattern: parsed.recurPattern || null,
       },
+      include: { client: { select: { name: true } } },
     });
 
+    const session = await getSession();
     await prisma.activityLog.create({
       data: {
         taskId: task.id,
         clientId: task.clientId,
-        actor: "chase",
+        actor: session?.name || "chase",
         action: "created_task",
         details: `Created task: ${task.title}`,
       },
     });
+
+    notifySlackTaskEvent({
+      kind: "created",
+      title: task.title,
+      clientName: task.client?.name,
+      actor: session?.name,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, data: task }, { status: 201 });
   } catch {
