@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
+import { notifySlack } from "@/lib/slack";
 
 // Server-to-server lead intake for blokblokstudio.com (strategy call funnel +
 // contact form). Authenticated with a shared secret header, not a session.
@@ -54,6 +55,15 @@ export async function POST(request: NextRequest) {
       .join("\n");
 
     const existing = await prisma.client.findFirst({ where: { email } });
+
+    // Speed-to-lead: leads contacted within 5 minutes convert dramatically
+    // better, so ping Slack immediately (fire-and-forget).
+    const slackLines = [
+      `🔥 New lead via ${lead.source}: *${lead.name.trim()}*`,
+      `${email}${lead.phone ? ` · ${lead.phone}` : ""}${lead.business ? ` · ${lead.business}` : ""}`,
+      existing ? "(existing client/prospect — inquiry appended to notes)" : null,
+    ].filter(Boolean);
+    notifySlack(slackLines.join("\n")).catch(() => {});
 
     if (existing) {
       await prisma.client.update({
