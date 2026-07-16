@@ -17,6 +17,7 @@ import { PLATFORM_OPTIONS } from "@/types";
 import { getFlagFromPhone, LiveClock } from "@/lib/client-utils";
 import { SERVICE_PACKAGES, ADDON_PACKAGES, PACKAGE_CATEGORIES, type PackageCustomization } from "@/lib/contract-templates";
 import MediaManager from "@/components/clients/MediaManager";
+import ClientTasks from "@/components/clients/ClientTasks";
 
 interface ClientDetail {
   id: string;
@@ -1077,6 +1078,9 @@ export default function ClientDetailPage() {
                 )}
               </div>
             </div>
+
+            {/* ─── Tasks & Work Updates ─── */}
+            <ClientTasks clientId={id} />
 
             {/* ─── Unified Assets Section ─── */}
             <div
