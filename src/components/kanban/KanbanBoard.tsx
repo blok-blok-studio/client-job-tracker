@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -14,8 +14,10 @@ import {
   type DragOverEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, LayoutGrid, CalendarDays } from "lucide-react";
 import KanbanColumn from "./KanbanColumn";
+import KanbanCalendar from "./KanbanCalendar";
+import TaskDetailModal from "./TaskDetailModal";
 import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
 import { STATUS_COLUMNS, type TaskStatus, type Priority, type TaskCategory } from "@/types";
@@ -45,8 +47,9 @@ export default function KanbanBoard() {
   const [filterPriority, setFilterPriority] = useState("");
   const [filterAssignee, setFilterAssignee] = useState("");
   const [addModalStatus, setAddModalStatus] = useState<TaskStatus | null>(null);
-  const [detailTask, setDetailTask] = useState<Task | null>(null);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
+  const [view, setView] = useState<"board" | "calendar">("board");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -85,14 +88,33 @@ export default function KanbanBoard() {
     });
   }, [fetchTasks]);
 
-  function getTasksForColumn(status: TaskStatus) {
-    return tasks
-      .filter((t) => t.status === status)
-      .filter((t) => !search || t.title.toLowerCase().includes(search.toLowerCase()))
-      .filter((t) => !filterClient || t.clientId === filterClient)
-      .filter((t) => !filterPriority || t.priority === filterPriority)
-      .filter((t) => !filterAssignee || t.assignedTo === filterAssignee)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+  const visibleTasks = useMemo(() => {
+    const q = search.toLowerCase();
+    return tasks.filter(
+      (t) =>
+        (!q || t.title.toLowerCase().includes(q) || (t.clientName || "").toLowerCase().includes(q)) &&
+        (!filterClient || t.clientId === filterClient) &&
+        (!filterPriority || t.priority === filterPriority) &&
+        (!filterAssignee || t.assignedTo === filterAssignee)
+    );
+  }, [tasks, search, filterClient, filterPriority, filterAssignee]);
+
+  const tasksByColumn = useMemo(() => {
+    const map = new Map<TaskStatus, Task[]>();
+    for (const col of STATUS_COLUMNS) map.set(col.key, []);
+    for (const t of visibleTasks) map.get(t.status)?.push(t);
+    for (const list of map.values()) list.sort((a, b) => a.sortOrder - b.sortOrder);
+    return map;
+  }, [visibleTasks]);
+
+  async function handleReschedule(taskId: string, dueDate: string | null) {
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, dueDate } : t)));
+    await fetch(`/api/tasks/${taskId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dueDate }),
+    });
+    fetchTasks();
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -182,7 +204,7 @@ export default function KanbanBoard() {
 
   async function handleDeleteTask(taskId: string) {
     await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-    setDetailTask(null);
+    setDetailTaskId(null);
     fetchTasks();
   }
 
@@ -192,14 +214,35 @@ export default function KanbanBoard() {
     <>
       {/* Filters */}
       <div className="space-y-3 mb-4">
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search tasks..."
-            className="w-full pl-8 pr-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search tasks..."
+              className="w-full pl-8 pr-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+            />
+          </div>
+          <div className="flex rounded-md border border-bb-border overflow-hidden shrink-0">
+            {([
+              { key: "board", label: "Board", Icon: LayoutGrid },
+              { key: "calendar", label: "Calendar", Icon: CalendarDays },
+            ] as const).map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  view === key
+                    ? "bg-bb-orange text-white"
+                    : "bg-bb-surface text-bb-dim hover:text-white"
+                }`}
+              >
+                <Icon size={13} />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Filter size={14} className="text-bb-dim shrink-0" />
@@ -223,38 +266,43 @@ export default function KanbanBoard() {
       </div>
 
       {/* Board */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {STATUS_COLUMNS.map((col) => (
-            <KanbanColumn
-              key={col.key}
-              status={col.key}
-              label={col.label}
-              tasks={getTasksForColumn(col.key)}
-              onAddTask={(status) => setAddModalStatus(status)}
-              onTaskClick={(id) => {
-                const t = tasks.find((task) => task.id === id);
-                if (t) setDetailTask(t);
-              }}
-              onDeleteTask={handleDeleteTask}
-            />
-          ))}
-        </div>
-        <DragOverlay>
-          {activeTask && (
-            <div className="bg-bb-surface border border-bb-orange rounded-lg p-3 shadow-modal opacity-90 w-[280px]">
-              <p className="text-sm font-medium">{activeTask.title}</p>
-              <Badge variant="default" size="sm">{activeTask.priority}</Badge>
-            </div>
-          )}
-        </DragOverlay>
-      </DndContext>
+      {view === "board" ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {STATUS_COLUMNS.map((col) => (
+              <KanbanColumn
+                key={col.key}
+                status={col.key}
+                label={col.label}
+                tasks={tasksByColumn.get(col.key) || []}
+                onAddTask={(status) => setAddModalStatus(status)}
+                onTaskClick={(id) => setDetailTaskId(id)}
+                onDeleteTask={handleDeleteTask}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeTask && (
+              <div className="bg-bb-surface border border-bb-orange rounded-lg p-3 shadow-modal opacity-90 w-[280px]">
+                <p className="text-sm font-medium">{activeTask.title}</p>
+                <Badge variant="default" size="sm">{activeTask.priority}</Badge>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
+      ) : (
+        <KanbanCalendar
+          tasks={visibleTasks}
+          onTaskClick={(id) => setDetailTaskId(id)}
+          onReschedule={handleReschedule}
+        />
+      )}
 
       {/* Add Task Modal */}
       <Modal open={!!addModalStatus} onClose={() => setAddModalStatus(null)} title={`Add Task — ${addModalStatus?.replace("_", " ")}`}>
@@ -320,25 +368,12 @@ export default function KanbanBoard() {
       </Modal>
 
       {/* Task Detail Modal */}
-      <Modal open={!!detailTask} onClose={() => setDetailTask(null)} title={detailTask?.title || "Task"} className="max-w-lg">
-        {detailTask && (
-          <div className="space-y-4">
-            {detailTask.description && <p className="text-sm text-bb-muted">{detailTask.description}</p>}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-bb-dim">Status</span><p><Badge variant="default">{detailTask.status.replace("_", " ")}</Badge></p></div>
-              <div><span className="text-bb-dim">Priority</span><p><Badge variant={detailTask.priority === "URGENT" ? "red" : detailTask.priority === "HIGH" ? "orange" : "blue"}>{detailTask.priority}</Badge></p></div>
-              <div><span className="text-bb-dim">Category</span><p className="text-bb-muted">{detailTask.category.replace("_", " ")}</p></div>
-              <div><span className="text-bb-dim">Assigned</span><p className="text-bb-muted">{detailTask.assignedTo || "Unassigned"}</p></div>
-              {detailTask.clientName && <div><span className="text-bb-dim">Client</span><p className="text-bb-muted">{detailTask.clientName}</p></div>}
-              {detailTask.dueDate && <div><span className="text-bb-dim">Due</span><p className="text-bb-muted">{new Date(detailTask.dueDate).toLocaleDateString()}</p></div>}
-            </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-bb-border">
-              <button onClick={() => handleDeleteTask(detailTask.id)} className="px-4 py-2 text-sm text-red-400 hover:text-red-300">Delete</button>
-              <button onClick={() => setDetailTask(null)} className="px-4 py-2 text-sm text-bb-muted hover:text-white">Close</button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      <TaskDetailModal
+        taskId={detailTaskId}
+        onClose={() => setDetailTaskId(null)}
+        onChanged={fetchTasks}
+        onDelete={handleDeleteTask}
+      />
     </>
   );
 }
