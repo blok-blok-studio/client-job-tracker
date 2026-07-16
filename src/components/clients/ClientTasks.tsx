@@ -13,6 +13,7 @@ interface ClientTask {
   dueDate: string | null;
   assignedTo: string | null;
   checklistTotal: number;
+  checklistDone: number;
   updatesCount: number;
 }
 
@@ -54,6 +55,7 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
             dueDate: t.dueDate,
             assignedTo: t.assignedTo,
             checklistTotal: (t._count as Record<string, number>)?.checklistItems || 0,
+            checklistDone: ((t.checklistItems as Array<{ checked: boolean }>) || []).filter((i) => i.checked).length,
             updatesCount: (t._count as Record<string, number>)?.activityLogs || 0,
           }))
         );
@@ -148,6 +150,11 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
               <span className={`flex-1 min-w-0 truncate text-sm ${t.status === "DONE" ? "text-bb-dim line-through" : "text-white"}`}>
                 {t.title}
               </span>
+              {t.checklistTotal > 0 && (
+                <span className={`text-[10px] font-semibold shrink-0 ${t.checklistDone === t.checklistTotal ? "text-emerald-400" : "text-bb-muted"}`}>
+                  {Math.round((t.checklistDone / t.checklistTotal) * 100)}%
+                </span>
+              )}
               {t.updatesCount > 0 && (
                 <span className="text-[10px] text-bb-dim shrink-0">{t.updatesCount} update{t.updatesCount !== 1 ? "s" : ""}</span>
               )}

@@ -65,6 +65,7 @@ export default function TaskCard({
   };
 
   const isOverdue = dueDate && new Date(dueDate) < new Date();
+  const pct = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : null;
 
   return (
     <div
@@ -96,17 +97,28 @@ export default function TaskCard({
         <Badge variant="gray" size="sm">{categoryLabel[category] || category}</Badge>
       </div>
 
+      {/* Checklist progress */}
+      {pct !== null && (
+        <div className="mb-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-bb-dim">{checklistDone}/{checklistTotal} subtasks</span>
+            <span className={`text-[10px] font-semibold ${pct === 100 ? "text-emerald-400" : "text-bb-muted"}`}>{pct}%</span>
+          </div>
+          <div className="h-1 rounded-full bg-bb-elevated overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${pct === 100 ? "bg-emerald-500" : "bg-bb-orange"}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
           {dueDate && (
             <span className={`flex items-center gap-1 ${isOverdue ? "text-red-400" : "text-bb-dim"}`}>
               <Calendar size={10} />
               {formatRelativeDate(new Date(dueDate))}
-            </span>
-          )}
-          {checklistTotal > 0 && (
-            <span className="text-bb-dim">
-              {checklistDone}/{checklistTotal}
             </span>
           )}
         </div>

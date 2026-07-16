@@ -75,7 +75,7 @@ export default function KanbanBoard() {
           clientName: (t.client as Record<string, string> | null)?.name || null,
           clientId: t.clientId,
           checklistTotal: (t._count as Record<string, number>)?.checklistItems || 0,
-          checklistDone: 0,
+          checklistDone: ((t.checklistItems as Array<{ checked: boolean }>) || []).filter((i) => i.checked).length,
           tags: t.tags || [],
         }))
       );

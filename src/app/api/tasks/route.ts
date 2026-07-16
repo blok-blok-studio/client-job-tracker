@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
     where,
     include: {
       client: { select: { id: true, name: true } },
+      checklistItems: { select: { checked: true } },
       _count: { select: { checklistItems: true, activityLogs: true } },
     },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
