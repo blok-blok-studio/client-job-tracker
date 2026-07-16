@@ -15,6 +15,7 @@ interface Task {
   dueDate: string | null;
   assignedTo: string | null;
   assigneeColor?: string | null;
+  clientUnpaid?: number | null;
   checklistTotal: number;
   checklistDone: number;
 }

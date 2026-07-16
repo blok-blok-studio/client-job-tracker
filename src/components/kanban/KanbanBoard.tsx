@@ -50,6 +50,7 @@ export default function KanbanBoard() {
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [team, setTeam] = useState<Array<{ id: string; name: string; color?: string | null }>>([]);
+  const [unpaid, setUnpaid] = useState<Map<string, number>>(new Map());
   const [view, setView] = useState<"board" | "calendar">("board");
 
   const sensors = useSensors(
@@ -100,6 +101,11 @@ export default function KanbanBoard() {
     });
     fetch("/api/users/assignable").then((r) => r.json()).then((d) => {
       if (d.success) setTeam(d.data);
+    }).catch(() => {});
+    fetch("/api/clients/unpaid").then((r) => r.json()).then((d) => {
+      if (d.success) {
+        setUnpaid(new Map((d.data as Array<{ clientId: string; outstanding: number }>).map((u) => [u.clientId, u.outstanding])));
+      }
     }).catch(() => {});
   }, [fetchTasks]);
 
@@ -331,6 +337,7 @@ export default function KanbanBoard() {
                 tasks={(tasksByColumn.get(col.key) || []).map((t) => ({
                   ...t,
                   assigneeColor: t.assignedTo ? teamColors.get(t.assignedTo.toLowerCase()) ?? null : null,
+                  clientUnpaid: t.clientId ? unpaid.get(t.clientId) ?? null : null,
                 }))}
                 onAddTask={(status) => setAddModalStatus(status)}
                 onTaskClick={(id) => setDetailTaskId(id)}

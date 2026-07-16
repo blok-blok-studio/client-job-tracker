@@ -264,7 +264,7 @@ export async function GET(request: NextRequest) {
           client: { name: string } | null;
         }>;
 
-        if (dueTasks.length > 0) {
+        {
           const users = await prisma.user.findMany({
             where: { isActive: true },
             select: { name: true, slackUserId: true },
@@ -282,12 +282,31 @@ export async function GET(request: NextRequest) {
             .filter((t) => t.dueDate && t.dueDate >= startOfToday)
             .map((t) => `• *${t.title}*${t.client ? ` (${t.client.name})` : ""}${mention(t.assignedTo)}`);
 
+          // Invoices unpaid for 15+ days — chase the cash
+          const fifteenDaysAgo = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
+          const staleInvoices = (await prisma.invoice.findMany({
+            where: { status: { in: ["SENT", "OVERDUE"] }, createdAt: { lt: fifteenDaysAgo } },
+            select: { amount: true, currency: true, createdAt: true, client: { select: { name: true } } },
+            orderBy: { createdAt: "asc" },
+            take: 10,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          })) as any as Array<{ amount: unknown; currency: string; createdAt: Date; client: { name: string } | null }>;
+          const invoiceLines = staleInvoices.map((inv) => {
+            const days = Math.floor((now.getTime() - inv.createdAt.getTime()) / (24 * 60 * 60 * 1000));
+            const amt = Number(inv.amount).toLocaleString("en-US", { style: "currency", currency: inv.currency || "USD" });
+            return `• *${amt}* — ${inv.client?.name || "Unknown"} · unpaid ${days} days`;
+          });
+
           const { notifySlack } = await import("@/lib/slack");
           const parts = [":sunrise: *Morning digest*"];
           if (overdueLines.length) parts.push(`*Overdue (${overdueLines.length})*\n${overdueLines.join("\n")}`);
           if (todayLines.length) parts.push(`*Due today (${todayLines.length})*\n${todayLines.join("\n")}`);
-          await notifySlack(parts.join("\n\n"));
-          digestSent = true;
+          if (invoiceLines.length) parts.push(`:money_with_wings: *Invoices 15+ days unpaid (${invoiceLines.length})*\n${invoiceLines.join("\n")}`);
+          // Only speak when there's something to say
+          if (parts.length > 1) {
+            await notifySlack(parts.join("\n\n"));
+            digestSent = true;
+          }
         }
       } catch (err) {
         console.error("[Cron] Digest error:", err);

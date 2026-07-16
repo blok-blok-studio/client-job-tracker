@@ -16,6 +16,7 @@ interface TaskCardProps {
   dueDate: string | null;
   assignedTo: string | null;
   assigneeColor?: string | null;
+  clientUnpaid?: number | null;
   checklistTotal: number;
   checklistDone: number;
   onClick: () => void;
@@ -52,6 +53,7 @@ export default function TaskCard({
   dueDate,
   assignedTo,
   assigneeColor,
+  clientUnpaid,
   checklistTotal,
   checklistDone,
   onClick,
@@ -96,6 +98,14 @@ export default function TaskCard({
 
       <div className="flex flex-wrap items-center gap-1.5 mb-2">
         {clientName && <Badge variant="default" size="sm">{clientName}</Badge>}
+        {clientUnpaid != null && clientUnpaid > 0 && (
+          <span
+            className="rounded px-1.5 py-0.5 text-[9px] font-bold bg-red-500/15 text-red-400 ring-1 ring-red-500/30"
+            title={`This client has ${clientUnpaid.toLocaleString("en-US", { style: "currency", currency: "USD" })} in unpaid invoices`}
+          >
+            $ UNPAID
+          </span>
+        )}
         <Badge variant="gray" size="sm">{categoryLabel[category] || category}</Badge>
       </div>
 
