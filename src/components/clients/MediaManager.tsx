@@ -514,11 +514,11 @@ export default function MediaManager({
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs text-bb-dim">{mediaFiles.length} files</p>
           {/* Type filter pills */}
-          <div className="flex gap-1 ml-2">
+          <div className="flex flex-wrap gap-1 sm:ml-2">
             {(["ALL", "IMAGE", "VIDEO", "AUDIO", "DOCUMENT"] as const).map((t) => (
               counts[t] > 0 && (
                 <button

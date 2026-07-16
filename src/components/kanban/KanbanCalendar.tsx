@@ -188,7 +188,8 @@ export default function KanbanCalendar({ tasks, onTaskClick, onReschedule }: Kan
         <div className="grid grid-cols-7 bg-bb-black border-b border-bb-border">
           {WEEKDAYS.map((d) => (
             <div key={d} className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wider text-bb-dim">
-              {d}
+              <span className="hidden sm:inline">{d}</span>
+              <span className="sm:hidden">{d[0]}</span>
             </div>
           ))}
         </div>
@@ -208,7 +209,7 @@ export default function KanbanCalendar({ tasks, onTaskClick, onReschedule }: Kan
                   }}
                   onDragLeave={() => setDragOverKey((k) => (k === key ? null : k))}
                   onDrop={(e) => handleDrop(e, key)}
-                  className={`min-h-[92px] border-r border-bb-border last:border-r-0 p-1 space-y-1 transition-colors ${
+                  className={`min-h-[64px] sm:min-h-[92px] border-r border-bb-border last:border-r-0 p-0.5 sm:p-1 space-y-1 transition-colors ${
                     inMonth ? "bg-bb-black" : "bg-bb-surface/40"
                   } ${dragOverKey === key ? "bg-bb-orange/10 ring-1 ring-inset ring-bb-orange" : ""}`}
                 >

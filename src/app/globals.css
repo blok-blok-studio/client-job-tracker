@@ -15,6 +15,16 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+/* iOS zooms the page when a focused input's font-size is under 16px.
+   Bump form controls to 16px on phones to keep the viewport stable. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* iOS home-screen (standalone) mode: keep content clear of the notch and
    home indicator now that the viewport extends edge-to-edge */
 @media (display-mode: standalone) {

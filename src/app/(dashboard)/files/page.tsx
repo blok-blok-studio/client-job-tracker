@@ -739,7 +739,7 @@ export default function FilesPage() {
 
             {/* ──── Side Panel ──── */}
             {selectedMedia && (
-              <div className="w-72 shrink-0 rounded-lg border border-bb-border bg-bb-black p-4 space-y-3 sticky top-4 max-h-[calc(100vh-120px)] overflow-y-auto">
+              <div className="fixed inset-x-0 bottom-0 z-40 max-h-[70vh] rounded-t-xl border-t border-bb-border bg-bb-black p-4 pb-[max(env(safe-area-inset-bottom),1rem)] space-y-3 overflow-y-auto shadow-modal lg:static lg:z-auto lg:w-72 lg:shrink-0 lg:rounded-lg lg:border lg:shadow-none lg:sticky lg:top-4 lg:max-h-[calc(100vh-120px)] lg:pb-4">
                 {/* Close */}
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-bb-dim uppercase tracking-wider">File Details</span>
