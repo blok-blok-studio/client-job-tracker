@@ -90,6 +90,24 @@ export default function KanbanBoard() {
     }
   }, []);
 
+  // Keep the board multiplayer-fresh: refetch when the tab regains focus
+  // and every 45s while visible, so two people never edit a stale snapshot
+  useEffect(() => {
+    const safeRefetch = () => {
+      // Never refetch mid-drag — it would yank the card out of the user's hand
+      if (dragStatusRef.current === null) fetchTasks();
+    };
+    const onFocus = () => safeRefetch();
+    window.addEventListener("focus", onFocus);
+    const iv = setInterval(() => {
+      if (document.visibilityState === "visible") safeRefetch();
+    }, 45_000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      clearInterval(iv);
+    };
+  }, [fetchTasks]);
+
   // Deep link: /kanban?task=<id> opens the task detail (used by ⌘K search)
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("task");

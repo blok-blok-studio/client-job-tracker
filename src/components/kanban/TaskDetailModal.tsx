@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Calendar, User, Trash2, Plus, Check, X, Send, Loader2, ArrowRight, Timer, Play, Square,
+  Calendar, User, Trash2, Plus, Check, X, Send, Loader2, ArrowRight, Timer, Play, Square, Pencil,
 } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
@@ -80,6 +80,10 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
   const [update, setUpdate] = useState("");
   const [posting, setPosting] = useState(false);
   const [team, setTeam] = useState<Array<{ id: string; name: string; color?: string | null }>>([]);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descDraft, setDescDraft] = useState("");
 
   useEffect(() => {
     fetch("/api/users/assignable")
@@ -235,6 +239,36 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
       )}
       {task && (
         <div className="space-y-4">
+          {/* Editable title */}
+          {editingTitle ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (titleDraft.trim() && titleDraft.trim() !== task.title) patchTask({ title: titleDraft.trim() });
+                setEditingTitle(false);
+              }}
+              className="flex items-center gap-2"
+            >
+              <input
+                autoFocus
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={() => setEditingTitle(false)}
+                className="flex-1 px-3 py-2 bg-bb-black border border-bb-orange/50 rounded-lg text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              />
+              <button type="submit" onMouseDown={(e) => e.preventDefault()} className="p-2 rounded-lg bg-bb-orange text-white"><Check size={13} /></button>
+            </form>
+          ) : (
+            <button
+              onClick={() => { setTitleDraft(task.title); setEditingTitle(true); }}
+              className="group flex items-center gap-2 text-left w-full"
+              title="Click to rename"
+            >
+              <span className="text-sm font-medium text-white">{task.title}</span>
+              <Pencil size={11} className="text-bb-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            </button>
+          )}
+
           {/* Client + meta badges */}
           <div className="flex flex-wrap items-center gap-1.5">
             {task.client && <Badge variant="orange" size="sm">{task.client.name}</Badge>}
@@ -242,8 +276,43 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
             {task.tags.map((t) => <Badge key={t} variant="default" size="sm">{t}</Badge>)}
           </div>
 
-          {task.description && (
-            <p className="text-sm text-bb-muted whitespace-pre-wrap">{task.description}</p>
+          {editingDesc ? (
+            <div>
+              <textarea
+                autoFocus
+                value={descDraft}
+                onChange={(e) => setDescDraft(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 bg-bb-black border border-bb-orange/50 rounded-lg text-sm text-bb-muted focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              />
+              <div className="flex justify-end gap-2 mt-1">
+                <button onClick={() => setEditingDesc(false)} className="px-2 py-1 text-xs text-bb-dim hover:text-white">Cancel</button>
+                <button
+                  onClick={() => {
+                    if (descDraft.trim() !== (task.description || "")) patchTask({ description: descDraft.trim() || "" });
+                    setEditingDesc(false);
+                  }}
+                  className="px-3 py-1 bg-bb-orange text-white text-xs font-semibold rounded-md"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setDescDraft(task.description || ""); setEditingDesc(true); }}
+              className="group text-left w-full"
+              title="Click to edit description"
+            >
+              {task.description ? (
+                <p className="text-sm text-bb-muted whitespace-pre-wrap">
+                  {task.description}
+                  <Pencil size={11} className="inline ml-1.5 text-bb-dim opacity-0 group-hover:opacity-100 transition-opacity" />
+                </p>
+              ) : (
+                <p className="text-xs text-bb-dim italic opacity-60 group-hover:opacity-100 transition-opacity">+ Add a description…</p>
+              )}
+            </button>
           )}
 
           {/* Status pills — Bronco style */}
