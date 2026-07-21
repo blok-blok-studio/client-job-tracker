@@ -7,9 +7,15 @@ const SYSTEM_PROMPT = `You are a contract drafting assistant for Blok Blok Studi
 
 You are given:
 1. A BASELINE contract — a legally complete Service Agreement with exact pricing, scope of services, payment terms, and a signature block. This represents the firm's standard legal protections.
-2. CUSTOM INSTRUCTIONS from the agency owner describing how this specific contract should differ or what to emphasize/add.
+2. CUSTOM INSTRUCTIONS from the agency owner describing how this specific contract should differ or what to emphasize/add. The instructions may include a FULL CONTRACT TEMPLATE (possibly very long) to base the contract on.
 
 Produce a FINAL contract that follows the custom instructions while keeping every baseline legal protection.
+
+WHEN THE INSTRUCTIONS CONTAIN A TEMPLATE:
+- Use the pasted template as the primary structure and wording of the final contract — preserve its sections, clauses, and order as faithfully as the instructions allow.
+- Substitute the correct party names, client details, and any prices/dates from the instructions or baseline into the template.
+- Merge in any baseline protective clause (listed under HARD RULES) that the template lacks; where the template already covers a protection, keep the template's version.
+- Always end with the baseline's ACKNOWLEDGMENT AND ACCEPTANCE section and signature block.
 
 PRICING — read carefully:
 - If the CUSTOM INSTRUCTIONS state a price, fee, amount, or total, you MUST include it verbatim in the contract — write it into the SCOPE OF SERVICES, TOTAL INVESTMENT, and (where relevant) PAYMENT TERMS sections. An explicit price from the instructions ALWAYS appears in the final contract. This is the single most important requirement.
@@ -57,9 +63,11 @@ export async function generateAiContractBody(opts: {
 
   try {
     const anthropic = new Anthropic();
-    const message = await anthropic.messages.create({
+    // Streamed: template-based prompts can be huge and the drafted contract long —
+    // streaming avoids the SDK's non-streaming HTTP timeout at high max_tokens
+    const stream = anthropic.messages.stream({
       model: CONTRACT_MODEL,
-      max_tokens: 8000,
+      max_tokens: 24000,
       system: SYSTEM_PROMPT,
       messages: [
         {
@@ -77,6 +85,12 @@ Produce the final tailored contract now. Plain text only.`,
         },
       ],
     });
+    const message = await stream.finalMessage();
+
+    // Never send a truncated contract — fall back to the baseline instead
+    if (message.stop_reason === "max_tokens") {
+      return { body: baselineBody, usedAi: false, error: "AI output hit the length limit — used baseline. Try a shorter template/instructions." };
+    }
 
     const text = message.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")

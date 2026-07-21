@@ -1446,13 +1446,17 @@ export default function ClientDetailPage() {
             <textarea
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
-              rows={6}
-              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
-              placeholder="Describe the engagement: services, prices, timeline, and any special clauses. e.g. Website design and build for $4,500 — 50% deposit, 50% on launch. Include a strict NDA and 6-month exclusivity clause..."
+              rows={12}
+              maxLength={200000}
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm font-mono"
+              placeholder={"Describe the engagement: services, prices, timeline, and any special clauses — or paste a full contract template to base it on.\n\ne.g. Website design and build for $4,500 — 50% deposit, 50% on launch. Include a strict NDA and 6-month exclusivity clause...\n\nOr paste your entire template text here and add notes on what to change."}
             />
-            <p className="text-[10px] text-bb-dim mt-1">
-              AI drafts the full contract from these instructions on top of the baseline legal standards. State services, prices, and payment terms here — they are written into the contract. Payment links are not auto-generated; send those from the Payments section.
-            </p>
+            <div className="flex items-start justify-between gap-2 mt-1">
+              <p className="text-[10px] text-bb-dim">
+                AI drafts the full contract from these instructions on top of the baseline legal standards. Paste an entire template (any length up to 200k characters) and it becomes the structure of the contract. State services, prices, and payment terms here — they are written into the contract. Payment links are not auto-generated; send those from the Payments section.
+              </p>
+              <span className="text-[10px] text-bb-dim shrink-0">{customPrompt.length.toLocaleString()} / 200,000</span>
+            </div>
           </div>
 
           {/* Draft / review-before-send toggle */}

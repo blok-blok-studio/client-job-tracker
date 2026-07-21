@@ -24,8 +24,9 @@ const generateSchema = z.object({
     recurring: z.boolean().optional().default(false),
   })).optional().default([]),
   customTerms: z.string().max(5000).optional(),
-  // Free-form instructions that route the contract through AI drafting on top of the baseline template
-  customPrompt: z.string().max(5000).optional(),
+  // Free-form instructions that route the contract through AI drafting on top of the
+  // baseline template — large enough to paste a full contract template as the basis
+  customPrompt: z.string().max(200000).optional(),
   packageCustomizations: z.record(z.string(), z.object({
     priceOverride: z.number().min(0).optional(),
     excludedDeliverables: z.array(z.number().int().min(0)).optional(),
