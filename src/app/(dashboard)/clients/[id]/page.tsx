@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload, Pen, Type, RotateCcw, Eye, EyeOff, Lock, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload, Pen, Type, RotateCcw, Eye, EyeOff, Lock, Image as ImageIcon, Download } from "lucide-react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import { extractThumbnailFromFile } from "@/lib/video-thumbnail";
 import Link from "next/link";
@@ -1289,15 +1289,39 @@ export default function ClientDetailPage() {
                               </div>
                             </div>
                             {contract.status === "SIGNED" && contract.signedName && (
-                              <div className="flex items-center justify-between">
+                              <div className="flex items-center justify-between gap-2">
                                 <p className="text-xs text-bb-muted">
                                   Signed by {contract.signedName} on {new Date(contract.signedAt!).toLocaleString()}
                                 </p>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <button
+                                    onClick={() => window.open(`/contract/${contract.token}`, "_blank")}
+                                    className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                                  >
+                                    <Eye size={12} /> View
+                                  </button>
+                                  <button
+                                    onClick={() => window.open(`/api/contract/${contract.token}/pdf`, "_blank")}
+                                    className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                                  >
+                                    <Download size={12} /> PDF
+                                  </button>
+                                  <button
+                                    onClick={() => window.open(`/api/contract/${contract.token}/certificate`, "_blank")}
+                                    className="text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                                  >
+                                    Certificate
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {contract.status === "EXPIRED" && (
+                              <div className="flex items-center justify-end gap-3">
                                 <button
-                                  onClick={() => window.open(`/api/contract/${contract.token}/certificate`, "_blank")}
-                                  className="text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                                  onClick={() => window.open(`/api/contract/${contract.token}/pdf`, "_blank")}
+                                  className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
                                 >
-                                  View Certificate
+                                  <Download size={12} /> PDF
                                 </button>
                               </div>
                             )}
