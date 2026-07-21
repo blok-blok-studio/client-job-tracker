@@ -40,6 +40,7 @@ export async function PATCH(
     const data: Record<string, unknown> = { ...parsed };
     if (parsed.dueDate) data.dueDate = new Date(parsed.dueDate);
     if (parsed.status === "DONE") data.completedAt = new Date();
+    else if (parsed.status) data.completedAt = null;
 
     const oldTask = await prisma.task.findUnique({ where: { id } });
     const task = await prisma.task.update({ where: { id }, data });

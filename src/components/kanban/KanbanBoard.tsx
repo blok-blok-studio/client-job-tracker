@@ -67,6 +67,10 @@ export default function KanbanBoard() {
   const fetchTasks = useCallback(async () => {
     const res = await fetch("/api/tasks");
     const data = await res.json();
+    // A fetch that was already in flight when a drag started must not land
+    // mid-drag — replacing the tasks array unmounts the card dnd-kit is
+    // actively measuring and crashes the board.
+    if (dragStatusRef.current !== null) return;
     if (data.success) {
       setTasks(
         data.data.map((t: Record<string, unknown>) => ({
@@ -204,12 +208,20 @@ export default function KanbanBoard() {
     }
   }
 
+  function handleDragCancel() {
+    setActiveTask(null);
+    dragStatusRef.current = null;
+  }
+
   async function handleDragEnd(event: DragEndEvent) {
     setActiveTask(null);
     const { active, over } = event;
     const activeId = active.id as string;
     const movedTask = tasks.find((t) => t.id === activeId);
-    if (!movedTask) return;
+    if (!movedTask) {
+      dragStatusRef.current = null;
+      return;
+    }
 
     // Resolve the destination status. Priority: the column dropped on, then a
     // DIFFERENT task dropped on (other tasks' statuses are stable during a
@@ -349,6 +361,7 @@ export default function KanbanBoard() {
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
         >
           <div className="flex gap-4 overflow-x-auto pb-4">
             {STATUS_COLUMNS.map((col) => (

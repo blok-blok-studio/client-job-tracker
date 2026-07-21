@@ -1,6 +1,10 @@
 /**
  * Recurring task automation.
- * Creates new task instances from recurring task templates.
+ *
+ * A recurring task is a single card that cycles: drag it to Done and the cron
+ * later resets that SAME card back to To Do with the next due date and a
+ * fresh (unchecked) checklist. Nothing is duplicated and the recurrence never
+ * needs to be recreated — the 🔁 card just keeps coming back.
  *
  * Supported recurPattern formats:
  *   "daily"     — every day
@@ -21,92 +25,75 @@ const PATTERN_DAYS: Record<string, number> = {
 };
 
 /**
- * Process all recurring tasks and create new instances where due.
- * A recurring task spawns a new task when:
- *   1. It's marked as recurring with a valid pattern
- *   2. Its current status is DONE (the last cycle was completed)
- *   3. OR it has no dueDate yet (first run)
+ * Reset completed recurring tasks for their next cycle.
+ * A recurring task comes back when:
+ *   1. It's marked recurring with a valid pattern
+ *   2. It sits in DONE (the last cycle was completed)
+ *   3. Its next due date is within the next 7 days (keeps the board clean —
+ *      a monthly task doesn't reappear the moment you finish it)
  *
- * Returns the number of new tasks created.
+ * Returns the number of tasks reset.
  */
 export async function processRecurringTasks(): Promise<number> {
   const recurringTasks = await prisma.task.findMany({
     where: {
       isRecurring: true,
       recurPattern: { not: null },
-    },
-    include: {
-      client: { select: { id: true, name: true } },
+      status: "DONE",
     },
   });
 
-  let created = 0;
+  let reset = 0;
+  const maxFuture = new Date();
+  maxFuture.setDate(maxFuture.getDate() + 7);
 
   for (const task of recurringTasks) {
     const pattern = task.recurPattern?.toLowerCase() || "";
     const days = PATTERN_DAYS[pattern];
     if (!days) continue; // unknown pattern, skip
 
-    // Only create new instance if the current one is DONE
-    if (task.status !== "DONE") continue;
-
-    // Calculate the next due date
+    // Next cycle is due `days` after the last completion (or last due date)
     const lastDue = task.completedAt || task.dueDate || new Date();
     const nextDue = new Date(lastDue);
     nextDue.setDate(nextDue.getDate() + days);
 
-    // Don't create if next due date is more than 7 days in the future
-    const maxFuture = new Date();
-    maxFuture.setDate(maxFuture.getDate() + 7);
+    // Not yet time to resurface it
     if (nextDue > maxFuture) continue;
 
-    // Check if we already created a task for this cycle
-    // (look for an active task with the same title and client)
-    const existing = await prisma.task.findFirst({
-      where: {
-        title: task.title,
-        clientId: task.clientId,
-        status: { notIn: ["DONE"] },
-        isRecurring: false, // spawned instances are not recurring themselves
-      },
-    });
-    if (existing) continue;
-
-    // Create the new task instance
-    await prisma.task.create({
-      data: {
-        title: task.title,
-        description: task.description,
-        clientId: task.clientId,
-        status: "TODO",
-        priority: task.priority,
-        category: task.category,
-        dueDate: nextDue,
-        assignedTo: task.assignedTo,
-        tags: task.tags,
-        isRecurring: false, // instance, not template
-      },
+    // Put the card at the end of the To Do column
+    const maxSort = await prisma.task.aggregate({
+      where: { status: "TODO" },
+      _max: { sortOrder: true },
     });
 
-    // Advance the template's clock so the next cycle computes from this
-    // spawn, not from a stale completion date
     await prisma.task.update({
       where: { id: task.id },
-      data: { completedAt: nextDue, dueDate: nextDue },
+      data: {
+        status: "TODO",
+        dueDate: nextDue,
+        completedAt: null,
+        sortOrder: (maxSort._max.sortOrder ?? -1) + 1,
+      },
     });
 
-    // Log the activity
+    // Fresh checklist for the new cycle
+    await prisma.checklistItem.updateMany({
+      where: { taskId: task.id },
+      data: { checked: false },
+    });
+
     await prisma.activityLog.create({
       data: {
         clientId: task.clientId,
+        taskId: task.id,
         actor: "system",
-        action: "recurring_task_created",
-        details: `Auto-created recurring task: ${task.title} (${pattern})`,
+        action: "recurring_task_reset",
+        details: `Recurring task back on the board: ${task.title} (${pattern}, due ${nextDue.toISOString().slice(0, 10)})`,
       },
     });
 
-    created++;
+    reset++;
   }
 
-  return created;
+  return reset;
 }

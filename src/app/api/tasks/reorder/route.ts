@@ -18,12 +18,21 @@ export async function POST(request: NextRequest) {
     const beforeById = new Map(before.map((t) => [t.id, t]));
 
     await prisma.$transaction(
-      updates.map((u) =>
-        prisma.task.update({
+      updates.map((u) => {
+        const prev = beforeById.get(u.id);
+        // Stamp completion on drag-to-Done (recurring reset math needs it);
+        // clear it when a card is pulled back out of Done
+        const completedAt =
+          u.status === "DONE" && prev?.status !== "DONE"
+            ? new Date()
+            : u.status !== "DONE" && prev?.status === "DONE"
+            ? null
+            : undefined;
+        return prisma.task.update({
           where: { id: u.id },
-          data: { sortOrder: u.sortOrder, status: u.status },
-        })
-      )
+          data: { sortOrder: u.sortOrder, status: u.status, ...(completedAt !== undefined ? { completedAt } : {}) },
+        });
+      })
     );
 
     const statusChanged = updates.filter((u) => {
