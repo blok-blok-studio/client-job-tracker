@@ -214,10 +214,11 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile hamburger button */}
+      {/* Mobile hamburger button — max() keeps it clear of the notch/status bar
+          in the installed (standalone) app where the layout extends edge-to-edge */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-3 left-3 z-50 p-2 rounded-lg bg-bb-surface border border-bb-border text-bb-muted hover:text-white transition-colors"
+        className="lg:hidden fixed top-[max(0.75rem,env(safe-area-inset-top))] left-[max(0.75rem,env(safe-area-inset-left))] z-50 p-2 rounded-lg bg-bb-surface border border-bb-border text-bb-muted hover:text-white transition-colors"
         aria-label="Open menu"
       >
         <Menu size={20} />
@@ -231,10 +232,11 @@ export default function Sidebar() {
         />
       )}
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — h-dvh tracks the real mobile viewport (iOS toolbar collapse),
+          safe-area padding keeps the logo row and logout clear of the notch/home bar */}
       <aside
         className={cn(
-          "lg:hidden fixed top-0 left-0 h-screen w-[280px] bg-bb-surface border-r border-bb-border flex flex-col z-50 transition-transform duration-200",
+          "lg:hidden fixed top-0 left-0 h-dvh w-[280px] bg-bb-surface border-r border-bb-border flex flex-col z-50 transition-transform duration-200 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -244,7 +246,7 @@ export default function Sidebar() {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden lg:flex fixed top-0 left-0 h-screen bg-bb-surface border-r border-bb-border flex-col transition-all duration-200 z-50",
+          "hidden lg:flex fixed top-0 left-0 h-dvh bg-bb-surface border-r border-bb-border flex-col transition-all duration-200 z-50",
           collapsed ? "w-[72px]" : "w-[260px]"
         )}
       >

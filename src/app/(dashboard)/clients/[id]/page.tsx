@@ -66,10 +66,6 @@ export default function ClientDetailPage() {
   const [socialForm, setSocialForm] = useState({ platform: "", url: "", handle: "" });
   const [customPlatform, setCustomPlatform] = useState("");
   const [showContractModal, setShowContractModal] = useState(false);
-  const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
-  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
-  const [customItems, setCustomItems] = useState<{ name: string; price: string; recurring: boolean }[]>([]);
-  const [customTerms, setCustomTerms] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
   const [contractDraftMode, setContractDraftMode] = useState(true);
   const [generatingContract, setGeneratingContract] = useState(false);
@@ -96,18 +92,11 @@ export default function ClientDetailPage() {
   const [updatePriceAmount, setUpdatePriceAmount] = useState("");
   const [updatePriceProrate, setUpdatePriceProrate] = useState(true);
   const [updatingPrice, setUpdatingPrice] = useState(false);
-  // Package customizations (price overrides + deliverable toggling)
-  const [contractCustomizations, setContractCustomizations] = useState<Record<string, PackageCustomization>>({});
-  const [contractExpandedPkgs, setContractExpandedPkgs] = useState<string[]>([]);
   const [paymentCustomizations, setPaymentCustomizations] = useState<Record<string, PackageCustomization>>({});
   const [paymentExpandedPkgs, setPaymentExpandedPkgs] = useState<string[]>([]);
   const [providerSignedName, setProviderSignedName] = useState("Chase Haynes");
   const [providerSignatureMode, setProviderSignatureMode] = useState<"type" | "draw">("type");
   const [providerSignatureData, setProviderSignatureData] = useState<string | null>(null);
-  const [contractCountry, setContractCountry] = useState("DE");
-  const [contractSchedule, setContractSchedule] = useState<"no-payment" | "none" | "50/50" | "50/25/25">("50/50");
-  // Live exchange rate for EUR conversion
-  const [eurRate, setEurRate] = useState<number | null>(null);
   // Assets section state
   const [assetsTab, setAssetsTab] = useState<"passwords" | "media" | "contracts">("media");
   const [revealedCred, setRevealedCred] = useState<Record<string, { username: string; password: string; notes: string | null }>>({});
@@ -151,21 +140,6 @@ export default function ClientDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch live USD→EUR rate
-  useEffect(() => {
-    fetch("/api/exchange-rate")
-      .then((r) => r.json())
-      .then((d) => { if (d.success && d.rate) setEurRate(d.rate); })
-      .catch(() => {});
-  }, []);
-
-  const EU_COUNTRIES = ["DE","AT","NL","BE","FR","IT","ES","PT","IE","FI","SE","DK","PL","CZ","GR","HU","RO","BG","HR","SK","SI","LT","LV","EE","CY","MT","LU"];
-  const isEurContract = EU_COUNTRIES.includes(contractCountry);
-  const contractCurrSym = isEurContract ? "€" : "$";
-  const convertPrice = (usdAmount: number) => {
-    if (!isEurContract || !eurRate) return usdAmount;
-    return Math.round(usdAmount * eurRate);
-  };
 
   async function handleUpdate(data: Record<string, unknown>) {
     await fetch(`/api/clients/${id}`, {
@@ -269,48 +243,28 @@ export default function ClientDetailPage() {
   }
 
   async function handleGenerateContract() {
-    // A custom AI prompt alone is enough — no service selection required in that case
-    if (selectedPackages.length === 0 && customItems.filter(i => i.name.trim()).length === 0 && !customPrompt.trim()) return;
+    // Contracts are drafted entirely from the AI prompt — prices and terms live in the instructions
+    if (!customPrompt.trim()) return;
     setGeneratingContract(true);
     setAiFallbackNote(null);
-    const validCustomItems = customItems
-      .filter(i => i.name.trim() && Number(i.price) > 0)
-      .map(i => ({ name: i.name.trim(), price: Number(i.price), recurring: i.recurring }));
     try {
       const res = await fetch(`/api/clients/${id}/contract`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          packages: selectedPackages,
-          addons: selectedAddons,
-          customItems: validCustomItems.length > 0 ? validCustomItems : undefined,
-          customTerms: customTerms.trim() || undefined,
-          customPrompt: customPrompt.trim() || undefined,
-          packageCustomizations: Object.keys(contractCustomizations).length > 0 ? contractCustomizations : undefined,
+          packages: [],
+          customPrompt: customPrompt.trim(),
           providerSignedName,
           providerSignatureData: providerSignatureMode === "draw" ? providerSignatureData : undefined,
-          country: contractCountry,
-          skipPayment: contractSchedule === "no-payment",
+          country: "US",
+          skipPayment: true,
           draft: contractDraftMode,
-          paymentSchedule: contractSchedule === "50/50"
-            ? [{ label: "deposit", percent: 50 }, { label: "completion", percent: 50 }]
-            : contractSchedule === "50/25/25"
-            ? [{ label: "deposit", percent: 50 }, { label: "milestone", percent: 25 }, { label: "completion", percent: 25 }]
-            : undefined,
         }),
       });
       const data = await res.json();
       if (data.success) {
         setShowContractModal(false);
-        setSelectedPackages([]);
-        setSelectedAddons([]);
-        setCustomItems([]);
-        setCustomTerms("");
         setCustomPrompt("");
-        setContractCustomizations({});
-        setContractExpandedPkgs([]);
-        setContractCountry("DE");
-        setContractSchedule("50/50");
         fetchClient();
         if (data.data?.aiError) {
           const note = friendlyAiError(data.data.aiError);
@@ -1483,537 +1437,21 @@ export default function ClientDetailPage() {
       {/* Generate Contract Modal */}
       <Modal open={showContractModal} onClose={() => setShowContractModal(false)} title="Generate Contract" className="max-w-2xl">
         <div className="space-y-6">
-          <div>
-            <h4 className="text-sm font-medium text-white mb-3">Select Services *</h4>
-            <div className="space-y-5 max-h-[400px] overflow-y-auto pr-1">
-              {PACKAGE_CATEGORIES.map((cat) => {
-                const catPackages = SERVICE_PACKAGES.filter((p) => p.category === cat.id);
-                if (catPackages.length === 0) return null;
-                const hasRecurring = catPackages.some((p) => p.recurring);
-                const hasOneTime = catPackages.some((p) => !p.recurring);
-                return (
-                  <div key={cat.id}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <h5 className="text-xs font-semibold text-bb-muted uppercase tracking-wider">{cat.label}</h5>
-                      {hasRecurring && hasOneTime ? (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-bb-elevated text-bb-dim">Mixed</span>
-                      ) : hasRecurring ? (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">Monthly</span>
-                      ) : (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400">One-time</span>
-                      )}
-                    </div>
-                    <div className="space-y-1.5">
-                      {catPackages.map((pkg) => {
-                        const isSelected = selectedPackages.includes(pkg.id);
-                        const isExpanded = contractExpandedPkgs.includes(pkg.id);
-                        const cust = contractCustomizations[pkg.id];
-                        const displayPrice = convertPrice(cust?.priceOverride != null ? cust.priceOverride : pkg.price);
-                        const hasOverride = cust?.priceOverride != null || (cust?.excludedDeliverables && cust.excludedDeliverables.length > 0);
-                        return (
-                        <div key={pkg.id}>
-                        <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                          isSelected
-                            ? "border-bb-orange bg-bb-orange/5"
-                            : "border-bb-border hover:border-bb-orange/30"
-                        } ${isSelected && isExpanded ? "rounded-b-none" : ""}`}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedPackages([...selectedPackages, pkg.id]);
-                              } else {
-                                setSelectedPackages(selectedPackages.filter((p) => p !== pkg.id));
-                                setContractExpandedPkgs(contractExpandedPkgs.filter((p) => p !== pkg.id));
-                                const next = { ...contractCustomizations };
-                                delete next[pkg.id];
-                                setContractCustomizations(next);
-                              }
-                            }}
-                            className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium text-white">{pkg.name}</span>
-                              <span className={`text-sm font-mono font-semibold ${pkg.recurring ? "text-blue-400" : "text-bb-orange"}`}>
-                                {contractCurrSym}{displayPrice.toLocaleString()}{pkg.recurring ? "/mo" : ""}
-                              </span>
-                              {hasOverride && <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 font-medium">Modified</span>}
-                              {pkg.recurring ? (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-medium">Recurring</span>
-                              ) : (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 font-medium">One-time</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-bb-dim mt-0.5">{pkg.description}</p>
-                          </div>
-                          {isSelected && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setContractExpandedPkgs(isExpanded
-                                  ? contractExpandedPkgs.filter((p) => p !== pkg.id)
-                                  : [...contractExpandedPkgs, pkg.id]
-                                );
-                              }}
-                              className="p-1 text-bb-dim hover:text-white shrink-0"
-                            >
-                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            </button>
-                          )}
-                        </label>
-                        {isSelected && isExpanded && (
-                          <div className="border border-t-0 border-bb-orange bg-bb-black/50 rounded-b-lg p-3 space-y-3">
-                            <div>
-                              <label className="block text-[10px] uppercase tracking-wider text-bb-dim font-medium mb-1">Price Override</label>
-                              <div className="relative w-40">
-                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-bb-dim text-sm">$</span>
-                                <input
-                                  type="number"
-                                  value={cust?.priceOverride != null ? cust.priceOverride : pkg.price}
-                                  onChange={(e) => {
-                                    const val = e.target.value === "" ? undefined : Number(e.target.value);
-                                    setContractCustomizations({
-                                      ...contractCustomizations,
-                                      [pkg.id]: { ...contractCustomizations[pkg.id], priceOverride: val === pkg.price ? undefined : val },
-                                    });
-                                  }}
-                                  className="w-full pl-6 pr-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white"
-                                  min="0"
-                                  step="1"
-                                />
-                              </div>
-                              {cust?.priceOverride != null && cust.priceOverride !== pkg.price && (
-                                <p className="text-[10px] text-yellow-400 mt-1">
-                                  Original: {contractCurrSym}{convertPrice(pkg.price).toLocaleString()} → Custom: {contractCurrSym}{convertPrice(cust.priceOverride).toLocaleString()}
-                                </p>
-                              )}
-                            </div>
-                            <div>
-                              <label className="block text-[10px] uppercase tracking-wider text-bb-dim font-medium mb-1.5">Included Services</label>
-                              <div className="space-y-1">
-                                {pkg.deliverables.map((d, di) => {
-                                  const excluded = cust?.excludedDeliverables || [];
-                                  const isIncluded = !excluded.includes(di);
-                                  return (
-                                    <label key={di} className="flex items-start gap-2 cursor-pointer group">
-                                      <input
-                                        type="checkbox"
-                                        checked={isIncluded}
-                                        onChange={(e) => {
-                                          const prev = contractCustomizations[pkg.id]?.excludedDeliverables || [];
-                                          const next = e.target.checked
-                                            ? prev.filter((i) => i !== di)
-                                            : [...prev, di];
-                                          setContractCustomizations({
-                                            ...contractCustomizations,
-                                            [pkg.id]: { ...contractCustomizations[pkg.id], excludedDeliverables: next.length > 0 ? next : undefined },
-                                          });
-                                        }}
-                                        className="w-3.5 h-3.5 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange shrink-0"
-                                      />
-                                      <span className={`text-xs ${isIncluded ? "text-bb-muted" : "text-bb-dim line-through"}`}>{d}</span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
 
-          <div>
-            <h4 className="text-sm font-medium text-white mb-3">Add-Ons (Optional)</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-              {ADDON_PACKAGES.map((addon) => {
-                const addonCust = contractCustomizations[addon.id];
-                const addonPrice = convertPrice(addonCust?.priceOverride != null ? addonCust.priceOverride : addon.price);
-                return (
-                <label key={addon.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
-                  selectedAddons.includes(addon.id)
-                    ? "border-bb-orange bg-bb-orange/5"
-                    : "border-bb-border hover:border-bb-orange/30"
-                }`}>
-                  <input
-                    type="checkbox"
-                    checked={selectedAddons.includes(addon.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedAddons([...selectedAddons, addon.id]);
-                      } else {
-                        setSelectedAddons(selectedAddons.filter((a) => a !== addon.id));
-                        const next = { ...contractCustomizations };
-                        delete next[addon.id];
-                        setContractCustomizations(next);
-                      }
-                    }}
-                    className="w-3.5 h-3.5 rounded border-bb-border bg-bb-black accent-bb-orange"
-                  />
-                  <div className="flex-1">
-                    <span className="text-xs font-medium text-white">{addon.name}</span>
-                    <span className={`text-xs ml-1 font-mono ${addon.recurring ? "text-blue-400" : "text-bb-orange"}`}>
-                      {contractCurrSym}{addonPrice.toLocaleString()}{addon.recurring ? "/mo" : ""}
-                    </span>
-                    {addonCust?.priceOverride != null && <span className="text-[9px] ml-1 text-yellow-400">modified</span>}
-                  </div>
-                  {selectedAddons.includes(addon.id) && (
-                    <input
-                      type="number"
-                      value={addonCust?.priceOverride != null ? addonCust.priceOverride : addon.price}
-                      onClick={(e) => e.preventDefault()}
-                      onChange={(e) => {
-                        const val = e.target.value === "" ? undefined : Number(e.target.value);
-                        setContractCustomizations({
-                          ...contractCustomizations,
-                          [addon.id]: { ...contractCustomizations[addon.id], priceOverride: val === addon.price ? undefined : val },
-                        });
-                      }}
-                      className="w-20 px-2 py-1 bg-bb-surface border border-bb-border rounded text-xs text-white text-right"
-                      min="0"
-                    />
-                  )}
-                </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-white">Custom Line Items</h4>
-              <button
-                type="button"
-                onClick={() => setCustomItems([...customItems, { name: "", price: "", recurring: false }])}
-                className="text-bb-orange hover:text-bb-orange-light text-xs flex items-center gap-1"
-              >
-                <Plus size={12} /> Add Item
-              </button>
-            </div>
-            {customItems.length === 0 && (
-              <p className="text-xs text-bb-dim">Use this for discounted or custom-priced services (one-time or monthly).</p>
-            )}
-            <div className="space-y-2">
-              {customItems.map((item, i) => (
-                <div key={i} className="space-y-1.5 p-2.5 rounded-lg border border-bb-border bg-bb-black">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={item.name}
-                      onChange={(e) => {
-                        const updated = [...customItems];
-                        updated[i].name = e.target.value;
-                        setCustomItems(updated);
-                      }}
-                      className="flex-1 px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white placeholder:text-bb-dim"
-                      placeholder="Service name"
-                    />
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-bb-dim text-sm">$</span>
-                      <input
-                        type="number"
-                        value={item.price}
-                        onChange={(e) => {
-                          const updated = [...customItems];
-                          updated[i].price = e.target.value;
-                          setCustomItems(updated);
-                        }}
-                        className="w-28 pl-6 pr-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white placeholder:text-bb-dim"
-                        placeholder="0"
-                        min="0"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setCustomItems(customItems.filter((_, idx) => idx !== i))}
-                      className="p-1 text-bb-dim hover:text-red-400"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = [...customItems];
-                        updated[i].recurring = false;
-                        setCustomItems(updated);
-                      }}
-                      className={`flex-1 py-1 text-xs font-medium rounded border transition-colors ${
-                        !item.recurring
-                          ? "border-green-500 bg-green-500/10 text-green-400"
-                          : "border-bb-border bg-bb-surface text-bb-dim hover:border-green-500/30"
-                      }`}
-                    >
-                      One-time
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = [...customItems];
-                        updated[i].recurring = true;
-                        setCustomItems(updated);
-                      }}
-                      className={`flex-1 py-1 text-xs font-medium rounded border transition-colors ${
-                        item.recurring
-                          ? "border-blue-500 bg-blue-500/10 text-blue-400"
-                          : "border-bb-border bg-bb-surface text-bb-dim hover:border-blue-500/30"
-                      }`}
-                    >
-                      Monthly
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {(selectedPackages.length > 0 || selectedAddons.length > 0 || customItems.some(i => i.name.trim() && Number(i.price) > 0)) && (() => {
-            const allSelected = [
-              ...SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id)),
-              ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id)),
-            ];
-            const validCustom = customItems.filter(i => i.name.trim() && Number(i.price) > 0);
-            const getEffectivePrice = (i: { id: string; price: number }) => convertPrice(contractCustomizations[i.id]?.priceOverride ?? i.price);
-            const oneTimeItems = [
-              ...allSelected.filter((i) => !i.recurring).map(i => ({ name: i.name, price: getEffectivePrice(i) })),
-              ...validCustom.filter(i => !i.recurring).map(i => ({ name: i.name, price: convertPrice(Number(i.price)) })),
-            ];
-            const recurringItems = [
-              ...allSelected.filter((i) => i.recurring).map(i => ({ name: i.name, price: getEffectivePrice(i) })),
-              ...validCustom.filter(i => i.recurring).map(i => ({ name: i.name, price: convertPrice(Number(i.price)) })),
-            ];
-            const oneTimeTotal = oneTimeItems.reduce((sum, i) => sum + i.price, 0);
-            const recurringTotal = recurringItems.reduce((sum, i) => sum + i.price, 0);
-            return (
-              <div className="p-3 bg-bb-black rounded-lg border border-bb-border space-y-2">
-                {oneTimeItems.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
-                      <span className="text-[10px] uppercase tracking-wider text-bb-dim font-medium">One-time</span>
-                    </div>
-                    <div className="space-y-0.5 pl-3">
-                      {oneTimeItems.map((item, idx) => (
-                        <div key={idx} className="flex justify-between text-xs">
-                          <span className="text-bb-muted">{item.name}</span>
-                          <span className="text-bb-orange font-mono">{contractCurrSym}{item.price.toLocaleString()}</span>
-                        </div>
-                      ))}
-                      {oneTimeItems.length > 1 && (
-                        <div className="flex justify-between text-sm pt-1 border-t border-bb-border/30">
-                          <span className="text-bb-dim text-xs font-medium">Subtotal</span>
-                          <span className="text-bb-orange font-mono font-semibold">{contractCurrSym}{oneTimeTotal.toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {recurringItems.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
-                      <span className="text-[10px] uppercase tracking-wider text-bb-dim font-medium">Monthly</span>
-                    </div>
-                    <div className="space-y-0.5 pl-3">
-                      {recurringItems.map((item, idx) => (
-                        <div key={idx} className="flex justify-between text-xs">
-                          <span className="text-bb-muted">{item.name}</span>
-                          <span className="text-blue-400 font-mono">{contractCurrSym}{item.price.toLocaleString()}/mo</span>
-                        </div>
-                      ))}
-                      {recurringItems.length > 1 && (
-                        <div className="flex justify-between text-sm pt-1 border-t border-bb-border/30">
-                          <span className="text-bb-dim text-xs font-medium">Subtotal</span>
-                          <span className="text-blue-400 font-mono font-semibold">{contractCurrSym}{recurringTotal.toLocaleString()}/mo</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {oneTimeTotal > 0 && recurringTotal > 0 && (
-                  <div className="flex justify-between text-sm pt-2 border-t border-bb-border/50">
-                    <span className="text-white text-xs font-semibold">Total</span>
-                    <span className="text-white font-mono font-semibold">
-                      {contractCurrSym}{oneTimeTotal.toLocaleString()} + {contractCurrSym}{recurringTotal.toLocaleString()}/mo
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Payment Schedule */}
-          <div>
-            <h4 className="text-sm font-medium text-white mb-3">Payment Schedule</h4>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              {([
-                ["no-payment", "Contract Only", "No payment links"],
-                ["none", "No Split", "Single full payment"],
-                ["50/50", "50 / 50", "Deposit + Completion"],
-                ["50/25/25", "50 / 25 / 25", "Deposit + Milestone + Completion"],
-              ] as const).map(([value, label, desc]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setContractSchedule(value as "no-payment" | "none" | "50/50" | "50/25/25")}
-                  className={`p-2.5 rounded-lg border text-left transition-colors ${
-                    contractSchedule === value
-                      ? "border-bb-orange bg-bb-orange/5"
-                      : "border-bb-border hover:border-bb-orange/30"
-                  }`}
-                >
-                  <span className="text-sm font-medium text-white block">{label}</span>
-                  <span className="text-[10px] text-bb-dim">{desc}</span>
-                </button>
-              ))}
-            </div>
-            {contractSchedule !== "none" && contractSchedule !== "no-payment" && (() => {
-              const allSelected = [
-                ...SERVICE_PACKAGES.filter((p) => selectedPackages.includes(p.id)),
-                ...ADDON_PACKAGES.filter((a) => selectedAddons.includes(a.id)),
-              ];
-              const validCustom = customItems.filter(i => i.name.trim() && Number(i.price) > 0);
-              const getEffectivePrice = (i: { id: string; price: number }) => convertPrice(contractCustomizations[i.id]?.priceOverride ?? i.price);
-              const oneTimeTotal = allSelected.filter((i) => !i.recurring).reduce((s, i) => s + getEffectivePrice(i), 0)
-                + validCustom.filter(i => !i.recurring).reduce((s, i) => s + convertPrice(Number(i.price)), 0);
-              if (oneTimeTotal <= 0) return null;
-              const splits = contractSchedule === "50/50"
-                ? [{ label: "Deposit", percent: 50 }, { label: "Completion", percent: 50 }]
-                : [{ label: "Deposit", percent: 50 }, { label: "Milestone", percent: 25 }, { label: "Completion", percent: 25 }];
-              return (
-                <div className="p-3 bg-bb-black rounded-lg border border-bb-border space-y-1.5">
-                  {splits.map((s, i) => (
-                    <div key={i} className="flex justify-between text-xs">
-                      <span className="text-bb-muted">{s.label} ({s.percent}%)</span>
-                      <span className="text-bb-orange font-mono">{contractCurrSym}{Math.round((oneTimeTotal * s.percent) / 100).toLocaleString()}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between text-xs pt-1 border-t border-bb-border/30">
-                    <span className="text-bb-dim font-medium">Total</span>
-                    <span className="text-white font-mono font-semibold">{contractCurrSym}{oneTimeTotal.toLocaleString()}</span>
-                  </div>
-                  <p className="text-[10px] text-bb-dim pt-1">Deposit link will be auto-sent to the client. Other milestones can be sent manually.</p>
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* Country for contract & payment links */}
-          <div>
-            <label className="block text-sm font-medium text-white mb-1.5">Client Country</label>
-              <select
-                value={contractCountry}
-                onChange={(e) => setContractCountry(e.target.value)}
-                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
-              >
-                <optgroup label="North America">
-                  <option value="US">{"\uD83C\uDDFA\uD83C\uDDF8"} United States</option>
-                  <option value="CA">{"\uD83C\uDDE8\uD83C\uDDE6"} Canada</option>
-                  <option value="MX">{"\uD83C\uDDF2\uD83C\uDDFD"} Mexico</option>
-                </optgroup>
-                <optgroup label="Europe (EUR)">
-                  <option value="DE">{"\uD83C\uDDE9\uD83C\uDDEA"} Germany</option>
-                  <option value="AT">{"\uD83C\uDDE6\uD83C\uDDF9"} Austria</option>
-                  <option value="NL">{"\uD83C\uDDF3\uD83C\uDDF1"} Netherlands</option>
-                  <option value="BE">{"\uD83C\uDDE7\uD83C\uDDEA"} Belgium</option>
-                  <option value="FR">{"\uD83C\uDDEB\uD83C\uDDF7"} France</option>
-                  <option value="ES">{"\uD83C\uDDEA\uD83C\uDDF8"} Spain</option>
-                  <option value="IT">{"\uD83C\uDDEE\uD83C\uDDF9"} Italy</option>
-                  <option value="IE">{"\uD83C\uDDEE\uD83C\uDDEA"} Ireland</option>
-                  <option value="PT">{"\uD83C\uDDF5\uD83C\uDDF9"} Portugal</option>
-                  <option value="FI">{"\uD83C\uDDEB\uD83C\uDDEE"} Finland</option>
-                  <option value="GR">{"\uD83C\uDDEC\uD83C\uDDF7"} Greece</option>
-                  <option value="LU">{"\uD83C\uDDF1\uD83C\uDDFA"} Luxembourg</option>
-                  <option value="SE">{"\uD83C\uDDF8\uD83C\uDDEA"} Sweden</option>
-                  <option value="DK">{"\uD83C\uDDE9\uD83C\uDDF0"} Denmark</option>
-                  <option value="PL">{"\uD83C\uDDF5\uD83C\uDDF1"} Poland</option>
-                  <option value="CZ">{"\uD83C\uDDE8\uD83C\uDDFF"} Czech Republic</option>
-                  <option value="HU">{"\uD83C\uDDED\uD83C\uDDFA"} Hungary</option>
-                  <option value="RO">{"\uD83C\uDDF7\uD83C\uDDF4"} Romania</option>
-                  <option value="HR">{"\uD83C\uDDED\uD83C\uDDF7"} Croatia</option>
-                  <option value="SK">{"\uD83C\uDDF8\uD83C\uDDF0"} Slovakia</option>
-                  <option value="SI">{"\uD83C\uDDF8\uD83C\uDDEE"} Slovenia</option>
-                  <option value="BG">{"\uD83C\uDDE7\uD83C\uDDEC"} Bulgaria</option>
-                  <option value="EE">{"\uD83C\uDDEA\uD83C\uDDEA"} Estonia</option>
-                  <option value="LV">{"\uD83C\uDDF1\uD83C\uDDFB"} Latvia</option>
-                  <option value="LT">{"\uD83C\uDDF1\uD83C\uDDF9"} Lithuania</option>
-                  <option value="CY">{"\uD83C\uDDE8\uD83C\uDDFE"} Cyprus</option>
-                  <option value="MT">{"\uD83C\uDDF2\uD83C\uDDF9"} Malta</option>
-                </optgroup>
-                <optgroup label="Europe (Non-EU)">
-                  <option value="GB">{"\uD83C\uDDEC\uD83C\uDDE7"} United Kingdom</option>
-                  <option value="CH">{"\uD83C\uDDE8\uD83C\uDDED"} Switzerland</option>
-                  <option value="NO">{"\uD83C\uDDF3\uD83C\uDDF4"} Norway</option>
-                </optgroup>
-                <optgroup label="Africa">
-                  <option value="ZA">{"\uD83C\uDDFF\uD83C\uDDE6"} South Africa</option>
-                  <option value="NG">{"\uD83C\uDDF3\uD83C\uDDEC"} Nigeria</option>
-                  <option value="KE">{"\uD83C\uDDF0\uD83C\uDDEA"} Kenya</option>
-                  <option value="GH">{"\uD83C\uDDEC\uD83C\uDDED"} Ghana</option>
-                  <option value="EG">{"\uD83C\uDDEA\uD83C\uDDEC"} Egypt</option>
-                </optgroup>
-                <optgroup label="Asia & Pacific">
-                  <option value="AU">{"\uD83C\uDDE6\uD83C\uDDFA"} Australia</option>
-                  <option value="NZ">{"\uD83C\uDDF3\uD83C\uDDFF"} New Zealand</option>
-                  <option value="JP">{"\uD83C\uDDEF\uD83C\uDDF5"} Japan</option>
-                  <option value="SG">{"\uD83C\uDDF8\uD83C\uDDEC"} Singapore</option>
-                  <option value="IN">{"\uD83C\uDDEE\uD83C\uDDF3"} India</option>
-                  <option value="AE">{"\uD83C\uDDE6\uD83C\uDDEA"} UAE</option>
-                  <option value="IL">{"\uD83C\uDDEE\uD83C\uDDF1"} Israel</option>
-                  <option value="PH">{"\uD83C\uDDF5\uD83C\uDDED"} Philippines</option>
-                </optgroup>
-                <optgroup label="South America">
-                  <option value="BR">{"\uD83C\uDDE7\uD83C\uDDF7"} Brazil</option>
-                  <option value="CO">{"\uD83C\uDDE8\uD83C\uDDF4"} Colombia</option>
-                  <option value="AR">{"\uD83C\uDDE6\uD83C\uDDF7"} Argentina</option>
-                  <option value="CL">{"\uD83C\uDDE8\uD83C\uDDF1"} Chile</option>
-                </optgroup>
-              </select>
-              <p className="text-[10px] text-bb-dim mt-1">
-                {isEurContract
-                  ? `Currency: EUR — EU invoice template${eurRate ? ` (1 USD = ${eurRate.toFixed(4)} EUR live)` : ""}`
-                  : "Currency: USD — US invoice template"}
-              </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-white mb-1.5">Custom Terms (Optional)</label>
-            <textarea
-              value={customTerms}
-              onChange={(e) => setCustomTerms(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
-              placeholder="Any additional terms or conditions..."
-            />
-            <p className="text-[10px] text-bb-dim mt-1">Added verbatim as an &quot;Additional Terms&quot; section.</p>
-          </div>
-
-          {/* AI Custom Contract Prompt */}
+          {/* AI Contract Prompt */}
           <div>
             <label className="block text-sm font-medium text-white mb-1.5">
-              Custom Contract Prompt <span className="text-[10px] px-1.5 py-0.5 rounded bg-bb-orange/10 text-bb-orange font-medium align-middle">AI</span>
+              Contract Prompt * <span className="text-[10px] px-1.5 py-0.5 rounded bg-bb-orange/10 text-bb-orange font-medium align-middle">AI</span>
             </label>
             <textarea
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
-              rows={3}
+              rows={6}
               className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
-              placeholder="e.g. Add a strict NDA and 6-month exclusivity clause, make the tone more formal, and emphasize that all source files are delivered on completion..."
+              placeholder="Describe the engagement: services, prices, timeline, and any special clauses. e.g. Website design and build for $4,500 — 50% deposit, 50% on launch. Include a strict NDA and 6-month exclusivity clause..."
             />
             <p className="text-[10px] text-bb-dim mt-1">
-              {customPrompt.trim()
-                ? "AI tailors the contract from these instructions on top of the baseline legal standards. Any price you state here is written into the contract. Note: AI-stated prices are NOT reflected in auto-generated Stripe links — those come from the services/line items above, so send payment manually if you price via the prompt."
-                : "Leave blank to use the standard template. Add instructions to have AI tailor the wording and clauses while keeping the baseline protections and all figures."}
+              AI drafts the full contract from these instructions on top of the baseline legal standards. State services, prices, and payment terms here — they are written into the contract. Payment links are not auto-generated; send those from the Payments section.
             </p>
           </div>
 
@@ -2028,7 +1466,7 @@ export default function ClientDetailPage() {
             <div>
               <span className="text-sm font-medium text-white">Review before sending</span>
               <p className="text-[10px] text-bb-dim mt-0.5">
-                Create the contract as a draft so you can read it over. Nothing is emailed and no payment links are created until you click <span className="text-bb-muted">Send to client</span>.
+                Create the contract as a draft so you can read it over. Nothing is emailed until you click <span className="text-bb-muted">Send to client</span>.
               </p>
             </div>
           </label>
@@ -2153,7 +1591,7 @@ export default function ClientDetailPage() {
             </button>
             <button
               onClick={handleGenerateContract}
-              disabled={(selectedPackages.length === 0 && !customItems.some(i => i.name.trim()) && !customPrompt.trim()) || generatingContract || !providerSignedName.trim()}
+              disabled={!customPrompt.trim() || generatingContract || !providerSignedName.trim()}
               className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {generatingContract ? (
