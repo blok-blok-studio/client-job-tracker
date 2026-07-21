@@ -61,7 +61,9 @@ export async function GET(
       );
     }
 
-    if (contract.client.type === "ARCHIVED") {
+    // Signed contracts are permanent records — always viewable, even for
+    // archived clients or past the original signing deadline
+    if (contract.client.type === "ARCHIVED" && contract.status !== "SIGNED") {
       return NextResponse.json(
         { success: false, error: "This contract is no longer available" },
         { status: 410, headers: corsHeaders(request) }
@@ -76,7 +78,7 @@ export async function GET(
       );
     }
 
-    if (contract.expiresAt && new Date() > contract.expiresAt) {
+    if (contract.status !== "SIGNED" && contract.expiresAt && new Date() > contract.expiresAt) {
       // Update status to EXPIRED
       await prisma.contractSignature.update({
         where: { id: contract.id },
