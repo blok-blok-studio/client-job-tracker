@@ -32,6 +32,8 @@ interface Task {
   dueDate: string | null;
   assignedTo: string | null;
   isRecurring?: boolean;
+  blockedReason: string | null;
+  blockedAt: string | null;
   sortOrder: number;
   clientName: string | null;
   clientId: string | null;
@@ -83,6 +85,8 @@ export default function KanbanBoard() {
           dueDate: t.dueDate,
           assignedTo: t.assignedTo,
           isRecurring: !!t.isRecurring,
+          blockedReason: (t.blockedReason as string) || null,
+          blockedAt: (t.blockedAt as string) || null,
           sortOrder: t.sortOrder,
           clientName: (t.client as Record<string, string> | null)?.name || null,
           clientId: t.clientId,
@@ -373,6 +377,12 @@ export default function KanbanBoard() {
                   ...t,
                   assigneeColor: t.assignedTo ? teamColors.get(t.assignedTo.toLowerCase()) ?? null : null,
                   clientUnpaid: t.clientId ? unpaid.get(t.clientId) ?? null : null,
+                  // Reason lingers on the row for context if re-blocked, but only renders in the Blocked column
+                  blockedReason: t.status === "BLOCKED" ? t.blockedReason : null,
+                  blockedDays:
+                    t.status === "BLOCKED" && t.blockedAt
+                      ? Math.floor((Date.now() - new Date(t.blockedAt).getTime()) / 86_400_000)
+                      : null,
                 }))}
                 onAddTask={(status) => setAddModalStatus(status)}
                 onTaskClick={(id) => setDetailTaskId(id)}

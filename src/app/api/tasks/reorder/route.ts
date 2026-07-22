@@ -28,9 +28,16 @@ export async function POST(request: NextRequest) {
             : u.status !== "DONE" && prev?.status === "DONE"
             ? null
             : undefined;
+        // Track time-in-Blocked for the stale-blocked nudge
+        const blockedFields =
+          u.status === "BLOCKED" && prev?.status !== "BLOCKED"
+            ? { blockedAt: new Date(), blockedAlertAt: null }
+            : u.status !== "BLOCKED" && prev?.status === "BLOCKED"
+            ? { blockedAt: null, blockedAlertAt: null }
+            : {};
         return prisma.task.update({
           where: { id: u.id },
-          data: { sortOrder: u.sortOrder, status: u.status, ...(completedAt !== undefined ? { completedAt } : {}) },
+          data: { sortOrder: u.sortOrder, status: u.status, ...(completedAt !== undefined ? { completedAt } : {}), ...blockedFields },
         });
       })
     );

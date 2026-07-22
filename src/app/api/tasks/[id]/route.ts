@@ -43,6 +43,14 @@ export async function PATCH(
     else if (parsed.status) data.completedAt = null;
 
     const oldTask = await prisma.task.findUnique({ where: { id } });
+    // Track time-in-Blocked for the stale-blocked nudge
+    if (parsed.status === "BLOCKED" && oldTask?.status !== "BLOCKED") {
+      data.blockedAt = new Date();
+      data.blockedAlertAt = null;
+    } else if (parsed.status && parsed.status !== "BLOCKED" && oldTask?.status === "BLOCKED") {
+      data.blockedAt = null;
+      data.blockedAlertAt = null;
+    }
     const task = await prisma.task.update({ where: { id }, data });
 
     // Assignment changed to a team member → tag them in Slack

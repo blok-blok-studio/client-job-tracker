@@ -152,6 +152,12 @@ model Task {
   tags         String[]
   sortOrder    Int          @default(0)
 
+  // Blocked tracking: what it's waiting on, when it entered Blocked,
+  // and when the stale-blocked Slack nudge was sent (null = not yet alerted)
+  blockedReason  String?
+  blockedAt      DateTime?
+  blockedAlertAt DateTime?
+
   checklistItems ChecklistItem[]
   activityLogs   ActivityLog[]
   timeEntries    TimeEntry[]

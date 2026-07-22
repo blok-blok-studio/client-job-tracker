@@ -33,6 +33,7 @@ interface TaskDetail {
   assignedTo: string | null;
   isRecurring: boolean;
   recurPattern: string | null;
+  blockedReason: string | null;
   tags: string[];
   client: { id: string; name: string } | null;
   checklistItems: ChecklistItem[];
@@ -84,6 +85,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
   const [titleDraft, setTitleDraft] = useState("");
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState("");
+  const [blockedDraft, setBlockedDraft] = useState("");
 
   useEffect(() => {
     fetch("/api/users/assignable")
@@ -160,6 +162,15 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
       fetchTask().finally(() => setLoading(false));
     }
   }, [taskId, fetchTask]);
+
+  // Seed the blocked-reason draft once per task (not on every refetch, to not clobber typing)
+  const blockedSeededFor = useState<{ id: string | null }>({ id: null })[0];
+  useEffect(() => {
+    if (task && blockedSeededFor.id !== task.id) {
+      blockedSeededFor.id = task.id;
+      setBlockedDraft(task.blockedReason || "");
+    }
+  }, [task, blockedSeededFor]);
 
   async function patchTask(patch: Record<string, unknown>) {
     if (!task) return;
@@ -334,6 +345,27 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
               ))}
             </div>
           </div>
+
+          {/* What the task is blocked on — only relevant in the Blocked column */}
+          {task.status === "BLOCKED" && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-bb-dim">Blocked on</p>
+              <div className="flex items-center gap-2">
+                <input
+                  value={blockedDraft}
+                  onChange={(e) => setBlockedDraft(e.target.value)}
+                  onBlur={() => {
+                    const v = blockedDraft.trim();
+                    if (v !== (task.blockedReason || "")) patchTask({ blockedReason: v || null });
+                  }}
+                  maxLength={500}
+                  placeholder="e.g. Waiting on client to send logo files..."
+                  className="flex-1 px-3 py-2 bg-bb-black border border-red-500/30 rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                />
+              </div>
+              <p className="mt-1 text-[10px] text-bb-dim">Shows on the card. If it sits in Blocked 3+ days you get a Slack nudge to chase it up.</p>
+            </div>
+          )}
 
           {/* Priority pills */}
           <div>

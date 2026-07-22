@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { User, Calendar, Trash2, Repeat } from "lucide-react";
+import { User, Calendar, Trash2, Repeat, Ban } from "lucide-react";
 import Badge from "@/components/shared/Badge";
 import { formatRelativeDate } from "@/lib/utils";
 import type { Priority, TaskCategory } from "@/types";
@@ -18,6 +18,8 @@ interface TaskCardProps {
   assigneeColor?: string | null;
   clientUnpaid?: number | null;
   isRecurring?: boolean;
+  blockedReason?: string | null;
+  blockedDays?: number | null;
   checklistTotal: number;
   checklistDone: number;
   onClick: () => void;
@@ -56,6 +58,8 @@ export default function TaskCard({
   assigneeColor,
   clientUnpaid,
   isRecurring,
+  blockedReason,
+  blockedDays,
   checklistTotal,
   checklistDone,
   onClick,
@@ -108,8 +112,21 @@ export default function TaskCard({
             $ UNPAID
           </span>
         )}
+        {blockedDays != null && blockedDays >= 3 && (
+          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold bg-red-500/15 text-red-400 ring-1 ring-red-500/30">
+            STUCK {blockedDays}D
+          </span>
+        )}
         <Badge variant="gray" size="sm">{categoryLabel[category] || category}</Badge>
       </div>
+
+      {/* What this task is waiting on (Blocked column only) */}
+      {blockedReason && (
+        <p className="mb-2 text-[10px] text-red-400/90 leading-snug line-clamp-2" title={blockedReason}>
+          <Ban size={9} className="inline mr-1 align-[-1px]" />
+          {blockedReason}
+        </p>
+      )}
 
       {/* Checklist progress */}
       {pct !== null && (

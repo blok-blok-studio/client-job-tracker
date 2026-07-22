@@ -34,6 +34,37 @@ export async function GET(request: NextRequest) {
       return 0;
     });
 
+    // Nudge about tasks stuck in Blocked for 3+ days (once per blocked stint)
+    const staleBlockedCutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    let staleBlocked: Array<{ id: string; title: string; clientId: string | null; blockedAt: Date | null; blockedReason: string | null; client: { name: string } | null }> = [];
+    try {
+      staleBlocked = (await prisma.task.findMany({
+        where: { status: "BLOCKED", blockedAt: { lte: staleBlockedCutoff }, blockedAlertAt: null },
+        select: { id: true, title: true, clientId: true, blockedAt: true, blockedReason: true, client: { select: { name: true } } },
+      })) as unknown as typeof staleBlocked;
+    } catch (err) {
+      console.error("[Cron] Stale blocked query error:", err);
+    }
+    for (const t of staleBlocked) {
+      const days = Math.floor((Date.now() - t.blockedAt!.getTime()) / (24 * 60 * 60 * 1000));
+      const clientLabel = t.client?.name ? ` (*${t.client.name}*)` : "";
+      const reason = t.blockedReason ? `\n> Blocked on: ${t.blockedReason}` : "";
+      const { notifySlack } = await import("@/lib/slack");
+      await notifySlack(
+        `:no_entry: *${t.title}*${clientLabel} has been stuck in *Blocked* for ${days} days — time to chase it up.${reason}`
+      ).catch(() => {});
+      await prisma.task.update({ where: { id: t.id }, data: { blockedAlertAt: new Date() } }).catch(() => {});
+      await prisma.activityLog.create({
+        data: {
+          clientId: t.clientId,
+          taskId: t.id,
+          actor: "system",
+          action: "blocked_stale_alert",
+          details: `Task stuck in Blocked for ${days} days${t.blockedReason ? ` (blocked on: ${t.blockedReason})` : ""}`,
+        },
+      }).catch(() => {});
+    }
+
     // Expire stale contracts
     const expiredContracts = await prisma.contractSignature.findMany({
       where: { status: "PENDING", expiresAt: { lt: new Date() } },
@@ -315,7 +346,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { recurringTasksCreated: recurringCreated, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated, digestSent },
+      data: { recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated, digestSent },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";

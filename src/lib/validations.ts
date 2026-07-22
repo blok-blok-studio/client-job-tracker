@@ -49,6 +49,7 @@ export const taskSchema = z.object({
   isRecurring: z.boolean().optional(),
   recurPattern: z.string().optional().nullable(),
   tags: z.array(z.string()).optional(),
+  blockedReason: z.string().max(500).optional().nullable(),
 });
 
 export const credentialSchema = z.object({
