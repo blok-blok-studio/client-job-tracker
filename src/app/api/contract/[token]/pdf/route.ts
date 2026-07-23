@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import fs from "fs";
+import path from "path";
 
-// Brand colors
-const ORANGE = rgb(1, 0.42, 0); // #FF6B00
-const BLACK = rgb(0.04, 0.04, 0.04); // #0A0A0A
-const DARK_TEXT = rgb(0.13, 0.13, 0.13);
-const BODY_TEXT = rgb(0.22, 0.22, 0.22);
-const MUTED = rgb(0.45, 0.45, 0.45);
-const FAINT = rgb(0.65, 0.65, 0.65);
-const LIGHT_BORDER = rgb(0.88, 0.88, 0.88);
-const PANEL_BG = rgb(0.975, 0.97, 0.96);
+// Brand palette — matches blokblokstudio.com (Tailwind orange-500 accent on
+// black with the site's neutral gray scale)
+const ORANGE = rgb(0.976, 0.451, 0.086); // #f97316 (orange-500)
+const BLACK = rgb(0.039, 0.039, 0.039); // #0a0a0a (gray-950)
+const DARK_TEXT = rgb(0.09, 0.09, 0.09); // #171717 (gray-900)
+const BODY_TEXT = rgb(0.149, 0.149, 0.149); // #262626 (gray-800)
+const MUTED = rgb(0.451, 0.451, 0.451); // #737373 (gray-500)
+const FAINT = rgb(0.639, 0.639, 0.639); // #a3a3a3 (gray-400)
+const LIGHT_BORDER = rgb(0.898, 0.898, 0.898); // #e5e5e5 (gray-200)
+const PANEL_BG = rgb(0.98, 0.98, 0.98); // #fafafa (gray-50)
 
 // GET — Download signed contract as PDF
 export async function GET(
@@ -155,18 +158,39 @@ export async function GET(
 
     newPage();
 
-    // ── Cover header ──────────────────────────────────────────────
-    page.drawText("BLOK BLOK STUDIO", { x: MARGIN, y, size: 21, font: fontBold, color: BLACK });
+    // ── Cover header: black brand band with the white logo ────────
+    const BAND_HEIGHT = 108;
+    page.drawRectangle({ x: 0, y: PAGE_HEIGHT - BAND_HEIGHT, width: PAGE_WIDTH, height: BAND_HEIGHT, color: BLACK });
+    page.drawRectangle({ x: 0, y: PAGE_HEIGHT - BAND_HEIGHT - 3, width: PAGE_WIDTH, height: 3, color: ORANGE });
+
+    // White wordmark + subhead logo, vertically centered in the band
+    try {
+      const logoBytes = fs.readFileSync(
+        path.join(process.cwd(), "public", "bb_logo_wordmark_subhead_WHT_PNG.png")
+      );
+      const logoImg = await pdf.embedPng(logoBytes);
+      const logoH = 88;
+      const logoW = (logoImg.width / logoImg.height) * logoH;
+      page.drawImage(logoImg, {
+        x: MARGIN - 5,
+        y: PAGE_HEIGHT - BAND_HEIGHT + (BAND_HEIGHT - logoH) / 2,
+        width: logoW,
+        height: logoH,
+      });
+    } catch {
+      // Logo missing — fall back to text branding
+      page.drawText("BLOK BLOK STUDIO", { x: MARGIN, y: PAGE_HEIGHT - 62, size: 19, font: fontBold, color: rgb(1, 1, 1) });
+      page.drawText("creative tech studio", { x: MARGIN, y: PAGE_HEIGHT - 78, size: 8.5, font: fontItalic, color: FAINT });
+    }
+
+    // Prepared-for block on the right of the band
     const preparedFor = "PREPARED FOR";
     const pfw = fontBold.widthOfTextAtSize(preparedFor, 6.5);
-    page.drawText(preparedFor, { x: PAGE_WIDTH - MARGIN - pfw, y: y + 10, size: 6.5, font: fontBold, color: FAINT });
+    page.drawText(preparedFor, { x: PAGE_WIDTH - MARGIN - pfw, y: PAGE_HEIGHT - 52, size: 6.5, font: fontBold, color: FAINT });
     const clientNameW = font.widthOfTextAtSize(clientLabel, 9.5);
-    page.drawText(clientLabel, { x: PAGE_WIDTH - MARGIN - clientNameW, y: y - 2, size: 9.5, font, color: DARK_TEXT });
-    y -= 16;
-    page.drawLine({ start: { x: MARGIN, y }, end: { x: MARGIN + 118, y }, thickness: 2.5, color: ORANGE });
-    y -= 13;
-    page.drawText("creative tech studio", { x: MARGIN, y, size: 8.5, font: fontItalic, color: MUTED });
-    y -= 34;
+    page.drawText(clientLabel, { x: PAGE_WIDTH - MARGIN - clientNameW, y: PAGE_HEIGHT - 65, size: 9.5, font, color: rgb(1, 1, 1) });
+
+    y = PAGE_HEIGHT - BAND_HEIGHT - 40;
 
     // ── Contract body ─────────────────────────────────────────────
     const bodyLines = contract.contractBody.split("\n");
