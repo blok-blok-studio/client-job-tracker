@@ -158,39 +158,40 @@ export async function GET(
 
     newPage();
 
-    // ── Cover header: black brand band with the white logo ────────
-    const BAND_HEIGHT = 108;
-    page.drawRectangle({ x: 0, y: PAGE_HEIGHT - BAND_HEIGHT, width: PAGE_WIDTH, height: BAND_HEIGHT, color: BLACK });
-    page.drawRectangle({ x: 0, y: PAGE_HEIGHT - BAND_HEIGHT - 3, width: PAGE_WIDTH, height: 3, color: ORANGE });
+    // ── Cover header: white letterhead with the dark logo ─────────
+    const HEADER_BOTTOM = PAGE_HEIGHT - 128;
 
-    // White wordmark + subhead logo, vertically centered in the band
     try {
       const logoBytes = fs.readFileSync(
-        path.join(process.cwd(), "public", "bb_logo_wordmark_subhead_WHT_PNG.png")
+        path.join(process.cwd(), "public", "bb_logo_wordmark_subhead_BLK_PNG.png")
       );
       const logoImg = await pdf.embedPng(logoBytes);
-      const logoH = 88;
+      const logoH = 82;
       const logoW = (logoImg.width / logoImg.height) * logoH;
       page.drawImage(logoImg, {
         x: MARGIN - 5,
-        y: PAGE_HEIGHT - BAND_HEIGHT + (BAND_HEIGHT - logoH) / 2,
+        y: PAGE_HEIGHT - 30 - logoH,
         width: logoW,
         height: logoH,
       });
     } catch {
       // Logo missing — fall back to text branding
-      page.drawText("BLOK BLOK STUDIO", { x: MARGIN, y: PAGE_HEIGHT - 62, size: 19, font: fontBold, color: rgb(1, 1, 1) });
-      page.drawText("creative tech studio", { x: MARGIN, y: PAGE_HEIGHT - 78, size: 8.5, font: fontItalic, color: FAINT });
+      page.drawText("BLOK BLOK STUDIO", { x: MARGIN, y: PAGE_HEIGHT - 62, size: 19, font: fontBold, color: BLACK });
+      page.drawText("creative tech studio", { x: MARGIN, y: PAGE_HEIGHT - 78, size: 8.5, font: fontItalic, color: MUTED });
     }
 
-    // Prepared-for block on the right of the band
+    // Prepared-for block on the right
     const preparedFor = "PREPARED FOR";
     const pfw = fontBold.widthOfTextAtSize(preparedFor, 6.5);
     page.drawText(preparedFor, { x: PAGE_WIDTH - MARGIN - pfw, y: PAGE_HEIGHT - 52, size: 6.5, font: fontBold, color: FAINT });
     const clientNameW = font.widthOfTextAtSize(clientLabel, 9.5);
-    page.drawText(clientLabel, { x: PAGE_WIDTH - MARGIN - clientNameW, y: PAGE_HEIGHT - 65, size: 9.5, font, color: rgb(1, 1, 1) });
+    page.drawText(clientLabel, { x: PAGE_WIDTH - MARGIN - clientNameW, y: PAGE_HEIGHT - 65, size: 9.5, font, color: DARK_TEXT });
 
-    y = PAGE_HEIGHT - BAND_HEIGHT - 40;
+    // Rule closing the letterhead
+    page.drawLine({ start: { x: MARGIN, y: HEADER_BOTTOM }, end: { x: MARGIN + 46, y: HEADER_BOTTOM }, thickness: 2.5, color: ORANGE });
+    page.drawLine({ start: { x: MARGIN + 46, y: HEADER_BOTTOM }, end: { x: PAGE_WIDTH - MARGIN, y: HEADER_BOTTOM }, thickness: 0.75, color: LIGHT_BORDER });
+
+    y = HEADER_BOTTOM - 34;
 
     // ── Contract body ─────────────────────────────────────────────
     const bodyLines = contract.contractBody.split("\n");
