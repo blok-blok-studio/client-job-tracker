@@ -29,6 +29,7 @@ const PAGE_OPTIONS: Array<{ key: string; label: string }> = [
   { key: "content", label: "Content" },
   { key: "newsletter", label: "Newsletter" },
   { key: "files", label: "Files" },
+  { key: "deliverables", label: "Deliverables" },
   { key: "vault", label: "Vault" },
   { key: "money", label: "Money" },
   { key: "activity", label: "Activity" },
