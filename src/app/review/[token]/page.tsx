@@ -24,6 +24,26 @@ function isMediaFile(f: ReviewFile): boolean {
   return f.mimeType.startsWith("image/") || f.mimeType.startsWith("video/");
 }
 
+/**
+ * When every file lives under one shared root (a "master folder" was uploaded),
+ * drop that root from headings so sections read "Carousel 1", not "Master/Carousel 1".
+ */
+function stripCommonRoot(files: ReviewFile[]): ReviewFile[] {
+  let current = files;
+  for (;;) {
+    const folders = current.map((f) => f.folder).filter((x): x is string => !!x);
+    if (folders.length !== current.length) return current; // some files at root — keep as-is
+    const distinct = new Set(folders);
+    if (distinct.size < 2) return current; // single section — its full name is the label
+    const roots = new Set(folders.map((f) => f.split("/")[0]));
+    if (roots.size !== 1) return current;
+    current = current.map((f) => {
+      const rest = f.folder!.split("/").slice(1).join("/");
+      return { ...f, folder: rest || null };
+    });
+  }
+}
+
 /** Group files by their upload folder, preserving the order they were sent in. */
 function groupByFolder(files: ReviewFile[]): FileGroup[] {
   const order: Array<string | null> = [];
@@ -299,7 +319,7 @@ export default function DeliverableReviewPage() {
   if (!review) return null;
 
   const firstName = review.clientName.split(" ")[0];
-  const groups = groupByFolder(review.files);
+  const groups = groupByFolder(stripCommonRoot(review.files));
   const hasMedia = review.files.some(isMediaFile);
   const showFolderHeadings = groups.length > 1 || groups.some((g) => g.folder !== null);
 

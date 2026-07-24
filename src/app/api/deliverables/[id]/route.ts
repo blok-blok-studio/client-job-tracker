@@ -55,20 +55,32 @@ export async function PATCH(
       await prisma.deliverableFile.deleteMany({ where: { id: { in: removeFileIds }, deliverableId: id } });
     }
 
+    // New files continue the sequence after the current highest sortOrder
+    let nextSort = 0;
+    if (addFiles?.length) {
+      const maxSort = await prisma.deliverableFile.aggregate({
+        where: { deliverableId: id },
+        _max: { sortOrder: true },
+      });
+      nextSort = (maxSort._max.sortOrder ?? -1) + 1;
+    }
+
     const deliverable = await prisma.deliverable.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
         ...(message !== undefined && { message }),
         ...(content !== undefined && { content }),
-        ...(addFiles?.length && { files: { create: addFiles } }),
+        ...(addFiles?.length && {
+          files: { create: addFiles.map((f, i) => ({ ...f, sortOrder: nextSort + i })) },
+        }),
         ...(resubmit && {
           status: "PENDING_REVIEW" as const,
           respondedAt: null,
           respondedBy: null,
         }),
       },
-      include: { files: { orderBy: { createdAt: "asc" } } },
+      include: { files: { orderBy: { sortOrder: "asc" } } },
     });
 
     // Reopening after revisions auto-emails the client that it's ready again

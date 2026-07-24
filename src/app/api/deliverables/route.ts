@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const deliverables = await prisma.deliverable.findMany({
       where: clientId ? { clientId } : undefined,
       include: {
-        files: { orderBy: { createdAt: "asc" } },
+        files: { orderBy: { sortOrder: "asc" } },
         client: { select: { id: true, name: true, company: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -71,9 +71,9 @@ export async function POST(request: NextRequest) {
         message: message || null,
         content: content || null,
         createdBy: session?.name || null,
-        files: { create: files },
+        files: { create: files.map((f, i) => ({ ...f, sortOrder: i })) },
       },
-      include: { files: true },
+      include: { files: { orderBy: { sortOrder: "asc" } } },
     });
 
     // Auto-email the client their review link; never fail the create over email

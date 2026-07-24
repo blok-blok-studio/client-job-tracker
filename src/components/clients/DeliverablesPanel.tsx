@@ -196,6 +196,15 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
     if (!title.trim()) return;
     setSaving(true);
     try {
+      // Deterministic order: by folder, then numeric-aware filename (2.png < 10.png),
+      // so carousel slides always land in sequence no matter how the browser read them
+      const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+      const orderedFiles = [...pendingFiles].sort((a, b) => {
+        const fa = a.folder ?? "";
+        const fb = b.folder ?? "";
+        if (fa !== fb) return collator.compare(fa, fb);
+        return collator.compare(a.filename, b.filename);
+      });
       const res = await fetch("/api/deliverables", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -204,7 +213,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
           title: title.trim(),
           message: message.trim() || null,
           content: content.trim() || null,
-          files: pendingFiles,
+          files: orderedFiles,
         }),
       });
       const data = await res.json();

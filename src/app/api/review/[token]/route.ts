@@ -60,7 +60,11 @@ export async function GET(
         respondedAt: deliverable.respondedAt,
         createdAt: deliverable.createdAt,
         files: [...deliverable.files]
-          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+          .sort(
+            (a, b) =>
+              a.sortOrder - b.sortOrder ||
+              a.createdAt.getTime() - b.createdAt.getTime()
+          )
           .map((f) => ({
           id: f.id,
           url: f.url,

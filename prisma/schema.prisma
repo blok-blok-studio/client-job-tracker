@@ -637,7 +637,8 @@ model DeliverableFile {
   filename String
   fileSize Int
   mimeType String
-  folder   String? // relative folder path as uploaded (e.g. "Carousel 1"), null = root
+  folder    String? // relative folder path as uploaded (e.g. "Carousel 1"), null = root
+  sortOrder Int     @default(0) // explicit display order — folder batches keep their sequence
 
   createdAt DateTime @default(now())
 
