@@ -186,7 +186,12 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
       });
       const data = await res.json();
       if (data.success) {
-        toast("Deliverable created — copy the review link to send it", "success");
+        toast(
+          data.emailed
+            ? "Deliverable created — review link emailed to the client"
+            : "Created — no email on file for this client, copy the link to send it",
+          "success"
+        );
         resetForm();
         onRefresh();
       } else {
@@ -215,7 +220,12 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
       });
       const data = await res.json();
       if (data.success) {
-        toast("Reopened for review — same link works", "success");
+        toast(
+          data.emailed
+            ? "Reopened & emailed the client — same link works"
+            : "Reopened for review (no email on file) — same link works",
+          "success"
+        );
         onRefresh();
       } else {
         toast(data.error || "Failed to reopen", "error");

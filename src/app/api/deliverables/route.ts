@@ -3,6 +3,9 @@ import { randomBytes } from "crypto";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { sendDeliverableReviewEmail } from "@/lib/email";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
 
 const fileSchema = z.object({
   url: z.string().url(),
@@ -51,7 +54,10 @@ export async function POST(request: NextRequest) {
     }
     const { clientId, title, message, content, files } = parsed.data;
 
-    const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true } });
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: { id: true, name: true, email: true },
+    });
     if (!client) {
       return NextResponse.json({ success: false, error: "Client not found" }, { status: 404 });
     }
@@ -69,7 +75,24 @@ export async function POST(request: NextRequest) {
       include: { files: true },
     });
 
-    return NextResponse.json({ success: true, data: deliverable });
+    // Auto-email the client their review link; never fail the create over email
+    let emailed = false;
+    if (client.email) {
+      try {
+        await sendDeliverableReviewEmail({
+          to: client.email,
+          clientName: client.name,
+          title,
+          message: message || null,
+          reviewUrl: `${APP_URL}/review/${deliverable.token}`,
+        });
+        emailed = true;
+      } catch (err) {
+        console.error("[Deliverables] Review email failed:", err);
+      }
+    }
+
+    return NextResponse.json({ success: true, data: deliverable, emailed });
   } catch (err) {
     console.error("[Deliverables] Create failed:", err);
     return NextResponse.json({ success: false, error: "Failed to create deliverable" }, { status: 500 });

@@ -3,6 +3,9 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { notifySlackDeliverable } from "@/lib/slack";
+import { sendDeliverableResponseAdminEmail } from "@/lib/email";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
 
 const respondSchema = z.object({
   action: z.enum(["approve", "request_revision"]),
@@ -105,7 +108,7 @@ export async function POST(
 
     const deliverable = await prisma.deliverable.findUnique({
       where: { token },
-      include: { client: { select: { id: true, name: true } } },
+      include: { client: { select: { id: true, name: true, company: true } } },
     });
 
     if (!deliverable) {
@@ -170,6 +173,22 @@ export async function POST(
       respondedBy: name?.trim() || null,
       notes: notes?.trim() || null,
     });
+
+    // Email Chase the response; never fail the client's submission over email
+    try {
+      await sendDeliverableResponseAdminEmail({
+        clientName: deliverable.client.name,
+        company: deliverable.client.company,
+        title: deliverable.title,
+        approved,
+        respondedBy: name?.trim() || null,
+        notes: notes?.trim() || null,
+        clientUrl: `${APP_URL}/clients/${deliverable.client.id}`,
+        reviewUrl: `${APP_URL}/review/${deliverable.token}`,
+      });
+    } catch (err) {
+      console.error("[Review] Admin email failed:", err);
+    }
 
     return NextResponse.json({ success: true, data: { status: updated.status } });
   } catch (err) {

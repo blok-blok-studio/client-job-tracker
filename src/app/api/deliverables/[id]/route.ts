@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
+import { sendDeliverableReviewEmail } from "@/lib/email";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
 
 const fileSchema = z.object({
   url: z.string().url(),
@@ -33,7 +36,16 @@ export async function PATCH(
     }
     const { title, message, content, addFiles, removeFileIds, resubmit } = parsed.data;
 
-    const existing = await prisma.deliverable.findUnique({ where: { id }, select: { id: true } });
+    const existing = await prisma.deliverable.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        token: true,
+        title: true,
+        message: true,
+        client: { select: { name: true, email: true } },
+      },
+    });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Deliverable not found" }, { status: 404 });
     }
@@ -58,7 +70,25 @@ export async function PATCH(
       include: { files: { orderBy: { createdAt: "asc" } } },
     });
 
-    return NextResponse.json({ success: true, data: deliverable });
+    // Reopening after revisions auto-emails the client that it's ready again
+    let emailed = false;
+    if (resubmit && existing.client.email) {
+      try {
+        await sendDeliverableReviewEmail({
+          to: existing.client.email,
+          clientName: existing.client.name,
+          title: title ?? existing.title,
+          message: message !== undefined ? message : existing.message,
+          reviewUrl: `${APP_URL}/review/${existing.token}`,
+          isRevision: true,
+        });
+        emailed = true;
+      } catch (err) {
+        console.error("[Deliverables] Resubmit email failed:", err);
+      }
+    }
+
+    return NextResponse.json({ success: true, data: deliverable, emailed });
   } catch (err) {
     console.error("[Deliverables] Update failed:", err);
     return NextResponse.json({ success: false, error: "Failed to update deliverable" }, { status: 500 });

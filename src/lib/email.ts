@@ -690,6 +690,144 @@ export async function sendContractSignedAdminEmail(params: {
   return data;
 }
 
+/** Sent to the client when a deliverable is ready for their review (or reopened after revisions). */
+export async function sendDeliverableReviewEmail(params: {
+  to: string;
+  clientName: string;
+  title: string;
+  message?: string | null;
+  reviewUrl: string;
+  isRevision?: boolean;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const intro = params.isRevision
+    ? `We've made the updates you asked for on <strong>${esc(params.title)}</strong> — it's ready for another look.`
+    : `Your finished work is ready! <strong>${esc(params.title)}</strong> is waiting for your review.`;
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: params.isRevision
+      ? `Updated & Ready for Review — ${params.title}`
+      : `Ready for Your Review — ${params.title}`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Hi ${esc(params.clientName.split(" ")[0])},
+        </p>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          ${intro}
+        </p>
+        ${params.message ? `
+        <div style="background: #f9f9f9; border-left: 4px solid #FF6B00; border-radius: 0 8px 8px 0; padding: 14px 16px; margin: 20px 0;">
+          <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${esc(params.message)}</p>
+        </div>
+        ` : ""}
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Watch or view everything right on the page, then hit <strong>Approve</strong> if you love it — or <strong>Request changes</strong> and tell us what to adjust.
+        </p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            Review Your Work
+          </a>
+        </div>
+        <p style="color: #666; font-size: 14px; line-height: 1.6;">
+          No account or login needed — the link above is private to you.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">
+          Blok Blok Studio · chase@blokblokstudio.com
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send deliverable review email:", error);
+    throw new Error(`Resend error: ${error.message}`);
+  }
+
+  return data;
+}
+
+/** Sent to Chase when a client responds to a deliverable review. */
+export async function sendDeliverableResponseAdminEmail(params: {
+  clientName: string;
+  company: string | null;
+  title: string;
+  approved: boolean;
+  respondedBy?: string | null;
+  notes?: string | null;
+  clientUrl: string;
+  reviewUrl: string;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const heading = params.approved ? "Deliverable Approved 🎉" : "Revision Requested ✏️";
+  const boxBg = params.approved ? "#f0fdf4" : "#fff7ed";
+  const boxBorder = params.approved ? "#bbf7d0" : "#fed7aa";
+  const boxText = params.approved ? "#166534" : "#9a3412";
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: "chase@blokblokstudio.com",
+    subject: params.approved
+      ? `Approved — ${params.title} (${params.clientName})`
+      : `Revision Requested — ${params.title} (${params.clientName})`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <h2 style="color: #111; margin: 0 0 24px 0;">${heading}</h2>
+        <div style="background: ${boxBg}; border: 1px solid ${boxBorder}; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+          <p style="color: ${boxText}; font-size: 16px; font-weight: 600; margin: 0 0 4px 0;">
+            ${esc(params.clientName)}${params.company ? ` (${esc(params.company)})` : ""} — ${esc(params.title)}
+          </p>
+          ${params.respondedBy ? `<p style="color: ${boxText}; font-size: 14px; margin: 0;">Responded by ${esc(params.respondedBy)}</p>` : ""}
+        </div>
+        ${!params.approved && params.notes ? `
+        <p style="color: #666; font-size: 13px; margin: 0 0 6px;">What they asked for:</p>
+        <div style="background: #f9f9f9; border-left: 4px solid #FF6B00; border-radius: 0 8px 8px 0; padding: 14px 16px; margin: 0 0 24px;">
+          <p style="color: #333; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${esc(params.notes)}</p>
+        </div>
+        <p style="color: #666; font-size: 14px; line-height: 1.6;">
+          A revision task has been added to your kanban board automatically.
+        </p>
+        ` : ""}
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.clientUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+            Open Client
+          </a>
+          <span style="display: inline-block; width: 8px;"></span>
+          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #ffffff; color: #FF6B00; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; border: 2px solid #FF6B00;">
+            View Deliverable
+          </a>
+        </div>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send deliverable response admin email:", error);
+    throw new Error(`Resend error: ${error.message}`);
+  }
+
+  return data;
+}
+
 export async function sendNewsletterEmail(params: {
   to: string;
   subject: string;
