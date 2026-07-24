@@ -637,6 +637,7 @@ model DeliverableFile {
   filename String
   fileSize Int
   mimeType String
+  folder   String? // relative folder path as uploaded (e.g. "Carousel 1"), null = root
 
   createdAt DateTime @default(now())
 

@@ -10,6 +10,7 @@ const fileSchema = z.object({
   filename: z.string().min(1).max(255),
   fileSize: z.number().int().nonnegative(),
   mimeType: z.string().min(1).max(100),
+  folder: z.string().max(500).nullable().optional(),
 });
 
 const updateSchema = z.object({

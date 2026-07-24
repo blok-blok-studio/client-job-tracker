@@ -67,6 +67,7 @@ export async function GET(
           filename: f.filename,
           fileSize: f.fileSize,
           mimeType: f.mimeType,
+          folder: f.folder,
         })),
       },
     });

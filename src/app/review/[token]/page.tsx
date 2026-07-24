@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Check, Loader2, FileText, Download, Pencil, ThumbsUp, ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { Check, Loader2, FileText, Download, Pencil, ThumbsUp, ChevronLeft, ChevronRight, Play, Folder } from "lucide-react";
 
 interface ReviewFile {
   id: string;
@@ -11,6 +11,32 @@ interface ReviewFile {
   filename: string;
   fileSize: number;
   mimeType: string;
+  folder?: string | null;
+}
+
+interface FileGroup {
+  folder: string | null;
+  media: ReviewFile[];
+  docs: ReviewFile[];
+}
+
+function isMediaFile(f: ReviewFile): boolean {
+  return f.mimeType.startsWith("image/") || f.mimeType.startsWith("video/");
+}
+
+/** Group files by their upload folder, preserving the order they were sent in. */
+function groupByFolder(files: ReviewFile[]): FileGroup[] {
+  const order: Array<string | null> = [];
+  const map = new Map<string | null, { media: ReviewFile[]; docs: ReviewFile[] }>();
+  for (const f of files) {
+    const key = f.folder ?? null;
+    if (!map.has(key)) {
+      map.set(key, { media: [], docs: [] });
+      order.push(key);
+    }
+    map.get(key)![isMediaFile(f) ? "media" : "docs"].push(f);
+  }
+  return order.map((folder) => ({ folder, ...map.get(folder)! }));
 }
 
 interface ReviewData {
@@ -153,7 +179,10 @@ function FileRow({ file }: { file: ReviewFile }) {
         ) : (
           <FileText size={14} className="text-bb-orange shrink-0" />
         )}
-        <span className="text-sm text-white truncate">{file.filename}</span>
+        <span className="text-sm text-white truncate">
+          {file.folder && <span className="text-bb-dim">{file.folder}/</span>}
+          {file.filename}
+        </span>
         <span className="text-xs text-bb-dim shrink-0">{formatBytes(file.fileSize)}</span>
       </div>
       <a
@@ -270,12 +299,9 @@ export default function DeliverableReviewPage() {
   if (!review) return null;
 
   const firstName = review.clientName.split(" ")[0];
-  const media = review.files.filter(
-    (f) => f.mimeType.startsWith("image/") || f.mimeType.startsWith("video/")
-  );
-  const docs = review.files.filter(
-    (f) => !f.mimeType.startsWith("image/") && !f.mimeType.startsWith("video/")
-  );
+  const groups = groupByFolder(review.files);
+  const hasMedia = review.files.some(isMediaFile);
+  const showFolderHeadings = groups.length > 1 || groups.some((g) => g.folder !== null);
 
   return (
     <div className="min-h-screen bg-bb-black">
@@ -297,15 +323,30 @@ export default function DeliverableReviewPage() {
           )}
         </div>
 
-        {/* Media — front and center: watch the reel, swipe the carousel */}
-        {media.length > 0 && (
-          <div className="mb-6">
-            <MediaCarousel items={media} />
-            {media.length > 1 && (
-              <p className="text-center text-xs text-bb-dim mt-2 sm:hidden">
-                Swipe to see all {media.length} items
-              </p>
-            )}
+        {/* Media — front and center, one section per folder as uploaded */}
+        {hasMedia && (
+          <div className="mb-6 space-y-6">
+            {groups.filter((g) => g.media.length > 0).map((g) => (
+              <div key={g.folder ?? "__root__"}>
+                {showFolderHeadings && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <Folder size={14} className="text-bb-orange" />
+                    <h2 className="text-sm font-medium text-white">
+                      {g.folder ?? "More files"}
+                    </h2>
+                    <span className="text-xs text-bb-dim">
+                      {g.media.length} item{g.media.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                )}
+                <MediaCarousel items={g.media} />
+                {g.media.length > 1 && (
+                  <p className="text-center text-xs text-bb-dim mt-2 sm:hidden">
+                    Swipe to see all {g.media.length} items
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
@@ -365,25 +406,25 @@ export default function DeliverableReviewPage() {
         )}
 
         {/* Documents (non-media attachments) */}
-        {docs.length > 0 && (
+        {review.files.some((f) => !isMediaFile(f)) && (
           <div className="space-y-2 mb-6">
             <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">
-              Documents ({docs.length})
+              Documents ({review.files.filter((f) => !isMediaFile(f)).length})
             </p>
-            {docs.map((file) => (
+            {review.files.filter((f) => !isMediaFile(f)).map((file) => (
               <FileRow key={file.id} file={file} />
             ))}
           </div>
         )}
 
         {/* Downloads for the media shown above */}
-        {media.length > 0 && (
+        {hasMedia && (
           <details className="mb-8 group">
             <summary className="text-xs font-medium text-bb-dim uppercase tracking-wide cursor-pointer hover:text-bb-muted transition-colors list-none flex items-center gap-1.5">
-              <Download size={12} /> Download files ({media.length})
+              <Download size={12} /> Download files ({review.files.filter(isMediaFile).length})
             </summary>
             <div className="space-y-2 mt-2">
-              {media.map((file) => (
+              {review.files.filter(isMediaFile).map((file) => (
                 <FileRow key={file.id} file={file} />
               ))}
             </div>

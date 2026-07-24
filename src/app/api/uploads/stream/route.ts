@@ -10,7 +10,8 @@ export const maxDuration = 300;
 // Authenticated via session cookie (middleware handles auth).
 export async function PUT(request: NextRequest) {
   const ip = getClientIp(request);
-  const rl = rateLimit(ip, { max: 20, windowMs: 60_000, prefix: "upload" });
+  // High enough that a folder drop (1 request per file) doesn't trip it
+  const rl = rateLimit(ip, { max: 120, windowMs: 60_000, prefix: "upload" });
   if (!rl.allowed) {
     return NextResponse.json(
       { success: false, error: "Upload rate limit exceeded. Try again shortly." },

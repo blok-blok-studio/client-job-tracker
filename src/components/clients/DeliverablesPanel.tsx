@@ -21,7 +21,7 @@ export interface DeliverableItem {
   revisionCount: number;
   createdBy: string | null;
   createdAt: string;
-  files: Array<{ id: string; url: string; filename: string; fileSize: number; mimeType: string }>;
+  files: Array<{ id: string; url: string; filename: string; fileSize: number; mimeType: string; folder?: string | null }>;
 }
 
 interface PendingFile {
@@ -29,6 +29,12 @@ interface PendingFile {
   filename: string;
   fileSize: number;
   mimeType: string;
+  folder: string | null;
+}
+
+interface PickedFile {
+  file: File;
+  folder: string | null;
 }
 
 interface Props {
@@ -51,17 +57,25 @@ function isJunkFile(name: string): boolean {
   return name.startsWith(".") || name === "Thumbs.db" || name === "desktop.ini";
 }
 
-/** Collect files from a drop, walking folders recursively (Chrome/Safari/Edge). */
-async function filesFromDataTransfer(dt: DataTransfer): Promise<File[]> {
-  const out: File[] = [];
+/** Directory part of a relative path ("Carousel 1/img.jpg" → "Carousel 1"), null for root. */
+function folderOf(relativePath: string | undefined): string | null {
+  if (!relativePath) return null;
+  const idx = relativePath.lastIndexOf("/");
+  return idx > 0 ? relativePath.slice(0, idx) : null;
+}
 
-  async function walk(entry: FileSystemEntry): Promise<void> {
+/** Collect files from a drop, walking folders recursively and keeping their paths. */
+async function filesFromDataTransfer(dt: DataTransfer): Promise<PickedFile[]> {
+  const out: PickedFile[] = [];
+
+  async function walk(entry: FileSystemEntry, folder: string | null): Promise<void> {
     if (entry.isFile) {
       const file = await new Promise<File>((resolve, reject) =>
         (entry as FileSystemFileEntry).file(resolve, reject)
       );
-      if (!isJunkFile(file.name)) out.push(file);
+      if (!isJunkFile(file.name)) out.push({ file, folder });
     } else if (entry.isDirectory) {
+      const dirPath = folder ? `${folder}/${entry.name}` : entry.name;
       const reader = (entry as FileSystemDirectoryEntry).createReader();
       // readEntries returns batches (≤100); keep reading until empty
       let batch: FileSystemEntry[];
@@ -69,7 +83,7 @@ async function filesFromDataTransfer(dt: DataTransfer): Promise<File[]> {
         batch = await new Promise<FileSystemEntry[]>((resolve, reject) =>
           reader.readEntries(resolve, reject)
         );
-        for (const e of batch) await walk(e);
+        for (const e of batch) await walk(e, dirPath);
       } while (batch.length > 0);
     }
   }
@@ -79,10 +93,12 @@ async function filesFromDataTransfer(dt: DataTransfer): Promise<File[]> {
     .filter(Boolean) as FileSystemEntry[];
 
   if (entries.length > 0) {
-    for (const e of entries) await walk(e);
+    for (const e of entries) await walk(e, null);
     return out;
   }
-  return Array.from(dt.files).filter((f) => !isJunkFile(f.name));
+  return Array.from(dt.files)
+    .filter((f) => !isJunkFile(f.name))
+    .map((file) => ({ file, folder: null }));
 }
 
 const STATUS_META: Record<string, { label: string; classes: string; icon: React.ReactNode }> = {
@@ -120,9 +136,16 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleFilesSelected(list: FileList | File[] | null) {
+  async function handleFilesSelected(list: FileList | PickedFile[] | null) {
     if (!list || list.length === 0) return;
-    const files = Array.from(list).filter((f) => !isJunkFile(f.name));
+    // FileList comes from the pickers — folder picker files carry webkitRelativePath
+    const picked: PickedFile[] = Array.isArray(list)
+      ? list
+      : Array.from(list).map((file) => ({
+          file,
+          folder: folderOf((file as File & { webkitRelativePath?: string }).webkitRelativePath),
+        }));
+    const files = picked.filter((p) => !isJunkFile(p.file.name));
     if (files.length === 0) return;
     if (pendingFiles.length + files.length > MAX_FILES) {
       toast(`Max ${MAX_FILES} files per deliverable — trim the selection`, "error");
@@ -131,12 +154,12 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
     setUploading(true);
     try {
       for (let i = 0; i < files.length; i++) {
-        const f = files[i];
+        const { file: f, folder } = files[i];
         setUploadProgress(`Uploading ${f.name} (${i + 1}/${files.length})…`);
         const { url } = await uploadFile(f);
         setPendingFiles((prev) => [
           ...prev,
-          { url, filename: f.name, fileSize: f.size, mimeType: f.type || "application/octet-stream" },
+          { url, filename: f.name, fileSize: f.size, mimeType: f.type || "application/octet-stream", folder },
         ]);
       }
     } catch (err) {
@@ -356,7 +379,10 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
                 <div key={i} className="flex items-center justify-between gap-2 px-2 py-1.5 bg-bb-surface rounded text-xs">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <FileText size={11} className="text-bb-orange shrink-0" />
-                    <span className="text-white truncate">{f.filename}</span>
+                    <span className="text-white truncate">
+                      {f.folder && <span className="text-bb-dim">{f.folder}/</span>}
+                      {f.filename}
+                    </span>
                     <span className="text-bb-dim shrink-0">{formatBytes(f.fileSize)}</span>
                   </div>
                   <button

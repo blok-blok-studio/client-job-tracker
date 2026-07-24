@@ -36,7 +36,8 @@ const RATE_LIMIT_MAX = 120; // standard API requests per minute
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
 
 // Stricter limits for sensitive endpoints
-const UPLOAD_RATE_LIMIT_MAX = 20;
+// Uploads: high enough that a folder drop (1 request per file) doesn't trip it
+const UPLOAD_RATE_LIMIT_MAX = 120;
 const BULK_RATE_LIMIT_MAX = 5;
 
 function checkRateLimit(ip: string, max: number = RATE_LIMIT_MAX, prefix = "api"): boolean {
