@@ -101,6 +101,28 @@ export async function notifySlackChecklist(opts: {
   );
 }
 
+/** Client responded to a deliverable review link — approval or revision request. */
+export async function notifySlackDeliverable(opts: {
+  kind: "approved" | "revision";
+  title: string;
+  clientName: string;
+  clientId: string;
+  respondedBy?: string | null;
+  notes?: string | null;
+}): Promise<void> {
+  const by = opts.respondedBy ? ` — ${opts.respondedBy}` : "";
+  const link = `<${APP_URL}/clients/${opts.clientId}|Open client>`;
+  if (opts.kind === "approved") {
+    await notifySlack(
+      `:tada: *${opts.clientName}* approved deliverable *${opts.title}*${by}\n${link}`
+    );
+  } else {
+    await notifySlack(
+      `:pencil2: *${opts.clientName}* requested a revision on *${opts.title}*${by}:\n> ${opts.notes || "(no notes)"}\n:clipboard: Revision task added to the board · ${link}`
+    );
+  }
+}
+
 /** Board activity that isn't a completion: updates posted, moves, new tasks. */
 export async function notifySlackTaskEvent(opts: {
   kind: "update" | "moved" | "created";

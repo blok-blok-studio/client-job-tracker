@@ -18,6 +18,7 @@ import { getFlagFromPhone, LiveClock } from "@/lib/client-utils";
 import { SERVICE_PACKAGES, ADDON_PACKAGES, PACKAGE_CATEGORIES, type PackageCustomization } from "@/lib/contract-templates";
 import MediaManager from "@/components/clients/MediaManager";
 import ClientTasks from "@/components/clients/ClientTasks";
+import DeliverablesPanel, { type DeliverableItem } from "@/components/clients/DeliverablesPanel";
 
 interface ClientDetail {
   id: string;
@@ -46,6 +47,7 @@ interface ClientDetail {
   contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
   paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; currency: string; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; milestone: string | null; contractId: string | null; createdAt: string }>;
   mediaFiles: Array<{ id: string; url: string; filename: string; fileType: string; fileSize: number; mimeType: string; uploadedBy: string; label: string | null; folder?: string | null; thumbnailUrl?: string | null; notes?: string | null; createdAt: string }>;
+  deliverables: DeliverableItem[];
 }
 
 const tierVariant: Record<string, "orange" | "gray" | "blue"> = { VIP: "orange", STANDARD: "gray", TRIAL: "blue" };
@@ -98,7 +100,7 @@ export default function ClientDetailPage() {
   const [providerSignatureMode, setProviderSignatureMode] = useState<"type" | "draw">("type");
   const [providerSignatureData, setProviderSignatureData] = useState<string | null>(null);
   // Assets section state
-  const [assetsTab, setAssetsTab] = useState<"passwords" | "media" | "contracts">("media");
+  const [assetsTab, setAssetsTab] = useState<"passwords" | "media" | "contracts" | "deliverables">("media");
   const [revealedCred, setRevealedCred] = useState<Record<string, { username: string; password: string; notes: string | null }>>({});
   const [revealingCred, setRevealingCred] = useState<string | null>(null);
   const [revealPassword, setRevealPassword] = useState("");
@@ -1051,6 +1053,7 @@ export default function ClientDetailPage() {
                   { key: "passwords" as const, label: "Passwords", icon: <Lock size={14} />, count: client.credentials.length },
                   { key: "media" as const, label: "Media", icon: <ImageIcon size={14} />, count: client.mediaFiles?.length || 0 },
                   { key: "contracts" as const, label: "Contracts", icon: <FileText size={14} />, count: client.contracts?.length || 0 },
+                  { key: "deliverables" as const, label: "Deliverables", icon: <Send size={14} />, count: client.deliverables?.length || 0 },
                 ]).map((tab) => (
                   <button
                     key={tab.key}
@@ -1193,6 +1196,16 @@ export default function ClientDetailPage() {
                     onDelete={handleDeleteMedia}
                     onBatchDelete={handleBatchDeleteMedia}
                     onBatchAssignFolder={handleBatchAssignFolder}
+                    onRefresh={fetchClient}
+                    toast={toast}
+                  />
+                )}
+
+                {/* ─── Deliverables Tab ─── */}
+                {assetsTab === "deliverables" && (
+                  <DeliverablesPanel
+                    clientId={id}
+                    deliverables={client.deliverables || []}
                     onRefresh={fetchClient}
                     toast={toast}
                   />

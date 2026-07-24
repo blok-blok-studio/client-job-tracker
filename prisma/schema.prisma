@@ -75,6 +75,7 @@ model Client {
   automationFlows  AutomationFlow[]
   timeEntries      TimeEntry[]
   reports          ClientReport[]
+  deliverables     Deliverable[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -596,6 +597,56 @@ enum MediaFileType {
   VIDEO
   AUDIO
   DOCUMENT
+}
+
+// --- DELIVERABLES (finalized work sent to clients for review/approval) ---
+// Team uploads finished work + finalized content, client gets a public review
+// link (like contracts) and either approves or requests a revision with notes.
+model Deliverable {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  token    String @unique // public review link token
+
+  title   String
+  message String? @db.Text // note shown to the client on the review page
+  content String? @db.Text // finalized content body (copy, captions, etc.)
+
+  status        DeliverableStatus @default(PENDING_REVIEW)
+  revisionNotes String?           @db.Text // latest "what's needed" from the client
+  respondedBy   String? // name the client typed when responding
+  respondedAt   DateTime?
+  revisionCount Int               @default(0)
+
+  createdBy String? // team member who sent it
+  files     DeliverableFile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+}
+
+model DeliverableFile {
+  id            String      @id @default(cuid())
+  deliverableId String
+  deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+
+  url      String // Vercel Blob URL
+  filename String
+  fileSize Int
+  mimeType String
+
+  createdAt DateTime @default(now())
+
+  @@index([deliverableId])
+}
+
+enum DeliverableStatus {
+  PENDING_REVIEW
+  APPROVED
+  REVISION_REQUESTED
 }
 
 // --- AUDIO LIBRARY ---
