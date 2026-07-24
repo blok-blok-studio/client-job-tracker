@@ -13,8 +13,8 @@ const updateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   message: z.string().max(5000).nullable().optional(),
   content: z.string().max(200_000).nullable().optional(),
-  addFiles: z.array(fileSchema).max(50).optional(),
-  removeFileIds: z.array(z.string()).max(50).optional(),
+  addFiles: z.array(fileSchema).max(100).optional(),
+  removeFileIds: z.array(z.string()).max(100).optional(),
   // Re-open review after making requested changes
   resubmit: z.boolean().optional(),
 });

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import {
   Plus, X, Copy, ExternalLink, Loader2, Trash2, Upload, FileText,
-  Check, Pencil, Clock, Send, Package,
+  Check, Pencil, Clock, Send, Package, FolderUp,
 } from "lucide-react";
 import { uploadFile } from "@/lib/client-upload";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
@@ -44,6 +44,47 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const MAX_FILES = 100;
+
+/** OS junk that comes along when a whole folder is picked or dropped. */
+function isJunkFile(name: string): boolean {
+  return name.startsWith(".") || name === "Thumbs.db" || name === "desktop.ini";
+}
+
+/** Collect files from a drop, walking folders recursively (Chrome/Safari/Edge). */
+async function filesFromDataTransfer(dt: DataTransfer): Promise<File[]> {
+  const out: File[] = [];
+
+  async function walk(entry: FileSystemEntry): Promise<void> {
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve, reject) =>
+        (entry as FileSystemFileEntry).file(resolve, reject)
+      );
+      if (!isJunkFile(file.name)) out.push(file);
+    } else if (entry.isDirectory) {
+      const reader = (entry as FileSystemDirectoryEntry).createReader();
+      // readEntries returns batches (≤100); keep reading until empty
+      let batch: FileSystemEntry[];
+      do {
+        batch = await new Promise<FileSystemEntry[]>((resolve, reject) =>
+          reader.readEntries(resolve, reject)
+        );
+        for (const e of batch) await walk(e);
+      } while (batch.length > 0);
+    }
+  }
+
+  const entries = Array.from(dt.items)
+    .map((i) => i.webkitGetAsEntry?.())
+    .filter(Boolean) as FileSystemEntry[];
+
+  if (entries.length > 0) {
+    for (const e of entries) await walk(e);
+    return out;
+  }
+  return Array.from(dt.files).filter((f) => !isJunkFile(f.name));
+}
+
 const STATUS_META: Record<string, { label: string; classes: string; icon: React.ReactNode }> = {
   PENDING_REVIEW: {
     label: "Awaiting review",
@@ -75,11 +116,18 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
   const [resubmittingId, setResubmittingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeliverableItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleFilesSelected(list: FileList | null) {
+  async function handleFilesSelected(list: FileList | File[] | null) {
     if (!list || list.length === 0) return;
-    const files = Array.from(list);
+    const files = Array.from(list).filter((f) => !isJunkFile(f.name));
+    if (files.length === 0) return;
+    if (pendingFiles.length + files.length > MAX_FILES) {
+      toast(`Max ${MAX_FILES} files per deliverable — trim the selection`, "error");
+      return;
+    }
     setUploading(true);
     try {
       for (let i = 0; i < files.length; i++) {
@@ -97,6 +145,19 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
       setUploading(false);
       setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      if (folderInputRef.current) folderInputRef.current.value = "";
+    }
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    if (uploading) return;
+    try {
+      const files = await filesFromDataTransfer(e.dataTransfer);
+      await handleFilesSelected(files);
+    } catch {
+      toast("Couldn't read the dropped items", "error");
     }
   }
 
@@ -227,7 +288,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
             className={inputClass}
           />
 
-          {/* File upload */}
+          {/* File upload: multi-select pickers + drag & drop (files or folders) */}
           <input
             ref={fileInputRef}
             type="file"
@@ -235,14 +296,49 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
             className="hidden"
             onChange={(e) => handleFilesSelected(e.target.files)}
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-bb-border hover:border-bb-orange rounded text-sm text-bb-muted hover:text-white transition-colors disabled:opacity-50"
+          <input
+            ref={folderInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => handleFilesSelected(e.target.files)}
+            {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+          />
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            className={`rounded border border-dashed p-3 space-y-2 transition-colors ${
+              dragOver ? "border-bb-orange bg-bb-orange/5" : "border-bb-border"
+            }`}
           >
-            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-            {uploadProgress || "Upload finished work (any file type)"}
-          </button>
+            {uploading ? (
+              <div className="flex items-center justify-center gap-2 py-1.5 text-sm text-bb-muted">
+                <Loader2 size={14} className="animate-spin" />
+                {uploadProgress || "Uploading…"}
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-bb-surface hover:bg-bb-elevated border border-bb-border hover:border-bb-orange rounded text-sm text-bb-muted hover:text-white transition-colors"
+                  >
+                    <Upload size={14} /> Upload files
+                  </button>
+                  <button
+                    onClick={() => folderInputRef.current?.click()}
+                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-bb-surface hover:bg-bb-elevated border border-bb-border hover:border-bb-orange rounded text-sm text-bb-muted hover:text-white transition-colors"
+                  >
+                    <FolderUp size={14} /> Upload folder
+                  </button>
+                </div>
+                <p className="text-center text-[11px] text-bb-dim">
+                  Select multiple files at once, or drag &amp; drop files/folders here
+                </p>
+              </>
+            )}
+          </div>
 
           {pendingFiles.length > 0 && (
             <div className="space-y-1">

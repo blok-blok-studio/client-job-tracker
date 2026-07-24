@@ -16,7 +16,7 @@ const createSchema = z.object({
   title: z.string().min(1).max(200),
   message: z.string().max(5000).optional().nullable(),
   content: z.string().max(200_000).optional().nullable(),
-  files: z.array(fileSchema).max(50).default([]),
+  files: z.array(fileSchema).max(100).default([]),
 });
 
 // GET /api/deliverables?clientId=xxx — list deliverables (all clients if no filter)
