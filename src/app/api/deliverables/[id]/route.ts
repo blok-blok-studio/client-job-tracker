@@ -65,6 +65,15 @@ export async function PATCH(
       nextSort = (maxSort._max.sortOrder ?? -1) + 1;
     }
 
+    // Reopening resets only the items the client flagged — approved ones stay
+    // marked so the client doesn't have to re-review work they already liked.
+    if (resubmit) {
+      await prisma.deliverableFile.updateMany({
+        where: { deliverableId: id, decision: "CHANGES_REQUESTED" },
+        data: { decision: null, decidedAt: null },
+      });
+    }
+
     const deliverable = await prisma.deliverable.update({
       where: { id },
       data: {

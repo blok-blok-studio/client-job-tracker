@@ -760,6 +760,66 @@ export async function sendDeliverableReviewEmail(params: {
   return data;
 }
 
+/** Sent to the client when the team replies on their deliverable review. */
+export async function sendDeliverableReplyEmail(params: {
+  to: string;
+  clientName: string;
+  title: string;
+  itemLabel?: string | null; // item the reply is on, null = whole deliverable
+  body: string;
+  reviewUrl: string;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: `New reply on ${params.title} — Blok Blok Studio`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Hi ${esc(params.clientName.split(" ")[0])},
+        </p>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          We replied to your feedback${params.itemLabel ? ` on <strong>${esc(params.itemLabel)}</strong>` : ""} in <strong>${esc(params.title)}</strong>:
+        </p>
+        <div style="background: #f9f9f9; border-left: 4px solid #FF6B00; border-radius: 0 8px 8px 0; padding: 14px 16px; margin: 20px 0;">
+          <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${esc(params.body)}</p>
+        </div>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            View &amp; Respond
+          </a>
+        </div>
+        <p style="color: #666; font-size: 14px; line-height: 1.6;">
+          You can reply right on the review page — no account or login needed.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">
+          Blok Blok Studio · chase@blokblokstudio.com
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send deliverable reply email:", error);
+    throw new Error(`Resend error: ${error.message}`);
+  }
+
+  return data;
+}
+
 /** Sent to Chase when a client responds to a deliverable review. */
 export async function sendDeliverableResponseAdminEmail(params: {
   clientName: string;

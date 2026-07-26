@@ -620,6 +620,7 @@ model Deliverable {
 
   createdBy String? // team member who sent it
   files     DeliverableFile[]
+  comments  DeliverableComment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -640,9 +641,40 @@ model DeliverableFile {
   folder    String? // relative folder path as uploaded (e.g. "Carousel 1"), null = root
   sortOrder Int     @default(0) // explicit display order — folder batches keep their sequence
 
+  // Per-item client review — null until the client marks this item
+  decision  FileDecision?
+  decidedAt DateTime?
+
+  comments DeliverableComment[]
+
   createdAt DateTime @default(now())
 
   @@index([deliverableId])
+}
+
+// Back-and-forth on a deliverable: client feedback on an item (or the whole
+// deliverable when fileId is null) and team replies, shown on both the public
+// review page and the client's Deliverables tab.
+model DeliverableComment {
+  id            String      @id @default(cuid())
+  deliverableId String
+  deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  fileId        String? // null = general comment on the whole deliverable
+  file          DeliverableFile? @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  author   String // display name (client-typed or team member)
+  fromTeam Boolean @default(false)
+  body     String  @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([deliverableId])
+  @@index([fileId])
+}
+
+enum FileDecision {
+  APPROVED
+  CHANGES_REQUESTED
 }
 
 enum DeliverableStatus {

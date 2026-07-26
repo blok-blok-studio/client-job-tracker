@@ -3,10 +3,19 @@
 import { useRef, useState } from "react";
 import {
   Plus, X, Copy, ExternalLink, Loader2, Trash2, Upload, FileText,
-  Check, Pencil, Clock, Send, Package, FolderUp,
+  Check, Pencil, Clock, Send, Package, FolderUp, MessageCircle, ChevronDown,
 } from "lucide-react";
 import { uploadFile } from "@/lib/client-upload";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
+
+export interface DeliverableComment {
+  id: string;
+  fileId: string | null;
+  author: string;
+  fromTeam: boolean;
+  body: string;
+  createdAt: string;
+}
 
 export interface DeliverableItem {
   id: string;
@@ -21,7 +30,16 @@ export interface DeliverableItem {
   revisionCount: number;
   createdBy: string | null;
   createdAt: string;
-  files: Array<{ id: string; url: string; filename: string; fileSize: number; mimeType: string; folder?: string | null }>;
+  files: Array<{
+    id: string;
+    url: string;
+    filename: string;
+    fileSize: number;
+    mimeType: string;
+    folder?: string | null;
+    decision?: "APPROVED" | "CHANGES_REQUESTED" | null;
+  }>;
+  comments?: DeliverableComment[];
 }
 
 interface PendingFile {
@@ -118,6 +136,180 @@ const STATUS_META: Record<string, { label: string; classes: string; icon: React.
     icon: <Pencil size={11} />,
   },
 };
+
+function ReplyBox({
+  deliverableId,
+  fileId,
+  onRefresh,
+  toast,
+}: {
+  deliverableId: string;
+  fileId?: string;
+  onRefresh: () => void;
+  toast: Props["toast"];
+}) {
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+
+  async function send() {
+    if (!body.trim() || sending) return;
+    setSending(true);
+    try {
+      const res = await fetch(`/api/deliverables/${deliverableId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId, body: body.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast(
+          data.emailed ? "Reply sent — client notified by email" : "Reply posted to the review page",
+          "success"
+        );
+        setBody("");
+        onRefresh();
+      } else {
+        toast(data.error || "Failed to send reply", "error");
+      }
+    } catch {
+      toast("Failed to send reply", "error");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="flex gap-1.5">
+      <input
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && send()}
+        placeholder="Reply to the client…"
+        className="flex-1 px-2.5 py-1.5 bg-bb-surface border border-bb-border rounded text-xs text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange"
+      />
+      <button
+        onClick={send}
+        disabled={sending || !body.trim()}
+        className="px-2.5 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white rounded disabled:opacity-50"
+        title="Send reply (shows on the review page + emails the client)"
+      >
+        {sending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+      </button>
+    </div>
+  );
+}
+
+function CommentList({ comments }: { comments: DeliverableComment[] }) {
+  return (
+    <>
+      {comments.map((c) => (
+        <div
+          key={c.id}
+          className={`rounded p-2 text-xs ${
+            c.fromTeam ? "bg-bb-orange/5 border border-bb-orange/20" : "bg-bb-surface border border-bb-border"
+          }`}
+        >
+          <p className={`text-[10px] font-medium mb-0.5 ${c.fromTeam ? "text-bb-orange" : "text-bb-dim"}`}>
+            {c.fromTeam ? `${c.author} (you)` : c.author} ·{" "}
+            {new Date(c.createdAt).toLocaleDateString()}
+          </p>
+          <p className="text-bb-muted whitespace-pre-wrap">{c.body}</p>
+        </div>
+      ))}
+    </>
+  );
+}
+
+/** Per-item marks + conversation threads for one deliverable, with team replies. */
+function ResponsesSection({
+  d,
+  onRefresh,
+  toast,
+}: {
+  d: DeliverableItem;
+  onRefresh: () => void;
+  toast: Props["toast"];
+}) {
+  const comments = d.comments || [];
+  const decided = d.files.filter((f) => f.decision);
+  const [open, setOpen] = useState(d.status === "REVISION_REQUESTED" || comments.length > 0);
+
+  if (decided.length === 0 && comments.length === 0) return null;
+
+  const approvedCount = d.files.filter((f) => f.decision === "APPROVED").length;
+  const changes = d.files.filter((f) => f.decision === "CHANGES_REQUESTED");
+  const general = comments.filter((c) => !c.fileId);
+  // Items worth a row: flagged for changes, or carrying a conversation
+  const threadIds = new Set(comments.filter((c) => c.fileId).map((c) => c.fileId!));
+  const items = d.files.filter((f) => f.decision === "CHANGES_REQUESTED" || threadIds.has(f.id));
+
+  const label = (f: DeliverableItem["files"][number]) =>
+    f.folder ? `${f.folder}/${f.filename}` : f.filename;
+
+  return (
+    <div className="border border-bb-border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 px-2.5 py-2 bg-bb-surface/50 hover:bg-bb-surface text-left"
+      >
+        <MessageCircle size={12} className="text-bb-orange shrink-0" />
+        <span className="text-xs text-white font-medium">Client responses</span>
+        <span className="text-[10px] text-bb-dim">
+          {approvedCount > 0 && <span className="text-green-400">{approvedCount} approved</span>}
+          {approvedCount > 0 && changes.length > 0 && " · "}
+          {changes.length > 0 && <span className="text-bb-orange">{changes.length} need changes</span>}
+        </span>
+        <ChevronDown
+          size={12}
+          className={`ml-auto text-bb-dim transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div className="p-2.5 space-y-3 bg-bb-black">
+          {/* Compact roll-up of what got the thumbs-up */}
+          {approvedCount > 0 && (
+            <p className="text-[11px] text-bb-dim leading-relaxed">
+              <Check size={10} className="inline text-green-400 mr-1" />
+              Approved:{" "}
+              <span className="text-bb-muted">
+                {d.files.filter((f) => f.decision === "APPROVED").map(label).join(", ")}
+              </span>
+            </p>
+          )}
+
+          {/* Items flagged for changes / with conversations */}
+          {items.map((f) => (
+            <div key={f.id} className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                {f.decision === "CHANGES_REQUESTED" ? (
+                  <Pencil size={10} className="text-bb-orange shrink-0" />
+                ) : (
+                  <MessageCircle size={10} className="text-bb-dim shrink-0" />
+                )}
+                <span className="text-xs text-white truncate">{label(f)}</span>
+                {f.decision === "CHANGES_REQUESTED" && (
+                  <span className="text-[10px] text-bb-orange shrink-0">changes requested</span>
+                )}
+              </div>
+              <CommentList comments={comments.filter((c) => c.fileId === f.id)} />
+              <ReplyBox deliverableId={d.id} fileId={f.id} onRefresh={onRefresh} toast={toast} />
+            </div>
+          ))}
+
+          {/* Whole-deliverable conversation */}
+          <div className="space-y-1.5">
+            {general.length > 0 && (
+              <p className="text-[10px] font-medium text-bb-dim uppercase tracking-wide">General</p>
+            )}
+            <CommentList comments={general} />
+            <ReplyBox deliverableId={d.id} onRefresh={onRefresh} toast={toast} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function DeliverablesPanel({ clientId, deliverables, onRefresh, toast }: Props) {
   const [showForm, setShowForm] = useState(false);
@@ -479,6 +671,8 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
                   </span>
                 )}
               </div>
+
+              <ResponsesSection d={d} onRefresh={onRefresh} toast={toast} />
 
               {d.status === "REVISION_REQUESTED" && d.revisionNotes && (
                 <div className="p-2.5 bg-bb-orange/5 border border-bb-orange/20 rounded space-y-2">

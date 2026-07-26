@@ -3,7 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Check, Loader2, FileText, Download, Pencil, ThumbsUp, ChevronLeft, ChevronRight, Play, Folder } from "lucide-react";
+import {
+  Check, Loader2, FileText, Download, Pencil, ThumbsUp, ChevronLeft, ChevronRight,
+  Play, Folder, MessageCircle, Send, CheckCheck,
+} from "lucide-react";
 
 interface ReviewFile {
   id: string;
@@ -12,6 +15,16 @@ interface ReviewFile {
   fileSize: number;
   mimeType: string;
   folder?: string | null;
+  decision?: "APPROVED" | "CHANGES_REQUESTED" | null;
+}
+
+interface ReviewComment {
+  id: string;
+  fileId: string | null;
+  author: string;
+  fromTeam: boolean;
+  body: string;
+  createdAt: string;
 }
 
 interface FileGroup {
@@ -71,6 +84,7 @@ interface ReviewData {
   respondedAt: string | null;
   createdAt: string;
   files: ReviewFile[];
+  comments: ReviewComment[];
 }
 
 function formatBytes(bytes: number): string {
@@ -80,9 +94,28 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
+function DecisionBadge({ decision }: { decision: ReviewFile["decision"] }) {
+  if (!decision) return null;
+  return decision === "APPROVED" ? (
+    <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/30">
+      <Check size={11} /> Approved
+    </span>
+  ) : (
+    <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-bb-orange/15 text-bb-orange border border-bb-orange/30">
+      <Pencil size={11} /> Changes requested
+    </span>
+  );
+}
+
 // Instagram-style swipeable carousel: videos/reels play inline, images swipe
 // through with arrows (desktop) or native touch scroll-snap (mobile).
-function MediaCarousel({ items }: { items: ReviewFile[] }) {
+function MediaCarousel({
+  items,
+  onIndexChange,
+}: {
+  items: ReviewFile[];
+  onIndexChange?: (i: number) => void;
+}) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
 
@@ -90,8 +123,12 @@ function MediaCarousel({ items }: { items: ReviewFile[] }) {
     const el = trackRef.current;
     if (!el) return;
     const i = Math.round(el.scrollLeft / el.clientWidth);
-    setIndex((prev) => (prev === i ? prev : i));
-  }, []);
+    setIndex((prev) => {
+      if (prev === i) return prev;
+      onIndexChange?.(i);
+      return i;
+    });
+  }, [onIndexChange]);
 
   // Pause any video that swipes off-screen
   useEffect(() => {
@@ -144,6 +181,13 @@ function MediaCarousel({ items }: { items: ReviewFile[] }) {
         ))}
       </div>
 
+      {/* Decision badge for the visible slide */}
+      {items[index]?.decision && (
+        <div className="absolute top-3 left-3 pointer-events-none">
+          <DecisionBadge decision={items[index].decision} />
+        </div>
+      )}
+
       {items.length > 1 && (
         <>
           {/* Arrows (hidden on touch-first small screens; swipe handles it) */}
@@ -173,13 +217,19 @@ function MediaCarousel({ items }: { items: ReviewFile[] }) {
 
           {/* Dots */}
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-            {items.map((_, i) => (
+            {items.map((f, i) => (
               <button
                 key={i}
                 onClick={() => scrollTo(i)}
                 aria-label={`Go to item ${i + 1}`}
                 className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                  i === index ? "bg-white" : "bg-white/40"
+                  i === index
+                    ? "bg-white"
+                    : f.decision === "APPROVED"
+                      ? "bg-green-400/70"
+                      : f.decision === "CHANGES_REQUESTED"
+                        ? "bg-bb-orange/70"
+                        : "bg-white/40"
                 }`}
               />
             ))}
@@ -190,30 +240,181 @@ function MediaCarousel({ items }: { items: ReviewFile[] }) {
   );
 }
 
-function FileRow({ file }: { file: ReviewFile }) {
+function CommentThread({
+  comments,
+  onReply,
+  busy,
+}: {
+  comments: ReviewComment[];
+  onReply: (body: string) => Promise<void>;
+  busy: boolean;
+}) {
+  const [reply, setReply] = useState("");
+  const [open, setOpen] = useState(false);
+
+  async function send() {
+    if (!reply.trim()) return;
+    await onReply(reply.trim());
+    setReply("");
+    setOpen(false);
+  }
+
   return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg">
-      <div className="flex items-center gap-2 min-w-0">
-        {file.mimeType.startsWith("video/") ? (
-          <Play size={14} className="text-bb-orange shrink-0" />
-        ) : (
-          <FileText size={14} className="text-bb-orange shrink-0" />
-        )}
-        <span className="text-sm text-white truncate">
-          {file.folder && <span className="text-bb-dim">{file.folder}/</span>}
-          {file.filename}
-        </span>
-        <span className="text-xs text-bb-dim shrink-0">{formatBytes(file.fileSize)}</span>
+    <div className="space-y-2">
+      {comments.map((c) => (
+        <div
+          key={c.id}
+          className={`rounded-lg p-2.5 text-sm ${
+            c.fromTeam
+              ? "bg-bb-orange/5 border border-bb-orange/20"
+              : "bg-bb-black border border-bb-border"
+          }`}
+        >
+          <p className={`text-[11px] font-medium mb-1 ${c.fromTeam ? "text-bb-orange" : "text-bb-dim"}`}>
+            {c.fromTeam ? `${c.author} · Blok Blok Studio` : c.author}
+            <span className="text-bb-dim font-normal"> · {new Date(c.createdAt).toLocaleDateString()}</span>
+          </p>
+          <p className="text-bb-muted whitespace-pre-wrap">{c.body}</p>
+        </div>
+      ))}
+
+      {open ? (
+        <div className="flex gap-2">
+          <input
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && send()}
+            placeholder="Write a reply…"
+            autoFocus
+            className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange text-sm"
+          />
+          <button
+            onClick={send}
+            disabled={busy || !reply.trim()}
+            className="px-3 py-2 bg-bb-orange hover:bg-bb-orange-light text-white rounded-lg disabled:opacity-50"
+            aria-label="Send reply"
+          >
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-1.5 text-xs text-bb-dim hover:text-bb-orange transition-colors"
+        >
+          <MessageCircle size={12} /> Reply
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Approve / request-changes controls + thread for one item (slide or document). */
+function ItemReview({
+  file,
+  canDecide,
+  comments,
+  onDecide,
+  onComment,
+  busy,
+}: {
+  file: ReviewFile;
+  canDecide: boolean;
+  comments: ReviewComment[];
+  onDecide: (fileIds: string[], decision: "approve" | "request_changes", note?: string) => Promise<void>;
+  onComment: (body: string, fileId: string) => Promise<void>;
+  busy: boolean;
+}) {
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [note, setNote] = useState("");
+
+  // A fresh slide swipes in — collapse any half-written note from the last one
+  useEffect(() => {
+    setNoteOpen(false);
+    setNote("");
+  }, [file.id]);
+
+  async function requestChanges() {
+    await onDecide([file.id], "request_changes", note.trim() || undefined);
+    setNoteOpen(false);
+    setNote("");
+  }
+
+  const itemComments = comments.filter((c) => c.fileId === file.id);
+
+  return (
+    <div className="bg-bb-surface border border-bb-border rounded-xl p-3 space-y-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-bb-dim truncate">{file.filename}</span>
+        <DecisionBadge decision={file.decision} />
       </div>
-      <a
-        href={file.url}
-        download={file.filename}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1.5 text-xs text-bb-orange hover:text-bb-orange-light shrink-0 transition-colors"
-      >
-        <Download size={13} /> Download
-      </a>
+
+      {canDecide && (
+        <>
+          {!noteOpen ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => onDecide([file.id], "approve")}
+                disabled={busy}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                  file.decision === "APPROVED"
+                    ? "bg-green-600 text-white"
+                    : "bg-bb-black border border-bb-border hover:border-green-500 text-bb-muted hover:text-green-400"
+                }`}
+              >
+                <ThumbsUp size={14} /> {file.decision === "APPROVED" ? "Approved" : "Approve"}
+              </button>
+              <button
+                onClick={() => setNoteOpen(true)}
+                disabled={busy}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                  file.decision === "CHANGES_REQUESTED"
+                    ? "bg-bb-orange text-white"
+                    : "bg-bb-black border border-bb-border hover:border-bb-orange text-bb-muted hover:text-bb-orange"
+                }`}
+              >
+                <Pencil size={13} /> {file.decision === "CHANGES_REQUESTED" ? "Changes requested" : "Request changes"}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                autoFocus
+                placeholder="What should change on this one? (optional but helpful)"
+                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange text-sm"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={requestChanges}
+                  disabled={busy}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-bb-orange hover:bg-bb-orange-light text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                >
+                  {busy ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={13} />}
+                  Mark for changes
+                </button>
+                <button
+                  onClick={() => { setNoteOpen(false); setNote(""); }}
+                  disabled={busy}
+                  className="px-4 py-2 bg-bb-black border border-bb-border text-bb-muted rounded-lg text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {(itemComments.length > 0 || !canDecide) && (
+        <CommentThread
+          comments={itemComments}
+          onReply={(body) => onComment(body, file.id)}
+          busy={busy}
+        />
+      )}
     </div>
   );
 }
@@ -228,7 +429,10 @@ export default function DeliverableReviewPage() {
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [itemBusy, setItemBusy] = useState(false);
   const [done, setDone] = useState<"approved" | "revision" | null>(null);
+  // Which slide is visible per carousel section, so the controls follow the swipe
+  const [slideIndex, setSlideIndex] = useState<Record<string, number>>({});
 
   useEffect(() => {
     async function fetchReview() {
@@ -251,7 +455,81 @@ export default function DeliverableReviewPage() {
     fetchReview();
   }, [token]);
 
-  async function respond(action: "approve" | "request_revision") {
+  const canDecide = !done;
+
+  async function decideItems(
+    fileIds: string[],
+    decision: "approve" | "request_changes",
+    note?: string
+  ) {
+    setItemBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/review/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "review_item",
+          fileIds,
+          decision,
+          note,
+          name: name.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const ids = new Set<string>(data.data.fileIds);
+        setReview((prev) =>
+          prev
+            ? {
+                ...prev,
+                files: prev.files.map((f) =>
+                  ids.has(f.id) ? { ...f, decision: data.data.decision } : f
+                ),
+                comments: data.data.comment ? [...prev.comments, data.data.comment] : prev.comments,
+              }
+            : prev
+        );
+      } else {
+        setError(data.error || "Failed to save — please try again.");
+      }
+    } catch {
+      setError("Failed to save — please try again.");
+    } finally {
+      setItemBusy(false);
+    }
+  }
+
+  async function postComment(body: string, fileId?: string) {
+    setItemBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/review/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "comment",
+          fileId,
+          body,
+          name: name.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setReview((prev) =>
+          prev ? { ...prev, comments: [...prev.comments, data.data.comment] } : prev
+        );
+      } else {
+        setError(data.error || "Failed to send — please try again.");
+      }
+    } catch {
+      setError("Failed to send — please try again.");
+    } finally {
+      setItemBusy(false);
+    }
+  }
+
+  async function respond(action: "approve" | "request_revision" | "submit") {
     if (action === "request_revision" && !notes.trim()) return;
     setSubmitting(true);
     setError(null);
@@ -261,13 +539,15 @@ export default function DeliverableReviewPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action,
-          notes: action === "request_revision" ? notes.trim() : undefined,
+          notes: notes.trim() || undefined,
           name: name.trim() || undefined,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        setDone(action === "approve" ? "approved" : "revision");
+        setDone(data.data.status === "APPROVED" ? "approved" : "revision");
+        setReview((prev) => (prev ? { ...prev, status: data.data.status } : prev));
+        window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
         setError(data.error || "Failed to submit. Please try again.");
       }
@@ -321,7 +601,14 @@ export default function DeliverableReviewPage() {
   const firstName = review.clientName.split(" ")[0];
   const groups = groupByFolder(stripCommonRoot(review.files));
   const hasMedia = review.files.some(isMediaFile);
+  const hasFiles = review.files.length > 0;
   const showFolderHeadings = groups.length > 1 || groups.some((g) => g.folder !== null);
+
+  const decidedCount = review.files.filter((f) => f.decision).length;
+  const allDecided = hasFiles && decidedCount === review.files.length;
+  const changesCount = review.files.filter((f) => f.decision === "CHANGES_REQUESTED").length;
+  const generalComments = review.comments.filter((c) => !c.fileId);
+  const docs = review.files.filter((f) => !isMediaFile(f));
 
   return (
     <div className="min-h-screen bg-bb-black">
@@ -338,37 +625,12 @@ export default function DeliverableReviewPage() {
           <h1 className="text-2xl font-display font-semibold text-white">{review.title}</h1>
           {!done && (
             <p className="text-bb-muted mt-2 text-sm sm:text-base">
-              Hi {firstName} — take a look at the finished work below, then let us know what you think.
+              {hasFiles
+                ? `Hi ${firstName} — go through each item below and mark it Approve or Request changes, then submit your review at the bottom.`
+                : `Hi ${firstName} — take a look at the finished work below, then let us know what you think.`}
             </p>
           )}
         </div>
-
-        {/* Media — front and center, one section per folder as uploaded */}
-        {hasMedia && (
-          <div className="mb-6 space-y-6">
-            {groups.filter((g) => g.media.length > 0).map((g) => (
-              <div key={g.folder ?? "__root__"}>
-                {showFolderHeadings && (
-                  <div className="flex items-center gap-2 mb-2">
-                    <Folder size={14} className="text-bb-orange" />
-                    <h2 className="text-sm font-medium text-white">
-                      {g.folder ?? "More files"}
-                    </h2>
-                    <span className="text-xs text-bb-dim">
-                      {g.media.length} item{g.media.length !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                )}
-                <MediaCarousel items={g.media} />
-                {g.media.length > 1 && (
-                  <p className="text-center text-xs text-bb-dim mt-2 sm:hidden">
-                    Swipe to see all {g.media.length} items
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Response confirmation */}
         {done && (
@@ -398,12 +660,91 @@ export default function DeliverableReviewPage() {
                 ? "We've been notified of your approval. Thanks for reviewing!"
                 : "We've received your notes and will get started on the changes. You'll get an updated link when it's ready."}
             </p>
-            {done === "revision" && (review.revisionNotes || notes) && (
+            {done === "revision" && review.revisionNotes && (
               <div className="bg-bb-black border border-bb-border rounded-lg p-4 text-left max-w-md mx-auto">
                 <p className="text-xs font-medium text-bb-dim uppercase tracking-wide mb-1.5">Your notes</p>
-                <p className="text-sm text-bb-muted whitespace-pre-wrap">{review.revisionNotes || notes}</p>
+                <p className="text-sm text-bb-muted whitespace-pre-wrap">{review.revisionNotes}</p>
               </div>
             )}
+            <p className="text-bb-dim text-xs">
+              You can still reply on any item below — we&apos;ll see it right away.
+            </p>
+          </div>
+        )}
+
+        {/* Progress while reviewing */}
+        {!done && hasFiles && (
+          <div className="sticky top-3 z-10 mb-6">
+            <div className="bg-bb-surface/95 backdrop-blur border border-bb-border rounded-full px-4 py-2 flex items-center justify-between gap-3 shadow-lg">
+              <span className="text-xs text-bb-muted">
+                {decidedCount} of {review.files.length} item{review.files.length !== 1 ? "s" : ""} marked
+                {changesCount > 0 && (
+                  <span className="text-bb-orange"> · {changesCount} for changes</span>
+                )}
+              </span>
+              <div className="flex-1 max-w-[140px] h-1.5 bg-bb-black rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-bb-orange rounded-full transition-all"
+                  style={{ width: `${hasFiles ? (decidedCount / review.files.length) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Media — front and center, one section per folder as uploaded */}
+        {hasMedia && (
+          <div className="mb-6 space-y-8">
+            {groups.filter((g) => g.media.length > 0).map((g) => {
+              const key = g.folder ?? "__root__";
+              const idx = Math.min(slideIndex[key] ?? 0, g.media.length - 1);
+              const current = g.media[idx];
+              const allApproved = g.media.every((f) => f.decision === "APPROVED");
+              return (
+                <div key={key} className="space-y-2">
+                  {showFolderHeadings && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <Folder size={14} className="text-bb-orange" />
+                      <h2 className="text-sm font-medium text-white">
+                        {g.folder ?? "More files"}
+                      </h2>
+                      <span className="text-xs text-bb-dim">
+                        {g.media.length} item{g.media.length !== 1 ? "s" : ""}
+                      </span>
+                      {canDecide && g.media.length > 1 && (
+                        <button
+                          onClick={() => decideItems(g.media.map((f) => f.id), "approve")}
+                          disabled={itemBusy || allApproved}
+                          className="ml-auto flex items-center gap-1 text-xs text-bb-dim hover:text-green-400 disabled:opacity-40 transition-colors"
+                        >
+                          <CheckCheck size={13} />
+                          {allApproved ? "All approved" : "Approve all"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <MediaCarousel
+                    items={g.media}
+                    onIndexChange={(i) => setSlideIndex((prev) => ({ ...prev, [key]: i }))}
+                  />
+                  {g.media.length > 1 && (
+                    <p className="text-center text-xs text-bb-dim sm:hidden">
+                      Swipe to see all {g.media.length} items
+                    </p>
+                  )}
+                  {current && (
+                    <ItemReview
+                      file={current}
+                      canDecide={canDecide}
+                      comments={review.comments}
+                      onDecide={decideItems}
+                      onComment={(body, fileId) => postComment(body, fileId)}
+                      busy={itemBusy}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -425,14 +766,55 @@ export default function DeliverableReviewPage() {
           </div>
         )}
 
-        {/* Documents (non-media attachments) */}
-        {review.files.some((f) => !isMediaFile(f)) && (
+        {/* Documents (non-media attachments) — each markable like the media */}
+        {docs.length > 0 && (
           <div className="space-y-2 mb-6">
-            <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">
-              Documents ({review.files.filter((f) => !isMediaFile(f)).length})
-            </p>
-            {review.files.filter((f) => !isMediaFile(f)).map((file) => (
-              <FileRow key={file.id} file={file} />
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">
+                Documents ({docs.length})
+              </p>
+              {canDecide && docs.length > 1 && (
+                <button
+                  onClick={() => decideItems(docs.map((f) => f.id), "approve")}
+                  disabled={itemBusy || docs.every((f) => f.decision === "APPROVED")}
+                  className="ml-auto flex items-center gap-1 text-xs text-bb-dim hover:text-green-400 disabled:opacity-40 transition-colors"
+                >
+                  <CheckCheck size={13} /> Approve all
+                </button>
+              )}
+            </div>
+            {docs.map((file) => (
+              <div key={file.id} className="space-y-2">
+                <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-bb-black border border-bb-border rounded-t-lg rounded-b-none border-b-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText size={14} className="text-bb-orange shrink-0" />
+                    <span className="text-sm text-white truncate">
+                      {file.folder && <span className="text-bb-dim">{file.folder}/</span>}
+                      {file.filename}
+                    </span>
+                    <span className="text-xs text-bb-dim shrink-0">{formatBytes(file.fileSize)}</span>
+                  </div>
+                  <a
+                    href={file.url}
+                    download={file.filename}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-bb-orange hover:text-bb-orange-light shrink-0 transition-colors"
+                  >
+                    <Download size={13} /> Download
+                  </a>
+                </div>
+                <div className="-mt-2">
+                  <ItemReview
+                    file={file}
+                    canDecide={canDecide}
+                    comments={review.comments}
+                    onDecide={decideItems}
+                    onComment={(body, fileId) => postComment(body, fileId)}
+                    busy={itemBusy}
+                  />
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -445,15 +827,99 @@ export default function DeliverableReviewPage() {
             </summary>
             <div className="space-y-2 mt-2">
               {review.files.filter(isMediaFile).map((file) => (
-                <FileRow key={file.id} file={file} />
+                <div key={file.id} className="flex items-center justify-between gap-3 px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {file.mimeType.startsWith("video/") ? (
+                      <Play size={14} className="text-bb-orange shrink-0" />
+                    ) : (
+                      <FileText size={14} className="text-bb-orange shrink-0" />
+                    )}
+                    <span className="text-sm text-white truncate">
+                      {file.folder && <span className="text-bb-dim">{file.folder}/</span>}
+                      {file.filename}
+                    </span>
+                    <span className="text-xs text-bb-dim shrink-0">{formatBytes(file.fileSize)}</span>
+                    <DecisionBadge decision={file.decision} />
+                  </div>
+                  <a
+                    href={file.url}
+                    download={file.filename}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-bb-orange hover:text-bb-orange-light shrink-0 transition-colors"
+                  >
+                    <Download size={13} /> Download
+                  </a>
+                </div>
               ))}
             </div>
           </details>
         )}
 
-        {/* Actions */}
-        {!done && (
-          <div className="bg-bb-surface border border-bb-orange/30 rounded-xl p-6 space-y-4">
+        {/* Submit review (per-item flow) */}
+        {!done && hasFiles && (
+          <div className="bg-bb-surface border border-bb-orange/30 rounded-xl p-6 space-y-4 mb-8">
+            <h2 className="text-lg font-display font-semibold text-white">Finish your review</h2>
+            <p className="text-sm text-bb-muted">
+              {allDecided
+                ? changesCount > 0
+                  ? `You've marked ${changesCount} item${changesCount !== 1 ? "s" : ""} for changes — submit to send us your notes.`
+                  : "Everything's approved — submit to let us know!"
+                : `Mark the remaining ${review.files.length - decidedCount} item${review.files.length - decidedCount !== 1 ? "s" : ""} above, then submit.`}
+            </p>
+
+            <div>
+              <label className="block text-sm text-bb-muted mb-1.5 font-medium">
+                Your name <span className="text-bb-dim font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={inputClass}
+                placeholder={`e.g. ${firstName}`}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-bb-muted mb-1.5 font-medium">
+                Anything else? <span className="text-bb-dim font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className={inputClass}
+                placeholder="Overall thoughts, extra context, next steps…"
+              />
+            </div>
+
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+
+            <button
+              onClick={() => respond("submit")}
+              disabled={submitting || !allDecided}
+              className={`w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base ${
+                changesCount > 0
+                  ? "bg-bb-orange hover:bg-bb-orange-light text-white"
+                  : "bg-green-600 hover:bg-green-500 text-white"
+              }`}
+            >
+              {submitting ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : changesCount > 0 ? (
+                <Pencil size={16} />
+              ) : (
+                <ThumbsUp size={18} />
+              )}
+              {changesCount > 0 ? "Submit review & request changes" : "Submit review — approve all"}
+            </button>
+          </div>
+        )}
+
+        {/* Legacy one-shot actions for content-only deliverables */}
+        {!done && !hasFiles && (
+          <div className="bg-bb-surface border border-bb-orange/30 rounded-xl p-6 space-y-4 mb-8">
             <h2 className="text-lg font-display font-semibold text-white">Your review</h2>
 
             <div>
@@ -527,6 +993,20 @@ export default function DeliverableReviewPage() {
             )}
           </div>
         )}
+
+        {/* General conversation — questions and replies about the whole deliverable */}
+        <div className="bg-bb-surface border border-bb-border rounded-xl p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <MessageCircle size={14} className="text-bb-orange" />
+            <h2 className="text-sm font-medium text-white">Questions or comments?</h2>
+          </div>
+          {error && done && <p className="text-red-400 text-sm">{error}</p>}
+          <CommentThread
+            comments={generalComments}
+            onReply={(body) => postComment(body)}
+            busy={itemBusy}
+          />
+        </div>
       </div>
     </div>
   );

@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       where: clientId ? { clientId } : undefined,
       include: {
         files: { orderBy: { sortOrder: "asc" } },
+        comments: { orderBy: { createdAt: "asc" } },
         client: { select: { id: true, name: true, company: true } },
       },
       orderBy: { createdAt: "desc" },

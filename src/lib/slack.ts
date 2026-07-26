@@ -109,18 +109,36 @@ export async function notifySlackDeliverable(opts: {
   clientId: string;
   respondedBy?: string | null;
   notes?: string | null;
+  itemSummary?: string | null; // e.g. "4 approved · 2 need changes"
 }): Promise<void> {
   const by = opts.respondedBy ? ` — ${opts.respondedBy}` : "";
   const link = `<${APP_URL}/clients/${opts.clientId}|Open client>`;
+  const summary = opts.itemSummary ? ` (${opts.itemSummary})` : "";
   if (opts.kind === "approved") {
     await notifySlack(
-      `:tada: *${opts.clientName}* approved deliverable *${opts.title}*${by}\n${link}`
+      `:tada: *${opts.clientName}* approved deliverable *${opts.title}*${summary}${by}\n${link}`
     );
   } else {
     await notifySlack(
-      `:pencil2: *${opts.clientName}* requested a revision on *${opts.title}*${by}:\n> ${opts.notes || "(no notes)"}\n:clipboard: Revision task added to the board · ${link}`
+      `:pencil2: *${opts.clientName}* requested a revision on *${opts.title}*${summary}${by}:\n> ${opts.notes || "(no notes)"}\n:clipboard: Revision task added to the board · ${link}`
     );
   }
+}
+
+/** A client left a comment/reply on a deliverable review page. */
+export async function notifySlackDeliverableComment(opts: {
+  title: string;
+  clientName: string;
+  clientId: string;
+  author?: string | null;
+  itemLabel?: string | null; // filename/folder the comment is on, null = whole deliverable
+  body: string;
+}): Promise<void> {
+  const by = opts.author ? ` — ${opts.author}` : "";
+  const on = opts.itemLabel ? ` on *${opts.itemLabel}*` : "";
+  await notifySlack(
+    `:speech_balloon: *${opts.clientName}* replied${on} in deliverable *${opts.title}*${by}:\n> ${opts.body}\n<${APP_URL}/clients/${opts.clientId}|Open client>`
+  );
 }
 
 /** Board activity that isn't a completion: updates posted, moves, new tasks. */
