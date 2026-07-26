@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processRecurringTasks } from "@/lib/recurring-tasks";
 import prisma from "@/lib/prisma";
-import { sendPaymentReminderEmail } from "@/lib/email";
+import { sendPaymentReminderEmail, sendDeliverableReviewReminderEmail } from "@/lib/email";
 import crypto from "crypto";
 import { refreshExpiringCredentials } from "@/lib/oauth/refresh";
 import { publishPost, sanitizePublishError } from "@/lib/social/publisher";
@@ -168,6 +168,85 @@ export async function GET(request: NextRequest) {
       console.log(`[Cron] Sent ${remindersSent} payment reminder(s)`);
     }
 
+    // Chase deliverable reviews sitting unanswered for 3+ days — one nudge per
+    // review round (updatedAt resets on resubmit, so revised work re-arms it)
+    let reviewRemindersSent = 0;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
+    let stalePendingReviews: Array<{
+      id: string;
+      token: string;
+      title: string;
+      clientId: string;
+      revisionCount: number;
+      updatedAt: Date;
+      client: { name: string; email: string | null };
+    }> = [];
+    try {
+      stalePendingReviews = (await prisma.deliverable.findMany({
+        where: { status: "PENDING_REVIEW", updatedAt: { lt: threeDaysAgo } },
+        select: {
+          id: true,
+          token: true,
+          title: true,
+          clientId: true,
+          revisionCount: true,
+          updatedAt: true,
+          client: { select: { name: true, email: true } },
+        },
+      })) as unknown as typeof stalePendingReviews;
+    } catch (err) {
+      console.error("[Cron] Stale pending reviews query error:", err);
+    }
+
+    for (const dlv of stalePendingReviews) {
+      // One reminder per review round — the marker includes the revision count
+      const marker = `${dlv.id}#r${dlv.revisionCount}`;
+      const alreadyReminded = await prisma.activityLog.findFirst({
+        where: {
+          clientId: dlv.clientId,
+          action: "deliverable_review_reminder",
+          details: { contains: marker },
+        },
+      });
+      if (alreadyReminded) continue;
+
+      const daysPending = Math.floor(
+        (Date.now() - dlv.updatedAt.getTime()) / (24 * 60 * 60 * 1000)
+      );
+
+      if (dlv.client.email) {
+        await sendDeliverableReviewReminderEmail({
+          to: dlv.client.email,
+          clientName: dlv.client.name,
+          title: dlv.title,
+          reviewUrl: `${appUrl}/review/${dlv.token}`,
+          daysPending,
+        }).catch((err) => console.error("[Email] Review reminder error:", err));
+      }
+
+      {
+        const { notifySlack } = await import("@/lib/slack");
+        await notifySlack(
+          `:hourglass_flowing_sand: *${dlv.title}* has been waiting on *${dlv.client.name}* for ${daysPending} days${dlv.client.email ? " — reminder emailed automatically" : " — no email on file, nudge them yourself"}`
+        ).catch(() => {});
+      }
+
+      await prisma.activityLog.create({
+        data: {
+          clientId: dlv.clientId,
+          actor: "system",
+          action: "deliverable_review_reminder",
+          details: `Review reminder sent for "${dlv.title}" (${marker}) after ${daysPending} days`,
+        },
+      }).catch(() => {});
+
+      reviewRemindersSent++;
+    }
+
+    if (reviewRemindersSent > 0) {
+      console.log(`[Cron] Sent ${reviewRemindersSent} review reminder(s)`);
+    }
+
     // Refresh expiring OAuth tokens
     let tokensRefreshed = 0;
     let tokenRefreshFailed = 0;
@@ -328,10 +407,25 @@ export async function GET(request: NextRequest) {
             return `• *${amt}* — ${inv.client?.name || "Unknown"} · unpaid ${days} days`;
           });
 
+          // Deliverables waiting on a client for 2+ days
+          const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+          const waitingReviews = (await prisma.deliverable.findMany({
+            where: { status: "PENDING_REVIEW", updatedAt: { lt: twoDaysAgo } },
+            select: { title: true, updatedAt: true, client: { select: { name: true } } },
+            orderBy: { updatedAt: "asc" },
+            take: 10,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          })) as any as Array<{ title: string; updatedAt: Date; client: { name: string } }>;
+          const reviewLines = waitingReviews.map((d) => {
+            const days = Math.floor((now.getTime() - d.updatedAt.getTime()) / (24 * 60 * 60 * 1000));
+            return `• *${d.title}* — waiting on ${d.client.name} for ${days} day${days === 1 ? "" : "s"}`;
+          });
+
           const { notifySlack } = await import("@/lib/slack");
           const parts = [":sunrise: *Morning digest*"];
           if (overdueLines.length) parts.push(`*Overdue (${overdueLines.length})*\n${overdueLines.join("\n")}`);
           if (todayLines.length) parts.push(`*Due today (${todayLines.length})*\n${todayLines.join("\n")}`);
+          if (reviewLines.length) parts.push(`:hourglass_flowing_sand: *Waiting on client review (${reviewLines.length})*\n${reviewLines.join("\n")}`);
           if (invoiceLines.length) parts.push(`:money_with_wings: *Invoices 15+ days unpaid (${invoiceLines.length})*\n${invoiceLines.join("\n")}`);
           // Only speak when there's something to say
           if (parts.length > 1) {
@@ -346,7 +440,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated, digestSent },
+      data: { recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, reviewRemindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated, digestSent },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";

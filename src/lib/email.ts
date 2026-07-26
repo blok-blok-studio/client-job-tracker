@@ -760,6 +760,62 @@ export async function sendDeliverableReviewEmail(params: {
   return data;
 }
 
+/** Gentle nudge when a review has been sitting unanswered for a few days. */
+export async function sendDeliverableReviewReminderEmail(params: {
+  to: string;
+  clientName: string;
+  title: string;
+  reviewUrl: string;
+  daysPending: number;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: `Reminder: ${params.title} is waiting for your review`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Hi ${esc(params.clientName.split(" ")[0])},
+        </p>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Just a friendly nudge — <strong>${esc(params.title)}</strong> has been ready for your review for ${params.daysPending} days. Once you approve, we can wrap it up (and if anything needs adjusting, mark just those items and we'll get on it).
+        </p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            Review Your Work
+          </a>
+        </div>
+        <p style="color: #666; font-size: 14px; line-height: 1.6;">
+          No account or login needed — the link above is private to you.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">
+          Blok Blok Studio · chase@blokblokstudio.com
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send deliverable reminder email:", error);
+    throw new Error(`Resend error: ${error.message}`);
+  }
+
+  return data;
+}
+
 /** Sent to the client when the team replies on their deliverable review. */
 export async function sendDeliverableReplyEmail(params: {
   to: string;

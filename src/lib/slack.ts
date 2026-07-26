@@ -125,6 +125,23 @@ export async function notifySlackDeliverable(opts: {
   }
 }
 
+/** A deliverable went out for client review — its card just landed in In Review. */
+export async function notifySlackDeliverableSent(opts: {
+  title: string;
+  clientName: string;
+  clientId: string;
+  fileCount: number;
+  sentBy?: string | null;
+  emailed: boolean;
+}): Promise<void> {
+  const by = opts.sentBy ? ` by ${opts.sentBy}` : "";
+  const files = opts.fileCount > 0 ? ` (${opts.fileCount} file${opts.fileCount === 1 ? "" : "s"})` : "";
+  const mail = opts.emailed ? "client emailed the link" : "no email on file — send the link manually";
+  await notifySlack(
+    `:package: *${opts.title}*${files} sent to *${opts.clientName}* for review${by} — card added to In Review, ${mail}\n<${APP_URL}/clients/${opts.clientId}|Open client>`
+  );
+}
+
 /** A client left a comment/reply on a deliverable review page. */
 export async function notifySlackDeliverableComment(opts: {
   title: string;

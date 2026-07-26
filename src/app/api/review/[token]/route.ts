@@ -341,19 +341,48 @@ export async function POST(
       },
     });
 
-    // Revision requests flow straight onto the kanban board so nothing gets lost
-    if (!approved) {
-      await prisma.task.create({
-        data: {
-          clientId: deliverable.client.id,
-          title: `Revision: ${deliverable.title}`,
-          description: `Client requested changes on "${deliverable.title}"${authorName !== deliverable.client.name ? ` (${authorName})` : ""}${itemSummary ? ` — ${itemSummary}` : ""}:\n\n${compiledNotes || "(no notes)"}\n\nReview link: ${APP_URL}/review/${deliverable.token}`,
-          status: "TODO",
-          priority: "HIGH",
-          category: "CONTENT_CREATION",
-          tags: ["revision"],
-        },
-      });
+    // Keep the kanban board in sync: the linked review card moves itself to
+    // Done on approval, or converts into a To Do revision task on changes —
+    // one card follows the whole lifecycle instead of piling up duplicates.
+    if (approved) {
+      if (deliverable.taskId) {
+        await prisma.task
+          .update({
+            where: { id: deliverable.taskId },
+            data: { status: "DONE", completedAt: new Date() },
+          })
+          .catch((err) => console.error("[Review] Card complete failed:", err));
+      }
+    } else {
+      const revisionCard = {
+        clientId: deliverable.client.id,
+        title: `Revision: ${deliverable.title}`,
+        description: `Client requested changes on "${deliverable.title}"${authorName !== deliverable.client.name ? ` (${authorName})` : ""}${itemSummary ? ` — ${itemSummary}` : ""}:\n\n${compiledNotes || "(no notes)"}\n\nReview link: ${APP_URL}/review/${deliverable.token}`,
+        status: "TODO" as const,
+        priority: "HIGH" as const,
+        category: "CONTENT_CREATION" as const,
+        tags: ["revision"],
+      };
+      try {
+        if (!deliverable.taskId) throw new Error("no linked card");
+        await prisma.task.update({
+          where: { id: deliverable.taskId },
+          data: { ...revisionCard, completedAt: null },
+        });
+      } catch {
+        // Linked card missing (deleted, or pre-dates the linkage) — create one
+        const task = await prisma.task
+          .create({ data: revisionCard })
+          .catch((err) => {
+            console.error("[Review] Revision card create failed:", err);
+            return null;
+          });
+        if (task) {
+          await prisma.deliverable
+            .update({ where: { id: deliverable.id }, data: { taskId: task.id } })
+            .catch(() => {});
+        }
+      }
     }
 
     await prisma.activityLog.create({

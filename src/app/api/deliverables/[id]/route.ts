@@ -44,6 +44,8 @@ export async function PATCH(
         token: true,
         title: true,
         message: true,
+        taskId: true,
+        clientId: true,
         client: { select: { name: true, email: true } },
       },
     });
@@ -92,6 +94,39 @@ export async function PATCH(
       include: { files: { orderBy: { sortOrder: "asc" } } },
     });
 
+    // Reopening flips the linked kanban card back to In Review (or recreates
+    // it) so the board always shows what's waiting on the client.
+    if (resubmit) {
+      const reviewCard = {
+        clientId: existing.clientId,
+        title: `Client review: ${title ?? existing.title}`,
+        description: `Waiting on ${existing.client.name} to review "${title ?? existing.title}" (revised).\n\nReview link: ${APP_URL}/review/${existing.token}`,
+        status: "IN_REVIEW" as const,
+        priority: "MEDIUM" as const,
+        category: "CONTENT_CREATION" as const,
+        tags: ["client-review"],
+      };
+      try {
+        if (!existing.taskId) throw new Error("no linked card");
+        await prisma.task.update({
+          where: { id: existing.taskId },
+          data: { ...reviewCard, completedAt: null },
+        });
+      } catch {
+        const task = await prisma.task
+          .create({ data: reviewCard })
+          .catch((err) => {
+            console.error("[Deliverables] Review card recreate failed:", err);
+            return null;
+          });
+        if (task) {
+          await prisma.deliverable
+            .update({ where: { id }, data: { taskId: task.id } })
+            .catch(() => {});
+        }
+      }
+    }
+
     // Reopening after revisions auto-emails the client that it's ready again
     let emailed = false;
     if (resubmit && existing.client.email) {
@@ -124,7 +159,17 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const existing = await prisma.deliverable.findUnique({
+      where: { id },
+      select: { taskId: true },
+    });
     await prisma.deliverable.delete({ where: { id } });
+    // Drop the linked review card unless it already made it to Done
+    if (existing?.taskId) {
+      await prisma.task
+        .deleteMany({ where: { id: existing.taskId, status: { not: "DONE" } } })
+        .catch((err) => console.error("[Deliverables] Card cleanup failed:", err));
+    }
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[Deliverables] Delete failed:", err);

@@ -4,6 +4,7 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { sendDeliverableReviewEmail } from "@/lib/email";
+import { notifySlackDeliverableSent } from "@/lib/slack";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
 
@@ -77,6 +78,30 @@ export async function POST(request: NextRequest) {
       include: { files: { orderBy: { sortOrder: "asc" } } },
     });
 
+    // Linked kanban card tracks the review — lands in In Review, moves itself
+    // to Done on approval or back to To Do as a revision task on changes.
+    // Never fail the create over board bookkeeping.
+    try {
+      const task = await prisma.task.create({
+        data: {
+          clientId,
+          title: `Client review: ${title}`,
+          description: `Waiting on ${client.name} to review "${title}"${files.length ? ` (${files.length} file${files.length === 1 ? "" : "s"})` : ""}.\n\nReview link: ${APP_URL}/review/${deliverable.token}`,
+          status: "IN_REVIEW",
+          priority: "MEDIUM",
+          category: "CONTENT_CREATION",
+          tags: ["client-review"],
+          assignedTo: session?.name || null,
+        },
+      });
+      await prisma.deliverable.update({
+        where: { id: deliverable.id },
+        data: { taskId: task.id },
+      });
+    } catch (err) {
+      console.error("[Deliverables] Review card create failed:", err);
+    }
+
     // Auto-email the client their review link; never fail the create over email
     let emailed = false;
     if (client.email) {
@@ -93,6 +118,15 @@ export async function POST(request: NextRequest) {
         console.error("[Deliverables] Review email failed:", err);
       }
     }
+
+    await notifySlackDeliverableSent({
+      title,
+      clientName: client.name,
+      clientId,
+      fileCount: files.length,
+      sentBy: session?.name || null,
+      emailed,
+    }).catch((err) => console.error("[Deliverables] Slack notify failed:", err));
 
     return NextResponse.json({ success: true, data: deliverable, emailed });
   } catch (err) {
