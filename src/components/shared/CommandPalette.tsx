@@ -5,15 +5,19 @@ import { useRouter } from "next/navigation";
 import {
   Search, Users, ClipboardList, FileText, Loader2, CornerDownLeft,
   LayoutDashboard, Columns3, CalendarDays, PenSquare, FolderOpen,
+  Package, FileSignature,
 } from "lucide-react";
 
 interface Results {
   clients: Array<{ id: string; name: string; company: string | null; type: string }>;
   tasks: Array<{ id: string; title: string; status: string; client: { name: string } | null }>;
   files: Array<{ id: string; filename: string; fileType: string; client: { name: string } | null }>;
+  deliverables: Array<{ id: string; title: string; status: string; client: { id: string; name: string } }>;
+  contracts: Array<{ id: string; status: string; createdAt: string; client: { name: string } }>;
+  posts: Array<{ id: string; title: string | null; platform: string; status: string; client: { name: string } | null }>;
 }
 
-const EMPTY: Results = { clients: [], tasks: [], files: [] };
+const EMPTY: Results = { clients: [], tasks: [], files: [], deliverables: [], contracts: [], posts: [] };
 
 const QUICK_NAV = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -41,7 +45,7 @@ export default function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ⌘K / Ctrl+K to open, Esc to close
+  // ⌘K / Ctrl+K to open, Esc to close; TopBar's search button fires the event
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -50,8 +54,13 @@ export default function CommandPalette() {
       }
       if (e.key === "Escape") setOpen(false);
     };
+    const openHandler = () => setOpen(true);
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("bb-open-search", openHandler);
+    return () => {
+      window.removeEventListener("keydown", handler);
+      window.removeEventListener("bb-open-search", openHandler);
+    };
   }, []);
 
   useEffect(() => {
@@ -104,6 +113,27 @@ export default function CommandPalette() {
         title: t.title,
         subtitle: `${t.status.replace(/_/g, " ").toLowerCase()}${t.client ? ` · ${t.client.name}` : ""}`,
         href: `/kanban?task=${t.id}`,
+      })),
+      ...results.deliverables.map((d) => ({
+        key: `deliverable-${d.id}`,
+        icon: <Package size={15} className="text-green-400" />,
+        title: d.title,
+        subtitle: `deliverable · ${d.status.replace(/_/g, " ").toLowerCase()} · ${d.client.name}`,
+        href: "/deliverables",
+      })),
+      ...results.contracts.map((c) => ({
+        key: `contract-${c.id}`,
+        icon: <FileSignature size={15} className="text-yellow-400" />,
+        title: `Contract — ${c.client.name}`,
+        subtitle: `${c.status.toLowerCase()} · ${new Date(c.createdAt).toLocaleDateString()}`,
+        href: "/contracts",
+      })),
+      ...results.posts.map((p) => ({
+        key: `post-${p.id}`,
+        icon: <PenSquare size={15} className="text-sky-400" />,
+        title: p.title || "(untitled post)",
+        subtitle: `${p.platform.toLowerCase()} · ${p.status.toLowerCase()}${p.client ? ` · ${p.client.name}` : ""}`,
+        href: "/content",
       })),
       ...results.files.map((f) => ({
         key: `file-${f.id}`,
@@ -159,7 +189,7 @@ export default function CommandPalette() {
                 go(items[highlight].href);
               }
             }}
-            placeholder="Search clients, tasks, files…"
+            placeholder="Search clients, tasks, deliverables, contracts, posts, files…"
             className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder:text-bb-dim focus:outline-none"
           />
           <kbd className="hidden sm:block text-[10px] text-bb-dim bg-bb-elevated border border-bb-border rounded px-1.5 py-0.5">esc</kbd>

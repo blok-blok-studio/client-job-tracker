@@ -19,6 +19,7 @@ interface Task {
   isRecurring?: boolean;
   blockedReason?: string | null;
   blockedDays?: number | null;
+  openBlockers?: number | null;
   checklistTotal: number;
   checklistDone: number;
 }

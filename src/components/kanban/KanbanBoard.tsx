@@ -40,6 +40,7 @@ interface Task {
   checklistTotal: number;
   checklistDone: number;
   tags: string[];
+  blockedBy: Array<{ id: string; title: string; status: string }>;
 }
 
 export default function KanbanBoard() {
@@ -93,6 +94,7 @@ export default function KanbanBoard() {
           checklistTotal: (t._count as Record<string, number>)?.checklistItems || 0,
           checklistDone: ((t.checklistItems as Array<{ checked: boolean }>) || []).filter((i) => i.checked).length,
           tags: t.tags || [],
+          blockedBy: (t.blockedBy as Array<{ id: string; title: string; status: string }>) || [],
         }))
       );
     }
@@ -382,6 +384,10 @@ export default function KanbanBoard() {
                   blockedDays:
                     t.status === "BLOCKED" && t.blockedAt
                       ? Math.floor((Date.now() - new Date(t.blockedAt).getTime()) / 86_400_000)
+                      : null,
+                  openBlockers:
+                    t.status !== "DONE"
+                      ? t.blockedBy.filter((b) => b.status !== "DONE").length || null
                       : null,
                 }))}
                 onAddTask={(status) => setAddModalStatus(status)}

@@ -159,6 +159,11 @@ model Task {
   blockedAt      DateTime?
   blockedAlertAt DateTime?
 
+  // Dependencies: this task can't start until every task in blockedBy is DONE.
+  // When the last blocker completes, a BLOCKED task auto-moves back to TODO.
+  blockedBy Task[] @relation("TaskDependencies")
+  blocks    Task[] @relation("TaskDependencies")
+
   checklistItems ChecklistItem[]
   activityLogs   ActivityLog[]
   timeEntries    TimeEntry[]

@@ -10,6 +10,7 @@ import {
   Clock,
   Users,
   ExternalLink,
+  PenSquare,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
@@ -56,7 +57,16 @@ interface CalBooking {
   type: "booking";
 }
 
-type CalendarItem = CalendarTask | CalBooking;
+interface CalendarPost {
+  id: string;
+  title: string;
+  platform: string;
+  scheduledAt: string;
+  clientName: string | null;
+  type: "post";
+}
+
+type CalendarItem = CalendarTask | CalBooking | CalendarPost;
 
 const priorityDot: Record<string, string> = {
   URGENT: "bg-red-500",
@@ -68,11 +78,12 @@ const priorityDot: Record<string, string> = {
 export default function CalendarPage() {
   const [tasks, setTasks] = useState<CalendarTask[]>([]);
   const [bookings, setBookings] = useState<CalBooking[]>([]);
+  const [posts, setPosts] = useState<CalendarPost[]>([]);
   const [calConfigured, setCalConfigured] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [mode, setMode] = useState<"calendar" | "timeline">("calendar");
-  const [filter, setFilter] = useState<"all" | "tasks" | "bookings">("all");
+  const [filter, setFilter] = useState<"all" | "tasks" | "bookings" | "posts">("all");
   const [loading, setLoading] = useState(true);
 
   const fetchTasks = useCallback(async () => {
@@ -120,10 +131,38 @@ export default function CalendarPage() {
     }
   }, [currentMonth]);
 
+  const fetchPosts = useCallback(async () => {
+    try {
+      // Same 3-month window as bookings, centered on the visible month
+      const start = subDays(startOfMonth(currentMonth), 30);
+      const end = addDays(endOfMonth(currentMonth), 30);
+      const res = await fetch(
+        `/api/content-posts?status=SCHEDULED&from=${start.toISOString()}&to=${end.toISOString()}`
+      );
+      const data = await res.json();
+      if (data.success) {
+        setPosts(
+          (data.data as Array<Record<string, unknown>>)
+            .filter((p) => p.scheduledAt)
+            .map((p) => ({
+              id: p.id as string,
+              title: (p.title as string) || "(untitled post)",
+              platform: p.platform as string,
+              scheduledAt: p.scheduledAt as string,
+              clientName: (p.client as Record<string, string> | null)?.name || null,
+              type: "post" as const,
+            }))
+        );
+      }
+    } catch {
+      // Content posts unavailable — calendar still works without them
+    }
+  }, [currentMonth]);
+
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchTasks(), fetchBookings()]).finally(() => setLoading(false));
-  }, [fetchTasks, fetchBookings]);
+    Promise.all([fetchTasks(), fetchBookings(), fetchPosts()]).finally(() => setLoading(false));
+  }, [fetchTasks, fetchBookings, fetchPosts]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -133,11 +172,14 @@ export default function CalendarPage() {
 
   function getItemsForDay(day: Date): CalendarItem[] {
     const items: CalendarItem[] = [];
-    if (filter !== "bookings") {
+    if (filter === "all" || filter === "tasks") {
       items.push(...tasks.filter((t) => isSameDay(new Date(t.dueDate), day)));
     }
-    if (filter !== "tasks") {
+    if (filter === "all" || filter === "bookings") {
       items.push(...bookings.filter((b) => isSameDay(parseISO(b.start), day)));
+    }
+    if (filter === "all" || filter === "posts") {
+      items.push(...posts.filter((p) => isSameDay(parseISO(p.scheduledAt), day)));
     }
     return items;
   }
@@ -152,12 +194,12 @@ export default function CalendarPage() {
     const now = new Date();
 
     const overdueTasks =
-      filter !== "bookings"
+      filter === "all" || filter === "tasks"
         ? tasks.filter((t) => new Date(t.dueDate) < now)
         : [];
 
     const upcomingTasks =
-      filter !== "bookings"
+      filter === "all" || filter === "tasks"
         ? tasks
             .filter(
               (t) =>
@@ -168,7 +210,7 @@ export default function CalendarPage() {
         : [];
 
     const upcomingBookings =
-      filter !== "tasks"
+      filter === "all" || filter === "bookings"
         ? bookings
             .filter(
               (b) =>
@@ -178,18 +220,27 @@ export default function CalendarPage() {
             .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
         : [];
 
+    const upcomingPosts =
+      filter === "all" || filter === "posts"
+        ? posts
+            .filter(
+              (p) =>
+                new Date(p.scheduledAt) >= now &&
+                new Date(p.scheduledAt) <= addDays(now, 90)
+            )
+            .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
+        : [];
+
+    const itemDate = (item: CalendarItem) =>
+      item.type === "task" ? item.dueDate : item.type === "post" ? item.scheduledAt : item.start;
+
     // Group all items by week
     const weeks: Record<string, CalendarItem[]> = {};
 
-    [...upcomingTasks, ...upcomingBookings]
-      .sort((a, b) => {
-        const dateA = a.type === "task" ? a.dueDate : a.start;
-        const dateB = b.type === "task" ? b.dueDate : b.start;
-        return new Date(dateA).getTime() - new Date(dateB).getTime();
-      })
+    [...upcomingTasks, ...upcomingBookings, ...upcomingPosts]
+      .sort((a, b) => new Date(itemDate(a)).getTime() - new Date(itemDate(b)).getTime())
       .forEach((item) => {
-        const date = item.type === "task" ? item.dueDate : item.start;
-        const weekStart = startOfWeek(new Date(date));
+        const weekStart = startOfWeek(new Date(itemDate(item)));
         const key = format(weekStart, "MMM d");
         if (!weeks[key]) weeks[key] = [];
         weeks[key].push(item);
@@ -200,7 +251,7 @@ export default function CalendarPage() {
 
   return (
     <div>
-      <TopBar title="Calendar" subtitle="Tasks, deadlines & appointments" />
+      <TopBar title="Calendar" subtitle="Tasks, deadlines, appointments & scheduled content" />
       <div className="px-4 lg:px-6 pb-8">
         {/* Controls */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
@@ -254,6 +305,17 @@ export default function CalendarPage() {
                 )}
               >
                 Tasks
+              </button>
+              <button
+                onClick={() => setFilter("posts")}
+                className={cn(
+                  "px-2.5 py-1.5 text-xs rounded-md flex items-center gap-1",
+                  filter === "posts"
+                    ? "bg-bb-elevated text-white"
+                    : "text-bb-dim hover:text-white"
+                )}
+              >
+                <PenSquare size={12} /> Content
               </button>
               <button
                 onClick={() => setFilter("bookings")}
@@ -332,6 +394,7 @@ export default function CalendarPage() {
                   const dayItems = getItemsForDay(day);
                   const dayTasks = dayItems.filter((i) => i.type === "task");
                   const dayBookings = dayItems.filter((i) => i.type === "booking");
+                  const dayPosts = dayItems.filter((i) => i.type === "post");
                   const isCurrentMonth = isSameMonth(day, currentMonth);
                   const isSelected = selectedDay && isSameDay(day, selectedDay);
                   return (
@@ -370,9 +433,16 @@ export default function CalendarPage() {
                             className="w-1.5 h-1.5 rounded-full bg-emerald-500"
                           />
                         ))}
-                        {dayItems.length > 4 && (
+                        {/* Scheduled content dots */}
+                        {dayPosts.slice(0, 2).map((p) => (
+                          <span
+                            key={p.id}
+                            className="w-1.5 h-1.5 rounded-full bg-sky-400"
+                          />
+                        ))}
+                        {dayItems.length > 6 && (
                           <span className="text-[9px] text-bb-dim">
-                            +{dayItems.length - 4}
+                            +{dayItems.length - 6}
                           </span>
                         )}
                       </div>
@@ -395,6 +465,9 @@ export default function CalendarPage() {
                 <div className="flex items-center gap-1.5 text-[10px] text-bb-dim">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" /> Appointment
                 </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-bb-dim">
+                  <span className="w-2 h-2 rounded-full bg-sky-400" /> Content
+                </div>
               </div>
             </div>
 
@@ -405,6 +478,29 @@ export default function CalendarPage() {
               </h3>
               <div className="space-y-2">
                 {getSelectedDayItems().map((item) => {
+                  if (item.type === "post") {
+                    const p = item as CalendarPost;
+                    return (
+                      <a
+                        key={p.id}
+                        href="/content"
+                        className="block p-2 rounded bg-bb-black border border-sky-500/30 hover:border-sky-400/60 transition-colors"
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <PenSquare size={12} className="text-sky-400" />
+                          <p className="text-sm font-medium">{p.title}</p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-bb-dim">
+                          <Clock size={10} />
+                          <span>{format(parseISO(p.scheduledAt), "h:mm a")}</span>
+                          <span className="capitalize">{p.platform.toLowerCase()}</span>
+                          {p.clientName && (
+                            <Badge variant="default" size="sm">{p.clientName}</Badge>
+                          )}
+                        </div>
+                      </a>
+                    );
+                  }
                   if (item.type === "task") {
                     const t = item as CalendarTask;
                     return (
@@ -526,6 +622,28 @@ export default function CalendarPage() {
                       </h3>
                       <div className="space-y-2">
                         {weekItems.map((item) => {
+                          if (item.type === "post") {
+                            const p = item as CalendarPost;
+                            return (
+                              <div
+                                key={p.id}
+                                className="flex items-center justify-between p-2 rounded hover:bg-bb-elevated"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 rounded-full bg-sky-400" />
+                                  <PenSquare size={12} className="text-sky-400" />
+                                  <span className="text-sm">{p.title}</span>
+                                  <Badge variant="gray" size="sm">{p.platform.replace(/_/g, " ")}</Badge>
+                                  {p.clientName && (
+                                    <Badge variant="default" size="sm">{p.clientName}</Badge>
+                                  )}
+                                </div>
+                                <span className="text-xs text-bb-dim">
+                                  {format(parseISO(p.scheduledAt), "EEE, MMM d · h:mm a")}
+                                </span>
+                              </div>
+                            );
+                          }
                           if (item.type === "task") {
                             const t = item as CalendarTask;
                             return (

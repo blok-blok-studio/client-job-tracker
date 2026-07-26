@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { User, Calendar, Trash2, Repeat, Ban } from "lucide-react";
+import { User, Calendar, Trash2, Repeat, Ban, Link2 } from "lucide-react";
 import Badge from "@/components/shared/Badge";
 import { formatRelativeDate } from "@/lib/utils";
 import type { Priority, TaskCategory } from "@/types";
@@ -20,6 +20,7 @@ interface TaskCardProps {
   isRecurring?: boolean;
   blockedReason?: string | null;
   blockedDays?: number | null;
+  openBlockers?: number | null; // incomplete dependencies holding this task up
   checklistTotal: number;
   checklistDone: number;
   onClick: () => void;
@@ -60,6 +61,7 @@ export default function TaskCard({
   isRecurring,
   blockedReason,
   blockedDays,
+  openBlockers,
   checklistTotal,
   checklistDone,
   onClick,
@@ -115,6 +117,14 @@ export default function TaskCard({
         {blockedDays != null && blockedDays >= 3 && (
           <span className="rounded px-1.5 py-0.5 text-[9px] font-bold bg-red-500/15 text-red-400 ring-1 ring-red-500/30">
             STUCK {blockedDays}D
+          </span>
+        )}
+        {openBlockers != null && openBlockers > 0 && (
+          <span
+            className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold bg-bb-orange/15 text-bb-orange ring-1 ring-bb-orange/30"
+            title={`Waiting on ${openBlockers} linked task${openBlockers === 1 ? "" : "s"} — auto-unblocks when they finish`}
+          >
+            <Link2 size={9} /> {openBlockers}
           </span>
         )}
         <Badge variant="gray" size="sm">{categoryLabel[category] || category}</Badge>

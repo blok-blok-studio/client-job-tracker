@@ -22,6 +22,12 @@ interface ActivityEntry {
   createdAt: string;
 }
 
+interface DepTask {
+  id: string;
+  title: string;
+  status: TaskStatus;
+}
+
 interface TaskDetail {
   id: string;
   title: string;
@@ -38,6 +44,8 @@ interface TaskDetail {
   client: { id: string; name: string } | null;
   checklistItems: ChecklistItem[];
   activityLogs: ActivityEntry[];
+  blockedBy: DepTask[];
+  blocks: DepTask[];
 }
 
 interface TaskDetailModalProps {
@@ -86,6 +94,30 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState("");
   const [blockedDraft, setBlockedDraft] = useState("");
+
+  // ── Dependencies ──
+  const [depQuery, setDepQuery] = useState("");
+  const [depResults, setDepResults] = useState<DepTask[]>([]);
+  useEffect(() => {
+    if (depQuery.trim().length < 2) {
+      setDepResults([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/tasks?search=${encodeURIComponent(depQuery.trim())}`);
+        const data = await res.json();
+        if (data.success) {
+          setDepResults(
+            (data.data as Array<{ id: string; title: string; status: TaskStatus }>)
+              .map((x) => ({ id: x.id, title: x.title, status: x.status }))
+              .slice(0, 6)
+          );
+        }
+      } catch { /* ignore */ }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [depQuery]);
 
   useEffect(() => {
     fetch("/api/users/assignable")
@@ -366,6 +398,80 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
               <p className="mt-1 text-[10px] text-bb-dim">Shows on the card. If it sits in Blocked 3+ days you get a Slack nudge to chase it up.</p>
             </div>
           )}
+
+          {/* Dependencies — linked tasks that must finish first */}
+          <div>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-bb-dim">
+              Depends on
+              {task.blockedBy.length > 0 && (
+                <span className="ml-1.5 normal-case font-normal">
+                  ({task.blockedBy.filter((b) => b.status === "DONE").length}/{task.blockedBy.length} done — finishing them auto-unblocks this task)
+                </span>
+              )}
+            </p>
+            {task.blockedBy.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {task.blockedBy.map((b) => (
+                  <span
+                    key={b.id}
+                    className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs border ${
+                      b.status === "DONE"
+                        ? "bg-green-500/10 border-green-500/30 text-green-400"
+                        : "bg-bb-orange/10 border-bb-orange/30 text-bb-orange"
+                    }`}
+                  >
+                    {b.status === "DONE" ? <Check size={11} /> : <Timer size={11} />}
+                    <span className="max-w-[180px] truncate">{b.title}</span>
+                    <button
+                      onClick={() =>
+                        patchTask({
+                          blockedByIds: task.blockedBy.filter((x) => x.id !== b.id).map((x) => x.id),
+                        })
+                      }
+                      className="text-bb-dim hover:text-red-400"
+                      aria-label={`Remove dependency ${b.title}`}
+                    >
+                      <X size={11} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="relative">
+              <input
+                value={depQuery}
+                onChange={(e) => setDepQuery(e.target.value)}
+                placeholder="Link a task that must finish first…"
+                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              />
+              {depResults.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full bg-bb-elevated border border-bb-border rounded-lg shadow-modal overflow-hidden">
+                  {depResults
+                    .filter((r) => r.id !== task.id && !task.blockedBy.some((b) => b.id === r.id))
+                    .map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => {
+                          setDepQuery("");
+                          setDepResults([]);
+                          patchTask({ blockedByIds: [...task.blockedBy.map((b) => b.id), r.id] });
+                        }}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-xs text-white hover:bg-bb-border"
+                      >
+                        <span className="truncate">{r.title}</span>
+                        <span className="text-[10px] text-bb-dim shrink-0">{r.status.replace(/_/g, " ").toLowerCase()}</span>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+            {task.blocks.length > 0 && (
+              <p className="mt-2 text-[11px] text-bb-dim">
+                Blocks:{" "}
+                <span className="text-bb-muted">{task.blocks.map((b) => b.title).join(", ")}</span>
+              </p>
+            )}
+          </div>
 
           {/* Priority pills */}
           <div>

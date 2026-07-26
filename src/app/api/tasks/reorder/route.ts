@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { reorderSchema } from "@/lib/validations";
 import { getSession } from "@/lib/auth";
 import { notifySlackTaskDone, notifySlackTaskEvent } from "@/lib/slack";
+import { releaseDependents } from "@/lib/task-deps";
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,6 +63,8 @@ export async function POST(request: NextRequest) {
               actor: session?.name,
             }).catch(() => {})
           );
+          // Dragging to Done releases anything this task was blocking
+          after(() => releaseDependents(u.id).catch(() => {}));
         } else {
           after(() =>
             notifySlackTaskEvent({

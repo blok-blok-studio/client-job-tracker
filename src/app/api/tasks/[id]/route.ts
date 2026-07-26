@@ -6,6 +6,7 @@ import { syncEvent } from "@/lib/sync";
 import { notifySlackTaskDone, notifySlackTaskEvent, notifySlackTaskAssigned } from "@/lib/slack";
 import { getSession } from "@/lib/auth";
 import { requestMeta } from "@/lib/request-meta";
+import { releaseDependents, applyBlockedState } from "@/lib/task-deps";
 
 export async function GET(
   _request: NextRequest,
@@ -18,6 +19,8 @@ export async function GET(
       client: { select: { id: true, name: true } },
       checklistItems: { orderBy: { sortOrder: "asc" } },
       activityLogs: { orderBy: { createdAt: "desc" }, take: 20 },
+      blockedBy: { select: { id: true, title: true, status: true } },
+      blocks: { select: { id: true, title: true, status: true } },
     },
   });
 
@@ -51,7 +54,25 @@ export async function PATCH(
       data.blockedAt = null;
       data.blockedAlertAt = null;
     }
+
+    // Dependencies: replace the full blocker set when the modal sends one
+    const blockedByIds = Array.isArray(body.blockedByIds)
+      ? (body.blockedByIds as unknown[]).filter((x): x is string => typeof x === "string" && x !== id).slice(0, 50)
+      : null;
+    if (blockedByIds) {
+      data.blockedBy = { set: blockedByIds.map((bid) => ({ id: bid })) };
+    }
+
     const task = await prisma.task.update({ where: { id }, data });
+
+    // Blocker list changed → keep BLOCKED/TODO status honest automatically
+    if (blockedByIds) {
+      await applyBlockedState(id).catch((err) => console.error("[Tasks] applyBlockedState:", err));
+    }
+    // Task finished → release anything it was holding up
+    if (parsed.status === "DONE" && oldTask?.status !== "DONE") {
+      after(() => releaseDependents(id).catch(() => {}));
+    }
 
     // Assignment changed to a team member → tag them in Slack
     if (
