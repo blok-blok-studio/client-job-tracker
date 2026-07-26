@@ -6,7 +6,6 @@ import TopBar from "@/components/layout/TopBar";
 import StatsGrid from "@/components/dashboard/StatsGrid";
 import UpcomingDeadlines from "@/components/dashboard/UpcomingDeadlines";
 import AgentActivityFeed from "@/components/dashboard/AgentActivityFeed";
-import RevenueChart from "@/components/dashboard/RevenueChart";
 import { DashboardSkeleton } from "@/components/shared/Skeleton";
 
 interface Deadline {
@@ -26,42 +25,32 @@ interface Activity {
   createdAt: string;
 }
 
-interface RevenueDataPoint {
-  month: string;
-  revenue: number;
-}
-
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     activeClients: 0,
     openTasks: 0,
-    monthlyRevenue: 0,
     overdueItems: 0,
   });
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const [statsRes, deadlinesRes, revenueRes, activityRes] = await Promise.all([
+      const [statsRes, deadlinesRes, activityRes] = await Promise.all([
         fetch("/api/dashboard/stats"),
         fetch("/api/dashboard/deadlines"),
-        fetch("/api/dashboard/revenue"),
         fetch("/api/dashboard/activity"),
       ]);
 
-      const [statsData, deadlinesData, revenueDataRes, activityData] = await Promise.all([
+      const [statsData, deadlinesData, activityData] = await Promise.all([
         statsRes.json(),
         deadlinesRes.json(),
-        revenueRes.json(),
         activityRes.ok ? activityRes.json() : { success: false },
       ]);
 
       if (statsData.success) setStats(statsData.data);
       if (deadlinesData.success) setDeadlines(deadlinesData.data);
-      if (revenueDataRes.success) setRevenueData(revenueDataRes.data);
       if (activityData.success) setActivities(activityData.data);
     } catch {
       // API not available — keep empty state
@@ -82,7 +71,6 @@ export default function DashboardPage() {
         <StatsGrid
           activeClients={stats.activeClients}
           openTasks={stats.openTasks}
-          monthlyRevenue={stats.monthlyRevenue}
           overdueItems={stats.overdueItems}
         />
 
@@ -94,8 +82,6 @@ export default function DashboardPage() {
             <AgentActivityFeed activities={activities} />
           </div>
         </div>
-
-        <RevenueChart data={revenueData} />
         </>}
       </div>
     </div>

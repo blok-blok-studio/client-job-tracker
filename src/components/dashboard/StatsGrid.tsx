@@ -1,17 +1,14 @@
-import { Users, CheckSquare, DollarSign, AlertTriangle } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { Users, CheckSquare, AlertTriangle } from "lucide-react";
 
 interface StatsGridProps {
   activeClients: number;
   openTasks: number;
-  monthlyRevenue: number;
   overdueItems: number;
 }
 
 export default function StatsGrid({
   activeClients,
   openTasks,
-  monthlyRevenue,
   overdueItems,
 }: StatsGridProps) {
   const stats = [
@@ -30,13 +27,6 @@ export default function StatsGrid({
       formatted: String(openTasks),
     },
     {
-      label: "Revenue This Month",
-      value: monthlyRevenue,
-      icon: DollarSign,
-      color: "text-green-400",
-      formatted: formatCurrency(monthlyRevenue),
-    },
-    {
       label: "Overdue Items",
       value: overdueItems,
       icon: AlertTriangle,
@@ -46,7 +36,7 @@ export default function StatsGrid({
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {stats.map((stat) => (
         <div
           key={stat.label}
