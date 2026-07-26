@@ -189,6 +189,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
 
   useEffect(() => {
     setTask(null);
+    setPatchError(null);
     if (taskId) {
       setLoading(true);
       fetchTask().finally(() => setLoading(false));
@@ -204,15 +205,25 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
     }
   }, [task, blockedSeededFor]);
 
+  const [patchError, setPatchError] = useState<string | null>(null);
+
   async function patchTask(patch: Record<string, unknown>) {
     if (!task) return;
     // Optimistic local update
     setTask({ ...task, ...patch } as TaskDetail);
-    await fetch(`/api/tasks/${task.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
+    setPatchError(null);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json();
+      if (!data.success) setPatchError(data.error || "Update failed — please try again.");
+    } catch {
+      setPatchError("Update failed — please try again.");
+    }
+    // Refetch either way: on error this rolls the optimistic update back
     await fetchTask();
     onChanged();
   }
@@ -447,7 +458,13 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
               {depResults.length > 0 && (
                 <div className="absolute z-10 mt-1 w-full bg-bb-elevated border border-bb-border rounded-lg shadow-modal overflow-hidden">
                   {depResults
-                    .filter((r) => r.id !== task.id && !task.blockedBy.some((b) => b.id === r.id))
+                    .filter(
+                      (r) =>
+                        r.id !== task.id &&
+                        !task.blockedBy.some((b) => b.id === r.id) &&
+                        // Tasks this one blocks can't also block it — direct cycle
+                        !task.blocks.some((b) => b.id === r.id)
+                    )
                     .map((r) => (
                       <button
                         key={r.id}
@@ -465,6 +482,9 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                 </div>
               )}
             </div>
+            {patchError && (
+              <p className="mt-2 text-[11px] text-red-400">{patchError}</p>
+            )}
             {task.blocks.length > 0 && (
               <p className="mt-2 text-[11px] text-bb-dim">
                 Blocks:{" "}

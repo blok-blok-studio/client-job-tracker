@@ -11,6 +11,48 @@ function isAutoReason(reason: string | null): boolean {
 }
 
 /**
+ * Would linking `candidateIds` as blockers of `taskId` create a cycle?
+ * A cycle exists when a candidate (transitively) depends on taskId itself —
+ * both tasks would wait on each other forever. Walks the candidates' blocker
+ * chains breadth-first in batched queries; returns the title of the candidate
+ * that closes the loop, or null when the link is safe.
+ */
+export async function wouldCycle(taskId: string, candidateIds: string[]): Promise<string | null> {
+  if (candidateIds.length === 0) return null;
+  if (candidateIds.includes(taskId)) return "itself";
+
+  const candidates = await prisma.task.findMany({
+    where: { id: { in: candidateIds } },
+    select: { id: true, title: true },
+  });
+
+  // BFS from all candidates at once; origin maps each reached node back to
+  // the candidate whose chain introduced it, so the error can name the culprit
+  const origin = new Map<string, string>(candidates.map((c) => [c.id, c.title]));
+  let frontier = candidates.map((c) => c.id);
+
+  while (frontier.length > 0) {
+    const rows = await prisma.task.findMany({
+      where: { id: { in: frontier } },
+      select: { id: true, blockedBy: { select: { id: true } } },
+    });
+    const next: string[] = [];
+    for (const row of rows) {
+      const via = origin.get(row.id)!;
+      for (const b of row.blockedBy) {
+        if (b.id === taskId) return via;
+        if (!origin.has(b.id)) {
+          origin.set(b.id, via);
+          next.push(b.id);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return null;
+}
+
+/**
  * A task just reached DONE — release anything it was holding up.
  * Dependents sitting in BLOCKED whose blockers are now all complete move back
  * to TODO automatically (only if their blocked-reason was set by us or empty,

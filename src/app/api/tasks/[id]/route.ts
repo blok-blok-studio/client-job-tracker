@@ -6,7 +6,7 @@ import { syncEvent } from "@/lib/sync";
 import { notifySlackTaskDone, notifySlackTaskEvent, notifySlackTaskAssigned } from "@/lib/slack";
 import { getSession } from "@/lib/auth";
 import { requestMeta } from "@/lib/request-meta";
-import { releaseDependents, applyBlockedState } from "@/lib/task-deps";
+import { releaseDependents, applyBlockedState, wouldCycle } from "@/lib/task-deps";
 
 export async function GET(
   _request: NextRequest,
@@ -55,11 +55,28 @@ export async function PATCH(
       data.blockedAlertAt = null;
     }
 
-    // Dependencies: replace the full blocker set when the modal sends one
-    const blockedByIds = Array.isArray(body.blockedByIds)
+    // Dependencies: replace the full blocker set when the modal sends one.
+    // Only ids that exist survive, and circular chains are rejected outright —
+    // two tasks waiting on each other would deadlock the auto-unblock.
+    let blockedByIds = Array.isArray(body.blockedByIds)
       ? (body.blockedByIds as unknown[]).filter((x): x is string => typeof x === "string" && x !== id).slice(0, 50)
       : null;
     if (blockedByIds) {
+      const found = await prisma.task.findMany({
+        where: { id: { in: blockedByIds } },
+        select: { id: true },
+      });
+      blockedByIds = found.map((f) => f.id);
+      const cycleWith = await wouldCycle(id, blockedByIds);
+      if (cycleWith) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Can't add that dependency — "${cycleWith}" already depends on this task (the two would block each other forever).`,
+          },
+          { status: 400 }
+        );
+      }
       data.blockedBy = { set: blockedByIds.map((bid) => ({ id: bid })) };
     }
 
