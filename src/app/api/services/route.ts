@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
         status: parsed.status || "ACTIVE",
         recurring: parsed.recurring ?? false,
         price: parsed.price ?? null,
+        currency: parsed.currency || "EUR",
         startedAt: parsed.startedAt ? new Date(parsed.startedAt) : null,
         endedAt: parsed.endedAt ? new Date(parsed.endedAt) : null,
         notes: parsed.notes || null,

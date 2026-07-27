@@ -22,6 +22,7 @@ export async function PATCH(
     if (parsed.status !== undefined) data.status = parsed.status;
     if (parsed.recurring !== undefined) data.recurring = parsed.recurring;
     if (parsed.price !== undefined) data.price = parsed.price;
+    if (parsed.currency !== undefined) data.currency = parsed.currency;
     if (parsed.startedAt !== undefined) data.startedAt = parsed.startedAt ? new Date(parsed.startedAt) : null;
     if (parsed.endedAt !== undefined) data.endedAt = parsed.endedAt ? new Date(parsed.endedAt) : null;
     if (parsed.notes !== undefined) data.notes = parsed.notes || null;

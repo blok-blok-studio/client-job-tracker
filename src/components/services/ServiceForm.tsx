@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SERVICE_PACKAGES, ADDON_PACKAGES, PACKAGE_CATEGORIES } from "@/lib/contract-templates";
+import { SERVICE_CATALOG, catalogPriceLabel } from "@/lib/service-catalog";
 import { cn } from "@/lib/utils";
 
 export interface ServiceFormValues {
@@ -11,6 +11,7 @@ export interface ServiceFormValues {
   status: string;
   recurring: boolean;
   price: number | null;
+  currency: string;
   startedAt: string | null;
   endedAt: string | null;
   notes: string;
@@ -43,9 +44,9 @@ const STATUS_OPTIONS = [
   { key: "CANCELLED", label: "Cancelled" },
 ];
 
-// Full catalog (packages + add-ons) powers the suggestion list so service
-// names stay consistent with what contracts sell
-const CATALOG = [...SERVICE_PACKAGES, ...ADDON_PACKAGES];
+// The 2026 rate card powers the suggestion list; anything can still be
+// typed free-form for custom work
+const CATALOG = SERVICE_CATALOG;
 
 export default function ServiceForm({ clients, clientId, initial, onSubmit, onCancel }: ServiceFormProps) {
   const [form, setForm] = useState({
@@ -55,6 +56,7 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
     status: initial?.status || "ACTIVE",
     recurring: initial?.recurring ?? false,
     price: initial?.price != null ? String(initial.price) : "",
+    currency: initial?.currency || "EUR",
     startedAt: initial?.startedAt ? initial.startedAt.slice(0, 10) : "",
     endedAt: initial?.endedAt ? initial.endedAt.slice(0, 10) : "",
     notes: initial?.notes || "",
@@ -76,6 +78,8 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
       category: pkg.category,
       recurring: !!pkg.recurring,
       price: f.price || String(pkg.price),
+      currency: "EUR", // rate-card prices are EUR
+
     }));
     setShowSuggestions(false);
   }
@@ -94,6 +98,7 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
         status: form.status,
         recurring: form.recurring,
         price: form.price === "" ? null : Number(form.price),
+        currency: form.currency,
         startedAt: form.startedAt || null,
         endedAt: form.endedAt || null,
         notes: form.notes,
@@ -135,7 +140,7 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
           onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); setShowSuggestions(true); }}
           onFocus={() => setShowSuggestions(true)}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-          placeholder="e.g. Social Growth, Starter Launch, custom…"
+          placeholder="e.g. Essential website, Care Plan, or anything custom…"
           className={inputCls}
         />
         {showSuggestions && suggestions.length > 0 && (
@@ -148,29 +153,15 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
                 className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm text-bb-muted hover:bg-bb-surface hover:text-white transition-colors"
               >
                 <span className="truncate">{pkg.name}</span>
-                <span className="text-xs text-bb-dim shrink-0">
-                  ${pkg.price.toLocaleString()}{pkg.recurring ? "/mo" : ""}
-                </span>
+                <span className="text-xs text-bb-dim shrink-0">{catalogPriceLabel(pkg)}</span>
               </button>
             ))}
           </div>
         )}
       </div>
 
+      {/* Category is set automatically when a rate-card service is picked */}
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Category</label>
-          <select
-            value={form.category}
-            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-            className={inputCls}
-          >
-            <option value="">None</option>
-            {PACKAGE_CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>{c.label}</option>
-            ))}
-          </select>
-        </div>
         <div>
           <label className={labelCls}>Status</label>
           <select
@@ -183,22 +174,30 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
             ))}
           </select>
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={labelCls}>Price (USD)</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.price}
-            onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-            placeholder="0.00"
-            className={inputCls}
-          />
+          <label className={labelCls}>Price</label>
+          <div className="flex gap-1.5">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price}
+              onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+              placeholder="0.00"
+              className={cn(inputCls, "min-w-0")}
+            />
+            <select
+              value={form.currency}
+              onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+              className={cn(inputCls, "w-auto shrink-0 px-2")}
+              aria-label="Currency"
+            >
+              <option value="EUR">€</option>
+              <option value="USD">$</option>
+            </select>
+          </div>
         </div>
-        <div className="flex items-end pb-2">
+        <div className="col-span-2">
           <label className="flex items-center gap-2 text-sm text-bb-muted cursor-pointer select-none">
             <input
               type="checkbox"

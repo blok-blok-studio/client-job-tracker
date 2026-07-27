@@ -29,6 +29,7 @@ export const clientServiceSchema = z.object({
   status: z.enum(["ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]).optional(),
   recurring: z.boolean().optional(),
   price: z.number().min(0).nullable().optional(),
+  currency: z.enum(["EUR", "USD"]).optional(),
   startedAt: dateString.nullable().optional(),
   endedAt: dateString.nullable().optional(),
   notes: z.string().optional().or(z.literal("")),

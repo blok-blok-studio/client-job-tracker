@@ -5,7 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
 import ServiceForm, { type ServiceFormValues } from "@/components/services/ServiceForm";
-import { PACKAGE_CATEGORIES } from "@/lib/contract-templates";
+import { serviceCategoryLabel } from "@/lib/service-catalog";
 import { formatCurrency } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
 
@@ -16,6 +16,7 @@ interface ServiceItem {
   status: string;
   recurring: boolean;
   price: string | number | null;
+  currency: string;
   startedAt: string | null;
   endedAt: string | null;
   notes: string | null;
@@ -28,8 +29,7 @@ const statusVariant: Record<string, "green" | "yellow" | "blue" | "red" | "gray"
   CANCELLED: "red",
 };
 
-const categoryLabel = (id: string | null) =>
-  PACKAGE_CATEGORIES.find((c) => c.id === id)?.label || null;
+const categoryLabel = serviceCategoryLabel;
 
 export default function ClientServices({ clientId }: { clientId: string }) {
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -133,7 +133,7 @@ export default function ClientServices({ clientId }: { clientId: string }) {
                 <div className="text-xs text-bb-dim mt-0.5">
                   {[
                     categoryLabel(s.category),
-                    s.price != null ? `${formatCurrency(Number(s.price))}${s.recurring ? "/mo" : ""}` : null,
+                    s.price != null ? `${formatCurrency(Number(s.price), s.currency || "EUR")}${s.recurring ? "/mo" : ""}` : null,
                     // Date-only value stored at UTC midnight — render in UTC or it shows a day early
                     s.startedAt ? `since ${new Date(s.startedAt).toLocaleDateString(undefined, { timeZone: "UTC" })}` : null,
                   ]
@@ -169,6 +169,7 @@ export default function ClientServices({ clientId }: { clientId: string }) {
               status: editing.status,
               recurring: editing.recurring,
               price: editing.price != null ? Number(editing.price) : null,
+              currency: editing.currency,
               startedAt: editing.startedAt,
               endedAt: editing.endedAt,
               notes: editing.notes || "",
