@@ -22,6 +22,18 @@ export const clientSchema = z.object({
   timezone: z.string().optional(),
 });
 
+export const clientServiceSchema = z.object({
+  clientId: z.string().min(1, "Client is required"),
+  name: z.string().min(1, "Service name is required"),
+  category: z.string().nullable().optional(),
+  status: z.enum(["ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]).optional(),
+  recurring: z.boolean().optional(),
+  price: z.number().min(0).nullable().optional(),
+  startedAt: dateString.nullable().optional(),
+  endedAt: dateString.nullable().optional(),
+  notes: z.string().optional().or(z.literal("")),
+});
+
 export const contactSchema = z.object({
   name: z.string().min(1, "Name is required"),
   role: z.string().optional().or(z.literal("")),

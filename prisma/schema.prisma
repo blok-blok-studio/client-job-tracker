@@ -5,7 +5,9 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_DATABASE_URL")
+  // directUrl removed 2026-07-27: the db.prisma.io:5432 direct endpoint resets
+  // every connection (rotated creds) — DDL via `prisma db push` tunnels through
+  // the Accelerate URL fine. Re-add if fresh direct creds are minted in console.
 }
 
 // --- TEAM USERS (dashboard logins) ---
@@ -76,6 +78,7 @@ model Client {
   timeEntries      TimeEntry[]
   reports          ClientReport[]
   deliverables     Deliverable[]
+  services         ClientService[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -98,6 +101,35 @@ enum ClientTier {
   VIP
   STANDARD
   TRIAL
+}
+
+// --- SERVICES (what each client is signed up for) ---
+
+model ClientService {
+  id        String        @id @default(cuid())
+  clientId  String
+  client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String        // service/package name — free-form, suggested from contract-templates catalog
+  category  String?       // PackageCategory id from contract-templates (e.g. "web-brand")
+  status    ServiceStatus @default(ACTIVE)
+  recurring Boolean       @default(false)
+  price     Decimal?      @db.Decimal(10, 2) // per month if recurring, total if one-time
+  startedAt DateTime?
+  endedAt   DateTime?
+  notes     String?       @db.Text
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@index([category])
+}
+
+enum ServiceStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
 }
 
 // --- CONTACTS (multiple per client) ---

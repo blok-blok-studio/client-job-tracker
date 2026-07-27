@@ -18,6 +18,7 @@ import { getFlagFromPhone, LiveClock } from "@/lib/client-utils";
 import { SERVICE_PACKAGES, ADDON_PACKAGES, PACKAGE_CATEGORIES, type PackageCustomization } from "@/lib/contract-templates";
 import MediaManager from "@/components/clients/MediaManager";
 import ClientTasks from "@/components/clients/ClientTasks";
+import ClientServices from "@/components/clients/ClientServices";
 import DeliverablesPanel, { type DeliverableItem } from "@/components/clients/DeliverablesPanel";
 
 interface ClientDetail {
@@ -637,6 +638,8 @@ export default function ClientDetailPage() {
                 </div>
               )}
             </div>
+
+            <ClientServices clientId={id} />
 
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">

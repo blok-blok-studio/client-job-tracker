@@ -23,6 +23,7 @@ interface TeamUser {
 
 const PAGE_OPTIONS: Array<{ key: string; label: string }> = [
   { key: "clients", label: "Clients" },
+  { key: "services", label: "Services" },
   { key: "kanban", label: "Kanban" },
   { key: "my-tasks", label: "My Tasks" },
   { key: "calendar", label: "Calendar" },

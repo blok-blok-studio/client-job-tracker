@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
+  Briefcase,
   Columns3,
   CalendarDays,
   Lock,
@@ -34,6 +35,7 @@ import { useSidebar } from "./SidebarContext";
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/clients", label: "Clients", icon: Users },
+  { href: "/services", label: "Services", icon: Briefcase },
   { href: "/kanban", label: "Kanban", icon: Columns3 },
   { href: "/my-tasks", label: "My Tasks", icon: ListTodo },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
