@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   DndContext,
   DragOverlay,
@@ -396,14 +397,22 @@ export default function KanbanBoard() {
               />
             ))}
           </div>
-          <DragOverlay>
-            {activeTask && (
-              <div className="bg-bb-surface border border-bb-orange rounded-lg p-3 shadow-modal opacity-90 w-[280px]">
-                <p className="text-sm font-medium">{activeTask.title}</p>
-                <Badge variant="default" size="sm">{activeTask.priority}</Badge>
-              </div>
+          {/* Portaled to <body>: the overlay is position:fixed, and any
+              transformed ancestor (e.g. the dashboard page-entrance wrapper)
+              would re-anchor it, offsetting the ghost card from the cursor
+              and shifting drop detection into the wrong column. */}
+          {typeof document !== "undefined" &&
+            createPortal(
+              <DragOverlay>
+                {activeTask && (
+                  <div className="bg-bb-surface border border-bb-orange rounded-lg p-3 shadow-modal opacity-90 w-[280px]">
+                    <p className="text-sm font-medium">{activeTask.title}</p>
+                    <Badge variant="default" size="sm">{activeTask.priority}</Badge>
+                  </div>
+                )}
+              </DragOverlay>,
+              document.body
             )}
-          </DragOverlay>
         </DndContext>
       ) : (
         <KanbanCalendar
