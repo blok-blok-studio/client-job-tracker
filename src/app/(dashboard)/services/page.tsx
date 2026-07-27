@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Search, Trash2, Layers, Users, RefreshCcw, PauseCircle, Briefcase } from "lucide-react";
+import { Plus, Search, Trash2, Layers, Users, PauseCircle, Briefcase } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
 import ServiceForm, { type ServiceFormValues } from "@/components/services/ServiceForm";
 import { SERVICE_CATEGORIES, serviceCategoryLabel } from "@/lib/service-catalog";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
 
 interface ServiceRow {
@@ -16,9 +16,6 @@ interface ServiceRow {
   name: string;
   category: string | null;
   status: string;
-  recurring: boolean;
-  price: string | number | null;
-  currency: string;
   startedAt: string | null;
   endedAt: string | null;
   notes: string | null;
@@ -53,22 +50,6 @@ const tierVariant: Record<string, "orange" | "gray" | "blue"> = {
 };
 
 const categoryLabel = serviceCategoryLabel;
-
-// Services can be priced in EUR or USD — sum per currency and join,
-// e.g. "€1,700 + $500" (no exchange-rate guessing on an overview page)
-function sumByCurrency(items: { price: string | number | null; currency: string }[]): string {
-  const sums = new Map<string, number>();
-  for (const s of items) {
-    if (s.price == null) continue;
-    const cur = s.currency || "EUR";
-    sums.set(cur, (sums.get(cur) || 0) + Number(s.price));
-  }
-  if (sums.size === 0) return formatCurrency(0, "EUR");
-  return [...sums.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([cur, sum]) => formatCurrency(sum, cur))
-    .join(" + ");
-}
 
 export default function ServicesPage() {
   const [loading, setLoading] = useState(true);
@@ -128,7 +109,7 @@ export default function ServicesPage() {
     return {
       active: active.length,
       clientsCovered: new Set(active.map((s) => s.client.id)).size,
-      recurringMo: sumByCurrency(active.filter((s) => s.recurring)),
+      distinct: new Set(active.map((s) => s.name.toLowerCase())).size,
       paused: services.filter((s) => s.status === "PAUSED").length,
     };
   }, [services]);
@@ -207,9 +188,6 @@ export default function ServicesPage() {
     fetchServices();
   }
 
-  const priceLabel = (s: ServiceRow) =>
-    s.price != null ? `${formatCurrency(Number(s.price), s.currency || "EUR")}${s.recurring ? "/mo" : ""}` : null;
-
   return (
     <div>
       <TopBar title="Services" subtitle="Which client is on what — at a glance" />
@@ -219,7 +197,7 @@ export default function ServicesPage() {
           {[
             { label: "Active Services", value: summary.active, icon: Layers },
             { label: "Clients Covered", value: summary.clientsCovered, icon: Users },
-            { label: "Recurring / mo", value: summary.recurringMo, icon: RefreshCcw },
+            { label: "Services Offered", value: summary.distinct, icon: Briefcase },
             { label: "Paused", value: summary.paused, icon: PauseCircle },
           ].map((tile) => (
             <div key={tile.label} className="bg-bb-surface border border-bb-border rounded-lg p-4 flex items-center gap-3">
@@ -364,9 +342,6 @@ export default function ServicesPage() {
                       {categoryLabel(s.category) && (
                         <span className="text-[10px] text-bb-dim hidden sm:inline">{categoryLabel(s.category)}</span>
                       )}
-                      {priceLabel(s) && (
-                        <span className="text-xs text-bb-muted">{priceLabel(s)}</span>
-                      )}
                     </button>
                   ))}
                 </div>
@@ -374,8 +349,6 @@ export default function ServicesPage() {
             ))
           ) : (
             byService.map(({ name, items }) => {
-              const monthlyItems = items.filter((s) => s.status === "ACTIVE" && s.recurring && s.price != null);
-              const monthly = monthlyItems.length > 0 ? sumByCurrency(monthlyItems) : null;
               return (
                 <div key={name} className="bg-bb-surface border border-bb-border rounded-lg p-4">
                   <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -386,9 +359,6 @@ export default function ServicesPage() {
                     <span className="text-xs text-bb-dim">
                       {items.length} client{items.length === 1 ? "" : "s"}
                     </span>
-                    {monthly && (
-                      <span className="ml-auto text-xs text-bb-muted">{monthly}/mo</span>
-                    )}
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     {items.map((s) => (
@@ -411,7 +381,6 @@ export default function ServicesPage() {
                           {s.client.name}
                         </Link>
                         <Badge variant={statusVariant[s.status] || "gray"}>{s.status}</Badge>
-                        {priceLabel(s) && <span className="text-xs text-bb-muted">{priceLabel(s)}</span>}
                         <button
                           onClick={() => setEditing(s)}
                           className="text-xs text-bb-dim hover:text-bb-orange transition-colors"
@@ -445,9 +414,6 @@ export default function ServicesPage() {
                 name: editing.name,
                 category: editing.category,
                 status: editing.status,
-                recurring: editing.recurring,
-                price: editing.price != null ? Number(editing.price) : null,
-                currency: editing.currency,
                 startedAt: editing.startedAt,
                 endedAt: editing.endedAt,
                 notes: editing.notes || "",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SERVICE_CATALOG, catalogPriceLabel } from "@/lib/service-catalog";
+import { SERVICE_CATALOG, serviceCategoryLabel } from "@/lib/service-catalog";
 import { cn } from "@/lib/utils";
 
 export interface ServiceFormValues {
@@ -9,9 +9,6 @@ export interface ServiceFormValues {
   name: string;
   category: string | null;
   status: string;
-  recurring: boolean;
-  price: number | null;
-  currency: string;
   startedAt: string | null;
   endedAt: string | null;
   notes: string;
@@ -54,9 +51,6 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
     name: initial?.name || "",
     category: initial?.category || "",
     status: initial?.status || "ACTIVE",
-    recurring: initial?.recurring ?? false,
-    price: initial?.price != null ? String(initial.price) : "",
-    currency: initial?.currency || "EUR",
     startedAt: initial?.startedAt ? initial.startedAt.slice(0, 10) : "",
     endedAt: initial?.endedAt ? initial.endedAt.slice(0, 10) : "",
     notes: initial?.notes || "",
@@ -76,10 +70,6 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
       ...f,
       name: pkg.name,
       category: pkg.category,
-      recurring: !!pkg.recurring,
-      price: f.price || String(pkg.price),
-      currency: "EUR", // rate-card prices are EUR
-
     }));
     setShowSuggestions(false);
   }
@@ -96,9 +86,6 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
         name: form.name.trim(),
         category: form.category || null,
         status: form.status,
-        recurring: form.recurring,
-        price: form.price === "" ? null : Number(form.price),
-        currency: form.currency,
         startedAt: form.startedAt || null,
         endedAt: form.endedAt || null,
         notes: form.notes,
@@ -140,7 +127,7 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
           onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); setShowSuggestions(true); }}
           onFocus={() => setShowSuggestions(true)}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-          placeholder="e.g. Essential website, Care Plan, or anything custom…"
+          placeholder="e.g. Website Design, Social Outreach, or anything custom…"
           className={inputCls}
         />
         {showSuggestions && suggestions.length > 0 && (
@@ -153,61 +140,25 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
                 className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm text-bb-muted hover:bg-bb-surface hover:text-white transition-colors"
               >
                 <span className="truncate">{pkg.name}</span>
-                <span className="text-xs text-bb-dim shrink-0">{catalogPriceLabel(pkg)}</span>
+                <span className="text-xs text-bb-dim shrink-0">{serviceCategoryLabel(pkg.category)}</span>
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Category is set automatically when a rate-card service is picked */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Status</label>
-          <select
-            value={form.status}
-            onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-            className={inputCls}
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s.key} value={s.key}>{s.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>Price</label>
-          <div className="flex gap-1.5">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.price}
-              onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-              placeholder="0.00"
-              className={cn(inputCls, "min-w-0")}
-            />
-            <select
-              value={form.currency}
-              onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-              className={cn(inputCls, "w-auto shrink-0 px-2")}
-              aria-label="Currency"
-            >
-              <option value="EUR">€</option>
-              <option value="USD">$</option>
-            </select>
-          </div>
-        </div>
-        <div className="col-span-2">
-          <label className="flex items-center gap-2 text-sm text-bb-muted cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={form.recurring}
-              onChange={(e) => setForm((f) => ({ ...f, recurring: e.target.checked }))}
-              className="accent-bb-orange w-4 h-4"
-            />
-            Monthly recurring
-          </label>
-        </div>
+      {/* Category is set automatically when a catalog service is picked */}
+      <div>
+        <label className={labelCls}>Status</label>
+        <select
+          value={form.status}
+          onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+          className={inputCls}
+        >
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s.key} value={s.key}>{s.label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

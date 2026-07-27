@@ -6,7 +6,6 @@ import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
 import ServiceForm, { type ServiceFormValues } from "@/components/services/ServiceForm";
 import { serviceCategoryLabel } from "@/lib/service-catalog";
-import { formatCurrency } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
 
 interface ServiceItem {
@@ -14,9 +13,6 @@ interface ServiceItem {
   name: string;
   category: string | null;
   status: string;
-  recurring: boolean;
-  price: string | number | null;
-  currency: string;
   startedAt: string | null;
   endedAt: string | null;
   notes: string | null;
@@ -133,7 +129,6 @@ export default function ClientServices({ clientId }: { clientId: string }) {
                 <div className="text-xs text-bb-dim mt-0.5">
                   {[
                     categoryLabel(s.category),
-                    s.price != null ? `${formatCurrency(Number(s.price), s.currency || "EUR")}${s.recurring ? "/mo" : ""}` : null,
                     // Date-only value stored at UTC midnight — render in UTC or it shows a day early
                     s.startedAt ? `since ${new Date(s.startedAt).toLocaleDateString(undefined, { timeZone: "UTC" })}` : null,
                   ]
@@ -167,9 +162,6 @@ export default function ClientServices({ clientId }: { clientId: string }) {
               name: editing.name,
               category: editing.category,
               status: editing.status,
-              recurring: editing.recurring,
-              price: editing.price != null ? Number(editing.price) : null,
-              currency: editing.currency,
               startedAt: editing.startedAt,
               endedAt: editing.endedAt,
               notes: editing.notes || "",

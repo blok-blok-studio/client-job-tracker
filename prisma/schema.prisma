@@ -112,9 +112,6 @@ model ClientService {
   name      String        // service/package name — free-form, suggested from contract-templates catalog
   category  String?       // PackageCategory id from contract-templates (e.g. "web-brand")
   status    ServiceStatus @default(ACTIVE)
-  recurring Boolean       @default(false)
-  price     Decimal?      @db.Decimal(10, 2) // per month if recurring, total if one-time
-  currency  String        @default("EUR") // "EUR" | "USD"
   startedAt DateTime?
   endedAt   DateTime?
   notes     String?       @db.Text
