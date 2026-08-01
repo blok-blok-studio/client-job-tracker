@@ -219,7 +219,7 @@ export async function GET(request: NextRequest) {
           to: dlv.client.email,
           clientName: dlv.client.name,
           title: dlv.title,
-          reviewUrl: `${appUrl}/review/${dlv.token}`,
+          reviewUrl: `${appUrl}/r/${dlv.token}`,
           daysPending,
         }).catch((err) => console.error("[Email] Review reminder error:", err));
       }

@@ -100,7 +100,7 @@ export async function PATCH(
       const reviewCard = {
         clientId: existing.clientId,
         title: `Client review: ${title ?? existing.title}`,
-        description: `Waiting on ${existing.client.name} to review "${title ?? existing.title}" (revised).\n\nReview link: ${APP_URL}/review/${existing.token}`,
+        description: `Waiting on ${existing.client.name} to review "${title ?? existing.title}" (revised).\n\nReview link: ${APP_URL}/r/${existing.token}`,
         status: "IN_REVIEW" as const,
         priority: "MEDIUM" as const,
         category: "CONTENT_CREATION" as const,
@@ -136,7 +136,7 @@ export async function PATCH(
           clientName: existing.client.name,
           title: title ?? existing.title,
           message: message !== undefined ? message : existing.message,
-          reviewUrl: `${APP_URL}/review/${existing.token}`,
+          reviewUrl: `${APP_URL}/r/${existing.token}`,
           isRevision: true,
         });
         emailed = true;

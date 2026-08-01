@@ -92,14 +92,14 @@ async function maybeSendOnboardingLink(clientId: string) {
 
   let onboardToken = client.onboardToken;
   if (!onboardToken) {
-    onboardToken = randomBytes(24).toString("hex");
+    onboardToken = randomBytes(16).toString("base64url");
     await prisma.client.update({
       where: { id: clientId },
       data: { onboardToken },
     });
   }
 
-  const onboardUrl = `${APP_URL}/onboard/${onboardToken}`;
+  const onboardUrl = `${APP_URL}/o/${onboardToken}`;
 
   // Claim the send slot BEFORE dispatching emails to prevent race conditions
   // If two pipeline calls arrive concurrently, only the first will proceed
@@ -236,7 +236,7 @@ async function maybeSendContractSigningLink(clientId: string) {
   });
   if (alreadySent) return;
 
-  const contractUrl = `${APP_URL}/contract/${pendingContract.token}`;
+  const contractUrl = `${APP_URL}/c/${pendingContract.token}`;
 
   await sendContractSigningEmail({
     to: client.email,
@@ -318,7 +318,7 @@ async function sendContractSignedEmails(
     select: { documentHash: true, signedDocumentHash: true, providerSignedName: true },
   });
 
-  const contractUrl = `${APP_URL}/contract/${details.token}`;
+  const contractUrl = `${APP_URL}/c/${details.token}`;
   const signedAt = new Date();
 
   // Always notify Chase immediately
@@ -395,18 +395,18 @@ export async function onOnboardingCompleted(clientId: string) {
     });
 
     if (signedContract) {
-      const contractUrl = `${APP_URL}/contract/${signedContract.token}`;
+      const contractUrl = `${APP_URL}/c/${signedContract.token}`;
 
       // Generate upload link for the client
       let uploadToken = client.uploadToken;
       if (!uploadToken) {
-        uploadToken = randomBytes(24).toString("hex");
+        uploadToken = randomBytes(16).toString("base64url");
         await prisma.client.update({
           where: { id: clientId },
           data: { uploadToken },
         });
       }
-      const uploadUrl = `${APP_URL}/upload/${uploadToken}`;
+      const uploadUrl = `${APP_URL}/u/${uploadToken}`;
 
       if (client.telegramChatId) {
         await sendTelegramMessage(

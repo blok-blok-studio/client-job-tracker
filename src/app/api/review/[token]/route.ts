@@ -357,7 +357,7 @@ export async function POST(
       const revisionCard = {
         clientId: deliverable.client.id,
         title: `Revision: ${deliverable.title}`,
-        description: `Client requested changes on "${deliverable.title}"${authorName !== deliverable.client.name ? ` (${authorName})` : ""}${itemSummary ? ` — ${itemSummary}` : ""}:\n\n${compiledNotes || "(no notes)"}\n\nReview link: ${APP_URL}/review/${deliverable.token}`,
+        description: `Client requested changes on "${deliverable.title}"${authorName !== deliverable.client.name ? ` (${authorName})` : ""}${itemSummary ? ` — ${itemSummary}` : ""}:\n\n${compiledNotes || "(no notes)"}\n\nReview link: ${APP_URL}/r/${deliverable.token}`,
         status: "TODO" as const,
         priority: "HIGH" as const,
         category: "CONTENT_CREATION" as const,
@@ -418,7 +418,7 @@ export async function POST(
         respondedBy: ("name" in input && input.name?.trim()) || null,
         notes: compiledNotes,
         clientUrl: `${APP_URL}/clients/${deliverable.client.id}`,
-        reviewUrl: `${APP_URL}/review/${deliverable.token}`,
+        reviewUrl: `${APP_URL}/r/${deliverable.token}`,
       });
     } catch (err) {
       console.error("[Review] Admin email failed:", err);

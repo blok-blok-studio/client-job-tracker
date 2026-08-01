@@ -79,7 +79,7 @@ export default function ClientsPage() {
         if (json.data?.onboardToken) {
           setOnboardLink({
             name: json.data.name,
-            link: `${window.location.origin}/onboard/${json.data.onboardToken}`,
+            link: `${window.location.origin}/o/${json.data.onboardToken}`,
           });
         } else {
           toast("Client created", "success");

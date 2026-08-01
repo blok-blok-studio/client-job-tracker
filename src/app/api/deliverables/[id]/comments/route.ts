@@ -64,7 +64,7 @@ export async function POST(
           title: deliverable.title,
           itemLabel: file ? (file.folder ? `${file.folder}/${file.filename}` : file.filename) : null,
           body: parsed.data.body.trim(),
-          reviewUrl: `${APP_URL}/review/${deliverable.token}`,
+          reviewUrl: `${APP_URL}/r/${deliverable.token}`,
         });
         emailed = true;
       } catch (err) {

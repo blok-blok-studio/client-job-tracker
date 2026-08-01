@@ -343,7 +343,7 @@ export default function ClientDetailPage() {
   }
 
   function handleCopyContractLink(token: string) {
-    navigator.clipboard.writeText(`${window.location.origin}/contract/${token}`);
+    navigator.clipboard.writeText(`${window.location.origin}/c/${token}`);
     setContractCopied(token);
     setTimeout(() => setContractCopied(null), 2000);
   }
@@ -835,11 +835,11 @@ export default function ClientDetailPage() {
                   <p className="text-xs text-bb-dim mb-3">Send this to your client to collect their info, contacts, and credentials.</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs bg-bb-black px-3 py-2 rounded border border-bb-border text-bb-muted truncate">
-                      {window.location.origin}/onboard/{client.onboardToken}
+                      {window.location.origin}/o/{client.onboardToken}
                     </code>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/onboard/${client.onboardToken}`);
+                        navigator.clipboard.writeText(`${window.location.origin}/o/${client.onboardToken}`);
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       }}
@@ -875,11 +875,11 @@ export default function ClientDetailPage() {
                   <p className="text-xs text-bb-dim mb-3">Share this link with your client so they can upload photos, videos, and audio directly to their media library.</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs bg-bb-black px-3 py-2 rounded border border-bb-border text-bb-muted truncate">
-                      {window.location.origin}/upload/{client.uploadToken}
+                      {window.location.origin}/u/{client.uploadToken}
                     </code>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/upload/${client.uploadToken}`);
+                        navigator.clipboard.writeText(`${window.location.origin}/u/${client.uploadToken}`);
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       }}
@@ -1265,7 +1265,7 @@ export default function ClientDetailPage() {
                                 </p>
                                 <div className="flex items-center gap-3 shrink-0">
                                   <button
-                                    onClick={() => window.open(`/contract/${contract.token}`, "_blank")}
+                                    onClick={() => window.open(`/c/${contract.token}`, "_blank")}
                                     className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
                                   >
                                     <Eye size={12} /> View
@@ -1652,7 +1652,7 @@ export default function ClientDetailPage() {
                 <span className="text-xs text-bb-dim">Read it over before sending to the client.</span>
               </div>
               <a
-                href={`/contract/${reviewContract.token}`}
+                href={`/c/${reviewContract.token}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs text-bb-dim hover:text-bb-muted"

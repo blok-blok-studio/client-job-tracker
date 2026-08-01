@@ -72,7 +72,7 @@ export async function POST(
       }
     }
 
-    const token = randomBytes(32).toString("hex");
+    const token = randomBytes(16).toString("base64url");
     const contractCurrency = getCurrencyForCountry(parsed.country);
 
     // Fetch live USD→EUR rate for non-USD contracts

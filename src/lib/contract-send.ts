@@ -239,7 +239,7 @@ export async function sendContract(contractId: string): Promise<ContractSendResu
   // Send contract signing + onboarding emails in parallel
   if (client.email) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
-    const contractUrl = `${appUrl}/contract/${contract.token}`;
+    const contractUrl = `${appUrl}/c/${contract.token}`;
 
     const emailTasks: Promise<void>[] = [];
 
@@ -272,11 +272,11 @@ export async function sendContract(contractId: string): Promise<ContractSendResu
       (async () => {
         let onboardToken = (await prisma.client.findUnique({ where: { id: client.id }, select: { onboardToken: true } }))?.onboardToken;
         if (!onboardToken) {
-          onboardToken = randomBytes(24).toString("hex");
+          onboardToken = randomBytes(16).toString("base64url");
           await prisma.client.update({ where: { id: client.id }, data: { onboardToken } });
         }
 
-        const onboardUrl = `${appUrl}/onboard/${onboardToken}`;
+        const onboardUrl = `${appUrl}/o/${onboardToken}`;
 
         await sendOnboardingLinkEmail({ to: client.email!, clientName: client.name, onboardUrl });
         await prisma.activityLog.create({

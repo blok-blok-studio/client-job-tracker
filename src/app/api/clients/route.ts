@@ -74,8 +74,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const onboardToken = randomBytes(24).toString("hex");
-    const uploadToken = randomBytes(24).toString("hex");
+    const onboardToken = randomBytes(16).toString("base64url");
+    const uploadToken = randomBytes(16).toString("base64url");
 
     const client = await prisma.client.create({
       data: {

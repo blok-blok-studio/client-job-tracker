@@ -429,7 +429,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
   }
 
   function copyLink(d: DeliverableItem) {
-    navigator.clipboard.writeText(`${window.location.origin}/review/${d.token}`);
+    navigator.clipboard.writeText(`${window.location.origin}/r/${d.token}`);
     setCopiedId(d.id);
     setTimeout(() => setCopiedId(null), 2000);
   }
@@ -637,7 +637,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
                     {copiedId === d.id ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
                   </button>
                   <a
-                    href={`/review/${d.token}`}
+                    href={`/r/${d.token}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1 text-bb-dim hover:text-bb-orange transition-colors"

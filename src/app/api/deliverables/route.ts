@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     const deliverable = await prisma.deliverable.create({
       data: {
         clientId,
-        token: randomBytes(24).toString("base64url"),
+        token: randomBytes(16).toString("base64url"),
         title,
         message: message || null,
         content: content || null,
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
         data: {
           clientId,
           title: `Client review: ${title}`,
-          description: `Waiting on ${client.name} to review "${title}"${files.length ? ` (${files.length} file${files.length === 1 ? "" : "s"})` : ""}.\n\nReview link: ${APP_URL}/review/${deliverable.token}`,
+          description: `Waiting on ${client.name} to review "${title}"${files.length ? ` (${files.length} file${files.length === 1 ? "" : "s"})` : ""}.\n\nReview link: ${APP_URL}/r/${deliverable.token}`,
           status: "IN_REVIEW",
           priority: "MEDIUM",
           category: "CONTENT_CREATION",
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
           clientName: client.name,
           title,
           message: message || null,
-          reviewUrl: `${APP_URL}/review/${deliverable.token}`,
+          reviewUrl: `${APP_URL}/r/${deliverable.token}`,
         });
         emailed = true;
       } catch (err) {

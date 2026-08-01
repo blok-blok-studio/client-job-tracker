@@ -9,7 +9,7 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const onboardToken = randomBytes(24).toString("hex");
+    const onboardToken = randomBytes(16).toString("base64url");
 
     const client = await prisma.client.update({
       where: { id },

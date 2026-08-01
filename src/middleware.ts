@@ -86,10 +86,26 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   return response;
 }
 
+// Short share links: /c/<token> → /contract/<token>, etc. Tokens stay full-strength;
+// only the path is compressed. Rewrite (not redirect) so the short URL stays in the bar.
+const SHORT_LINKS: Record<string, string> = {
+  c: "contract",
+  r: "review",
+  o: "onboard",
+  u: "upload",
+};
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   cleanupRateLimits();
+
+  const shortMatch = pathname.match(/^\/(c|r|o|u)\/([\w-]+)$/);
+  if (shortMatch) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${SHORT_LINKS[shortMatch[1]]}/${shortMatch[2]}`;
+    return addSecurityHeaders(NextResponse.rewrite(url));
+  }
 
   // Allow static assets, Next.js internals, and uploaded media files
   if (

@@ -86,7 +86,7 @@ export default function DeliverablesPage() {
   const needsWork = items.filter((d) => d.status === "REVISION_REQUESTED").length;
 
   function copyLink(d: DeliverableRow) {
-    navigator.clipboard.writeText(`${window.location.origin}/review/${d.token}`);
+    navigator.clipboard.writeText(`${window.location.origin}/r/${d.token}`);
     setCopiedId(d.id);
     setTimeout(() => setCopiedId(null), 2000);
   }
@@ -206,7 +206,7 @@ export default function DeliverablesPage() {
                     {copiedId === d.id ? "Copied" : "Copy link"}
                   </button>
                   <button
-                    onClick={() => window.open(`/review/${d.token}`, "_blank")}
+                    onClick={() => window.open(`/r/${d.token}`, "_blank")}
                     className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
                   >
                     <Eye size={12} /> View

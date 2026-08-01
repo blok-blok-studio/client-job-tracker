@@ -165,7 +165,7 @@ export default function ContractsPage() {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <button
-                    onClick={() => window.open(`/contract/${c.token}`, "_blank")}
+                    onClick={() => window.open(`/c/${c.token}`, "_blank")}
                     className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
                   >
                     <Eye size={12} /> View

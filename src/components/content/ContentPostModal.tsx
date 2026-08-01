@@ -1259,7 +1259,7 @@ export default function ContentPostModal({
                       const res = await fetch(`/api/clients/${clientId}/upload-token`, { method: "POST" });
                       const data = await res.json();
                       if (data.success && data.data.uploadToken) {
-                        const link = `${window.location.origin}/upload/${data.data.uploadToken}`;
+                        const link = `${window.location.origin}/u/${data.data.uploadToken}`;
                         await navigator.clipboard.writeText(link);
                         setUploadLinkCopied(true);
                         setTimeout(() => setUploadLinkCopied(false), 3000);

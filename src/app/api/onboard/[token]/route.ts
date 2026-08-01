@@ -140,7 +140,7 @@ export async function GET(
           name: client.name,
           company: client.company,
           telegramLink,
-          uploadUrl: client.uploadToken ? `${APP_URL}/upload/${client.uploadToken}` : null,
+          uploadUrl: client.uploadToken ? `${APP_URL}/u/${client.uploadToken}` : null,
         },
       },
       { headers: corsHeaders(request) }
@@ -417,13 +417,13 @@ export async function POST(
     }).then((c) => c?.uploadToken);
 
     if (!uploadToken) {
-      uploadToken = randomBytes(24).toString("hex");
+      uploadToken = randomBytes(16).toString("base64url");
       await prisma.client.update({
         where: { id: client.id },
         data: { uploadToken },
       });
     }
-    const uploadUrl = `${APP_URL}/upload/${uploadToken}`;
+    const uploadUrl = `${APP_URL}/u/${uploadToken}`;
 
     // Trigger automated pipeline: send contract
     // MUST be awaited — serverless runtimes kill the process after response,
