@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
+import { randomUUID } from "crypto";
+import { put, del } from "@vercel/blob";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { requestMeta } from "@/lib/request-meta";
 import { notifySlack } from "@/lib/slack";
+import { encryptBuffer } from "@/lib/encryption";
+import { scanContractorInvoice } from "@/lib/invoice-scan";
+
+// Registration downloads the blob, encrypts it, and runs the AI scan after
+// responding — needs longer than the default function window.
+export const maxDuration = 300;
 
 // Public, token-scoped contractor invoice portal API.
 // GET  — validate the link and return the contractor's own submissions
-// POST — register an uploaded invoice (file already sits in Vercel Blob)
+// POST — register an uploaded invoice: the file (already in Vercel Blob from
+//        the browser upload) is pulled server-side, AES-256-GCM encrypted,
+//        re-stored, and the plaintext blob deleted. The AI amount scan runs
+//        in the background after the response.
 
 async function findContractor(token: string) {
   if (!token || token.length < 16) return null;
@@ -89,6 +101,26 @@ export async function POST(
 
     const { ipAddress, userAgent } = requestMeta(request);
 
+    // Pull the plaintext upload server-side, encrypt it, store the ciphertext,
+    // and delete the plaintext blob — files never persist unencrypted.
+    const fileRes = await fetch(d.blobUrl);
+    if (!fileRes.ok) {
+      return NextResponse.json({ success: false, error: "Uploaded file not found" }, { status: 400 });
+    }
+    const fileBuffer = Buffer.from(await fileRes.arrayBuffer());
+    if (fileBuffer.length > 25 * 1024 * 1024) {
+      await del(d.blobUrl).catch(() => {});
+      return NextResponse.json({ success: false, error: "File too large" }, { status: 400 });
+    }
+
+    const { encrypted, iv } = encryptBuffer(fileBuffer);
+    const encryptedBlob = await put(`contractor-invoices/enc/${randomUUID()}.bin`, encrypted, {
+      access: "public",
+      contentType: "application/octet-stream",
+      addRandomSuffix: false,
+    });
+    await del(d.blobUrl).catch(() => {});
+
     const invoice = await prisma.contractorInvoice.create({
       data: {
         contractorId: contractor.id,
@@ -98,10 +130,12 @@ export async function POST(
         currency: d.currency || "USD",
         invoiceDate: d.invoiceDate ? new Date(d.invoiceDate) : null,
         dueDate: d.dueDate ? new Date(d.dueDate) : null,
-        fileUrl: d.blobUrl,
+        fileUrl: encryptedBlob.url,
         filename: d.filename,
         contentType: d.contentType || null,
-        size: d.size ?? null,
+        size: fileBuffer.length,
+        encrypted: true,
+        encryptionIv: iv,
         submitIp: ipAddress,
         submitUserAgent: userAgent,
         audits: {
@@ -112,10 +146,11 @@ export async function POST(
             userAgent,
             metadata: JSON.stringify({
               filename: d.filename,
-              size: d.size ?? null,
+              size: fileBuffer.length,
               invoiceNumber: d.invoiceNumber || null,
               amount: d.amount ?? null,
               currency: d.currency || "USD",
+              encrypted: true,
             }),
           },
         },
@@ -150,6 +185,9 @@ export async function POST(
         d.invoiceNumber ? ` (#${d.invoiceNumber})` : ""
       }`
     ).catch(() => {});
+
+    // AI amount verification runs after the response goes out
+    after(() => scanContractorInvoice(invoice.id, fileBuffer, d.contentType || null, d.filename));
 
     return NextResponse.json({ success: true, data: invoice });
   } catch {

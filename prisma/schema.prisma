@@ -843,6 +843,21 @@ model ContractorInvoice {
   contentType String?
   size        Int?
 
+  // File is AES-256-GCM encrypted at rest in Blob storage; iv needed to decrypt.
+  // Plaintext blob is deleted right after registration.
+  encrypted    Boolean @default(false)
+  encryptionIv String?
+
+  // AI scan of the uploaded file (amount verification for legal/bookkeeping)
+  scanStatus           ContractorInvoiceScanStatus @default(PENDING)
+  scannedAmount        Decimal?                    @db.Decimal(10, 2)
+  scannedCurrency      String?
+  scannedInvoiceNumber String?
+  scannedInvoiceDate   DateTime?
+  scannedDueDate       DateTime?
+  scanSummary          String?                     @db.Text
+  scannedAt            DateTime?
+
   status ContractorInvoiceStatus @default(PENDING)
 
   // Submission audit (legal record of who sent what, when, from where)
@@ -869,6 +884,16 @@ enum ContractorInvoiceStatus {
   PENDING
   PAID
   DISPUTED
+}
+
+enum ContractorInvoiceScanStatus {
+  PENDING // scan not run yet
+  MATCHED // scanned amount agrees with what the contractor entered
+  AUTO_FILLED // contractor left amount blank; filled from the scan
+  MISMATCH // scanned amount differs from what the contractor entered
+  NO_DATA // file scanned but no amount found
+  SKIPPED // file type we can't scan (docx/xlsx)
+  FAILED // scan errored
 }
 
 model ContractorInvoiceNote {

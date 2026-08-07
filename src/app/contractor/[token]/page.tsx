@@ -390,7 +390,7 @@ export default function ContractorInvoicePortal({
 
         {/* Footer */}
         <p className="text-center text-[10px] text-gray-600 mt-12">
-          Submissions are timestamped and securely stored. Only the Blok Blok Studio team can access them.
+          Submissions are encrypted, timestamped, and securely stored. Only the Blok Blok Studio team can access them.
         </p>
       </div>
     </div>

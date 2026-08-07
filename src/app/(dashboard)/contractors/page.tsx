@@ -17,6 +17,9 @@ import {
   RefreshCw,
   Power,
   Trash2,
+  Lock,
+  ScanLine,
+  AlertTriangle,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
@@ -52,6 +55,13 @@ interface InvoiceRow {
   fileUrl: string;
   filename: string;
   size: number | null;
+  encrypted: boolean;
+  scanStatus: "PENDING" | "MATCHED" | "AUTO_FILLED" | "MISMATCH" | "NO_DATA" | "SKIPPED" | "FAILED";
+  scannedAmount: string | null;
+  scannedCurrency: string | null;
+  scannedInvoiceNumber: string | null;
+  scanSummary: string | null;
+  scannedAt: string | null;
   status: "PENDING" | "PAID" | "DISPUTED";
   submittedAt: string;
   submitIp: string | null;
@@ -95,6 +105,19 @@ const AUDIT_LABELS: Record<string, string> = {
   disputed: "Marked as disputed",
   note_added: "Note added",
   details_edited: "Details edited",
+  scanned: "Document scanned",
+  scan_failed: "Document scan failed",
+  file_viewed: "File viewed",
+};
+
+const SCAN_LABELS: Record<InvoiceRow["scanStatus"], { label: string; tone: "green" | "yellow" | "red" | "gray" }> = {
+  PENDING: { label: "Scanning…", tone: "gray" },
+  MATCHED: { label: "Amount verified", tone: "green" },
+  AUTO_FILLED: { label: "Amount read from document", tone: "green" },
+  MISMATCH: { label: "Amount mismatch", tone: "red" },
+  NO_DATA: { label: "No amount found in document", tone: "yellow" },
+  SKIPPED: { label: "File type not scannable", tone: "gray" },
+  FAILED: { label: "Scan failed", tone: "yellow" },
 };
 
 function money(amount: string | null, currency: string) {
@@ -277,6 +300,24 @@ export default function ContractorsPage() {
         await fetchContractors();
       } else {
         toast(json?.error || "Update failed", "error");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rescan() {
+    if (!selected || busy) return;
+    setBusy(true);
+    toast("Scanning document…", "success");
+    try {
+      const res = await fetch(`/api/contractors/invoices/${selected.id}/scan`, { method: "POST" });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast("Scan complete", "success");
+        await fetchContractors();
+      } else {
+        toast(json?.error || "Scan failed", "error");
       }
     } finally {
       setBusy(false);
@@ -500,6 +541,12 @@ export default function ContractorsPage() {
                     {inv.notes.length > 0 && <span>&middot; {inv.notes.length} note{inv.notes.length === 1 ? "" : "s"}</span>}
                   </p>
                 </div>
+                {inv.scanStatus === "MISMATCH" && (
+                  <span className="flex items-center gap-1 text-[10px] text-red-400 shrink-0" title="Document amount differs from entered amount">
+                    <AlertTriangle size={12} />
+                    Mismatch
+                  </span>
+                )}
                 <Badge variant={statusVariant[inv.status]}>{inv.status}</Badge>
               </button>
             ))
@@ -697,14 +744,80 @@ export default function ContractorsPage() {
                 </button>
               )}
               <a
-                href={selected.fileUrl}
+                href={`/api/contractors/invoices/${selected.id}/file`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-bb-elevated hover:bg-bb-border text-white text-xs rounded-md transition-colors"
+                title="Decrypted on the fly; every view is logged"
               >
                 <ExternalLink size={13} />
                 View File
               </a>
+            </div>
+
+            {/* Document scan result */}
+            <div
+              className={cn("flex items-start gap-2 px-3 py-2.5 rounded-lg border text-xs", {
+                "bg-green-500/5 border-green-500/20": SCAN_LABELS[selected.scanStatus].tone === "green",
+                "bg-red-500/5 border-red-500/20": SCAN_LABELS[selected.scanStatus].tone === "red",
+                "bg-yellow-500/5 border-yellow-500/20": SCAN_LABELS[selected.scanStatus].tone === "yellow",
+                "bg-bb-black border-bb-border": SCAN_LABELS[selected.scanStatus].tone === "gray",
+              })}
+            >
+              <ScanLine
+                size={14}
+                className={cn("shrink-0 mt-0.5", {
+                  "text-green-400": SCAN_LABELS[selected.scanStatus].tone === "green",
+                  "text-red-400": SCAN_LABELS[selected.scanStatus].tone === "red",
+                  "text-yellow-400": SCAN_LABELS[selected.scanStatus].tone === "yellow",
+                  "text-bb-dim": SCAN_LABELS[selected.scanStatus].tone === "gray",
+                })}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-medium">{SCAN_LABELS[selected.scanStatus].label}</p>
+                {selected.scanStatus === "MISMATCH" && (
+                  <p className="text-red-300 mt-0.5">
+                    Document says {selected.scannedCurrency || selected.currency}{" "}
+                    {selected.scannedAmount ? parseFloat(selected.scannedAmount).toFixed(2) : "?"} — entered as{" "}
+                    {money(selected.amount, selected.currency) || "nothing"}.
+                    {selected.scannedAmount && (
+                      <button
+                        onClick={() =>
+                          patchInvoice(
+                            selected.id,
+                            {
+                              amount: parseFloat(selected.scannedAmount!),
+                              ...(selected.scannedCurrency && { currency: selected.scannedCurrency }),
+                            },
+                            "Amount set from document"
+                          )
+                        }
+                        disabled={busy}
+                        className="ml-2 underline hover:text-white disabled:opacity-50"
+                      >
+                        Use document amount
+                      </button>
+                    )}
+                  </p>
+                )}
+                {selected.scanSummary && selected.scanStatus !== "MISMATCH" && (
+                  <p className="text-bb-dim mt-0.5">{selected.scanSummary}</p>
+                )}
+                {selected.scannedAt && (
+                  <p className="text-[10px] text-bb-dim mt-0.5">Scanned {ts(selected.scannedAt)}</p>
+                )}
+              </div>
+              {selected.scanStatus !== "PENDING" && (
+                <button
+                  onClick={rescan}
+                  disabled={busy}
+                  className="flex items-center gap-1 text-[10px] text-bb-dim hover:text-white transition-colors shrink-0 disabled:opacity-50"
+                  title="Re-run the document scan"
+                >
+                  <RefreshCw size={11} className={busy ? "animate-spin" : ""} />
+                  Rescan
+                </button>
+              )}
             </div>
 
             {/* Facts grid — the legal record */}
@@ -715,7 +828,12 @@ export default function ContractorsPage() {
               </div>
               <div>
                 <p className="text-bb-dim">File</p>
-                <p className="text-white truncate">{selected.filename}</p>
+                <p className="text-white truncate flex items-center gap-1">
+                  {selected.encrypted && (
+                    <Lock size={10} className="text-green-400 shrink-0" aria-label="Encrypted at rest" />
+                  )}
+                  {selected.filename}
+                </p>
               </div>
               <div>
                 <p className="text-bb-dim">Submitted</p>

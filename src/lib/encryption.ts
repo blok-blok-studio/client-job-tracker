@@ -105,6 +105,31 @@ export function decryptField(
   }
 }
 
+// Binary variants for file encryption (contractor invoices). Same key + GCM
+// scheme as the string helpers; auth tag appended to the ciphertext.
+export function encryptBuffer(plaintext: Buffer): { encrypted: Buffer; iv: string } {
+  const key = deriveKey();
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv, {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
+
+  const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final(), cipher.getAuthTag()]);
+  return { encrypted, iv: iv.toString("base64") };
+}
+
+export function decryptBuffer(encryptedWithTag: Buffer, iv: string): Buffer {
+  const key = deriveKey();
+  const authTag = encryptedWithTag.subarray(encryptedWithTag.length - AUTH_TAG_LENGTH);
+  const encrypted = encryptedWithTag.subarray(0, encryptedWithTag.length - AUTH_TAG_LENGTH);
+
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(iv, "base64"), {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+}
+
 export function maskValue(value: string): string {
   if (value.length <= 4) return "••••••••";
   return "••••••••" + value.slice(-4);
