@@ -24,6 +24,7 @@ const ACTOR_COLORS: Record<string, "orange" | "blue" | "green" | "gray" | "yello
   client: "green",
   stripe: "yellow",
   system: "gray",
+  contractor: "orange",
 };
 
 const ACTION_ICONS: Record<string, string> = {
@@ -47,6 +48,13 @@ const ACTION_ICONS: Record<string, string> = {
   archived_client: "A",
   client_media_uploaded: "U",
   client_promoted: "^",
+  contractor_added: "+",
+  contractor_updated: ">",
+  contractor_removed: "X",
+  contractor_invoice_submitted: "$",
+  contractor_invoice_paid: "$",
+  contractor_invoice_unpaid: "!",
+  contractor_invoice_disputed: "!",
 };
 
 const POLL_INTERVAL = 10_000; // 10 seconds
@@ -55,7 +63,7 @@ export default function ActivityPage() {
   const router = useRouter();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "agent" | "stripe" | "client" | "chase">("all");
+  const [filter, setFilter] = useState<"all" | "agent" | "stripe" | "client" | "chase" | "contractor">("all");
   const [isLive, setIsLive] = useState(true);
   const lastFetchRef = useRef<string | null>(null);
 
@@ -118,7 +126,7 @@ export default function ActivityPage() {
 
         {/* Filter tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto">
-          {(["all", "agent", "stripe", "client", "chase"] as const).map((f) => (
+          {(["all", "agent", "stripe", "client", "chase", "contractor"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -194,6 +202,14 @@ export default function ActivityPage() {
                               className="text-sm text-bb-orange hover:underline"
                             >
                               {activity.clientName}
+                            </button>
+                          )}
+                          {activity.action.startsWith("contractor") && (
+                            <button
+                              onClick={() => router.push("/contractors")}
+                              className="text-sm text-bb-orange hover:underline"
+                            >
+                              Contractors →
                             </button>
                           )}
                           <span className="text-xs text-bb-dim ml-auto flex-shrink-0">

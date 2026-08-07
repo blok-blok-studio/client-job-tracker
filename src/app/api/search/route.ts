@@ -2,19 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // Global command-palette search across clients, tasks, files, deliverables,
-// contracts, and content posts.
+// contracts, content posts, contractors, and contractor invoices.
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim();
   if (!q || q.length < 2) {
     return NextResponse.json({
       success: true,
-      data: { clients: [], tasks: [], files: [], deliverables: [], contracts: [], posts: [] },
+      data: {
+        clients: [],
+        tasks: [],
+        files: [],
+        deliverables: [],
+        contracts: [],
+        posts: [],
+        contractors: [],
+        contractorInvoices: [],
+      },
     });
   }
 
   const contains = { contains: q, mode: "insensitive" as const };
 
-  const [clients, tasks, files, deliverables, contracts, posts] = await Promise.all([
+  const [clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices] = await Promise.all([
     prisma.client.findMany({
       where: {
         type: { not: "ARCHIVED" },
@@ -80,10 +89,32 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: "desc" },
       take: 5,
     }),
+    prisma.contractor.findMany({
+      where: { OR: [{ name: contains }, { company: contains }, { email: contains }] },
+      select: { id: true, name: true, company: true, isActive: true },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+    }),
+    prisma.contractorInvoice.findMany({
+      where: {
+        OR: [{ invoiceNumber: contains }, { filename: contains }, { contractor: { name: contains } }],
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        filename: true,
+        status: true,
+        amount: true,
+        currency: true,
+        contractor: { select: { name: true } },
+      },
+      orderBy: { submittedAt: "desc" },
+      take: 5,
+    }),
   ]);
 
   return NextResponse.json({
     success: true,
-    data: { clients, tasks, files, deliverables, contracts, posts },
+    data: { clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices },
   });
 }

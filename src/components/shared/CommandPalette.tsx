@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, Users, ClipboardList, FileText, Loader2, CornerDownLeft,
   LayoutDashboard, Columns3, CalendarDays, PenSquare, FolderOpen,
-  Package, FileSignature,
+  Package, FileSignature, HardHat, Receipt,
 } from "lucide-react";
 
 interface Results {
@@ -15,9 +15,22 @@ interface Results {
   deliverables: Array<{ id: string; title: string; status: string; client: { id: string; name: string } }>;
   contracts: Array<{ id: string; status: string; createdAt: string; client: { name: string } }>;
   posts: Array<{ id: string; title: string | null; platform: string; status: string; client: { name: string } | null }>;
+  contractors: Array<{ id: string; name: string; company: string | null; isActive: boolean }>;
+  contractorInvoices: Array<{
+    id: string;
+    invoiceNumber: string | null;
+    filename: string;
+    status: string;
+    amount: string | null;
+    currency: string;
+    contractor: { name: string };
+  }>;
 }
 
-const EMPTY: Results = { clients: [], tasks: [], files: [], deliverables: [], contracts: [], posts: [] };
+const EMPTY: Results = {
+  clients: [], tasks: [], files: [], deliverables: [], contracts: [], posts: [],
+  contractors: [], contractorInvoices: [],
+};
 
 const QUICK_NAV = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -135,6 +148,22 @@ export default function CommandPalette() {
         subtitle: `${p.platform.toLowerCase()} · ${p.status.toLowerCase()}${p.client ? ` · ${p.client.name}` : ""}`,
         href: "/content",
       })),
+      ...(results.contractors ?? []).map((c) => ({
+        key: `contractor-${c.id}`,
+        icon: <HardHat size={15} className="text-amber-400" />,
+        title: c.name,
+        subtitle: `contractor${c.company ? ` · ${c.company}` : ""}${c.isActive ? "" : " · inactive"}`,
+        href: `/contractors?contractor=${c.id}`,
+      })),
+      ...(results.contractorInvoices ?? []).map((inv) => ({
+        key: `cinvoice-${inv.id}`,
+        icon: <Receipt size={15} className="text-amber-400" />,
+        title: inv.invoiceNumber ? `Invoice #${inv.invoiceNumber}` : inv.filename,
+        subtitle: `contractor invoice · ${inv.status.toLowerCase()} · ${inv.contractor.name}${
+          inv.amount ? ` · ${inv.currency} ${parseFloat(inv.amount).toFixed(2)}` : ""
+        }`,
+        href: `/contractors?invoice=${inv.id}`,
+      })),
       ...results.files.map((f) => ({
         key: `file-${f.id}`,
         icon: <FileText size={15} className="text-purple-400" />,
@@ -189,7 +218,7 @@ export default function CommandPalette() {
                 go(items[highlight].href);
               }
             }}
-            placeholder="Search clients, tasks, deliverables, contracts, posts, files…"
+            placeholder="Search clients, tasks, deliverables, contracts, contractors, posts, files…"
             className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder:text-bb-dim focus:outline-none"
           />
           <kbd className="hidden sm:block text-[10px] text-bb-dim bg-bb-elevated border border-bb-border rounded px-1.5 py-0.5">esc</kbd>

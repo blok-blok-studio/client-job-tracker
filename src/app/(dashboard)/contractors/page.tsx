@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Plus,
   Search,
@@ -151,6 +151,24 @@ export default function ContractorsPage() {
   useEffect(() => {
     fetchContractors();
   }, [fetchContractors]);
+
+  // Deep links: /contractors?invoice=<id> or ?contractor=<id> open the matching
+  // modal once data is in (used by ⌘K search and the Activity feed)
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    if (loading || deepLinked.current) return;
+    deepLinked.current = true;
+    const sp = new URLSearchParams(window.location.search);
+    const invoiceId = sp.get("invoice");
+    const contractorId = sp.get("contractor");
+    if (invoiceId && contractors.some((c) => c.invoices.some((i) => i.id === invoiceId))) {
+      setStatusTab("ALL");
+      setSelectedId(invoiceId);
+    } else if (contractorId) {
+      const c = contractors.find((c) => c.id === contractorId);
+      if (c) setManaging(c);
+    }
+  }, [loading, contractors]);
 
   const allInvoices = useMemo(
     () =>
