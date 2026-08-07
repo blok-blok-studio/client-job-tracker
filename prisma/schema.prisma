@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
   // directUrl removed 2026-07-27: the db.prisma.io:5432 direct endpoint resets
   // every connection (rotated creds) — DDL via `prisma db push` tunnels through
   // the Accelerate URL fine. Re-add if fresh direct creds are minted in console.
@@ -12,16 +12,16 @@ datasource db {
 
 // --- TEAM USERS (dashboard logins) ---
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   name         String
   passwordHash String
-  role         UserRole @default(MEMBER)
-  isActive     Boolean  @default(true)
+  role         UserRole  @default(MEMBER)
+  isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
-  slackUserId  String?  // Slack member ID (U…) for @-mentions in task alerts
-  color        String?  // Profile hex color for avatars and task assignee accents
-  allowedPages String[] @default([]) // Sidebar tabs a member may open; empty = all
+  slackUserId  String? // Slack member ID (U…) for @-mentions in task alerts
+  color        String? // Profile hex color for avatars and task assignee accents
+  allowedPages String[]  @default([]) // Sidebar tabs a member may open; empty = all
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -36,49 +36,49 @@ enum UserRole {
 
 // --- CLIENTS ---
 model Client {
-  id              String     @id @default(cuid())
-  name            String
-  email           String?
-  phone           String?
-  company         String?
-  type            ClientType @default(ACTIVE)
-  tier            ClientTier @default(STANDARD)
-  source          String?
-  industry        String?
-  notes           String?    @db.Text
-  monthlyRetainer Decimal?   @db.Decimal(10, 2)
-  contractStart   DateTime?
-  contractEnd     DateTime?
-  timezone        String?
-  avatarUrl       String?
-  onboardToken    String?    @unique
-  uploadToken     String?    @unique  // Shareable link for client file uploads
-  telegramChatId  String?    @unique
-  stripeCustomerId String?   @unique
-  companyAddress  String?   @db.Text
-  companyCity     String?
-  companyState    String?
-  companyZip      String?
-  companyCountry  String?
-  taxId           String?
+  id               String     @id @default(cuid())
+  name             String
+  email            String?
+  phone            String?
+  company          String?
+  type             ClientType @default(ACTIVE)
+  tier             ClientTier @default(STANDARD)
+  source           String?
+  industry         String?
+  notes            String?    @db.Text
+  monthlyRetainer  Decimal?   @db.Decimal(10, 2)
+  contractStart    DateTime?
+  contractEnd      DateTime?
+  timezone         String?
+  avatarUrl        String?
+  onboardToken     String?    @unique
+  uploadToken      String?    @unique // Shareable link for client file uploads
+  telegramChatId   String?    @unique
+  stripeCustomerId String?    @unique
+  companyAddress   String?    @db.Text
+  companyCity      String?
+  companyState     String?
+  companyZip       String?
+  companyCountry   String?
+  taxId            String?
 
-  credentials      Credential[]
-  tasks            Task[]
-  invoices         Invoice[]
-  contacts         Contact[]
-  activityLogs     ActivityLog[]
-  checklistItems   ChecklistItem[]
-  supportTickets   SupportTicket[]
-  socialLinks      SocialLink[]
-  contracts        ContractSignature[]
-  paymentLinks     PaymentLink[]
-  contentPosts     ContentPost[]
-  mediaFiles       ClientMedia[]
-  automationFlows  AutomationFlow[]
-  timeEntries      TimeEntry[]
-  reports          ClientReport[]
-  deliverables     Deliverable[]
-  services         ClientService[]
+  credentials     Credential[]
+  tasks           Task[]
+  invoices        Invoice[]
+  contacts        Contact[]
+  activityLogs    ActivityLog[]
+  checklistItems  ChecklistItem[]
+  supportTickets  SupportTicket[]
+  socialLinks     SocialLink[]
+  contracts       ContractSignature[]
+  paymentLinks    PaymentLink[]
+  contentPosts    ContentPost[]
+  mediaFiles      ClientMedia[]
+  automationFlows AutomationFlow[]
+  timeEntries     TimeEntry[]
+  reports         ClientReport[]
+  deliverables    Deliverable[]
+  services        ClientService[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -109,8 +109,8 @@ model ClientService {
   id        String        @id @default(cuid())
   clientId  String
   client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  name      String        // service/package name — free-form, suggested from contract-templates catalog
-  category  String?       // PackageCategory id from contract-templates (e.g. "web-brand")
+  name      String // service/package name — free-form, suggested from contract-templates catalog
+  category  String? // PackageCategory id from contract-templates (e.g. "web-brand")
   status    ServiceStatus @default(ACTIVE)
   startedAt DateTime?
   endedAt   DateTime?
@@ -159,7 +159,7 @@ model Credential {
   iv          String
   lastRotated DateTime?
 
-  posts     ContentPost[]
+  posts ContentPost[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -211,17 +211,17 @@ model Task {
 
 // --- MONTHLY CLIENT REPORTS (AI-generated from uploaded analytics) ---
 model ClientReport {
-  id       String       @id @default(cuid())
-  clientId String
-  client   Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  month    String // "2026-07"
-  rawData  String       @db.Text
-  notes    String?      @db.Text
+  id         String       @id @default(cuid())
+  clientId   String
+  client     Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  month      String // "2026-07"
+  rawData    String       @db.Text
+  notes      String?      @db.Text
   report     Json? // { metrics, highlights, summary, trajectory, recommendations }
   preparedBy String?
-  status   ReportStatus @default(DRAFT)
-  sentAt   DateTime?
-  sentTo   String?
+  status     ReportStatus @default(DRAFT)
+  sentAt     DateTime?
+  sentTo     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -306,14 +306,14 @@ enum TaskCategory {
 
 // --- CHECKLIST ITEMS (per task or per client) ---
 model ChecklistItem {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   taskId    String?
-  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task      Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   clientId  String?
-  client    Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client    Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
   label     String
-  checked   Boolean  @default(false)
-  sortOrder Int      @default(0)
+  checked   Boolean @default(false)
+  sortOrder Int     @default(0)
 
   createdAt DateTime @default(now())
 
@@ -397,20 +397,20 @@ enum TicketStatus {
 }
 
 model SupportMessage {
-  id       String @id @default(cuid())
+  id       String        @id @default(cuid())
   ticketId String
   ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   sender   String // "client" | "chase" | "bot"
-  text     String @db.Text
+  text     String        @db.Text
 
   createdAt DateTime @default(now())
 }
 
 // --- SOCIAL LINKS ---
 model SocialLink {
-  id       String @id @default(cuid())
+  id       String  @id @default(cuid())
   clientId String
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   platform String
   url      String
   handle   String?
@@ -420,38 +420,38 @@ model SocialLink {
 
 // --- CONTRACT SIGNATURES ---
 model ContractSignature {
-  id            String   @id @default(cuid())
-  clientId      String
-  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  token         String   @unique
-  contractBody  String   @db.Text
+  id           String @id @default(cuid())
+  clientId     String
+  client       Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  token        String @unique
+  contractBody String @db.Text
 
   // Provider (Chase) counter-signature
-  providerSignedName      String?
-  providerSignatureData   String?  @db.Text  // Base64 PNG of drawn signature
-  providerSignedAt        DateTime?
-  providerIpAddress       String?
-  providerUserAgent       String?  @db.Text
+  providerSignedName    String?
+  providerSignatureData String?   @db.Text // Base64 PNG of drawn signature
+  providerSignedAt      DateTime?
+  providerIpAddress     String?
+  providerUserAgent     String?   @db.Text
 
   // Client signature
   signedName    String?
-  signatureData String?  @db.Text  // Base64 PNG of drawn signature
+  signatureData String?   @db.Text // Base64 PNG of drawn signature
   signedAt      DateTime?
   ipAddress     String?
-  userAgent     String?  @db.Text
+  userAgent     String?   @db.Text
 
   // Document integrity (SHA-256)
-  documentHash        String?
-  signedDocumentHash  String?
+  documentHash       String?
+  signedDocumentHash String?
 
-  status        ContractStatus @default(PENDING)
-  expiresAt     DateTime?
+  status    ContractStatus @default(PENDING)
+  expiresAt DateTime?
 
   // Structured package selection for auto task generation
-  selectedPackages  Json?
+  selectedPackages Json?
 
-  paymentLinks     PaymentLink[]
-  auditLogs        ContractAuditLog[]
+  paymentLinks PaymentLink[]
+  auditLogs    ContractAuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -459,16 +459,16 @@ model ContractSignature {
 
 // --- CONTRACT AUDIT LOG ---
 model ContractAuditLog {
-  id          String   @id @default(cuid())
-  contractId  String
-  contract    ContractSignature @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  event       String   // "created", "provider_signed", "viewed", "client_signed"
-  actor       String   // "provider", "client", "system"
-  ipAddress   String?
-  userAgent   String?  @db.Text
-  metadata    String?  @db.Text
+  id         String            @id @default(cuid())
+  contractId String
+  contract   ContractSignature @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  event      String // "created", "provider_signed", "viewed", "client_signed"
+  actor      String // "provider", "client", "system"
+  ipAddress  String?
+  userAgent  String?           @db.Text
+  metadata   String?           @db.Text
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([contractId])
 }
@@ -482,26 +482,26 @@ enum ContractStatus {
 
 // --- PAYMENT LINKS (Stripe) ---
 model PaymentLink {
-  id                  String        @id @default(cuid())
-  clientId            String
-  client              Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  stripePaymentLink   String        @unique
-  stripeUrl           String
-  amount              Int           // cents
-  currency            String        @default("usd")
-  description         String
-  recurring           Boolean       @default(false)
-  interval            String?       // "month" | "year"
-  country             String        @default("US")
-  status              PaymentStatus @default(PENDING)
-  stripePriceId       String?
-  stripeProductId     String?
-  stripeSessionId     String?
+  id                   String             @id @default(cuid())
+  clientId             String
+  client               Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  stripePaymentLink    String             @unique
+  stripeUrl            String
+  amount               Int // cents
+  currency             String             @default("usd")
+  description          String
+  recurring            Boolean            @default(false)
+  interval             String? // "month" | "year"
+  country              String             @default("US")
+  status               PaymentStatus      @default(PENDING)
+  stripePriceId        String?
+  stripeProductId      String?
+  stripeSessionId      String?
   stripeSubscriptionId String?
-  paidAt              DateTime?
-  contractId          String?
-  contract            ContractSignature? @relation(fields: [contractId], references: [id])
-  milestone           String?           // "deposit" | "completion" | null
+  paidAt               DateTime?
+  contractId           String?
+  contract             ContractSignature? @relation(fields: [contractId], references: [id])
+  milestone            String? // "deposit" | "completion" | null
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -517,35 +517,35 @@ enum PaymentStatus {
 
 // --- CONTENT POSTS (Social Media Calendar) ---
 model ContentPost {
-  id            String            @id @default(cuid())
-  clientId      String
-  client        Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  credentialId  String?
-  credential    Credential?       @relation(fields: [credentialId], references: [id], onDelete: SetNull)
-  platform      SocialPlatform
-  status        ContentPostStatus @default(DRAFT)
+  id           String            @id @default(cuid())
+  clientId     String
+  client       Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  credentialId String?
+  credential   Credential?       @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  platform     SocialPlatform
+  status       ContentPostStatus @default(DRAFT)
 
-  title         String?
-  body          String?           @db.Text
-  hashtags      String[]
-  mediaUrls     String[]
+  title     String?
+  body      String?  @db.Text
+  hashtags  String[]
+  mediaUrls String[]
 
   // Location tagging
-  location      String?
-  locationLat   Float?
-  locationLng   Float?
+  location    String?
+  locationLat Float?
+  locationLng Float?
 
   // People & Collaboration
-  taggedUsers   String[]          // @handles of tagged people
-  collaborators String[]          // Instagram collab invites, LinkedIn co-authors
+  taggedUsers   String[] // @handles of tagged people
+  collaborators String[] // Instagram collab invites, LinkedIn co-authors
 
   // Media enhancements
-  altText       String?           @db.Text  // Accessibility alt text for media
-  coverImageUrl String?                     // Reel/TikTok/YouTube cover frame
-  thumbnailUrl  String?                     // YouTube custom thumbnail
+  altText       String? @db.Text // Accessibility alt text for media
+  coverImageUrl String? // Reel/TikTok/YouTube cover frame
+  thumbnailUrl  String? // YouTube custom thumbnail
 
   // Auto-first comment (Instagram strategy)
-  firstComment  String?           @db.Text
+  firstComment String? @db.Text
 
   // Platform-specific settings (JSON blob)
   // Twitter: { threadPosts, pollOptions, pollDuration, quoteTweetUrl }
@@ -557,17 +557,17 @@ model ContentPost {
   platformSettings Json?
 
   // Content management
-  visibility    String?           @default("PUBLIC") // PUBLIC, PRIVATE, UNLISTED
-  enableComments Boolean          @default(true)
+  visibility     String? @default("PUBLIC") // PUBLIC, PRIVATE, UNLISTED
+  enableComments Boolean @default(true)
 
-  scheduledAt   DateTime?
-  publishedAt   DateTime?
-  publishError  String?           @db.Text
-  externalId    String?
-  externalUrl   String?
+  scheduledAt  DateTime?
+  publishedAt  DateTime?
+  publishError String?   @db.Text
+  externalId   String?
+  externalUrl  String?
 
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clientId])
   @@index([status])
@@ -596,31 +596,31 @@ enum ContentPostStatus {
 // --- CLIENT MEDIA LIBRARY ---
 // Files uploaded by clients via their portal link, or by you manually
 model ClientMedia {
-  id          String        @id @default(cuid())
-  clientId    String
-  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  url         String                // Vercel Blob URL
-  filename    String                // Original filename
-  fileType    MediaFileType         // IMAGE, VIDEO, AUDIO
-  fileSize    Int                   // Bytes
-  mimeType    String                // e.g. image/jpeg, video/mp4, audio/mpeg
-  duration    Float?                // Seconds (for video/audio)
-  width       Int?                  // Pixels (for image/video)
-  height      Int?                  // Pixels (for image/video)
+  url      String // Vercel Blob URL
+  filename String // Original filename
+  fileType MediaFileType // IMAGE, VIDEO, AUDIO
+  fileSize Int // Bytes
+  mimeType String // e.g. image/jpeg, video/mp4, audio/mpeg
+  duration Float? // Seconds (for video/audio)
+  width    Int? // Pixels (for image/video)
+  height   Int? // Pixels (for image/video)
 
-  thumbnailUrl String?               // JPEG thumbnail for videos (generated server-side)
-  playbackUrl  String?               // Web-safe H.264 MP4 transcode for in-browser playback (HEVC .mov etc.)
+  thumbnailUrl String? // JPEG thumbnail for videos (generated server-side)
+  playbackUrl  String? // Web-safe H.264 MP4 transcode for in-browser playback (HEVC .mov etc.)
 
-  label       String?               // Optional user-given label
-  folder      String?               // Event / collection this file belongs to (for grouping uploads)
-  notes       String?               // Notes about this file
-  uploadedBy  String        @default("client") // "client" or "manager"
+  label      String? // Optional user-given label
+  folder     String? // Event / collection this file belongs to (for grouping uploads)
+  notes      String? // Notes about this file
+  uploadedBy String  @default("client") // "client" or "manager"
 
-  usedInPosts String[]              // Post IDs this media has been used in
+  usedInPosts String[] // Post IDs this media has been used in
 
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clientId])
   @@index([fileType])
@@ -675,10 +675,10 @@ model DeliverableFile {
   deliverableId String
   deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
 
-  url      String // Vercel Blob URL
-  filename String
-  fileSize Int
-  mimeType String
+  url       String // Vercel Blob URL
+  filename  String
+  fileSize  Int
+  mimeType  String
   folder    String? // relative folder path as uploaded (e.g. "Carousel 1"), null = root
   sortOrder Int     @default(0) // explicit display order — folder batches keep their sequence
 
@@ -697,9 +697,9 @@ model DeliverableFile {
 // deliverable when fileId is null) and team replies, shown on both the public
 // review page and the client's Deliverables tab.
 model DeliverableComment {
-  id            String      @id @default(cuid())
+  id            String           @id @default(cuid())
   deliverableId String
-  deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  deliverable   Deliverable      @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
   fileId        String? // null = general comment on the whole deliverable
   file          DeliverableFile? @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
@@ -727,21 +727,21 @@ enum DeliverableStatus {
 // --- AUDIO LIBRARY ---
 // Royalty-free tracks and uploaded audio for mixing into videos
 model AudioTrack {
-  id          String   @id @default(cuid())
-  title       String
-  artist      String?
-  genre       String?
-  mood        String?
-  duration    Float              // Seconds
-  url         String             // File URL
-  source      String             // "upload", "pixabay", "freesound"
-  sourceId    String?            // External ID from source
-  sourceUrl   String?            // Link to original
-  bpm         Int?
-  isLicensed  Boolean  @default(true)
-  tags        String[]
+  id         String   @id @default(cuid())
+  title      String
+  artist     String?
+  genre      String?
+  mood       String?
+  duration   Float // Seconds
+  url        String // File URL
+  source     String // "upload", "pixabay", "freesound"
+  sourceId   String? // External ID from source
+  sourceUrl  String? // Link to original
+  bpm        Int?
+  isLicensed Boolean  @default(true)
+  tags       String[]
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([genre])
   @@index([mood])
@@ -751,17 +751,17 @@ model AudioTrack {
 // --- DM AUTOMATION (ManyChat Replacement) ---
 
 model AutomationFlow {
-  id            String   @id @default(cuid())
+  id            String  @id @default(cuid())
   clientId      String
-  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client        Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   name          String
-  description   String?  @db.Text
-  platform      String   // INSTAGRAM, FACEBOOK, THREADS
-  trigger       String   // KEYWORD, COMMENT, STORY_REPLY, NEW_FOLLOWER, MANUAL
-  triggerConfig Json?    // { keywords: [], matchType: "contains"|"exact"|"starts_with" }
-  nodes         Json     @default("[]") // Reactflow nodes
-  edges         Json     @default("[]") // Reactflow edges
-  active        Boolean  @default(false)
+  description   String? @db.Text
+  platform      String // INSTAGRAM, FACEBOOK, THREADS
+  trigger       String // KEYWORD, COMMENT, STORY_REPLY, NEW_FOLLOWER, MANUAL
+  triggerConfig Json? // { keywords: [], matchType: "contains"|"exact"|"starts_with" }
+  nodes         Json    @default("[]") // Reactflow nodes
+  edges         Json    @default("[]") // Reactflow edges
+  active        Boolean @default(false)
 
   executions AutomationExecution[]
 
@@ -774,17 +774,17 @@ model AutomationFlow {
 }
 
 model AutomationExecution {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   flowId      String
   flow        AutomationFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
-  contactId   String?  // Platform user ID (IG sender ID)
-  contactName String?  // Display name
-  status      String   @default("RUNNING") // RUNNING, PAUSED, COMPLETED, FAILED
-  currentNode String?  // Current node ID waiting for input
-  context     Json?    // { variables: {}, conversationHistory: [] }
-  startedAt   DateTime @default(now())
+  contactId   String? // Platform user ID (IG sender ID)
+  contactName String? // Display name
+  status      String         @default("RUNNING") // RUNNING, PAUSED, COMPLETED, FAILED
+  currentNode String? // Current node ID waiting for input
+  context     Json? // { variables: {}, conversationHistory: [] }
+  startedAt   DateTime       @default(now())
   completedAt DateTime?
-  error       String?  @db.Text
+  error       String?        @db.Text
 
   messages AutomationMessage[]
 
@@ -794,15 +794,107 @@ model AutomationExecution {
 }
 
 model AutomationMessage {
-  id          String   @id @default(cuid())
+  id          String              @id @default(cuid())
   executionId String
   execution   AutomationExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
-  direction   String   // INBOUND, OUTBOUND
-  text        String?  @db.Text
+  direction   String // INBOUND, OUTBOUND
+  text        String?             @db.Text
   mediaUrl    String?
-  nodeId      String?  // Which flow node produced this
-  metadata    Json?    // Quick replies sent, buttons clicked, etc.
-  createdAt   DateTime @default(now())
+  nodeId      String? // Which flow node produced this
+  metadata    Json? // Quick replies sent, buttons clicked, etc.
+  createdAt   DateTime            @default(now())
 
   @@index([executionId])
+}
+
+// --- CONTRACTORS (subcontractors who invoice Blok Blok) ---
+model Contractor {
+  id          String  @id @default(cuid())
+  name        String
+  email       String?
+  company     String?
+  phone       String?
+  notes       String? @db.Text
+  isActive    Boolean @default(true)
+  uploadToken String  @unique // public invoice-upload link
+
+  invoices ContractorInvoice[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model ContractorInvoice {
+  id           String     @id @default(cuid())
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  invoiceNumber String?
+  description   String?   @db.Text
+  amount        Decimal?  @db.Decimal(10, 2)
+  currency      String    @default("USD")
+  invoiceDate   DateTime?
+  dueDate       DateTime?
+
+  fileUrl     String
+  filename    String
+  contentType String?
+  size        Int?
+
+  status ContractorInvoiceStatus @default(PENDING)
+
+  // Submission audit (legal record of who sent what, when, from where)
+  submittedAt     DateTime @default(now())
+  submitIp        String?
+  submitUserAgent String?  @db.Text
+
+  paidAt     DateTime?
+  paidBy     String? // team member who marked it paid
+  paymentRef String? // how it was paid (bank ref, Wise, Zelle, ...)
+
+  notes  ContractorInvoiceNote[]
+  audits ContractorInvoiceAudit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contractorId])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+enum ContractorInvoiceStatus {
+  PENDING
+  PAID
+  DISPUTED
+}
+
+model ContractorInvoiceNote {
+  id        String            @id @default(cuid())
+  invoiceId String
+  invoice   ContractorInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  author    String // team member name or "contractor"
+  body      String            @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+}
+
+// Immutable event trail (who did what, when, from where) for legal records
+model ContractorInvoiceAudit {
+  id        String            @id @default(cuid())
+  invoiceId String
+  invoice   ContractorInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  event     String // "uploaded", "marked_paid", "marked_unpaid", "disputed", "note_added", "details_edited"
+  actor     String // team member name or "contractor"
+  ipAddress String?
+  userAgent String?           @db.Text
+  metadata  String?           @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
 }
