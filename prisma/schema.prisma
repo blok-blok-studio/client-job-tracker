@@ -62,6 +62,32 @@ model Client {
   companyCountry   String?
   taxId            String?
 
+  // --- Lifecycle system (client/partner journey automation) ---
+  role               PersonRole   @default(CLIENT)
+  packageTier        PackageTier? // launch/essential/growth/scale project package — distinct from `tier` (account importance)
+  projectName        String?
+  projectPrice       Decimal?     @db.Decimal(10, 2)
+  depositReceived    Decimal?     @db.Decimal(10, 2)
+  projectBalance     Decimal?     @db.Decimal(10, 2)
+  websiteUrl         String?
+  contractSignedAt   DateTime?
+  kickoffBookedAt    DateTime?
+  kickoffHeldAt      DateTime?
+  assetDeadline      DateTime?
+  assetsReceivedAt   DateTime?
+  launchDate         DateTime?
+  finalPaymentAt     DateTime?
+  supportEnd         DateTime? // computed: launchDate + support months by packageTier
+  careFreeEnd        DateTime? // computed: launchDate + 3 months
+  careStatus         CareStatus   @default(NONE)
+  careTier           CareTier?
+  referrerId         String?
+  referrer           Client?      @relation("Referrals", fields: [referrerId], references: [id], onDelete: SetNull)
+  referrals          Client[]     @relation("Referrals")
+  referralFeeOwed    Decimal?     @db.Decimal(10, 2)
+  automationsPaused  Boolean      @default(false) // pause all lifecycle automations for this client
+  lastPartnerTouchAt DateTime? // partners: last quarterly touch logged
+
   credentials     Credential[]
   tasks           Task[]
   invoices        Invoice[]
@@ -79,6 +105,7 @@ model Client {
   reports         ClientReport[]
   deliverables    Deliverable[]
   services        ClientService[]
+  scheduledSteps  ScheduledStep[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -88,6 +115,8 @@ model Client {
   @@index([updatedAt])
   @@index([email])
   @@index([telegramChatId])
+  @@index([role])
+  @@index([careStatus])
 }
 
 enum ClientType {
@@ -101,6 +130,33 @@ enum ClientTier {
   VIP
   STANDARD
   TRIAL
+}
+
+enum PersonRole {
+  CLIENT
+  PARTNER
+  CONTRACTOR
+  LEAD
+}
+
+enum PackageTier {
+  LAUNCH
+  ESSENTIAL
+  GROWTH
+  SCALE
+}
+
+enum CareStatus {
+  NONE
+  FREE
+  PAYING
+  DECLINED
+}
+
+enum CareTier {
+  CARE // 200/mo
+  CARE_PLUS // 500/mo
+  CARE_PRO // 1000/mo
 }
 
 // --- SERVICES (what each client is signed up for) ---
@@ -818,7 +874,14 @@ model Contractor {
   isActive    Boolean @default(true)
   uploadToken String  @unique // public invoice-upload link
 
-  invoices ContractorInvoice[]
+  // --- Lifecycle system (contractor onboarding/review cadence; tasks only, never emails) ---
+  agreementSignedAt DateTime?
+  trialScore        Int?
+  weeklyReviewDay   Int? // 0=Sunday … 6=Saturday
+  automationsPaused Boolean   @default(false)
+
+  invoices       ContractorInvoice[]
+  scheduledSteps ScheduledStep[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -922,4 +985,126 @@ model ContractorInvoiceAudit {
   createdAt DateTime @default(now())
 
   @@index([invoiceId])
+}
+
+// --- LIFECYCLE SYSTEM (sequences, templates, scheduled steps, settings) ---
+
+// Editable email/task templates. Shipped copy lives in src/lib/lifecycle/templates-source.ts
+// ("reset to original" restores it); the DB row is what renders at send time.
+model EmailTemplate {
+  id        String       @id @default(cuid())
+  key       String       @unique // "A1", "B2", "snippet_phase_signoff", …
+  name      String
+  subject   String
+  body      String       @db.Text
+  kind      TemplateKind
+  updatedBy String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  versions EmailTemplateVersion[]
+}
+
+enum TemplateKind {
+  SEQUENCE_EMAIL // auto-sent by a sequence step
+  SEQUENCE_DRAFT // pre-filled draft/task, human sends (C1, E1, G1)
+  SNIPPET // manual-send library (phase sign-off, kickoff recap, partner outreach)
+}
+
+// Every save snapshots the previous copy here for one-click revert.
+model EmailTemplateVersion {
+  id         String        @id @default(cuid())
+  templateId String
+  template   EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  subject    String
+  body       String        @db.Text
+  editedBy   String
+  createdAt  DateTime      @default(now())
+
+  @@index([templateId, createdAt])
+}
+
+// One row per sequence (A–I): enable toggle (owner only) + editable step timings.
+model SequenceConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique // "A" … "I"
+  name      String
+  enabled   Boolean  @default(false)
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps SequenceStepConfig[]
+}
+
+model SequenceStepConfig {
+  id            String         @id @default(cuid())
+  sequenceId    String
+  sequence      SequenceConfig @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  key           String         @unique // "A1", "B_minus7", "I_day30", …
+  label         String
+  kind          StepKind
+  templateKey   String? // EmailTemplate.key rendered for this step
+  offsetMinutes Int // relative to the sequence anchor date (negative = before)
+  sortOrder     Int            @default(0)
+  updatedBy     String?
+  updatedAt     DateTime       @updatedAt
+
+  @@index([sequenceId])
+}
+
+enum StepKind {
+  EMAIL // auto-send (guarded by master switch + dry run)
+  DRAFT // pre-filled draft, one-click human send after editing
+  TASK // internal task for the team, never emails anyone
+}
+
+// Materialized per-record step instances — powers the per-client timeline,
+// cancellation, skip, and rescheduling when timings change.
+model ScheduledStep {
+  id              String      @id @default(cuid())
+  clientId        String?
+  client          Client?     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contractorId    String?
+  contractor      Contractor? @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  sequenceKey     String // "A" … "I"
+  stepKey         String // SequenceStepConfig.key ("A1", "B_minus7", …)
+  occurrence      Int         @default(0) // recurring steps (weekly/quarterly) increment this
+  kind            StepKind
+  status          StepStatus  @default(PENDING)
+  anchorAt        DateTime // trigger anchor — offsets recompute from this when timings change
+  scheduledFor    DateTime
+  processedAt     DateTime?
+  cancelReason    String? // why this step was cancelled/skipped (shown in timeline)
+  dryRun          Boolean     @default(false) // processed in dry-run mode: rendered + recorded, nothing emailed
+  renderedSubject String?
+  renderedBody    String?     @db.Text
+  taskId          String? // kanban task created by TASK/DRAFT steps
+  meta            Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, contractorId, stepKey, occurrence])
+  @@index([status, scheduledFor])
+  @@index([clientId])
+  @@index([contractorId])
+  @@index([sequenceKey])
+}
+
+enum StepStatus {
+  PENDING
+  SENT // email delivered (or dry-run recorded)
+  DONE // task/draft created
+  CANCELLED // cancel condition met before it fired
+  SKIPPED // manually skipped by the team
+  FAILED
+}
+
+// Small key-value store: booking link, tier constants overrides, master switches.
+model Setting {
+  key       String   @id
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
 }

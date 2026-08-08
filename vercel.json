@@ -7,6 +7,10 @@
     {
       "path": "/api/cron",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/lifecycle",
+      "schedule": "*/15 * * * *"
     }
   ],
   "functions": {
@@ -50,6 +54,9 @@
       "maxDuration": 300
     },
     "src/app/api/stripe/webhook/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/cron/lifecycle/route.ts": {
       "maxDuration": 300
     }
   }

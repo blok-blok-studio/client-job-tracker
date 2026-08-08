@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { del } from "@vercel/blob";
-import { clientSchema } from "@/lib/validations";
+import { clientSchema, CLIENT_LIFECYCLE_DATE_FIELDS } from "@/lib/validations";
+import { getSession } from "@/lib/auth";
+import { onClientChanged, snapshotClient } from "@/lib/lifecycle/engine";
 
 export async function GET(
   _request: NextRequest,
@@ -66,11 +68,27 @@ export async function PATCH(
 
     if (data.contractStart) data.contractStart = new Date(data.contractStart as string);
     if (data.contractEnd) data.contractEnd = new Date(data.contractEnd as string);
+    for (const field of CLIENT_LIFECYCLE_DATE_FIELDS) {
+      if (data[field]) data[field] = new Date(data[field] as string);
+    }
+
+    // Snapshot lifecycle fields before the update so the engine can detect transitions
+    const before = await prisma.client.findUnique({ where: { id } });
+    if (!before) {
+      return NextResponse.json({ success: false, error: "Client not found" }, { status: 404 });
+    }
+    const lifecycleBefore = snapshotClient(before);
 
     const client = await prisma.client.update({
       where: { id },
       data,
     });
+
+    // Lifecycle hooks: materialize/cancel scheduled steps for any field transitions
+    const session = await getSession().catch(() => null);
+    await onClientChanged(id, lifecycleBefore, session?.name || "team").catch((err) =>
+      console.error("[Lifecycle] onClientChanged failed:", err)
+    );
 
     return NextResponse.json({ success: true, data: client });
   } catch {

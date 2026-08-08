@@ -12,6 +12,11 @@ const patchSchema = z.object({
   notes: z.string().max(2000).nullable().optional().or(z.literal("")),
   isActive: z.boolean().optional(),
   regenerateToken: z.boolean().optional(),
+  // Lifecycle fields (sequence I keys off agreementSignedAt)
+  agreementSignedAt: z.string().refine((v) => !isNaN(Date.parse(v)), "Invalid date").nullable().optional(),
+  trialScore: z.number().int().min(0).max(100).nullable().optional(),
+  weeklyReviewDay: z.number().int().min(0).max(6).nullable().optional(),
+  automationsPaused: z.boolean().optional(),
 });
 
 // PATCH /api/contractors/[id] — edit details, pause the link, or rotate the token
@@ -29,7 +34,7 @@ export async function PATCH(
     }
     const d = parsed.data;
 
-    const existing = await prisma.contractor.findUnique({ where: { id }, select: { id: true, name: true } });
+    const existing = await prisma.contractor.findUnique({ where: { id }, select: { id: true, name: true, agreementSignedAt: true } });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Contractor not found" }, { status: 404 });
     }
@@ -44,6 +49,12 @@ export async function PATCH(
         ...(d.notes !== undefined && { notes: d.notes || null }),
         ...(d.isActive !== undefined && { isActive: d.isActive }),
         ...(d.regenerateToken && { uploadToken: randomBytes(16).toString("base64url") }),
+        ...(d.agreementSignedAt !== undefined && {
+          agreementSignedAt: d.agreementSignedAt ? new Date(d.agreementSignedAt) : null,
+        }),
+        ...(d.trialScore !== undefined && { trialScore: d.trialScore }),
+        ...(d.weeklyReviewDay !== undefined && { weeklyReviewDay: d.weeklyReviewDay }),
+        ...(d.automationsPaused !== undefined && { automationsPaused: d.automationsPaused }),
       },
       include: {
         invoices: {
@@ -55,6 +66,14 @@ export async function PATCH(
         },
       },
     });
+
+    // Lifecycle: agreement signed → schedule the contractor onboarding cadence (I)
+    if (d.agreementSignedAt !== undefined) {
+      const { onContractorChanged } = await import("@/lib/lifecycle/engine");
+      await onContractorChanged(id, existing.agreementSignedAt, session?.name || "team").catch(
+        (err) => console.error("[Lifecycle] onContractorChanged failed:", err)
+      );
+    }
 
     if (d.isActive !== undefined || d.regenerateToken) {
       await prisma.activityLog.create({

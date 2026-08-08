@@ -283,6 +283,20 @@ export async function onContractSigned(
 
     // Check if both payment + contract are done → send onboarding if so
     await maybeSendOnboardingLink(clientId);
+
+    // Lifecycle: stamp contractSignedAt (once) → schedules onboarding (A) + content (B)
+    const { onClientChanged, snapshotClient } = await import("@/lib/lifecycle/engine");
+    const clientBefore = await prisma.client.findUnique({ where: { id: clientId } });
+    if (clientBefore && !clientBefore.contractSignedAt) {
+      const before = snapshotClient(clientBefore);
+      await prisma.client.update({
+        where: { id: clientId },
+        data: { contractSignedAt: new Date() },
+      });
+      await onClientChanged(clientId, before, "system").catch((err) =>
+        console.error("[Lifecycle] onClientChanged (contract signed) failed:", err)
+      );
+    }
   } catch (error) {
     console.error("[Pipeline] Failed to process contract signed:", error);
     await prisma.activityLog.create({

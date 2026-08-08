@@ -20,7 +20,38 @@ export const clientSchema = z.object({
   contractStart: dateString.nullable().optional(),
   contractEnd: dateString.nullable().optional(),
   timezone: z.string().optional(),
+  // Lifecycle fields (sequences A–H key off transitions of these)
+  role: z.enum(["CLIENT", "PARTNER", "CONTRACTOR", "LEAD"]).optional(),
+  packageTier: z.enum(["LAUNCH", "ESSENTIAL", "GROWTH", "SCALE"]).nullable().optional(),
+  projectName: z.string().optional().or(z.literal("")),
+  projectPrice: z.number().min(0).nullable().optional(),
+  depositReceived: z.number().min(0).nullable().optional(),
+  projectBalance: z.number().min(0).nullable().optional(),
+  websiteUrl: z.string().optional().or(z.literal("")),
+  contractSignedAt: dateString.nullable().optional(),
+  kickoffBookedAt: dateString.nullable().optional(),
+  kickoffHeldAt: dateString.nullable().optional(),
+  assetDeadline: dateString.nullable().optional(),
+  assetsReceivedAt: dateString.nullable().optional(),
+  launchDate: dateString.nullable().optional(),
+  finalPaymentAt: dateString.nullable().optional(),
+  careStatus: z.enum(["NONE", "FREE", "PAYING", "DECLINED"]).optional(),
+  careTier: z.enum(["CARE", "CARE_PLUS", "CARE_PRO"]).nullable().optional(),
+  referrerId: z.string().nullable().optional(),
+  referralFeeOwed: z.number().min(0).nullable().optional(),
+  automationsPaused: z.boolean().optional(),
 });
+
+/** Lifecycle date fields on Client that arrive as ISO strings and need Date conversion. */
+export const CLIENT_LIFECYCLE_DATE_FIELDS = [
+  "contractSignedAt",
+  "kickoffBookedAt",
+  "kickoffHeldAt",
+  "assetDeadline",
+  "assetsReceivedAt",
+  "launchDate",
+  "finalPaymentAt",
+] as const;
 
 export const clientServiceSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
