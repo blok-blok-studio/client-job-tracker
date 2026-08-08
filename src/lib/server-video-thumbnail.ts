@@ -283,11 +283,14 @@ export async function backfillMissingPlayback(limit = 3): Promise<{
     where: {
       fileType: "VIDEO",
       playbackUrl: null,
+      // Files over the download cap would fail every run and block the batch
+      fileSize: { lte: MAX_FULL_DOWNLOAD_BYTES },
       OR: [
         { mimeType: { not: "video/mp4" } },
         { fileSize: { gt: MP4_PLAYBACK_SIZE_THRESHOLD } },
       ],
     },
+    orderBy: { fileSize: "asc" },
     select: { id: true, url: true },
     take: limit,
   });
