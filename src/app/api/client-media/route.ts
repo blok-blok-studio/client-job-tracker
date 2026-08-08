@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { uploadFileToBlob } from "@/lib/upload";
-import { generateVideoThumbnail, transcodeToWebMp4 } from "@/lib/server-video-thumbnail";
+import { generateVideoThumbnail, transcodeToWebMp4, needsPlaybackTranscode } from "@/lib/server-video-thumbnail";
 
 export const maxDuration = 300;
 
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
             data: { thumbnailUrl: thumbUrl },
           });
         }
-        if (mimeType !== "video/mp4") {
+        if (needsPlaybackTranscode(mimeType || "", fileSize || 0)) {
           const playbackUrl = await transcodeToWebMp4(url, record.id).catch(() => null);
           if (playbackUrl) {
             finalRecord = await prisma.clientMedia.update({
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
               data: { thumbnailUrl: thumbUrl },
             });
           }
-          if (file.type !== "video/mp4") {
+          if (needsPlaybackTranscode(file.type, file.size)) {
             const playbackUrl = await transcodeToWebMp4(result.url, record.id).catch(() => null);
             if (playbackUrl) {
               finalRecord = await prisma.clientMedia.update({

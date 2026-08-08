@@ -410,12 +410,16 @@ export default function FilesPage() {
     generateMissingThumbnails(true);
   }, [missingThumbs, generatingThumbs, generateMissingThumbnails]);
 
-  // Background transcode of any non-mp4 videos that don't have a web-safe
-  // playback URL yet — fires once per session, walks the backlog 3 at a time
-  // (each transcode can take up to ~90s and the function caps at 300s).
+  // Background transcode of videos that don't have a web-safe playback URL
+  // yet (non-mp4s + mp4s over 25MB) — fires once per session, walks the
+  // backlog 3 at a time (each transcode can take up to ~90s and the function
+  // caps at 300s).
   const autoTranscodedRef = useRef(false);
   const missingPlayback = files.filter(
-    (f) => f.fileType === "VIDEO" && !f.playbackUrl && f.mimeType !== "video/mp4"
+    (f) =>
+      f.fileType === "VIDEO" &&
+      !f.playbackUrl &&
+      (f.mimeType !== "video/mp4" || f.fileSize > 25 * 1024 * 1024)
   ).length;
   useEffect(() => {
     if (autoTranscodedRef.current) return;
@@ -612,7 +616,7 @@ export default function FilesPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={optimizedThumb(media.url, 384)} alt={media.filename} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       ) : media.fileType === "VIDEO" ? (
-                        <VideoThumbnail src={media.url} thumbnailUrl={media.thumbnailUrl} filename={media.filename} />
+                        <VideoThumbnail src={media.playbackUrl || media.url} thumbnailUrl={media.thumbnailUrl} filename={media.filename} />
                       ) : media.fileType === "AUDIO" ? (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
                           <Music size={28} className="text-green-400 mb-2" />
@@ -708,7 +712,7 @@ export default function FilesPage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={optimizedThumb(media.url, 256)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         ) : media.fileType === "VIDEO" ? (
-                          <VideoThumbnail src={media.url} thumbnailUrl={media.thumbnailUrl} showPlayIcon={false} />
+                          <VideoThumbnail src={media.playbackUrl || media.url} thumbnailUrl={media.thumbnailUrl} showPlayIcon={false} />
                         ) : media.fileType === "AUDIO" ? (
                           <div className="w-full h-full flex items-center justify-center"><Music size={16} className="text-green-400" /></div>
                         ) : (
@@ -966,7 +970,7 @@ export default function FilesPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={optimizedThumb(thumb.url, 256)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       ) : thumb.fileType === "VIDEO" ? (
-                        <VideoThumbnail src={thumb.url} thumbnailUrl={thumb.thumbnailUrl} showPlayIcon={false} iconSize={10} />
+                        <VideoThumbnail src={thumb.playbackUrl || thumb.url} thumbnailUrl={thumb.thumbnailUrl} showPlayIcon={false} iconSize={10} />
                       ) : thumb.fileType === "AUDIO" ? (
                         <div className="w-full h-full bg-bb-surface flex items-center justify-center"><Music size={14} className="text-green-400" /></div>
                       ) : (

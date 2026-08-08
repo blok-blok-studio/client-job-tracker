@@ -28,6 +28,21 @@ async function getFfmpegPath(): Promise<string> {
 // Cap the full-download retry at 500MB to avoid OOM on huge files.
 const MAX_FULL_DOWNLOAD_BYTES = 500 * 1024 * 1024;
 
+// mp4s above this size get a playback copy too — client-sent camera/phone mp4s
+// are often 4K at huge bitrates, and files without faststart can't start
+// playing until the whole download finishes. Below this size the original
+// plays fine as-is.
+export const MP4_PLAYBACK_SIZE_THRESHOLD = 25 * 1024 * 1024;
+
+/**
+ * Whether a video needs a web-optimized playback copy: every non-mp4 format,
+ * plus mp4s over MP4_PLAYBACK_SIZE_THRESHOLD.
+ */
+export function needsPlaybackTranscode(mimeType: string, fileSize: number): boolean {
+  if (mimeType !== "video/mp4") return true;
+  return fileSize > MP4_PLAYBACK_SIZE_THRESHOLD;
+}
+
 async function runFfmpeg(inputPath: string, outputPath: string, mediaId: string): Promise<{ ok: boolean; stderr: string }> {
   const ffmpegPath = await getFfmpegPath();
   return new Promise((resolve) => {
@@ -257,8 +272,8 @@ export async function transcodeToWebMp4(
 
 /**
  * Process a batch of videos that lack a web-safe playback URL.
- * Skips files that are already video/mp4 (those almost always have an h264
- * stream and play fine in browsers).
+ * Covers every non-mp4 video plus mp4s over MP4_PLAYBACK_SIZE_THRESHOLD
+ * (small mp4s almost always have an h264 stream and play fine as-is).
  */
 export async function backfillMissingPlayback(limit = 3): Promise<{
   generated: number;
@@ -268,7 +283,10 @@ export async function backfillMissingPlayback(limit = 3): Promise<{
     where: {
       fileType: "VIDEO",
       playbackUrl: null,
-      mimeType: { not: "video/mp4" },
+      OR: [
+        { mimeType: { not: "video/mp4" } },
+        { fileSize: { gt: MP4_PLAYBACK_SIZE_THRESHOLD } },
+      ],
     },
     select: { id: true, url: true },
     take: limit,

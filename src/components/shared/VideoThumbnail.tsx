@@ -71,7 +71,9 @@ export default function VideoThumbnail({
         src={src}
         muted
         playsInline
-        preload="auto"
+        // metadata only — a grid of these must not download entire videos;
+        // the onLoadedMetadata seek range-fetches just the frame it needs
+        preload="metadata"
         className={className}
         // Once metadata loads, seek to 0.5s to show a non-black frame
         onLoadedMetadata={(e) => {

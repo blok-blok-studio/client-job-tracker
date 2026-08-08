@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { put } from "@vercel/blob";
 import { randomUUID } from "crypto";
 import { sendTelegramMessage } from "@/lib/telegram";
-import { generateVideoThumbnail, transcodeToWebMp4 } from "@/lib/server-video-thumbnail";
+import { generateVideoThumbnail, transcodeToWebMp4, needsPlaybackTranscode } from "@/lib/server-video-thumbnail";
 
 // No file size limit — clients upload 4K videos, large photo batches, etc.
 export const maxDuration = 300;
@@ -131,9 +131,8 @@ export async function POST(request: NextRequest) {
           }).catch(() => {});
         }
 
-        // Transcode anything not already mp4 so it plays in any browser.
-        // mp4 files almost always have an h264 stream and skip transcoding.
-        if (file.type !== "video/mp4") {
+        // Transcode non-mp4s and oversized mp4s so playback starts instantly.
+        if (needsPlaybackTranscode(file.type, file.size)) {
           const playbackUrl = await transcodeToWebMp4(blob.url, record.id).catch(
             (err) => {
               console.error("[upload-portal] server transcode failed:", err);
@@ -248,7 +247,7 @@ async function handleBlobRegistration(request: NextRequest) {
       }
     }
 
-    if (fileType === "VIDEO" && contentType !== "video/mp4") {
+    if (fileType === "VIDEO" && needsPlaybackTranscode(contentType || "", size || 0)) {
       const playbackUrl = await transcodeToWebMp4(blobUrl, record.id).catch(
         (err) => {
           console.error("[upload-portal] server transcode failed:", err);

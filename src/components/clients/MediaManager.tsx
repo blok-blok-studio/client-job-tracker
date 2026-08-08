@@ -24,6 +24,7 @@ interface MediaFile {
   folder?: string | null;
   notes?: string | null;
   thumbnailUrl?: string | null;
+  playbackUrl?: string | null;
   createdAt: string;
 }
 
@@ -396,7 +397,7 @@ export default function MediaManager({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={optimizedThumb(media.url, 384)} alt={media.filename} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : media.fileType === "VIDEO" ? (
-          <VideoThumbnail src={media.url} thumbnailUrl={media.thumbnailUrl} filename={media.filename} />
+          <VideoThumbnail src={media.playbackUrl || media.url} thumbnailUrl={media.thumbnailUrl} filename={media.filename} />
         ) : media.fileType === "AUDIO" ? (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-500/10 to-transparent">
             <Music size={28} className="text-green-400 mb-2" />
@@ -641,10 +642,10 @@ export default function MediaManager({
                   <img src={optimizedThumb(selectedMedia.url, 1080)} alt="" decoding="async" className="w-full h-full object-contain" />
                 ) : selectedMedia.fileType === "VIDEO" ? (
                   <video
-                    src={selectedMedia.url}
+                    src={selectedMedia.playbackUrl || selectedMedia.url}
                     controls
                     muted
-                    preload="auto"
+                    preload="metadata"
                     className="w-full h-full object-contain"
                   />
                 ) : (
@@ -915,7 +916,7 @@ export default function MediaManager({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={optimizedThumb(hoveredMedia.url, 384)} alt="" decoding="async" className="w-full aspect-video object-cover" />
             ) : (
-              <VideoThumbnail src={hoveredMedia.url} thumbnailUrl={hoveredMedia.thumbnailUrl} className="w-full aspect-video object-cover" showPlayIcon={false} />
+              <VideoThumbnail src={hoveredMedia.playbackUrl || hoveredMedia.url} thumbnailUrl={hoveredMedia.thumbnailUrl} className="w-full aspect-video object-cover" showPlayIcon={false} />
             )}
             <div className="px-2 py-1.5">
               <p className="text-[10px] text-white truncate">{hoveredMedia.filename}</p>
@@ -1000,7 +1001,7 @@ export default function MediaManager({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={media.url} alt={media.filename} className="max-w-full max-h-full object-contain rounded-lg" />
               ) : media.fileType === "VIDEO" ? (
-                <video src={media.url} controls autoPlay className="max-w-full max-h-full rounded-lg" onClick={(e) => e.stopPropagation()} />
+                <video src={media.playbackUrl || media.url} controls autoPlay className="max-w-full max-h-full rounded-lg" onClick={(e) => e.stopPropagation()} />
               ) : media.fileType === "AUDIO" ? (
                 <div className="flex flex-col items-center gap-4">
                   <div className="w-32 h-32 rounded-2xl bg-white/5 flex items-center justify-center">
@@ -1057,7 +1058,7 @@ export default function MediaManager({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={optimizedThumb(thumb.url, 256)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     ) : thumb.fileType === "VIDEO" ? (
-                      <VideoThumbnail src={thumb.url} thumbnailUrl={thumb.thumbnailUrl} showPlayIcon={false} iconSize={10} />
+                      <VideoThumbnail src={thumb.playbackUrl || thumb.url} thumbnailUrl={thumb.thumbnailUrl} showPlayIcon={false} iconSize={10} />
                     ) : thumb.fileType === "AUDIO" ? (
                       <div className="w-full h-full bg-bb-surface flex items-center justify-center">
                         <Music size={14} className="text-green-400" />

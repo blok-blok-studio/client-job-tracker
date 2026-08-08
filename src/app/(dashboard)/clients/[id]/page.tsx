@@ -47,7 +47,7 @@ interface ClientDetail {
   activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; ipAddress?: string | null; createdAt: string }>;
   contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
   paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; currency: string; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; milestone: string | null; contractId: string | null; createdAt: string }>;
-  mediaFiles: Array<{ id: string; url: string; filename: string; fileType: string; fileSize: number; mimeType: string; uploadedBy: string; label: string | null; folder?: string | null; thumbnailUrl?: string | null; notes?: string | null; createdAt: string }>;
+  mediaFiles: Array<{ id: string; url: string; filename: string; fileType: string; fileSize: number; mimeType: string; uploadedBy: string; label: string | null; folder?: string | null; thumbnailUrl?: string | null; playbackUrl?: string | null; notes?: string | null; createdAt: string }>;
   deliverables: DeliverableItem[];
 }
 
