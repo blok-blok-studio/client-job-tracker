@@ -1197,6 +1197,7 @@ export default function ClientDetailPage() {
                   <MediaManager
                     mediaFiles={client.mediaFiles || []}
                     uploadToken={client.uploadToken}
+                    clientName={client.name}
                     uploadingMedia={uploadingMedia}
                     onUpload={handleUploadMedia}
                     onDelete={handleDeleteMedia}

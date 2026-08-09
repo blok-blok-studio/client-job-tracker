@@ -31,6 +31,7 @@ interface MediaFile {
 interface MediaManagerProps {
   mediaFiles: MediaFile[];
   uploadToken: string | null;
+  clientName?: string;
   uploadingMedia: boolean;
   onUpload: (files: FileList) => void;
   onDelete: (id: string) => void;
@@ -64,7 +65,7 @@ function getFileIcon(fileType: string, size: number) {
 }
 
 export default function MediaManager({
-  mediaFiles, uploadingMedia, onUpload, onDelete, onBatchDelete, onBatchAssignFolder, onRefresh, toast,
+  mediaFiles, clientName, uploadingMedia, onUpload, onDelete, onBatchDelete, onBatchAssignFolder, onRefresh, toast,
 }: MediaManagerProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -95,6 +96,15 @@ export default function MediaManager({
   const [dragOver, setDragOver] = useState(false);
   const dragCounter = useRef(0);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  // Drag-to-select state — mouse marquee (desktop) + long-press sweep (touch)
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [marquee, setMarquee] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const marqueeRef = useRef<{ startX: number; startY: number; base: Set<string>; active: boolean } | null>(null);
+  const suppressClickRef = useRef(false);
+  const touchRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; dragging: boolean; startX: number; startY: number }>({
+    timer: null, dragging: false, startX: 0, startY: 0,
+  });
 
   const selectedMedia = selectedId ? mediaFiles.find((m) => m.id === selectedId) : null;
   const hoveredMedia = hoveredId ? mediaFiles.find((m) => m.id === hoveredId) : null;
@@ -243,6 +253,145 @@ export default function MediaManager({
     setTimeout(() => setDownloading((cur) => (cur === media.id ? null : cur)), 1500);
   }, []);
 
+  // Bulk download as one zip. Submit a hidden form so the browser streams the
+  // download natively (no fetch()->blob() buffering — same reason as above).
+  const downloadZip = useCallback((files: MediaFile[], nameHint: string) => {
+    if (files.length === 0) return;
+    if (files.length === 1) { handleDownload(files[0]); return; }
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/api/client-media/download-zip";
+    form.style.display = "none";
+    const idsInput = document.createElement("input");
+    idsInput.type = "hidden";
+    idsInput.name = "ids";
+    idsInput.value = JSON.stringify(files.map((f) => f.id));
+    form.appendChild(idsInput);
+    const nameInput = document.createElement("input");
+    nameInput.type = "hidden";
+    nameInput.name = "name";
+    nameInput.value = nameHint;
+    form.appendChild(nameInput);
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+    toast(`Zipping ${files.length} files — download starts shortly`, "success");
+  }, [handleDownload, toast]);
+
+  const zipNameHint = [
+    clientName || "media",
+    folderFilter !== "ALL" && folderFilter !== UNFILED ? folderFilter : "",
+    filter !== "ALL" ? `${filter.toLowerCase()}s` : "",
+  ].filter(Boolean).join(" - ");
+
+  // Mouse marquee: drag on the grid background (or anywhere in select mode)
+  // draws a rectangle; tiles it touches join the selection.
+  const beginMarquee = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    const onTile = (e.target as HTMLElement).closest("[data-mm-id]");
+    if (!selectMode && onTile) return; // normal-mode tile clicks/hover win
+    const wasSelectMode = selectMode;
+    marqueeRef.current = { startX: e.clientX, startY: e.clientY, base: new Set(selectedIds), active: false };
+
+    const onMove = (ev: PointerEvent) => {
+      const m = marqueeRef.current;
+      if (!m) return;
+      if (!m.active) {
+        if (Math.hypot(ev.clientX - m.startX, ev.clientY - m.startY) < 6) return;
+        m.active = true;
+        suppressClickRef.current = true;
+        if (!wasSelectMode) { setSelectMode(true); setSelectedId(null); setHoveredId(null); }
+      }
+      const x1 = Math.min(m.startX, ev.clientX);
+      const x2 = Math.max(m.startX, ev.clientX);
+      const y1 = Math.min(m.startY, ev.clientY);
+      const y2 = Math.max(m.startY, ev.clientY);
+      setMarquee({ x1, y1, x2, y2 });
+      const hits = new Set(m.base);
+      gridRef.current?.querySelectorAll<HTMLElement>("[data-mm-id]").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.left < x2 && r.right > x1 && r.top < y2 && r.bottom > y1 && el.dataset.mmId) {
+          hits.add(el.dataset.mmId);
+        }
+      });
+      setSelectedIds(hits);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      marqueeRef.current = null;
+      setMarquee(null);
+      // The click event fires right after pointerup — clear the flag after it
+      setTimeout(() => { suppressClickRef.current = false; }, 0);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  // Touch sweep: long-press a tile to enter select mode, then slide across
+  // tiles to select them (page scroll is held while sweeping).
+  const hasFiles = filtered.length > 0;
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const state = touchRef.current;
+
+    const selectAt = (x: number, y: number) => {
+      const tile = document.elementFromPoint(x, y)?.closest("[data-mm-id]") as HTMLElement | null;
+      const id = tile?.dataset.mmId;
+      if (id) setSelectedIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      state.startX = t.clientX;
+      state.startY = t.clientY;
+      if (!(e.target as HTMLElement).closest("[data-mm-id]")) return;
+      state.timer = setTimeout(() => {
+        state.timer = null;
+        state.dragging = true;
+        suppressClickRef.current = true;
+        setSelectMode(true);
+        setSelectedId(null);
+        selectAt(state.startX, state.startY);
+        if (navigator.vibrate) navigator.vibrate(10);
+      }, 350);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (state.dragging) {
+        e.preventDefault();
+        selectAt(t.clientX, t.clientY);
+        return;
+      }
+      if (state.timer && Math.hypot(t.clientX - state.startX, t.clientY - state.startY) > 10) {
+        clearTimeout(state.timer); // finger moved — it's a scroll
+        state.timer = null;
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (state.timer) { clearTimeout(state.timer); state.timer = null; }
+      if (state.dragging) {
+        state.dragging = false;
+        setTimeout(() => { suppressClickRef.current = false; }, 0);
+      }
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [hasFiles]);
+
   // Save label
   const saveLabel = async () => {
     if (!selectedMedia) return;
@@ -375,9 +524,12 @@ export default function MediaManager({
     return (
       <div
         key={media.id}
+        data-mm-id={media.id}
         onMouseEnter={(e) => !selectMode && handleMouseEnter(e, media.id)}
         onMouseLeave={() => !selectMode && handleMouseLeave()}
+        onDragStart={(e) => { if (selectMode) e.preventDefault(); }}
         onClick={() => {
+          if (suppressClickRef.current) { suppressClickRef.current = false; return; }
           if (selectMode) {
             toggleSelect(media.id);
           } else {
@@ -556,13 +708,25 @@ export default function MediaManager({
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => { setSelectMode(true); setSelectedId(null); }}
-                className="text-[11px] text-bb-dim hover:text-white flex items-center gap-1 transition-colors"
-              >
-                <CheckSquare size={13} />
-                Select
-              </button>
+              <>
+                {filtered.length > 1 && (
+                  <button
+                    onClick={() => downloadZip(filtered, zipNameHint)}
+                    className="text-[11px] text-bb-dim hover:text-white flex items-center gap-1 transition-colors"
+                    title="Download everything in the current view as a zip"
+                  >
+                    <Download size={13} />
+                    Download all ({filtered.length})
+                  </button>
+                )}
+                <button
+                  onClick={() => { setSelectMode(true); setSelectedId(null); }}
+                  className="text-[11px] text-bb-dim hover:text-white flex items-center gap-1 transition-colors"
+                >
+                  <CheckSquare size={13} />
+                  Select
+                </button>
+              </>
             )
           )}
           <label className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1 cursor-pointer">
@@ -605,7 +769,12 @@ export default function MediaManager({
       {filtered.length > 0 ? (
         <div className="flex gap-3">
           {/* File Grid — grouped by event in the "All events" view */}
-          <div className="flex-1 min-w-0">
+          <div
+            ref={gridRef}
+            onPointerDown={beginMarquee}
+            className={`flex-1 min-w-0 select-none ${marquee ? "cursor-crosshair" : ""}`}
+            style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
+          >
             {showGroups ? (
               <div className="space-y-4">
                 {orderedGroups.map((g) => (
@@ -875,6 +1044,13 @@ export default function MediaManager({
               </div>
             )}
             <button
+              onClick={() => downloadZip(mediaFiles.filter((m) => selectedIds.has(m.id)), zipNameHint)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bb-elevated text-white text-sm font-medium hover:bg-bb-border transition-colors"
+              title="Download selected files as a zip"
+            >
+              <Download size={14} /> Download
+            </button>
+            <button
               onClick={() => setConfirmDeleteOpen(true)}
               disabled={deleting}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
@@ -900,6 +1076,14 @@ export default function MediaManager({
         confirmVariant="danger"
         loading={deleting}
       />
+
+      {/* Marquee rectangle while drag-selecting */}
+      {marquee && (
+        <div
+          className="fixed z-[150] border border-bb-orange bg-bb-orange/10 rounded-sm pointer-events-none"
+          style={{ left: marquee.x1, top: marquee.y1, width: marquee.x2 - marquee.x1, height: marquee.y2 - marquee.y1 }}
+        />
+      )}
 
       {/* Hover preview tooltip — images and videos */}
       {hoveredMedia && !selectedId && !selectMode && (hoveredMedia.fileType === "IMAGE" || hoveredMedia.fileType === "VIDEO") && (

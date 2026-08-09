@@ -44,6 +44,9 @@
     "src/app/api/client-media/generate-thumbnails/route.ts": {
       "maxDuration": 300
     },
+    "src/app/api/client-media/download-zip/route.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/content-posts/auto-publish/route.ts": {
       "maxDuration": 300
     },
