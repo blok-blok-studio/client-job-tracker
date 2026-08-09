@@ -7,6 +7,7 @@ import {
   Edit2, Check, Copy, Info, Eye, FileText, Search,
   Calendar, User, HardDrive, Tag, StickyNote,
   FolderOpen, Grid, List, Users, Loader2,
+  CheckSquare, Square,
 } from "lucide-react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import { extractThumbnailFromFile } from "@/lib/video-thumbnail";
@@ -66,6 +67,17 @@ export default function FilesPage() {
   const dragCounter = useRef(0);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // Multi-select + drag-select state (mouse marquee on desktop, long-press sweep on touch)
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [marquee, setMarquee] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const marqueeRef = useRef<{ startX: number; startY: number; base: Set<string>; active: boolean } | null>(null);
+  const suppressClickRef = useRef(false);
+  const touchRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; dragging: boolean; startX: number; startY: number }>({
+    timer: null, dragging: false, startX: 0, startY: 0,
+  });
 
   // Refs so native DOM listeners always see current values
   const filterClientRef = useRef(filterClient);
@@ -276,6 +288,168 @@ export default function FilesPage() {
     // No completion event for a native download; clear the spinner shortly after.
     setTimeout(() => setDownloading((cur) => (cur === media.id ? null : cur)), 1500);
   };
+
+  // Bulk download as one zip. Submit a hidden form so the browser streams the
+  // download natively (no fetch()->blob() buffering).
+  const downloadZip = (zipFiles: MediaFile[], nameHint: string) => {
+    if (zipFiles.length === 0) return;
+    if (zipFiles.length === 1) { handleDownload(zipFiles[0]); return; }
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/api/client-media/download-zip";
+    form.style.display = "none";
+    const idsInput = document.createElement("input");
+    idsInput.type = "hidden";
+    idsInput.name = "ids";
+    idsInput.value = JSON.stringify(zipFiles.map((f) => f.id));
+    form.appendChild(idsInput);
+    const nameInput = document.createElement("input");
+    nameInput.type = "hidden";
+    nameInput.name = "name";
+    nameInput.value = nameHint;
+    form.appendChild(nameInput);
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+    toast(`Zipping ${zipFiles.length} files — download starts shortly`, "success");
+  };
+
+  const zipNameHint = [
+    filterClient !== "ALL" ? allClients.find((c) => c.id === filterClient)?.name || "media" : "blokblok files",
+    filterType !== "ALL" ? `${filterType.toLowerCase()}s` : "",
+  ].filter(Boolean).join(" - ");
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  // Escape exits select mode
+  useEffect(() => {
+    if (!selectMode) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") exitSelectMode();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectMode]);
+
+  // Mouse marquee: drag on the grid background (or anywhere in select mode)
+  // draws a rectangle; tiles it touches join the selection.
+  const beginMarquee = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    const onTile = (e.target as HTMLElement).closest("[data-mm-id]");
+    if (!selectMode && onTile) return; // normal-mode tile interactions win
+    const wasSelectMode = selectMode;
+    marqueeRef.current = { startX: e.clientX, startY: e.clientY, base: new Set(selectedIds), active: false };
+
+    const onMove = (ev: PointerEvent) => {
+      const m = marqueeRef.current;
+      if (!m) return;
+      if (!m.active) {
+        if (Math.hypot(ev.clientX - m.startX, ev.clientY - m.startY) < 6) return;
+        m.active = true;
+        suppressClickRef.current = true;
+        if (!wasSelectMode) { setSelectMode(true); setSelectedId(null); }
+      }
+      const x1 = Math.min(m.startX, ev.clientX);
+      const x2 = Math.max(m.startX, ev.clientX);
+      const y1 = Math.min(m.startY, ev.clientY);
+      const y2 = Math.max(m.startY, ev.clientY);
+      setMarquee({ x1, y1, x2, y2 });
+      const hits = new Set(m.base);
+      gridRef.current?.querySelectorAll<HTMLElement>("[data-mm-id]").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.left < x2 && r.right > x1 && r.top < y2 && r.bottom > y1 && el.dataset.mmId) {
+          hits.add(el.dataset.mmId);
+        }
+      });
+      setSelectedIds(hits);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      marqueeRef.current = null;
+      setMarquee(null);
+      // The click event fires right after pointerup — clear the flag after it
+      setTimeout(() => { suppressClickRef.current = false; }, 0);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  // Touch sweep: long-press a tile to enter select mode, then slide across
+  // tiles to select them (page scroll is held while sweeping).
+  const hasFiles = !loading && files.length > 0;
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const state = touchRef.current;
+
+    const selectAt = (x: number, y: number) => {
+      const tile = document.elementFromPoint(x, y)?.closest("[data-mm-id]") as HTMLElement | null;
+      const id = tile?.dataset.mmId;
+      if (id) setSelectedIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      state.startX = t.clientX;
+      state.startY = t.clientY;
+      if (!(e.target as HTMLElement).closest("[data-mm-id]")) return;
+      state.timer = setTimeout(() => {
+        state.timer = null;
+        state.dragging = true;
+        suppressClickRef.current = true;
+        setSelectMode(true);
+        setSelectedId(null);
+        selectAt(state.startX, state.startY);
+        if (navigator.vibrate) navigator.vibrate(10);
+      }, 350);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (state.dragging) {
+        e.preventDefault();
+        selectAt(t.clientX, t.clientY);
+        return;
+      }
+      if (state.timer && Math.hypot(t.clientX - state.startX, t.clientY - state.startY) > 10) {
+        clearTimeout(state.timer); // finger moved — it's a scroll
+        state.timer = null;
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (state.timer) { clearTimeout(state.timer); state.timer = null; }
+      if (state.dragging) {
+        state.dragging = false;
+        setTimeout(() => { suppressClickRef.current = false; }, 0);
+      }
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [hasFiles]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this file? This cannot be undone.")) return;
@@ -571,6 +745,41 @@ export default function FilesPage() {
             </label>
           )}
 
+          {/* Bulk download + select mode */}
+          {filtered.length > 1 && !selectMode && (
+            <button
+              onClick={() => downloadZip(filtered, zipNameHint)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-bb-elevated text-white text-xs font-medium rounded-lg hover:bg-bb-border transition-colors"
+              title="Download everything in the current view as a zip"
+            >
+              <Download size={14} />
+              Download all ({filtered.length})
+            </button>
+          )}
+          {filtered.length > 0 && (
+            selectMode ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedIds(selectedIds.size === filtered.length ? new Set() : new Set(filtered.map((m) => m.id)))}
+                  className="text-[11px] text-bb-dim hover:text-white transition-colors"
+                >
+                  {selectedIds.size === filtered.length ? "Deselect All" : "Select All"}
+                </button>
+                <button onClick={exitSelectMode} className="text-[11px] text-bb-dim hover:text-white transition-colors">
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setSelectMode(true); setSelectedId(null); }}
+                className="text-[11px] text-bb-dim hover:text-white flex items-center gap-1 transition-colors"
+              >
+                <CheckSquare size={13} />
+                Select
+              </button>
+            )
+          )}
+
           {/* View toggle */}
           <div className="flex border border-bb-border rounded-lg overflow-hidden">
             <button
@@ -599,15 +808,28 @@ export default function FilesPage() {
         ) : (
           <div className="flex gap-4">
             {/* Main content */}
-            <div className="flex-1 min-w-0">
+            <div
+              ref={gridRef}
+              onPointerDown={beginMarquee}
+              className={`flex-1 min-w-0 select-none ${marquee ? "cursor-crosshair" : ""}`}
+              style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
+            >
               {viewMode === "grid" ? (
                 /* ──── Grid View ──── */
                 <div className={`grid gap-2 ${selectedId ? "grid-cols-3 lg:grid-cols-4" : "grid-cols-3 lg:grid-cols-5 xl:grid-cols-6"}`}>
                   {filtered.map((media, idx) => (
                     <div
                       key={media.id}
+                      data-mm-id={media.id}
+                      onDragStart={(e) => { if (selectMode) e.preventDefault(); }}
+                      onClick={() => {
+                        if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+                        if (selectMode) toggleSelect(media.id);
+                      }}
                       className={`group relative rounded-lg overflow-hidden bg-bb-black border aspect-square cursor-pointer transition-all ${
-                        selectedId === media.id
+                        selectMode && selectedIds.has(media.id)
+                          ? "border-bb-orange ring-1 ring-bb-orange/30"
+                          : selectedId === media.id
                           ? "border-bb-orange ring-1 ring-bb-orange/30"
                           : "border-bb-border hover:border-bb-muted"
                       }`}
@@ -629,8 +851,19 @@ export default function FilesPage() {
                         </div>
                       )}
 
+                      {/* Select mode checkbox */}
+                      {selectMode && (
+                        <div className="absolute top-1.5 left-1.5 z-10">
+                          {selectedIds.has(media.id) ? (
+                            <CheckSquare size={18} className="text-bb-orange drop-shadow-md" />
+                          ) : (
+                            <Square size={18} className="text-white/60 drop-shadow-md" />
+                          )}
+                        </div>
+                      )}
+
                       {/* Label */}
-                      {media.label && (
+                      {media.label && !selectMode && (
                         <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-bb-orange/80 text-[9px] text-white font-medium truncate max-w-[70%]">
                           {media.label}
                         </div>
@@ -641,7 +874,13 @@ export default function FilesPage() {
                         <span className="text-[9px] text-white/80 truncate block">{media.client.name}</span>
                       </div>
 
+                      {/* Select mode tint for selected tiles */}
+                      {selectMode && selectedIds.has(media.id) && (
+                        <div className="absolute inset-0 bg-bb-orange/10 pointer-events-none" />
+                      )}
+
                       {/* Hover overlay */}
+                      {!selectMode && (
                       <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
                         <div className="flex items-center gap-1.5">
                           <button
@@ -683,6 +922,7 @@ export default function FilesPage() {
                         <span className="text-[10px] text-white font-medium truncate max-w-[90%]">{media.filename}</span>
                         <span className="text-[9px] text-bb-dim">{formatSize(media.fileSize)} · {media.client.name}</span>
                       </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -700,9 +940,16 @@ export default function FilesPage() {
                   {filtered.map((media, idx) => (
                     <div
                       key={media.id}
-                      onClick={() => setSelectedId(selectedId === media.id ? null : media.id)}
+                      data-mm-id={media.id}
+                      onClick={() => {
+                        if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+                        if (selectMode) toggleSelect(media.id);
+                        else setSelectedId(selectedId === media.id ? null : media.id);
+                      }}
                       className={`grid grid-cols-[auto_1fr_120px_100px_100px_80px] gap-3 px-4 py-2.5 items-center cursor-pointer transition-colors border-b border-bb-border last:border-0 ${
-                        selectedId === media.id
+                        selectMode && selectedIds.has(media.id)
+                          ? "bg-bb-orange/10"
+                          : selectedId === media.id
                           ? "bg-bb-orange/5"
                           : "hover:bg-bb-elevated/50"
                       }`}
@@ -881,6 +1128,36 @@ export default function FilesPage() {
           </div>
         )}
 
+
+        {/* Marquee rectangle while drag-selecting */}
+        {marquee && (
+          <div
+            className="fixed z-[150] border border-bb-orange bg-bb-orange/10 rounded-sm pointer-events-none"
+            style={{ left: marquee.x1, top: marquee.y1, width: marquee.x2 - marquee.x1, height: marquee.y2 - marquee.y1 }}
+          />
+        )}
+
+        {/* Selection toolbar */}
+        {selectMode && selectedIds.size > 0 && (
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-xl bg-bb-surface border border-bb-border shadow-modal">
+            <span className="text-sm text-white font-medium whitespace-nowrap">
+              {selectedIds.size} file{selectedIds.size !== 1 ? "s" : ""} selected
+            </span>
+            <button
+              onClick={() => downloadZip(files.filter((m) => selectedIds.has(m.id)), zipNameHint)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bb-orange text-white text-sm font-medium hover:bg-bb-orange-light transition-colors"
+              title="Download selected files as a zip"
+            >
+              <Download size={14} /> Download
+            </button>
+            <button
+              onClick={exitSelectMode}
+              className="px-3 py-2 rounded-lg bg-bb-elevated text-bb-dim text-sm hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
 
         {/* Full-screen viewer */}
         {viewerIndex !== null && filtered[viewerIndex] && (() => {
