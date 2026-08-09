@@ -12,7 +12,7 @@ export async function PATCH(
   const { id } = await params;
   try {
     const body = await request.json();
-    const { label, folder, notes, thumbnailUrl } = body;
+    const { label, folder, notes, thumbnailUrl, favorite } = body;
 
     // Validate input types and lengths
     if (label !== undefined && (typeof label !== "string" || label.length > 500)) {
@@ -31,6 +31,9 @@ export async function PATCH(
     if (thumbnailUrl && !thumbnailUrl.startsWith("https://")) {
       return NextResponse.json({ success: false, error: "thumbnailUrl must be a valid HTTPS URL" }, { status: 400 });
     }
+    if (favorite !== undefined && typeof favorite !== "boolean") {
+      return NextResponse.json({ success: false, error: "favorite must be a boolean" }, { status: 400 });
+    }
 
     // Verify the media record exists
     const existing = await prisma.clientMedia.findUnique({ where: { id }, select: { id: true } });
@@ -45,6 +48,7 @@ export async function PATCH(
         ...(folder !== undefined && { folder: folder ? folder.trim() || null : null }),
         ...(notes !== undefined && { notes }),
         ...(thumbnailUrl !== undefined && { thumbnailUrl }),
+        ...(favorite !== undefined && { favorite }),
       },
     });
 

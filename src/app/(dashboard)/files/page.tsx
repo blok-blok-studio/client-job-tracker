@@ -7,7 +7,7 @@ import {
   Edit2, Check, Copy, Info, Eye, FileText, Search,
   Calendar, User, HardDrive, Tag, StickyNote,
   FolderOpen, Grid, List, Users, Loader2,
-  CheckSquare, Square,
+  CheckSquare, Square, Heart,
 } from "lucide-react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import { extractThumbnailFromFile } from "@/lib/video-thumbnail";
@@ -26,6 +26,7 @@ interface MediaFile {
   uploadedBy: string;
   label: string | null;
   notes: string | null;
+  favorite: boolean;
   thumbnailUrl: string | null;
   playbackUrl: string | null;
   createdAt: string;
@@ -53,6 +54,7 @@ export default function FilesPage() {
   );
   const [filterType, setFilterType] = useState<"ALL" | "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT">("ALL");
   const [filterClient, setFilterClient] = useState<string>("ALL");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
@@ -260,7 +262,8 @@ export default function FilesPage() {
 
   // Derived
   const selectedMedia = selectedId ? files.find((m) => m.id === selectedId) : null;
-  const filtered = files; // already filtered by API
+  const favCount = files.filter((m) => m.favorite).length;
+  const filtered = favoritesOnly ? files.filter((m) => m.favorite) : files; // type/search/client already filtered by API
 
   const counts = {
     ALL: files.length,
@@ -287,6 +290,23 @@ export default function FilesPage() {
     document.body.removeChild(a);
     // No completion event for a native download; clear the spinner shortly after.
     setTimeout(() => setDownloading((cur) => (cur === media.id ? null : cur)), 1500);
+  };
+
+  // Heart toggle — optimistic flip, revert if the server rejects it
+  const toggleFavorite = (media: MediaFile) => {
+    const next = !media.favorite;
+    setFiles((prev) => prev.map((f) => (f.id === media.id ? { ...f, favorite: next } : f)));
+    fetch(`/api/client-media/${media.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ favorite: next }),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (!d.success) throw new Error(); })
+      .catch(() => {
+        setFiles((prev) => prev.map((f) => (f.id === media.id ? { ...f, favorite: !next } : f)));
+        toast("Failed to update favorite", "error");
+      });
   };
 
   // Bulk download as one zip. Submit a hidden form so the browser streams the
@@ -709,6 +729,20 @@ export default function FilesPage() {
                 </button>
               )
             ))}
+            {favCount > 0 && (
+              <button
+                onClick={() => setFavoritesOnly((v) => !v)}
+                className={`text-[11px] px-2.5 py-1 rounded-full transition-colors flex items-center gap-1 ${
+                  favoritesOnly
+                    ? "bg-red-500/20 text-red-400"
+                    : "bg-bb-elevated text-bb-dim hover:text-white"
+                }`}
+                title="Show only favorites"
+              >
+                <Heart size={11} className={favoritesOnly ? "fill-red-400" : ""} />
+                {favCount}
+              </button>
+            )}
           </div>
 
           {/* Client filter */}
@@ -869,6 +903,11 @@ export default function FilesPage() {
                         </div>
                       )}
 
+                      {/* Favorite heart badge */}
+                      {media.favorite && (
+                        <Heart size={14} className="absolute top-1.5 right-1.5 z-10 text-red-500 fill-red-500 drop-shadow-md" />
+                      )}
+
                       {/* Client name badge */}
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1.5">
                         <span className="text-[9px] text-white/80 truncate block">{media.client.name}</span>
@@ -896,6 +935,13 @@ export default function FilesPage() {
                             title="Info & Edit"
                           >
                             <Info size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(media); }}
+                            className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
+                            title={media.favorite ? "Remove favorite" : "Favorite"}
+                          >
+                            <Heart size={14} className={media.favorite ? "text-red-500 fill-red-500" : ""} />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDownload(media); }}
@@ -974,6 +1020,9 @@ export default function FilesPage() {
                       <span className="text-xs text-bb-dim">{formatSize(media.fileSize)}</span>
                       <span className="text-xs text-bb-dim">{formatDate(media.createdAt)}</span>
                       <div className="flex items-center gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); toggleFavorite(media); }} className="p-1 rounded text-bb-dim hover:text-red-400" title={media.favorite ? "Remove favorite" : "Favorite"}>
+                          <Heart size={13} className={media.favorite ? "text-red-500 fill-red-500" : ""} />
+                        </button>
                         <button onClick={(e) => { e.stopPropagation(); setViewerIndex(idx); }} className="p-1 rounded text-bb-dim hover:text-white" title="Preview">
                           <Eye size={13} />
                         </button>
@@ -1105,6 +1154,11 @@ export default function FilesPage() {
 
                 {/* Actions */}
                 <div className="flex flex-col gap-1.5 pt-2 border-t border-bb-border">
+                  <button onClick={() => toggleFavorite(selectedMedia)}
+                    className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-bb-elevated text-white hover:bg-bb-border transition-colors w-full">
+                    <Heart size={13} className={selectedMedia.favorite ? "text-red-500 fill-red-500" : ""} />
+                    {selectedMedia.favorite ? "Remove favorite" : "Favorite"}
+                  </button>
                   <button onClick={() => handleDownload(selectedMedia)} disabled={downloading === selectedMedia.id}
                     className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-bb-elevated text-white hover:bg-bb-border transition-colors w-full">
                     <Download size={13} className={downloading === selectedMedia.id ? "animate-bounce" : ""} />
@@ -1173,6 +1227,9 @@ export default function FilesPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button onClick={() => toggleFavorite(media)} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors" title={media.favorite ? "Remove favorite" : "Favorite"}>
+                    <Heart size={16} className={media.favorite ? "text-red-500 fill-red-500" : ""} />
+                  </button>
                   <button onClick={() => handleDownload(media)} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors" title="Download">
                     <Download size={16} />
                   </button>

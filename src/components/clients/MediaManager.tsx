@@ -6,7 +6,7 @@ import {
   Film, Music, ExternalLink, Image as ImageIcon,
   Edit2, Check, Copy, Info, Eye, FileText,
   Calendar, User, HardDrive, Tag, StickyNote,
-  CheckSquare, Square, Loader2, Folder, FolderInput,
+  CheckSquare, Square, Loader2, Folder, FolderInput, Heart,
 } from "lucide-react";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import VideoThumbnail from "@/components/shared/VideoThumbnail";
@@ -23,6 +23,7 @@ interface MediaFile {
   label: string | null;
   folder?: string | null;
   notes?: string | null;
+  favorite?: boolean;
   thumbnailUrl?: string | null;
   playbackUrl?: string | null;
   createdAt: string;
@@ -81,6 +82,9 @@ export default function MediaManager({
   const [downloading, setDownloading] = useState<string | null>(null);
   const [filter, setFilter] = useState<"ALL" | "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT">("ALL");
   const [folderFilter, setFolderFilter] = useState<string>("ALL"); // "ALL" | UNFILED | folder name
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  // Optimistic favorite overrides — parent props refresh lags behind the click
+  const [favLocal, setFavLocal] = useState<Map<string, boolean>>(new Map());
   const [batchFolderInput, setBatchFolderInput] = useState("");
   const [assigning, setAssigning] = useState(false);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -119,8 +123,29 @@ export default function MediaManager({
   const folders = Array.from(folderCounts.keys()).sort((a, b) => a.localeCompare(b));
   const hasFolders = folders.length > 0;
 
-  // Apply type filter, then event/folder filter
-  const typeFiltered = filter === "ALL" ? mediaFiles : mediaFiles.filter((m) => m.fileType === filter);
+  const isFav = (m: MediaFile) => favLocal.get(m.id) ?? !!m.favorite;
+  const favCount = mediaFiles.filter(isFav).length;
+
+  // Toggle heart — optimistic local override, revert if the server rejects it
+  const toggleFavorite = (m: MediaFile) => {
+    const next = !isFav(m);
+    setFavLocal((prev) => new Map(prev).set(m.id, next));
+    fetch(`/api/client-media/${m.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ favorite: next }),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (!d.success) throw new Error(); })
+      .catch(() => {
+        setFavLocal((prev) => new Map(prev).set(m.id, !next));
+        toast("Failed to update favorite", "error");
+      });
+  };
+
+  // Apply type filter, then favorites, then event/folder filter
+  const baseFiltered = filter === "ALL" ? mediaFiles : mediaFiles.filter((m) => m.fileType === filter);
+  const typeFiltered = favoritesOnly ? baseFiltered.filter(isFav) : baseFiltered;
   const folderScoped =
     folderFilter === "ALL"
       ? typeFiltered
@@ -600,6 +625,11 @@ export default function MediaManager({
           {media.uploadedBy === "client" ? "Client" : "You"}
         </div>
 
+        {/* Favorite heart badge */}
+        {isFav(media) && (
+          <Heart size={14} className="absolute bottom-1.5 right-1.5 z-10 text-red-500 fill-red-500 drop-shadow-md" />
+        )}
+
         {/* Hover overlay with actions — only in normal mode */}
         {!selectMode && (
           <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
@@ -617,6 +647,13 @@ export default function MediaManager({
                 title="Info & Edit"
               >
                 <Info size={14} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleFavorite(media); }}
+                className="p-1.5 rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
+                title={isFav(media) ? "Remove favorite" : "Favorite"}
+              >
+                <Heart size={14} className={isFav(media) ? "text-red-500 fill-red-500" : ""} />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleDownload(media); }}
@@ -687,6 +724,20 @@ export default function MediaManager({
                 </button>
               )
             ))}
+            {favCount > 0 && (
+              <button
+                onClick={() => setFavoritesOnly((v) => !v)}
+                className={`text-[10px] px-2 py-0.5 rounded-full transition-colors flex items-center gap-1 ${
+                  favoritesOnly
+                    ? "bg-red-500/20 text-red-400"
+                    : "bg-bb-elevated text-bb-dim hover:text-white"
+                }`}
+                title="Show only favorites"
+              >
+                <Heart size={10} className={favoritesOnly ? "fill-red-400" : ""} />
+                {favCount}
+              </button>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -961,6 +1012,13 @@ export default function MediaManager({
               {/* Action buttons */}
               <div className="flex flex-col gap-1.5 pt-2 border-t border-bb-border">
                 <button
+                  onClick={() => toggleFavorite(selectedMedia)}
+                  className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-bb-elevated text-white hover:bg-bb-border transition-colors w-full"
+                >
+                  <Heart size={13} className={isFav(selectedMedia) ? "text-red-500 fill-red-500" : ""} />
+                  {isFav(selectedMedia) ? "Remove favorite" : "Favorite"}
+                </button>
+                <button
                   onClick={() => handleDownload(selectedMedia)}
                   disabled={downloading === selectedMedia.id}
                   className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-bb-elevated text-white hover:bg-bb-border transition-colors w-full"
@@ -1132,6 +1190,13 @@ export default function MediaManager({
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => toggleFavorite(media)}
+                  className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+                  title={isFav(media) ? "Remove favorite" : "Favorite"}
+                >
+                  <Heart size={16} className={isFav(media) ? "text-red-500 fill-red-500" : ""} />
+                </button>
                 <button
                   onClick={() => handleDownload(media)}
                   disabled={downloading === media.id}

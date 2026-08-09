@@ -671,6 +671,7 @@ model ClientMedia {
   label      String? // Optional user-given label
   folder     String? // Event / collection this file belongs to (for grouping uploads)
   notes      String? // Notes about this file
+  favorite   Boolean @default(false) // Heart-marked: used / liked when sifting content
   uploadedBy String  @default("client") // "client" or "manager"
 
   usedInPosts String[] // Post IDs this media has been used in
