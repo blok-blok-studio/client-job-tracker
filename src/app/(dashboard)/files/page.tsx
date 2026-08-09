@@ -314,6 +314,13 @@ export default function FilesPage() {
   const downloadZip = (zipFiles: MediaFile[], nameHint: string) => {
     if (zipFiles.length === 0) return;
     if (zipFiles.length === 1) { handleDownload(zipFiles[0]); return; }
+    // Server zips are capped at ~4GB (no zip64) — catch it here with a toast
+    // instead of letting the form POST land on a JSON error page.
+    const totalBytes = zipFiles.reduce((acc, f) => acc + (f.fileSize || 0), 0);
+    if (totalBytes > 3.9 * 1024 * 1024 * 1024) {
+      toast("Selection is over the 4GB zip limit — download in smaller batches", "error");
+      return;
+    }
     const form = document.createElement("form");
     form.method = "POST";
     form.action = "/api/client-media/download-zip";

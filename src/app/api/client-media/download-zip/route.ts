@@ -9,6 +9,11 @@ export const maxDuration = 300;
 // so the function just streams Blob bytes through — no buffering, no CPU spike.
 const MAX_FILES = 500;
 
+// fflate writes 32-bit sizes/offsets (no zip64), so past ~4GB the archive
+// comes out unreadable. Refuse rather than emit a corrupt zip; the galleries
+// pre-check this limit client-side so users normally see a toast instead.
+const MAX_TOTAL_BYTES = 3.9 * 1024 * 1024 * 1024;
+
 function sanitizeZipName(name: string) {
   const clean = name.replace(/[^a-zA-Z0-9 _.-]/g, "").trim().slice(0, 60);
   return clean || "media";
@@ -43,10 +48,18 @@ export async function POST(request: NextRequest) {
 
   const files = await prisma.clientMedia.findMany({
     where: { id: { in: ids } },
-    select: { id: true, url: true, filename: true },
+    select: { id: true, url: true, filename: true, fileSize: true },
   });
   if (files.length === 0) {
     return NextResponse.json({ error: "Files not found" }, { status: 404 });
+  }
+
+  const totalBytes = files.reduce((acc, f) => acc + (f.fileSize || 0), 0);
+  if (totalBytes > MAX_TOTAL_BYTES) {
+    return NextResponse.json(
+      { error: "Selection exceeds the 4GB zip limit — download in smaller batches" },
+      { status: 413 }
+    );
   }
 
   // Dedupe entry names — a zip with two "IMG_0001.jpg" silently drops one
@@ -68,11 +81,15 @@ export async function POST(request: NextRequest) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let closed = false;
+      const fail = (err: unknown) => {
+        if (closed) return;
+        closed = true;
+        controller.error(err);
+      };
       const zip = new Zip((err, chunk, final) => {
         if (closed) return;
         if (err) {
-          closed = true;
-          controller.error(err);
+          fail(err);
           return;
         }
         controller.enqueue(chunk);
@@ -83,14 +100,22 @@ export async function POST(request: NextRequest) {
       });
 
       for (const file of entries) {
-        if (closed) break;
-        let res: Response;
-        try {
-          res = await fetch(file.url, { cache: "no-store" });
-        } catch {
-          continue;
+        if (closed) return;
+        let res: Response | null = null;
+        for (let attempt = 0; attempt < 2 && !res; attempt++) {
+          try {
+            const r = await fetch(file.url, { cache: "no-store" });
+            if (r.ok && r.body) res = r;
+          } catch {
+            // retry once, then fail below
+          }
         }
-        if (!res.ok || !res.body) continue;
+        if (!res?.body) {
+          // A zip silently missing files looks complete to the user — abort
+          // the download instead so the browser reports it and they retry.
+          fail(new Error(`Failed to fetch ${file.name}`));
+          return;
+        }
 
         const entry = new ZipPassThrough(file.name);
         zip.add(entry);
@@ -101,8 +126,11 @@ export async function POST(request: NextRequest) {
             if (done) break;
             entry.push(value);
           }
-        } catch {
-          // fall through — terminate the entry so the zip stays valid
+        } catch (err) {
+          // Finalizing a half-read entry would emit a valid-looking zip whose
+          // CRC matches the truncated bytes — a silently damaged file. Abort.
+          fail(err);
+          return;
         }
         entry.push(new Uint8Array(0), true);
       }
