@@ -357,6 +357,135 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     sourceUrls: [],
   },
 
+  // ---------- US — non-tax legal (final completeness sweep, Aug 2026) ----------
+  {
+    key: "us-tcpa-sms",
+    country: "US",
+    appliesTo: "CLIENT",
+    profileKey: "us-llc",
+    name: "TCPA — SMS marketing bright line",
+    description:
+      "HIGHEST US LIABILITY PER INCIDENT: marketing texts require prior express WRITTEN consent (signed, clear disclosure, not a purchase condition); statutory damages are $500-1,500 PER TEXT, uncapped, private right of action, class-action factory. Opt-outs by any reasonable means must be honored within 10 business days (rules effective Apr 2025). Studio policy: never run SMS campaigns without consent records the studio has verified; keep client campaigns on the client's own Twilio account with consent responsibility and indemnity contractually on the client (matches the existing third-party-fees policy).",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.bclplaw.com/en-US/events-insights-news/the-tcpas-new-opt-out-rules-take-effect-on-april-11-2025-what-does-this-mean-for-businesses.html",
+    ],
+  },
+  {
+    key: "us-ada-wcag",
+    country: "US",
+    appliesTo: "CLIENT",
+    profileKey: "us-llc",
+    name: "ADA website accessibility — WCAG 2.1 AA as build default",
+    description:
+      "No federal web regulation exists for private sites (DOJ paused rulemaking), but ~4,300 website ADA suits were filed in 2024 alone and courts treat WCAG 2.1 AA as the benchmark — serial plaintiffs target exactly BlokBlok's client profile (small local businesses). This is the most probable US legal event for a client site. Policy: build to WCAG 2.1 AA by default; MSA states the standard targeted without guaranteeing compliance (keeps the studio from becoming the indemnitor on a demand letter). If a government client (city, school district) is ever signed, WCAG 2.1 AA becomes a hard DOJ Title II requirement (deadlines Apr 2027/2028) — price it as such.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.adatitleiii.com/2026/04/doj-extends-ada-title-ii-website-accessibility-deadlines-for-governmental-entities-but-litigation-and-compliance-risks-remain/",
+    ],
+  },
+  {
+    key: "us-can-spam",
+    country: "US",
+    appliesTo: "CLIENT",
+    profileKey: "us-llc",
+    name: "CAN-SPAM — client newsletters the studio sends",
+    description:
+      "The studio is liable as the 'initiator' of client newsletters ALONGSIDE the client — liability cannot be contracted away. Per-email requirements: accurate header/from, non-deceptive subject, ad identification, valid postal address, working opt-out honored within 10 business days. FTC penalty up to $53,088 PER EMAIL. Policy: postal address + unsubscribe check on every client list, suppression-list hygiene, and clients contractually warrant list provenance (no purchased lists) with indemnity.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: ["https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business"],
+  },
+  {
+    key: "us-tdpsa-processor",
+    country: "US",
+    appliesTo: "CLIENT",
+    profileKey: "us-llc",
+    name: "Texas privacy law (TDPSA) — processor rider for client work",
+    description:
+      "BlokBlok itself is exempt as a controller (small-business carve-out) EXCEPT it may never sell sensitive personal data without consent — watch ad-tech/analytics arrangements ('sale' includes any valuable consideration). The real duty is as a PROCESSOR for in-scope clients: §541.104 requires a written data-processing contract (instructions, purpose, data types, duration, confidentiality, subcontractor flow-down). Storing client-customer form submissions = processing on the client's behalf. Add a short DPA rider to the MSA (pairs with the GDPR Art. 28 AVV for German clients). Enforcement: TX AG, 30-day cure, $7,500/violation — and the TX AG is the most aggressive state privacy enforcer.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.texasattorneygeneral.gov/consumer-protection/file-consumer-complaint/consumer-privacy-rights/texas-data-privacy-and-security-act",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "us-client-msa-essentials",
+    country: "US",
+    appliesTo: "CLIENT",
+    profileKey: "us-llc",
+    name: "Client contract load-bearing clauses (one lawyer session)",
+    description:
+      "The AI-drafted contracts likely miss these. Texas: liability caps are enforceable B2B but must be CONSPICUOUS (bold/caps) with express negligence language; stack = cap at 12 months' fees + mutual consequential-damages waiver + carve-outs for IP/confidentiality/indemnity. Client content warranty: client warrants it owns supplied text/images/lists and indemnifies. IP assigns to client on FULL payment. Accessibility/privacy responsibility allocated explicitly. CAUTION for German clients: a standard template is 'AGB' under German law even B2B — blanket liability exclusions are VOID and one bad sub-clause kills the whole clause; use a German-reviewed variant or defensible Texas choice-of-law. Get the templates through one lawyer session.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://freemanlaw.com/can-a-professional-services-firm-limit-its-liability-by-contract-a-look-at-texas-new-mexico-and-oklahoma-law/",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "us-coppa-screen",
+    country: "US",
+    appliesTo: "CLIENT",
+    profileKey: "us-llc",
+    name: "COPPA screen on client intake (child-directed sites)",
+    description:
+      "The amended COPPA rule is fully in force (compliance deadline Apr 22, 2026): child-directed sites need parental consent flows, a written infosec program, and a written retention policy; penalties ~$53k/violation. The operator is the client, but an agency running the data collection can be an operator too. One intake question: 'Is any part of this site directed at children under 13?' (tutoring, kids' camps, youth sports). If yes: decline or price as specialty work.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.federalregister.gov/documents/2025/04/22/2025-05904/childrens-online-privacy-protection-rule",
+    ],
+  },
+  {
+    key: "us-freelance-hiring-laws",
+    country: "US",
+    appliesTo: "CONTRACTOR",
+    profileKey: "us-llc",
+    name: "State freelance-protection laws (bind BlokBlok by contractor's state)",
+    description:
+      "Hiring a freelancer who sits in NY, IL, or CA binds BlokBlok to that state's freelance act: written contract required above $800 (NY, incl. 120-day aggregate), $500 (IL), or $250 (CA SB 988); payment by the contract date or within 30 days of completion; contract must state both parties' names/addresses, itemized services, value, rate, and payment due date. Nonpayment = double damages + attorney fees; no written contract = statutory damages. Compliance is nearly free: ONE contractor agreement template with those fields and a ≤30-day payment term, used for every US contractor regardless of state — which the tracker's enforced CONTRACTOR_AGREEMENT requirement already operationalizes. Record contractor state at onboarding; keep contracts 2+ years.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://dol.ny.gov/freelance-isnt-free-act",
+      "https://labor.illinois.gov/laws-rules/legal/freelance-worker-protection-act.html",
+    ],
+  },
+  {
+    key: "us-contractor-ip-assignment",
+    country: "US",
+    appliesTo: "CONTRACTOR",
+    profileKey: "us-llc",
+    name: "Contractor IP: 'work for hire' does NOT transfer website copyright",
+    description:
+      "Verified against 17 U.S.C. §101: an independent contractor's work is 'made for hire' only within nine statutory categories — website code/design does not cleanly fit, so a bare work-for-hire clause FAILS and the contractor keeps copyright by default. Every contractor agreement needs an express present-tense assignment ('Contractor hereby assigns all right, title and interest...') as the operative clause, with the client MSA completing the chain (assignment to client on full payment). GERMAN contractors: copyright is non-transferable under §29 UrhG — an assignment clause is void; use an exclusive, unrestricted, sublicensable, worldwide, perpetual usage-rights (Nutzungsrechte) grant expressly covering unknown use types, and pay more than a token fee (German authors have a statutory fair-remuneration claim). Fix the agreement template once.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.copyright.gov/circs/circ30.pdf",
+      "https://www.gesetze-im-internet.de/urhg/__29.html",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "us-dmca-agent",
+    country: "US",
+    appliesTo: "SELF",
+    profileKey: "us-llc",
+    name: "DMCA agent registration ($6) if hosting user-generated content",
+    description:
+      "The §512(c) safe harbor against copyright claims over user-posted material requires a registered DMCA agent. Private contact-form submissions don't need it, but if any hosted client site has PUBLIC user content (comments, reviews, forums, uploads), register at copyright.gov ($6, renew every 3 years or protection lapses) and post a takedown + repeat-infringer policy. Also: license hygiene per delivered site — webfonts are per-domain/per-licensee (agency licenses usually do NOT cover client sites; Adobe Fonts requires the client's own subscription), stock licenses are licensee-specific, and delivering GPL code to a client is 'distribution' with source obligations. Keep a per-site license register.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: ["https://www.copyright.gov/dmca-directory/"],
+  },
+
   // ---------- DE — own filings (freelancer, Kleinunternehmer, via Steuerberater) ----------
   {
     key: "de-est-steuerberater",
@@ -560,6 +689,36 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
   },
 
   // ---------- DE — client paperwork ----------
+  {
+    key: "de-bfsg-accessibility",
+    country: "DE",
+    appliesTo: "CLIENT",
+    profileKey: "de-freelancer",
+    name: "BFSG accessibility (EU) — consumer/e-commerce client sites",
+    description:
+      "In force since June 28, 2025: client sites offering e-commerce or bookable services to EU CONSUMERS must meet EN 301 549 (= WCAG 2.1 AA) and carry an accessibility statement — this applies regardless of where the operator sits, so a Texas client selling to German consumers is in scope. Fines up to EUR 100,000 land on the SITE OPERATOR, but a non-compliant build is a contractual DEFECT for the agency (free rework + damages under German law). Microenterprise service providers (under 10 employees AND under EUR 2M turnover) are exempt — verify and DOCUMENT the exemption per client, it is theirs not BlokBlok's. Policy: WCAG 2.1 AA default on consumer-facing EU builds + a contract clause allocating accessibility responsibility.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://bfsg-gesetz.de/37-bfsg/",
+      "https://www.w3.org/WAI/policies/european-union/",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "de-market-hygiene",
+    country: "DE",
+    appliesTo: "CLIENT",
+    profileKey: "de-freelancer",
+    name: "German market hygiene bundle (cookies, fonts, double opt-in)",
+    description:
+      "The most FREQUENTLY enforced items for German sites, via competitor Abmahnung letters. (1) Cookie consent, §25 TDDDG: prior, per-purpose consent for anything non-essential; rejecting must be as easy as accepting; no third-party requests before consent; fines to EUR 300k plus GDPR exposure. (2) Fonts: self-host Google Fonts on German builds — remote loading was sanctioned by German courts. (3) Email marketing, UWG §7: German recipients require DOUBLE opt-in with timestamped confirmation logs (BGH standard); never import an unverified list for a German client; each unsolicited email is individually actionable and the studio can be the sender-of-record. Ship every German build with these three by default.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.dlapiperdataprotection.com/?t=electronic-marketing&c=DE",
+    ],
+  },
   {
     key: "de-impressum-ddg",
     country: "DE",
