@@ -94,9 +94,9 @@ export default function SecurityPage() {
   }
 
   async function disableTotp() {
-    const pw = prompt("Confirm your password to turn off two-factor:");
+    const pw = prompt("Confirm your password to reset two-factor (you'll set it up again on the next screen):");
     if (!pw) return;
-    const ok = await totpAction("disable", { password: pw }, "Two-factor turned off");
+    const ok = await totpAction("disable", { password: pw }, "Reset — set up your authenticator again");
     if (ok) { setBackupCodes(null); load(); }
   }
 
@@ -211,21 +211,27 @@ export default function SecurityPage() {
           </h2>
 
           {status?.totpEnabled ? (
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={regenBackup}
-                disabled={busy}
-                className="px-3 py-1.5 text-xs rounded-md border border-bb-border text-bb-muted hover:text-white transition-colors disabled:opacity-50"
-              >
-                Generate new backup codes
-              </button>
-              <button
-                onClick={disableTotp}
-                disabled={busy}
-                className="px-3 py-1.5 text-xs rounded-md border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
-              >
-                Turn off 2FA
-              </button>
+            <div className="space-y-2">
+              <p className="text-xs text-bb-dim">
+                2FA is required for every account. You can generate fresh backup codes, or reset it to move
+                to a new phone — resetting sends you back to the setup screen right away.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={regenBackup}
+                  disabled={busy}
+                  className="px-3 py-1.5 text-xs rounded-md border border-bb-border text-bb-muted hover:text-white transition-colors disabled:opacity-50"
+                >
+                  Generate new backup codes
+                </button>
+                <button
+                  onClick={disableTotp}
+                  disabled={busy}
+                  className="px-3 py-1.5 text-xs rounded-md border border-bb-border text-bb-muted hover:text-white transition-colors disabled:opacity-50"
+                >
+                  Reset / new phone
+                </button>
+              </div>
             </div>
           ) : qr ? (
             <div className="space-y-3">
