@@ -17,6 +17,7 @@ export const maxDuration = 300;
 const DOC_LABELS: Record<string, string> = {
   W9: "Form W-9 (US taxpayer info)",
   W8BEN: "Form W-8BEN / W-8BEN-E (foreign status)",
+  CONTRACTOR_AGREEMENT: "Signed contractor agreement",
 };
 
 async function findContractor(token: string) {

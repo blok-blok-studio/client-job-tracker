@@ -709,6 +709,27 @@ export default function CompliancePage() {
               </button>
             </div>
 
+            {/* Legal export */}
+            <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-2">
+              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                <ShieldCheck size={15} className="text-bb-orange" />
+                Legal records export
+              </h2>
+              <p className="text-xs text-bb-muted">
+                Downloads the complete evidence bundle as JSON: every contractor with their invoices, hours
+                entries, and full audit trails (timestamps, IP addresses, attestations), plus tracked tax
+                documents and the obligation catalog. Built for handing to a lawyer or accountant; each
+                export is itself logged.
+              </p>
+              <a
+                href="/api/compliance/export"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-bb-border text-bb-muted hover:text-white hover:bg-bb-elevated transition-colors"
+              >
+                <ExternalLink size={12} />
+                Download export
+              </a>
+            </div>
+
             <p className="text-[10px] text-bb-dim">
               This page tracks deadlines and paperwork; it is not tax advice. Entries marked &ldquo;verify
               with advisor&rdquo; should be confirmed with the CPA / Steuerberater before relying on them.

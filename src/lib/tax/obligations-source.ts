@@ -111,7 +111,7 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     name: "1099-NEC filing for contractors paid",
     formName: "Form 1099-NEC",
     description:
-      "File 1099-NEC for each US contractor paid $2,000 or more during the year (threshold raised from $600 by OBBBA for payments after Dec 31, 2025). One deadline for both the IRS copy and the recipient copy: January 31 (shifts to the next business day on weekends — Feb 1, 2027 for tax year 2026). E-filing is required at 10+ information returns. Not required for non-US contractors performing services abroad (collect W-8BEN instead).",
+      "File 1099-NEC for each US contractor paid $2,000 or more during the year (threshold raised from $600 by OBBBA for payments after Dec 31, 2025). One deadline for both the IRS copy and the recipient copy: January 31 (shifts to the next business day on weekends — Feb 1, 2027 for tax year 2026). E-filing is required at 10+ information returns. Not required for non-US contractors performing services abroad (collect W-8BEN instead). Payments made by credit card or PayPal-type processors are EXCLUDED — the processor reports those on 1099-K, so track how each contractor gets paid.",
     frequency: "ANNUAL",
     dueRules: [{ month: 1, day: 31 }],
     sourceUrls: [
@@ -120,7 +120,128 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     ],
   },
 
+  {
+    key: "us-fbar",
+    country: "US",
+    appliesTo: "SELF",
+    profileKey: "us-llc",
+    name: "FBAR — foreign bank account report",
+    formName: "FinCEN Form 114",
+    description:
+      "Required if the combined value of all non-US financial accounts (including any German bank account) exceeded $10,000 at ANY point during the year. Filed with FinCEN separately from the tax return; due April 15 with an automatic extension to October 15. Penalties are severe: $16,500+ per non-willful violation, far worse if willful. The German freelance operation makes this very likely to apply.",
+    frequency: "ANNUAL",
+    dueRules: [{ month: 4, day: 15 }],
+    sourceUrls: [
+      "https://www.fincen.gov/report-foreign-bank-and-financial-accounts",
+      "https://www.taxesforexpats.com/articles/fbar-fatca/a-detailed-look-at-the-foreign-bank-account-report-fbar-form.html",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "us-form-8938",
+    country: "US",
+    appliesTo: "SELF",
+    profileKey: "us-llc",
+    name: "FATCA foreign asset statement (with the 1040)",
+    formName: "Form 8938",
+    description:
+      "Separate from the FBAR and filed WITH the federal return: required when foreign financial assets exceed the Form 8938 thresholds ($50,000+ for single filers living in the US; higher abroad). Check the threshold each year against German account balances — many people must file both 8938 and FBAR.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: ["https://www.irs.gov/forms-pubs/about-form-8938"],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "us-tx-sales-tax-check",
+    country: "US",
+    appliesTo: "SELF",
+    profileKey: "us-llc",
+    name: "Texas sales tax on web services — permit and collection check",
+    description:
+      "IMPORTANT: Texas treats web design, development, and hosting as taxable 'data processing services' — 80% of the charge is taxable (20% exempt) at the local rate up to 8.25%. Selling web work to TEXAS clients (e.g. DFW plumbers) likely requires a Texas sales tax permit and collecting/remitting tax on those invoices. The definition was expanded again Oct 2025. Semi-annual check: confirm permit status and which client invoices need tax with the CPA. Out-of-state clients are generally not affected; multi-state clients can give an exemption certificate.",
+    frequency: "ANNUAL",
+    dueRules: [
+      { month: 2, day: 15 },
+      { month: 8, day: 15 },
+    ],
+    sourceUrls: [
+      "https://comptroller.texas.gov/taxes/publications/94-127.php",
+      "https://www.smoothfusion.com/texas-sales-tax",
+      "https://www.grantthornton.com/insights/alerts/tax/2025/salt/p-t/tx-updates-data-processing-services-tax-rule-04-11",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "us-tx-sales-tax-filing",
+    country: "US",
+    appliesTo: "SELF",
+    profileKey: "us-llc",
+    name: "Texas sales tax return",
+    description:
+      "Once a Texas sales tax permit exists, returns are due the 20th of the month after each period (most small filers are quarterly: Jan 20, Apr 20, Jul 20, Oct 20). Disabled until the permit question above is settled — enable and adjust the cadence to match the Comptroller's assigned filing frequency.",
+    frequency: "QUARTERLY",
+    dueRules: [
+      { month: 1, day: 20 },
+      { month: 4, day: 20 },
+      { month: 7, day: 20 },
+      { month: 10, day: 20 },
+    ],
+    sourceUrls: ["https://comptroller.texas.gov/taxes/sales/"],
+    verifyWithAdvisor: true,
+    enabled: false,
+  },
+  {
+    key: "us-boi-cta",
+    country: "US",
+    appliesTo: "SELF",
+    profileKey: "us-llc",
+    name: "Beneficial ownership (BOI) reporting — currently EXEMPT",
+    formName: "FinCEN BOI",
+    description:
+      "Status checked Aug 2026: FinCEN's March 2025 interim final rule EXEMPTS all US-formed companies (including this LLC) from BOI reporting — only foreign companies registered in a US state still file. FinCEN intends to finalize the rule in 2026; if the final rule changes course, domestic reporting could return. Nothing to file today; keep an eye on the final rule.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.fincen.gov/boi",
+      "https://www.fincen.gov/news/news-releases/fincen-removes-beneficial-ownership-reporting-requirements-us-companies-and-us",
+    ],
+  },
+  {
+    key: "us-record-retention",
+    country: "US",
+    appliesTo: "SELF",
+    profileKey: "us-llc",
+    name: "US record retention windows",
+    description:
+      "Never purge early: W-9s — keep 3 years after the last year a 1099 was filed for that contractor. Employment/contractor tax records — 4 years minimum. Business returns and IRS correspondence — 7 years. Bank/credit card statements and cancelled checks — 7 years. The tracker's contractor invoices, hours entries, and audit trails are deliberately delete-proof; this entry documents why.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.irs.gov/businesses/small-businesses-self-employed/employment-tax-recordkeeping",
+      "https://www.taxinformationreporting.com/css-article/how-long-should-you-retain-forms-w-9",
+    ],
+  },
+
   // ---------- US — contractor paperwork (people we pay) ----------
+  {
+    key: "us-contractor-classification",
+    country: "US",
+    appliesTo: "CONTRACTOR",
+    profileKey: "us-llc",
+    name: "Contractor classification review (misclassification risk)",
+    description:
+      "Semi-annual check that contractors genuinely qualify as independent contractors, not employees. The DOL's 2026 proposed rule re-centers the economic reality test on two core factors: degree of CONTROL over the work, and the worker's opportunity for profit/loss from their own initiative and investment. Protective practices already built into this tracker: hours are self-reported (not scheduled or monitored), contractors invoice for their work, and a signed independent contractor agreement is required on file. Keep it that way — do not set contractors' schedules, provide their tools, or make them exclusive.",
+    frequency: "ANNUAL",
+    dueRules: [
+      { month: 1, day: 15 },
+      { month: 7, day: 15 },
+    ],
+    sourceUrls: [
+      "https://www.dol.gov/agencies/whd/flsa/misclassification",
+      "https://www.butlersnow.com/news-and-events/revisiting-independent-contractor-classification-what-the-dols-2026-proposed-rule-means-for-businesses",
+    ],
+    verifyWithAdvisor: true,
+  },
   {
     key: "us-w9-collection",
     country: "US",
@@ -247,6 +368,75 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     enabled: false,
   },
 
+  {
+    key: "de-13b-reverse-charge",
+    country: "DE",
+    appliesTo: "SELF",
+    profileKey: "de-freelancer",
+    name: "Reverse-charge VAT on foreign services (§13b) — Kleinunternehmer NOT exempt",
+    description:
+      "Commonly missed: the Kleinunternehmer exemption does NOT cover reverse charge. Buying services from foreign providers through the German freelance business (Vercel, Google Ads, US SaaS, foreign subcontractors) makes the German recipient owe 19% German VAT on those purchases under §13b UStG — payable out of pocket, with no input-VAT deduction, via a Voranmeldung filed just for those periods. Quarterly reminder: tally foreign B2B service purchases on the German side and hand the list to the Steuerberater. (Purchases run through the US LLC are not affected.)",
+    frequency: "QUARTERLY",
+    dueRules: [
+      { month: 1, day: 10 },
+      { month: 4, day: 10 },
+      { month: 7, day: 10 },
+      { month: 10, day: 10 },
+    ],
+    sourceUrls: [
+      "https://onlinebilanz.de/reverse-charge-kleinunternehmer/",
+      "https://buchhaltung-effizient.de/?p=493",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "de-ksa-abgabe",
+    country: "DE",
+    appliesTo: "CONTRACTOR",
+    profileKey: "de-freelancer",
+    name: "Künstlersozialabgabe check (paying German creatives)",
+    formName: "KSK Meldung",
+    description:
+      "German businesses that regularly commission creative work (design, copywriting, photography) from German freelancers owe the Künstlersozialabgabe — 4.9% of those fees in 2026, reported to the Künstlersozialkasse; the 2026 de-minimis threshold is EUR 1,000/year. Purely technical website maintenance is generally not covered. Check applies if the GERMAN freelance side commissions German creatives. Flip side worth knowing: German clients commissioning design from Chase may owe KSA on his fees (their duty, not his).",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.kuenstlersozialkasse.de/unternehmen-und-verwerter/faq-unternehmen-und-verwerter",
+      "https://www.sparkasse.de/aktuelles/kuenstlersozialabgabe.html",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "de-scheinselbststaendigkeit",
+    country: "DE",
+    appliesTo: "CONTRACTOR",
+    profileKey: "de-freelancer",
+    name: "Scheinselbstständigkeit check (German contractors)",
+    description:
+      "Germany's version of misclassification: a 'contractor' who works like an employee (one main client, fixed hours, integrated into operations, no own business risk) can be reclassified, triggering back social-security contributions. For German contractors: keep engagements project-based, let them work their own hours (the self-reported hours log helps document this), and keep their signed contractor agreements on file. A Statusfeststellungsverfahren with the Deutsche Rentenversicherung can settle doubtful cases in advance.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.deutsche-rentenversicherung.de/DRV/DE/Experten/Arbeitgeber-und-Steuerberater/statusfeststellung/statusfeststellung.html",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "de-record-retention",
+    country: "DE",
+    appliesTo: "SELF",
+    profileKey: "de-freelancer",
+    name: "German record retention (GoBD)",
+    description:
+      "Never purge early: invoices (incoming and outgoing) and booking documents — 8 years (reduced from 10 by the 2025 Bureaucracy Relief Act). Books, records, and annual statements — 10 years. Retention must be GoBD-compliant (unchangeable, complete, retrievable) — the tracker's append-only invoice/hours records with audit trails are built to that standard. This entry documents the windows.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.ihk.de/konstanz/recht-und-steuern/steuer-und-finanzpolitik/finverwal/aufbewahrung-von-geschaeftsunterlagen-1672476",
+      "https://www.d-velop.de/blog/compliance/gobd-konforme-aufbewahrung-von-rechnungen/",
+    ],
+  },
+
   // ---------- DE — client paperwork ----------
   {
     key: "de-invoice-vat-notes",
@@ -318,8 +508,17 @@ export function requiredDocTypes(opts: {
 }): { type: string; direction: "INBOUND" | "OUTBOUND"; note: string }[] {
   const { kind, country } = opts;
   if (kind === "contractor") {
+    // Every contractor, any country: a signed independent contractor agreement
+    // (with IP assignment) is the core legal cover — classification defense,
+    // ownership of the work, and payment terms all hang off it.
+    const agreement = {
+      type: "CONTRACTOR_AGREEMENT",
+      direction: "INBOUND" as const,
+      note: "Signed independent contractor agreement (incl. IP assignment) required before work starts.",
+    };
     if (country === "US") {
       return [
+        agreement,
         {
           type: "W9",
           direction: "INBOUND",
@@ -329,6 +528,7 @@ export function requiredDocTypes(opts: {
     }
     // Any non-US contractor paid by the US LLC
     return [
+      agreement,
       {
         type: "W8BEN",
         direction: "INBOUND",
