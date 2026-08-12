@@ -17,6 +17,18 @@ export async function GET() {
             audits: { orderBy: { createdAt: "asc" } },
           },
         },
+        hoursEntries: {
+          orderBy: { startAt: "desc" },
+          take: 500,
+          include: {
+            notes: { orderBy: { createdAt: "asc" } },
+            audits: { orderBy: { createdAt: "asc" } },
+            correctedBy: { select: { id: true } },
+          },
+        },
+        clientAssignments: {
+          include: { client: { select: { id: true, name: true } } },
+        },
       },
     });
 
@@ -32,6 +44,7 @@ const createSchema = z.object({
   company: z.string().max(200).optional().or(z.literal("")),
   phone: z.string().max(50).optional().or(z.literal("")),
   notes: z.string().max(2000).optional().or(z.literal("")),
+  country: z.string().length(2).optional().or(z.literal("")),
 });
 
 // POST /api/contractors — add a contractor and mint their upload link
@@ -55,10 +68,22 @@ export async function POST(request: NextRequest) {
         company: d.company || null,
         phone: d.phone || null,
         notes: d.notes || null,
+        country: d.country ? d.country.toUpperCase() : null,
         uploadToken: randomBytes(16).toString("base64url"),
       },
       include: { invoices: true },
     });
+
+    // Country set at creation → create the tax documents that country requires
+    if (d.country) {
+      const { ensureRequiredDocs } = await import("@/lib/tax/documents");
+      await ensureRequiredDocs({
+        kind: "contractor",
+        id: contractor.id,
+        country: d.country.toUpperCase(),
+        actor: session?.name || "team",
+      }).catch(() => {});
+    }
 
     await prisma.activityLog.create({
       data: {

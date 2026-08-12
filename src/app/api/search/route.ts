@@ -17,13 +17,14 @@ export async function GET(request: NextRequest) {
         posts: [],
         contractors: [],
         contractorInvoices: [],
+        contractorHours: [],
       },
     });
   }
 
   const contains = { contains: q, mode: "insensitive" as const };
 
-  const [clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices] = await Promise.all([
+  const [clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices, contractorHours] = await Promise.all([
     prisma.client.findMany({
       where: {
         type: { not: "ARCHIVED" },
@@ -111,10 +112,27 @@ export async function GET(request: NextRequest) {
       orderBy: { submittedAt: "desc" },
       take: 5,
     }),
+    prisma.contractorHoursEntry.findMany({
+      where: {
+        OR: [{ description: contains }, { clientName: contains }, { contractor: { name: contains } }],
+      },
+      select: {
+        id: true,
+        workDate: true,
+        startLocal: true,
+        endLocal: true,
+        durationMinutes: true,
+        clientName: true,
+        status: true,
+        contractor: { select: { name: true } },
+      },
+      orderBy: { startAt: "desc" },
+      take: 5,
+    }),
   ]);
 
   return NextResponse.json({
     success: true,
-    data: { clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices },
+    data: { clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices, contractorHours },
   });
 }

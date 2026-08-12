@@ -107,6 +107,14 @@ model Client {
   services        ClientService[]
   scheduledSteps  ScheduledStep[]
 
+  // Tax residency (ISO 3166-1 alpha-2, distinct from free-text companyCountry);
+  // drives required tax documents
+  country               String?
+  additionalCountries   String[]                     @default([])
+  contractorHours       ContractorHoursEntry[]
+  contractorAssignments ContractorClientAssignment[]
+  taxDocuments          TaxDocument[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -881,8 +889,15 @@ model Contractor {
   weeklyReviewDay   Int? // 0=Sunday … 6=Saturday
   automationsPaused Boolean   @default(false)
 
-  invoices       ContractorInvoice[]
-  scheduledSteps ScheduledStep[]
+  // Tax residency (ISO 3166-1 alpha-2); drives required tax documents
+  country             String?
+  additionalCountries String[] @default([])
+
+  invoices          ContractorInvoice[]
+  scheduledSteps    ScheduledStep[]
+  hoursEntries      ContractorHoursEntry[]
+  clientAssignments ContractorClientAssignment[]
+  taxDocuments      TaxDocument[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -986,6 +1001,116 @@ model ContractorInvoiceAudit {
   createdAt DateTime @default(now())
 
   @@index([invoiceId])
+}
+
+// --- CONTRACTOR HOURS LOG (self-reported work sessions; legal records, append-only) ---
+
+// Access control only (which clients a contractor may log hours against) — not a legal
+// record; the hours entry snapshots clientName so deleting an assignment/client never
+// destroys evidence.
+model ContractorClientAssignment {
+  id           String     @id @default(cuid())
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  clientId     String
+  client       Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdBy    String // team member name
+  createdAt    DateTime   @default(now())
+
+  @@unique([contractorId, clientId])
+  @@index([clientId])
+}
+
+// Append-only: no update or delete path exists for submitted entries. Mistakes are
+// fixed by a correction entry pointing at the original via correctsId.
+model ContractorHoursEntry {
+  id           String     @id @default(cuid())
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  // Client tag: SetNull + name snapshot so the record survives client deletion.
+  clientId   String?
+  client     Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientName String? // snapshot at submit time; null client = general/internal work
+
+  // Time, dual representation: UTC instants for math + the literal values the
+  // contractor typed in their own timezone (workDate is a plain string on purpose —
+  // avoids the repo's UTC-midnight date rendering trap).
+  startAt          DateTime
+  endAt            DateTime
+  durationMinutes  Int
+  workDate         String // "YYYY-MM-DD" as typed
+  startLocal       String // "HH:mm" as typed
+  endLocal         String // "HH:mm" as typed
+  timezone         String // IANA zone from the contractor's browser
+  utcOffsetMinutes Int
+
+  description String @db.Text
+
+  // Legal attestation captured at submit time (exact wording stored on the row)
+  attestationText String
+  attestedAt      DateTime
+
+  status ContractorHoursStatus @default(LOGGED)
+
+  reviewedAt DateTime?
+  reviewedBy String? // team member who marked reviewed/disputed
+
+  // Correction chain: a correction is a NEW attested entry; the original is never
+  // mutated. @unique = an entry can be corrected at most once.
+  correctsId  String?               @unique
+  corrects    ContractorHoursEntry? @relation("HoursCorrection", fields: [correctsId], references: [id], onDelete: SetNull)
+  correctedBy ContractorHoursEntry? @relation("HoursCorrection")
+
+  // Submission audit (legal record of who sent what, when, from where)
+  submittedAt     DateTime @default(now())
+  submitIp        String?
+  submitUserAgent String?  @db.Text
+
+  notes  ContractorHoursNote[]
+  audits ContractorHoursAudit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contractorId, startAt])
+  @@index([clientId])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+enum ContractorHoursStatus {
+  LOGGED
+  REVIEWED
+  DISPUTED
+}
+
+model ContractorHoursNote {
+  id      String               @id @default(cuid())
+  entryId String
+  entry   ContractorHoursEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  author  String // team member name or "contractor"
+  body    String               @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([entryId])
+}
+
+// Immutable event trail (who did what, when, from where) for legal records
+model ContractorHoursAudit {
+  id        String               @id @default(cuid())
+  entryId   String
+  entry     ContractorHoursEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  event     String // "logged", "corrected_by", "marked_reviewed", "marked_disputed", "marked_logged", "note_added", "client_reassigned"
+  actor     String // team member name or "contractor"
+  ipAddress String?
+  userAgent String?              @db.Text
+  metadata  String?              @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([entryId])
 }
 
 // --- LIFECYCLE SYSTEM (sequences, templates, scheduled steps, settings) ---
@@ -1108,4 +1233,121 @@ model Setting {
   value     Json
   updatedBy String?
   updatedAt DateTime @updatedAt
+}
+
+// --- TAX COMPLIANCE (multi-country deadline catalog + per-person form tracking) ---
+// Informational tracking only — not tax advice; nothing here generates or files forms.
+
+// Blok Blok's own tax identities (US LLC in Texas, DE freelancer, ...)
+model TaxProfile {
+  id         String  @id @default(cuid())
+  country    String // ISO 3166-1 alpha-2
+  label      String // "BlokBlok LLC (Texas)"
+  entityType String // "llc", "freelancer", ...
+  flags      Json // { state: "TX" } / { kleinunternehmer: true, steuerberater: true }
+  active     Boolean @default(true)
+
+  obligations  TaxObligation[]
+  taxDocuments TaxDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Editable deadline catalog. Shipped rows live in src/lib/tax/obligations-source.ts
+// ("reset to source" restores them); the DB row is what the reminder engine reads.
+model TaxObligation {
+  id        String        @id @default(cuid())
+  key       String        @unique // stable id from obligations-source.ts, e.g. "us-1099-nec"
+  country   String // ISO 3166-1 alpha-2
+  appliesTo TaxAppliesTo
+  profileId String?
+  profile   TaxProfile?   @relation(fields: [profileId], references: [id], onDelete: SetNull)
+
+  name        String
+  formName    String?
+  description String       @db.Text
+  frequency   TaxFrequency
+  // Due-date rules: ANNUAL/ONE_TIME = [{month, day}], QUARTERLY = 4 of those,
+  // MONTHLY = [{dayOfMonth}], WATCH = [] (threshold checks, no fixed date).
+  dueRules    Json
+  // When submission opens (e.g. IRS e-file opening late January); reminder stage 0.
+  earliestOpen Json?
+
+  sourceUrls        String[] @default([])
+  verifyWithAdvisor Boolean  @default(false)
+  enabled           Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([country])
+  @@index([enabled])
+}
+
+enum TaxAppliesTo {
+  SELF // Blok Blok's own filing
+  CONTRACTOR // paperwork for people we pay
+  CLIENT // paperwork for people who pay us
+}
+
+enum TaxFrequency {
+  ANNUAL
+  QUARTERLY
+  MONTHLY
+  ONE_TIME
+  WATCH // threshold/status watch with no fixed due date
+}
+
+// Per-person form tracking, both directions (they send us / we send them).
+model TaxDocument {
+  id           String      @id @default(cuid())
+  contractorId String?
+  contractor   Contractor? @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  clientId     String?
+  client       Client?     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  profileId    String?
+  profile      TaxProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+
+  direction TaxDocDirection
+  type      String // "W9", "W8BEN", "PAYMENT_SUMMARY", "RECHNUNG_INFO", ...
+  status    TaxDocStatus    @default(REQUESTED)
+
+  // Optional uploaded file — AES-256-GCM encrypted at rest like contractor invoices
+  fileUrl      String?
+  filename     String?
+  contentType  String?
+  size         Int?
+  encrypted    Boolean @default(false)
+  encryptionIv String?
+
+  validUntil DateTime? // e.g. W-8BEN = 3 years from signing
+  requestedAt DateTime @default(now())
+  receivedAt  DateTime?
+
+  // Stamped when uploaded through the public contractor portal
+  submitIp        String?
+  submitUserAgent String? @db.Text
+
+  note String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contractorId])
+  @@index([clientId])
+  @@index([status])
+}
+
+enum TaxDocDirection {
+  INBOUND // they provide it to us
+  OUTBOUND // we provide it to them
+}
+
+enum TaxDocStatus {
+  REQUESTED
+  RECEIVED
+  SENT
+  EXPIRED
+  NA
 }

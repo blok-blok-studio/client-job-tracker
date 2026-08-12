@@ -20,6 +20,8 @@ import {
   Lock,
   ScanLine,
   AlertTriangle,
+  Timer,
+  Undo2,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
@@ -72,6 +74,38 @@ interface InvoiceRow {
   audits: InvoiceAudit[];
 }
 
+interface HoursRow {
+  id: string;
+  clientId: string | null;
+  clientName: string | null;
+  startAt: string;
+  endAt: string;
+  durationMinutes: number;
+  workDate: string;
+  startLocal: string;
+  endLocal: string;
+  timezone: string;
+  utcOffsetMinutes: number;
+  description: string;
+  attestationText: string;
+  attestedAt: string;
+  status: "LOGGED" | "REVIEWED" | "DISPUTED";
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  correctsId: string | null;
+  correctedBy: { id: string } | null;
+  submittedAt: string;
+  submitIp: string | null;
+  notes: InvoiceNote[];
+  audits: InvoiceAudit[];
+}
+
+interface AssignmentRow {
+  id: string;
+  clientId: string;
+  client: { id: string; name: string };
+}
+
 interface ContractorRow {
   id: string;
   name: string;
@@ -83,6 +117,8 @@ interface ContractorRow {
   uploadToken: string;
   createdAt: string;
   invoices: InvoiceRow[];
+  hoursEntries: HoursRow[];
+  clientAssignments: AssignmentRow[];
 }
 
 const STATUS_TABS = [
@@ -92,9 +128,22 @@ const STATUS_TABS = [
   { key: "ALL", label: "All" },
 ];
 
+const HOURS_TABS = [
+  { key: "LOGGED", label: "Logged" },
+  { key: "REVIEWED", label: "Reviewed" },
+  { key: "DISPUTED", label: "Disputed" },
+  { key: "ALL", label: "All" },
+];
+
 const statusVariant: Record<string, "green" | "yellow" | "red"> = {
   PENDING: "yellow",
   PAID: "green",
+  DISPUTED: "red",
+};
+
+const hoursStatusVariant: Record<string, "green" | "yellow" | "red"> = {
+  LOGGED: "yellow",
+  REVIEWED: "green",
   DISPUTED: "red",
 };
 
@@ -108,7 +157,42 @@ const AUDIT_LABELS: Record<string, string> = {
   scanned: "Document scanned",
   scan_failed: "Document scan failed",
   file_viewed: "File viewed",
+  logged: "Hours logged",
+  corrected_by: "Replaced by a correction",
+  marked_reviewed: "Marked as reviewed",
+  marked_disputed: "Marked as disputed",
+  marked_logged: "Returned to logged",
+  client_reassigned: "Client tag changed",
 };
+
+function fmtDuration(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
+}
+
+// "Typically works 09:00–14:00 (Europe/Berlin)" from the median start/end of the
+// contractor's recent uncorrected entries — the meeting-scheduling signal.
+function typicalHours(entries: HoursRow[]) {
+  const recent = entries.filter((e) => !e.correctedBy).slice(0, 20);
+  if (recent.length < 3) return null;
+  const toMin = (t: string) => parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 10);
+  const median = (xs: number[]) => {
+    const s = [...xs].sort((a, b) => a - b);
+    return s[Math.floor(s.length / 2)];
+  };
+  const p = (n: number) => String(n).padStart(2, "0");
+  const fmt = (mins: number) => `${p(Math.floor(mins / 60) % 24)}:${p(mins % 60)}`;
+  const zoneCounts = new Map<string, number>();
+  for (const e of recent) zoneCounts.set(e.timezone, (zoneCounts.get(e.timezone) || 0) + 1);
+  const zone = [...zoneCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  return {
+    start: fmt(median(recent.map((e) => toMin(e.startLocal)))),
+    end: fmt(median(recent.map((e) => toMin(e.endLocal)))),
+    zone,
+    sample: recent.length,
+  };
+}
 
 const SCAN_LABELS: Record<InvoiceRow["scanStatus"], { label: string; tone: "green" | "yellow" | "red" | "gray" }> = {
   PENDING: { label: "Scanning…", tone: "gray" },
@@ -140,6 +224,7 @@ function ts(date: string) {
 export default function ContractorsPage() {
   const [loading, setLoading] = useState(true);
   const [contractors, setContractors] = useState<ContractorRow[]>([]);
+  const [view, setView] = useState<"invoices" | "hours">("invoices");
   const [statusTab, setStatusTab] = useState("PENDING");
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -150,7 +235,7 @@ export default function ContractorsPage() {
   const { toast } = useToast();
 
   // Add-contractor form
-  const [form, setForm] = useState({ name: "", email: "", company: "", phone: "", notes: "" });
+  const [form, setForm] = useState({ name: "", email: "", company: "", phone: "", notes: "", country: "" });
   const [saving, setSaving] = useState(false);
 
   // Detail modal state
@@ -158,6 +243,19 @@ export default function ContractorsPage() {
   const [paymentRef, setPaymentRef] = useState("");
   const [busy, setBusy] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
+
+  // Hours view state
+  const [hoursTab, setHoursTab] = useState("LOGGED");
+  const [hoursClientFilter, setHoursClientFilter] = useState("ALL");
+  const [selectedHoursId, setSelectedHoursId] = useState<string | null>(null);
+  const [hoursNoteDraft, setHoursNoteDraft] = useState("");
+  const [disputeDraft, setDisputeDraft] = useState<string | null>(null); // null = dispute form closed
+  const [retagId, setRetagId] = useState<string | null>(null); // null = retag select closed
+  const [showHoursAudit, setShowHoursAudit] = useState(false);
+
+  // All clients (for assignment checklist + retag); loaded once
+  const [clientOptions, setClientOptions] = useState<{ id: string; name: string }[]>([]);
+  const [assignDraft, setAssignDraft] = useState<Set<string> | null>(null);
 
   const fetchContractors = useCallback(async () => {
     try {
@@ -173,20 +271,37 @@ export default function ContractorsPage() {
 
   useEffect(() => {
     fetchContractors();
+    fetch("/api/clients")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setClientOptions(
+            (d.data as { id: string; name: string }[])
+              .map((c) => ({ id: c.id, name: c.name }))
+              .sort((a, b) => a.name.localeCompare(b.name))
+          );
+        }
+      })
+      .catch(() => {});
   }, [fetchContractors]);
 
-  // Deep links: /contractors?invoice=<id> or ?contractor=<id> open the matching
-  // modal once data is in (used by ⌘K search and the Activity feed)
+  // Deep links: /contractors?invoice=<id>, ?hours=<id>, or ?contractor=<id> open
+  // the matching modal once data is in (used by ⌘K search, Slack, and Activity)
   const deepLinked = useRef(false);
   useEffect(() => {
     if (loading || deepLinked.current) return;
     deepLinked.current = true;
     const sp = new URLSearchParams(window.location.search);
     const invoiceId = sp.get("invoice");
+    const hoursId = sp.get("hours");
     const contractorId = sp.get("contractor");
     if (invoiceId && contractors.some((c) => c.invoices.some((i) => i.id === invoiceId))) {
       setStatusTab("ALL");
       setSelectedId(invoiceId);
+    } else if (hoursId && contractors.some((c) => c.hoursEntries.some((h) => h.id === hoursId))) {
+      setView("hours");
+      setHoursTab("ALL");
+      setSelectedHoursId(hoursId);
     } else if (contractorId) {
       const c = contractors.find((c) => c.id === contractorId);
       if (c) setManaging(c);
@@ -201,9 +316,27 @@ export default function ContractorsPage() {
     [contractors]
   );
 
+  const allHours = useMemo(
+    () =>
+      contractors.flatMap((c) =>
+        (c.hoursEntries || []).map((h) => ({
+          ...h,
+          contractorName: c.name,
+          contractorCompany: c.company,
+          contractorId: c.id,
+        }))
+      ),
+    [contractors]
+  );
+
   const selected = useMemo(
     () => allInvoices.find((i) => i.id === selectedId) || null,
     [allInvoices, selectedId]
+  );
+
+  const selectedHours = useMemo(
+    () => allHours.find((h) => h.id === selectedHoursId) || null,
+    [allHours, selectedHoursId]
   );
 
   // Keep the payment-ref input in sync when opening an invoice
@@ -212,6 +345,14 @@ export default function ContractorsPage() {
     setNoteDraft("");
     setShowAudit(false);
   }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset per-entry modal state when opening an hours entry
+  useEffect(() => {
+    setHoursNoteDraft("");
+    setDisputeDraft(null);
+    setRetagId(null);
+    setShowHoursAudit(false);
+  }, [selectedHoursId]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -247,6 +388,48 @@ export default function ContractorsPage() {
     };
   }, [allInvoices, contractors]);
 
+  const filteredHours = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return allHours
+      .filter((h) => {
+        if (hoursTab !== "ALL" && (h.status !== hoursTab || h.correctedBy)) return false;
+        if (hoursClientFilter === "GENERAL" && h.clientId) return false;
+        if (hoursClientFilter !== "ALL" && hoursClientFilter !== "GENERAL" && h.clientId !== hoursClientFilter)
+          return false;
+        if (q) {
+          const hay = `${h.contractorName} ${h.contractorCompany || ""} ${h.clientName || ""} ${h.description}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
+  }, [allHours, hoursTab, hoursClientFilter, search]);
+
+  const hoursSummary = useMemo(() => {
+    // Corrected entries are excluded everywhere — the correction carries the hours
+    const live = allHours.filter((h) => !h.correctedBy);
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const mins = (list: typeof live) => list.reduce((s, h) => s + h.durationMinutes, 0);
+    return {
+      weekMinutes: mins(live.filter((h) => new Date(h.startAt) >= weekStart)),
+      monthMinutes: mins(live.filter((h) => new Date(h.startAt) >= monthStart)),
+      awaitingReview: live.filter((h) => h.status === "LOGGED").length,
+      disputed: live.filter((h) => h.status === "DISPUTED").length,
+    };
+  }, [allHours]);
+
+  const hoursClientChoices = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const h of allHours) {
+      if (h.clientId && h.clientName) seen.set(h.clientId, h.clientName);
+    }
+    return [...seen.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [allHours]);
+
   function uploadLink(token: string) {
     return `${window.location.origin}/i/${token}`;
   }
@@ -274,7 +457,7 @@ export default function ContractorsPage() {
       const json = await res.json();
       if (res.ok && json.success) {
         setShowAdd(false);
-        setForm({ name: "", email: "", company: "", phone: "", notes: "" });
+        setForm({ name: "", email: "", company: "", phone: "", notes: "", country: "" });
         toast("Contractor added — copy their upload link from the card", "success");
         fetchContractors();
       } else {
@@ -345,6 +528,50 @@ export default function ContractorsPage() {
     }
   }
 
+  async function patchHours(id: string, payload: Record<string, unknown>, okMessage: string) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/contractors/hours/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast(okMessage, "success");
+        setDisputeDraft(null);
+        setRetagId(null);
+        await fetchContractors();
+      } else {
+        toast(json?.error || "Update failed", "error");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addHoursNote() {
+    if (!selectedHours || !hoursNoteDraft.trim() || busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/contractors/hours/${selectedHours.id}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: hoursNoteDraft }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setHoursNoteDraft("");
+        await fetchContractors();
+      } else {
+        toast(json?.error || "Failed to add note", "error");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function patchContractor(id: string, payload: Record<string, unknown>, okMessage: string) {
     if (busy) return;
     setBusy(true);
@@ -388,24 +615,61 @@ export default function ContractorsPage() {
 
   return (
     <div>
-      <TopBar title="Contractors" subtitle="Contractor invoices — uploads, payment status, and audit trail" />
+      <TopBar
+        title="Contractors"
+        subtitle={
+          view === "invoices"
+            ? "Contractor invoices — uploads, payment status, and audit trail"
+            : "Contractor hours — self-reported work sessions with attestation and audit trail"
+        }
+      />
       <div className="px-4 lg:px-6 space-y-4">
+        {/* Invoices / Hours view toggle */}
+        <div className="flex gap-1 bg-bb-surface border border-bb-border rounded-lg p-1 w-fit">
+          {(
+            [
+              { key: "invoices", label: "Invoices", icon: Receipt },
+              { key: "hours", label: "Hours", icon: Timer },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setView(t.key)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors",
+                view === t.key ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white"
+              )}
+            >
+              <t.icon size={14} />
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         {/* Summary tiles */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label: "Pending Invoices", value: summary.pendingCount, icon: Clock },
-            {
-              label: "Pending Total",
-              value: `$${summary.pendingTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-              icon: Receipt,
-            },
-            {
-              label: "Paid This Month",
-              value: `$${summary.paidMonthTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-              icon: Wallet,
-            },
-            { label: "Active Contractors", value: summary.contractors, icon: HardHat },
-          ].map((tile) => (
+          {(view === "invoices"
+            ? [
+                { label: "Pending Invoices", value: summary.pendingCount as string | number, icon: Clock },
+                {
+                  label: "Pending Total",
+                  value: `$${summary.pendingTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                  icon: Receipt,
+                },
+                {
+                  label: "Paid This Month",
+                  value: `$${summary.paidMonthTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                  icon: Wallet,
+                },
+                { label: "Active Contractors", value: summary.contractors, icon: HardHat },
+              ]
+            : [
+                { label: "Hours This Week", value: fmtDuration(hoursSummary.weekMinutes), icon: Timer },
+                { label: "Hours This Month", value: fmtDuration(hoursSummary.monthMinutes), icon: Clock },
+                { label: "Awaiting Review", value: hoursSummary.awaitingReview, icon: ShieldCheck },
+                { label: "Disputed", value: hoursSummary.disputed, icon: AlertTriangle },
+              ]
+          ).map((tile) => (
             <div key={tile.label} className="bg-bb-surface border border-bb-border rounded-lg p-4 flex items-center gap-3">
               <tile.icon size={18} className="text-bb-orange shrink-0" />
               <div className="min-w-0">
@@ -473,32 +737,113 @@ export default function ContractorsPage() {
         {/* Status tabs + search */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <div className="flex gap-1 bg-bb-surface border border-bb-border rounded-lg p-1 overflow-x-auto w-full sm:w-auto">
-            {STATUS_TABS.map((tab) => (
+            {(view === "invoices" ? STATUS_TABS : HOURS_TABS).map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setStatusTab(tab.key)}
+                onClick={() => (view === "invoices" ? setStatusTab(tab.key) : setHoursTab(tab.key))}
                 className={cn(
                   "px-3 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap",
-                  statusTab === tab.key ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white"
+                  (view === "invoices" ? statusTab : hoursTab) === tab.key
+                    ? "bg-bb-orange text-white"
+                    : "text-bb-muted hover:text-white"
                 )}
               >
                 {tab.label}
               </button>
             ))}
           </div>
+          {view === "hours" && (
+            <select
+              value={hoursClientFilter}
+              onChange={(e) => setHoursClientFilter(e.target.value)}
+              className="px-3 py-2 bg-bb-surface border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 [color-scheme:dark]"
+            >
+              <option value="ALL">All clients</option>
+              <option value="GENERAL">General / internal</option>
+              {hoursClientChoices.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
           <div className="relative flex-1 w-full">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-bb-dim" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search contractors, invoice numbers, files..."
+              placeholder={
+                view === "invoices"
+                  ? "Search contractors, invoice numbers, files..."
+                  : "Search contractors, clients, work descriptions..."
+              }
               className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
             />
           </div>
         </div>
 
+        {/* Hours list */}
+        {view === "hours" && (
+          <div className="space-y-2 pb-8">
+            {loading ? (
+              <div className="text-center py-12 text-bb-dim">Loading hours…</div>
+            ) : filteredHours.length === 0 ? (
+              <div className="text-center py-12 text-bb-dim flex flex-col items-center gap-2">
+                <Timer size={32} className="text-bb-dim/50" />
+                <p>
+                  {allHours.length === 0
+                    ? "No hours logged yet. Contractors log their work sessions from the same private link they use for invoices."
+                    : "Nothing matches these filters."}
+                </p>
+              </div>
+            ) : (
+              filteredHours.map((h) => {
+                const corrected = !!h.correctedBy;
+                return (
+                  <button
+                    key={h.id}
+                    onClick={() => setSelectedHoursId(h.id)}
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 bg-bb-surface border border-bb-border hover:border-bb-orange/50 rounded-lg transition-colors text-left",
+                      corrected && "opacity-50"
+                    )}
+                  >
+                    <Timer size={18} className="text-bb-orange shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white truncate">
+                        <span className="font-medium">{h.contractorName}</span>
+                        <span className="text-white font-medium"> &middot; {fmtDuration(h.durationMinutes)}</span>
+                        <span className="text-bb-muted">
+                          {" "}
+                          &middot; {h.workDate}, {h.startLocal}–{h.endLocal}
+                        </span>
+                        <span className="text-bb-muted"> &middot; {h.clientName || "General"}</span>
+                      </p>
+                      <p className="text-[11px] text-bb-dim flex items-center gap-1 flex-wrap">
+                        <Clock size={10} />
+                        {h.timezone} &middot; Submitted {ts(h.submittedAt)}
+                        {h.correctsId && <span className="text-blue-400/80">&middot; Correction</span>}
+                        {h.status === "REVIEWED" && h.reviewedAt && (
+                          <span className="text-green-400/80">
+                            &middot; Reviewed {ts(h.reviewedAt)} {h.reviewedBy ? `by ${h.reviewedBy}` : ""}
+                          </span>
+                        )}
+                        {h.notes.length > 0 && (
+                          <span>&middot; {h.notes.length} note{h.notes.length === 1 ? "" : "s"}</span>
+                        )}
+                      </p>
+                    </div>
+                    <Badge variant={corrected ? "gray" : hoursStatusVariant[h.status] as "green" | "yellow" | "red"}>
+                      {corrected ? "CORRECTED" : h.status}
+                    </Badge>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+
         {/* Invoice list */}
+        {view === "invoices" && (
         <div className="space-y-2 pb-8">
           {loading ? (
             <div className="text-center py-12 text-bb-dim">Loading invoices…</div>
@@ -552,6 +897,7 @@ export default function ContractorsPage() {
             ))
           )}
         </div>
+        )}
       </div>
 
       {/* Add contractor modal */}
@@ -576,6 +922,29 @@ export default function ContractorsPage() {
               />
             </div>
           ))}
+          <div>
+            <label className="block text-xs text-bb-muted mb-1">Country (tax residency)</label>
+            <select
+              value={form.country}
+              onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 [color-scheme:dark]"
+            >
+              <option value="">Not set</option>
+              <option value="US">United States</option>
+              <option value="DE">Germany</option>
+              <option value="GB">United Kingdom</option>
+              <option value="CA">Canada</option>
+              <option value="CH">Switzerland</option>
+              <option value="AT">Austria</option>
+              <option value="FR">France</option>
+              <option value="NL">Netherlands</option>
+              <option value="ES">Spain</option>
+              <option value="MX">Mexico</option>
+            </select>
+            <p className="text-[10px] text-bb-dim mt-1">
+              Sets which tax forms get requested (US → W-9, elsewhere → W-8BEN). Manageable later on Compliance.
+            </p>
+          </div>
           <div>
             <label className="block text-xs text-bb-muted mb-1">Notes</label>
             <textarea
@@ -608,7 +977,10 @@ export default function ContractorsPage() {
       {/* Manage contractor modal */}
       <Modal
         open={!!managing}
-        onClose={() => setManaging(null)}
+        onClose={() => {
+          setManaging(null);
+          setAssignDraft(null);
+        }}
         title={managing ? managing.name : "Contractor"}
       >
         {managing && (
@@ -619,6 +991,15 @@ export default function ContractorsPage() {
               {managing.phone && <p>{managing.phone}</p>}
               {managing.notes && <p className="text-bb-muted pt-1">{managing.notes}</p>}
               <p className="pt-1">Added {ts(managing.createdAt)}</p>
+              {(() => {
+                const t = typicalHours(managing.hoursEntries || []);
+                return t ? (
+                  <p className="text-bb-muted pt-1 flex items-center gap-1">
+                    <Timer size={11} className="text-bb-orange" />
+                    Typically works {t.start}–{t.end} ({t.zone}, last {t.sample} entries)
+                  </p>
+                ) : null;
+              })()}
             </div>
 
             <div className="bg-bb-black border border-bb-border rounded-lg p-3 space-y-2">
@@ -642,6 +1023,60 @@ export default function ContractorsPage() {
                   )}
                 </button>
               </div>
+            </div>
+
+            {/* Client assignments — which clients this contractor can log hours against */}
+            <div className="bg-bb-black border border-bb-border rounded-lg p-3 space-y-2">
+              <p className="text-xs text-bb-muted flex items-center gap-1.5">
+                <Timer size={12} className="text-bb-orange" />
+                Hours log — clients {managing.name.split(" ")[0]} can log time against
+              </p>
+              {clientOptions.length === 0 ? (
+                <p className="text-[11px] text-bb-dim">No clients yet.</p>
+              ) : (
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {clientOptions.map((c) => {
+                    const current =
+                      assignDraft ?? new Set((managing.clientAssignments || []).map((a) => a.clientId));
+                    const checked = current.has(c.id);
+                    return (
+                      <label
+                        key={c.id}
+                        className="flex items-center gap-2 text-xs text-white cursor-pointer hover:text-bb-orange transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const next = new Set(current);
+                            if (checked) next.delete(c.id);
+                            else next.add(c.id);
+                            setAssignDraft(next);
+                          }}
+                          className="accent-orange-500"
+                        />
+                        {c.name}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {assignDraft && (
+                <button
+                  onClick={() =>
+                    patchContractor(managing.id, { clientIds: [...assignDraft] }, "Client assignments saved").then(
+                      () => setAssignDraft(null)
+                    )
+                  }
+                  disabled={busy}
+                  className="px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                >
+                  Save assignments
+                </button>
+              )}
+              <p className="text-[10px] text-bb-dim">
+                Unassigned work can still be logged as General / internal and retagged here later.
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -669,7 +1104,7 @@ export default function ContractorsPage() {
                 <RefreshCw size={12} />
                 Rotate link
               </button>
-              {managing.invoices.length === 0 && (
+              {managing.invoices.length === 0 && (managing.hoursEntries || []).length === 0 && (
                 <button
                   onClick={() => setConfirmDelete(true)}
                   disabled={busy}
@@ -680,10 +1115,12 @@ export default function ContractorsPage() {
                 </button>
               )}
             </div>
-            {managing.invoices.length > 0 && (
+            {(managing.invoices.length > 0 || (managing.hoursEntries || []).length > 0) && (
               <p className="text-[10px] text-bb-dim">
-                {managing.invoices.length} invoice{managing.invoices.length === 1 ? "" : "s"} on record — contractors
-                with invoices can be deactivated but not deleted (legal records).
+                {managing.invoices.length} invoice{managing.invoices.length === 1 ? "" : "s"} and{" "}
+                {(managing.hoursEntries || []).length} hours entr
+                {(managing.hoursEntries || []).length === 1 ? "y" : "ies"} on record — contractors with records
+                can be deactivated but not deleted (legal records).
               </p>
             )}
           </div>
@@ -933,6 +1370,250 @@ export default function ContractorsPage() {
               {showAudit && (
                 <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
                   {selected.audits.map((a) => (
+                    <div key={a.id} className="flex items-start gap-2 text-[11px] bg-bb-black border border-bb-border rounded-lg px-2.5 py-1.5">
+                      <span className="text-bb-dim shrink-0 w-36">{ts(a.createdAt)}</span>
+                      <span className="text-white">
+                        {AUDIT_LABELS[a.event] || a.event}
+                        <span className="text-bb-dim"> — {a.actor}</span>
+                        {a.ipAddress && <span className="text-bb-dim"> ({a.ipAddress})</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Hours entry detail modal */}
+      <Modal
+        open={!!selectedHours}
+        onClose={() => setSelectedHoursId(null)}
+        title={
+          selectedHours
+            ? `${selectedHours.contractorName} — ${selectedHours.workDate}, ${fmtDuration(selectedHours.durationMinutes)}`
+            : "Hours"
+        }
+        className="max-w-2xl"
+      >
+        {selectedHours && (
+          <div className="space-y-4">
+            {/* Status + actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge
+                variant={selectedHours.correctedBy ? "gray" : hoursStatusVariant[selectedHours.status] as "green" | "yellow" | "red"}
+              >
+                {selectedHours.correctedBy ? "CORRECTED" : selectedHours.status}
+              </Badge>
+              {selectedHours.correctedBy ? (
+                <button
+                  onClick={() => setSelectedHoursId(selectedHours.correctedBy!.id)}
+                  className="px-3 py-1.5 border border-bb-border text-bb-muted hover:text-white text-xs rounded-md transition-colors"
+                >
+                  View the correction
+                </button>
+              ) : (
+                <>
+                  {selectedHours.status !== "REVIEWED" && (
+                    <button
+                      onClick={() => patchHours(selectedHours.id, { status: "REVIEWED" }, "Marked as reviewed")}
+                      disabled={busy}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                    >
+                      <Check size={13} />
+                      Mark Reviewed
+                    </button>
+                  )}
+                  {selectedHours.status !== "DISPUTED" && (
+                    <button
+                      onClick={() => setDisputeDraft(disputeDraft === null ? "" : null)}
+                      disabled={busy}
+                      className="px-3 py-1.5 border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs rounded-md transition-colors disabled:opacity-50"
+                    >
+                      Dispute
+                    </button>
+                  )}
+                  {selectedHours.status !== "LOGGED" && (
+                    <button
+                      onClick={() => patchHours(selectedHours.id, { status: "LOGGED" }, "Returned to logged")}
+                      disabled={busy}
+                      className="flex items-center gap-1 px-3 py-1.5 border border-bb-border text-bb-muted hover:text-white text-xs rounded-md transition-colors disabled:opacity-50"
+                    >
+                      <Undo2 size={12} />
+                      Undo
+                    </button>
+                  )}
+                </>
+              )}
+              {selectedHours.correctsId && (
+                <button
+                  onClick={() => setSelectedHoursId(selectedHours.correctsId)}
+                  className="ml-auto px-3 py-1.5 border border-bb-border text-bb-muted hover:text-white text-xs rounded-md transition-colors"
+                >
+                  View original entry
+                </button>
+              )}
+            </div>
+
+            {/* Dispute requires a reason — it lands in the notes thread + Slack */}
+            {disputeDraft !== null && (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={disputeDraft}
+                  onChange={(e) => setDisputeDraft(e.target.value)}
+                  placeholder="Why is this entry being disputed? (required)"
+                  className="flex-1 px-3 py-2 bg-bb-black border border-red-500/30 rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                />
+                <button
+                  onClick={() =>
+                    patchHours(selectedHours.id, { status: "DISPUTED", note: disputeDraft }, "Marked as disputed")
+                  }
+                  disabled={busy || !disputeDraft.trim()}
+                  className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                >
+                  Confirm dispute
+                </button>
+              </div>
+            )}
+
+            {/* Facts grid — the legal record */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs bg-bb-black border border-bb-border rounded-lg p-3">
+              <div>
+                <p className="text-bb-dim">Worked</p>
+                <p className="text-white font-medium">
+                  {selectedHours.workDate}, {selectedHours.startLocal}–{selectedHours.endLocal}
+                </p>
+              </div>
+              <div>
+                <p className="text-bb-dim">Duration</p>
+                <p className="text-white font-medium">{fmtDuration(selectedHours.durationMinutes)}</p>
+              </div>
+              <div>
+                <p className="text-bb-dim">Timezone</p>
+                <p className="text-white">{selectedHours.timezone}</p>
+              </div>
+              <div>
+                <p className="text-bb-dim">Client</p>
+                <p className="text-white flex items-center gap-1.5">
+                  {selectedHours.clientName || "General / internal"}
+                  <button
+                    onClick={() => setRetagId(retagId === null ? selectedHours.clientId || "" : null)}
+                    className="text-bb-dim hover:text-bb-orange transition-colors"
+                    title="Change client tag (audited)"
+                  >
+                    <RefreshCw size={10} />
+                  </button>
+                </p>
+              </div>
+              <div>
+                <p className="text-bb-dim">Submitted</p>
+                <p className="text-white">{ts(selectedHours.submittedAt)}</p>
+              </div>
+              <div>
+                <p className="text-bb-dim">Submitted from IP</p>
+                <p className="text-white">{selectedHours.submitIp || "—"}</p>
+              </div>
+              <div>
+                <p className="text-bb-dim">Reviewed</p>
+                <p className="text-white">
+                  {selectedHours.reviewedAt
+                    ? `${ts(selectedHours.reviewedAt)}${selectedHours.reviewedBy ? ` by ${selectedHours.reviewedBy}` : ""}`
+                    : "—"}
+                </p>
+              </div>
+            </div>
+
+            {/* Client retag */}
+            {retagId !== null && (
+              <div className="flex gap-2">
+                <select
+                  value={retagId}
+                  onChange={(e) => setRetagId(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 [color-scheme:dark]"
+                >
+                  <option value="">General / internal</option>
+                  {clientOptions.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() =>
+                    patchHours(selectedHours.id, { clientId: retagId || null }, "Client tag updated")
+                  }
+                  disabled={busy || (retagId || null) === selectedHours.clientId}
+                  className="px-3 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                >
+                  Save
+                </button>
+              </div>
+            )}
+
+            {/* What they worked on */}
+            <p className="text-xs text-bb-muted bg-bb-black border border-bb-border rounded-lg p-3 whitespace-pre-wrap">
+              {selectedHours.description}
+            </p>
+
+            {/* Attestation — the legal certification */}
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg border bg-green-500/5 border-green-500/20 text-xs">
+              <ShieldCheck size={14} className="text-green-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-white">&ldquo;{selectedHours.attestationText}&rdquo;</p>
+                <p className="text-bb-dim mt-0.5">
+                  Attested {ts(selectedHours.attestedAt)}
+                  {selectedHours.submitIp ? ` from ${selectedHours.submitIp}` : ""}
+                </p>
+              </div>
+            </div>
+
+            {/* Notes thread */}
+            <div>
+              <p className="text-xs font-medium text-white mb-2">Notes</p>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {selectedHours.notes.length === 0 && (
+                  <p className="text-xs text-bb-dim">No notes yet — everything you write here is timestamped.</p>
+                )}
+                {selectedHours.notes.map((n) => (
+                  <div key={n.id} className="bg-bb-black border border-bb-border rounded-lg p-2.5">
+                    <p className="text-xs text-white whitespace-pre-wrap">{n.body}</p>
+                    <p className="text-[10px] text-bb-dim mt-1">
+                      {n.author} &middot; {ts(n.createdAt)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-2">
+                <input
+                  type="text"
+                  value={hoursNoteDraft}
+                  onChange={(e) => setHoursNoteDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addHoursNote()}
+                  placeholder="Add a note..."
+                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                />
+                <button
+                  onClick={addHoursNote}
+                  disabled={!hoursNoteDraft.trim() || busy}
+                  className="px-3 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Audit trail */}
+            <div>
+              <button
+                onClick={() => setShowHoursAudit((s) => !s)}
+                className="flex items-center gap-1.5 text-xs text-bb-dim hover:text-white transition-colors"
+              >
+                <ShieldCheck size={13} className="text-bb-orange" />
+                Audit trail ({selectedHours.audits.length} event{selectedHours.audits.length === 1 ? "" : "s"})
+              </button>
+              {showHoursAudit && (
+                <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
+                  {selectedHours.audits.map((a) => (
                     <div key={a.id} className="flex items-start gap-2 text-[11px] bg-bb-black border border-bb-border rounded-lg px-2.5 py-1.5">
                       <span className="text-bb-dim shrink-0 w-36">{ts(a.createdAt)}</span>
                       <span className="text-white">

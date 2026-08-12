@@ -39,7 +39,7 @@ export async function PATCH(
     allowedPages?: string[];
   } = {};
 
-  const VALID_PAGES = ["clients", "kanban", "my-tasks", "calendar", "content", "newsletter", "files", "vault", "money", "activity", "reports", "monthly-reports", "support"];
+  const VALID_PAGES = ["clients", "kanban", "my-tasks", "calendar", "content", "newsletter", "files", "vault", "money", "activity", "reports", "monthly-reports", "support", "contractors", "compliance"];
   if (body.allowedPages !== undefined) {
     if (session.role !== "OWNER")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

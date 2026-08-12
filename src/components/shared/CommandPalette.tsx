@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, Users, ClipboardList, FileText, Loader2, CornerDownLeft,
   LayoutDashboard, Columns3, CalendarDays, PenSquare, FolderOpen,
-  Package, FileSignature, HardHat, Receipt,
+  Package, FileSignature, HardHat, Receipt, Timer,
 } from "lucide-react";
 
 interface Results {
@@ -25,11 +25,21 @@ interface Results {
     currency: string;
     contractor: { name: string };
   }>;
+  contractorHours?: Array<{
+    id: string;
+    workDate: string;
+    startLocal: string;
+    endLocal: string;
+    durationMinutes: number;
+    clientName: string | null;
+    status: string;
+    contractor: { name: string };
+  }>;
 }
 
 const EMPTY: Results = {
   clients: [], tasks: [], files: [], deliverables: [], contracts: [], posts: [],
-  contractors: [], contractorInvoices: [],
+  contractors: [], contractorInvoices: [], contractorHours: [],
 };
 
 const QUICK_NAV = [
@@ -164,6 +174,19 @@ export default function CommandPalette() {
         }`,
         href: `/contractors?invoice=${inv.id}`,
       })),
+      ...(results.contractorHours ?? []).map((h) => {
+        const hrs = Math.floor(h.durationMinutes / 60);
+        const mins = h.durationMinutes % 60;
+        return {
+          key: `chours-${h.id}`,
+          icon: <Timer size={15} className="text-amber-400" />,
+          title: `${h.contractor.name} — ${h.workDate}, ${h.startLocal}–${h.endLocal}`,
+          subtitle: `logged hours · ${hrs ? `${hrs}h ` : ""}${mins ? `${mins}m` : ""} · ${h.status.toLowerCase()}${
+            h.clientName ? ` · ${h.clientName}` : ""
+          }`,
+          href: `/contractors?hours=${h.id}`,
+        };
+      }),
       ...results.files.map((f) => ({
         key: `file-${f.id}`,
         icon: <FileText size={15} className="text-purple-400" />,
@@ -218,7 +241,7 @@ export default function CommandPalette() {
                 go(items[highlight].href);
               }
             }}
-            placeholder="Search clients, tasks, deliverables, contracts, contractors, posts, files…"
+            placeholder="Search clients, tasks, deliverables, contracts, contractors, hours, posts, files…"
             className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder:text-bb-dim focus:outline-none"
           />
           <kbd className="hidden sm:block text-[10px] text-bb-dim bg-bb-elevated border border-bb-border rounded px-1.5 py-0.5">esc</kbd>

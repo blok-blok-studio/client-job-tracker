@@ -17,6 +17,10 @@ const patchSchema = z.object({
   trialScore: z.number().int().min(0).max(100).nullable().optional(),
   weeklyReviewDay: z.number().int().min(0).max(6).nullable().optional(),
   automationsPaused: z.boolean().optional(),
+  // Full replacement of the contractor's client assignments (hours-log access)
+  clientIds: z.array(z.string().max(64)).max(200).optional(),
+  country: z.string().length(2).nullable().optional().or(z.literal("")),
+  additionalCountries: z.array(z.string().length(2)).max(10).optional(),
 });
 
 // PATCH /api/contractors/[id] — edit details, pause the link, or rotate the token
@@ -55,6 +59,19 @@ export async function PATCH(
         ...(d.trialScore !== undefined && { trialScore: d.trialScore }),
         ...(d.weeklyReviewDay !== undefined && { weeklyReviewDay: d.weeklyReviewDay }),
         ...(d.automationsPaused !== undefined && { automationsPaused: d.automationsPaused }),
+        ...(d.country !== undefined && { country: d.country ? d.country.toUpperCase() : null }),
+        ...(d.additionalCountries !== undefined && {
+          additionalCountries: d.additionalCountries.map((c) => c.toUpperCase()),
+        }),
+        ...(d.clientIds !== undefined && {
+          clientAssignments: {
+            deleteMany: {},
+            create: d.clientIds.map((clientId) => ({
+              clientId,
+              createdBy: session?.name || "team",
+            })),
+          },
+        }),
       },
       include: {
         invoices: {
@@ -64,8 +81,31 @@ export async function PATCH(
             audits: { orderBy: { createdAt: "asc" } },
           },
         },
+        hoursEntries: {
+          orderBy: { startAt: "desc" },
+          take: 500,
+          include: {
+            notes: { orderBy: { createdAt: "asc" } },
+            audits: { orderBy: { createdAt: "asc" } },
+            correctedBy: { select: { id: true } },
+          },
+        },
+        clientAssignments: {
+          include: { client: { select: { id: true, name: true } } },
+        },
       },
     });
+
+    // Country assigned/changed → create the tax documents that country requires
+    if (d.country) {
+      const { ensureRequiredDocs } = await import("@/lib/tax/documents");
+      await ensureRequiredDocs({
+        kind: "contractor",
+        id,
+        country: d.country.toUpperCase(),
+        actor: session?.name || "team",
+      }).catch(() => {});
+    }
 
     // Lifecycle: agreement signed → schedule the contractor onboarding cadence (I)
     if (d.agreementSignedAt !== undefined) {
@@ -83,6 +123,16 @@ export async function PATCH(
           details: d.regenerateToken
             ? `Rotated upload link for ${contractor.name}`
             : `${d.isActive ? "Activated" : "Deactivated"} contractor ${contractor.name}`,
+        },
+      });
+    }
+
+    if (d.clientIds !== undefined) {
+      await prisma.activityLog.create({
+        data: {
+          actor: session?.name || "team",
+          action: "contractor_assignments_updated",
+          details: `Updated client assignments for ${contractor.name} (${d.clientIds.length} client${d.clientIds.length === 1 ? "" : "s"})`,
         },
       });
     }
@@ -105,16 +155,20 @@ export async function DELETE(
 
     const existing = await prisma.contractor.findUnique({
       where: { id },
-      select: { id: true, name: true, _count: { select: { invoices: true } } },
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { invoices: true, hoursEntries: true } },
+      },
     });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Contractor not found" }, { status: 404 });
     }
-    if (existing._count.invoices > 0) {
+    if (existing._count.invoices > 0 || existing._count.hoursEntries > 0) {
       return NextResponse.json(
         {
           success: false,
-          error: "This contractor has invoices on record. Deactivate them instead — invoices are kept as legal records.",
+          error: "This contractor has invoices or logged hours on record. Deactivate them instead — those are kept as legal records.",
         },
         { status: 400 }
       );

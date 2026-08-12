@@ -349,6 +349,25 @@ export async function GET(request: NextRequest) {
       console.error("[Cron] Playback backfill error:", err);
     }
 
+    // Tax deadline reminders + document chasers (dedupe markers make every run
+    // safe; the master switch in Settings gates actual Slack sends)
+    let taxReminders: { enabled: boolean; sent: string[]; wouldSend: string[] } = {
+      enabled: false,
+      sent: [],
+      wouldSend: [],
+    };
+    try {
+      const { processTaxReminders } = await import("@/lib/tax/reminders");
+      taxReminders = await processTaxReminders();
+      if (taxReminders.sent.length || taxReminders.wouldSend.length) {
+        console.log(
+          `[Cron] Tax reminders: ${taxReminders.sent.length} sent, ${taxReminders.wouldSend.length} pending master switch`
+        );
+      }
+    } catch (err) {
+      console.error("[Cron] Tax reminders error:", err);
+    }
+
     // Morning Slack digest — cron fires at UTC 0/6/12/18; only the 6:00 UTC
     // run (8am Berlin in summer) sends, so the channel gets one digest a day.
     let digestSent = false;
@@ -440,7 +459,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, reviewRemindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated, digestSent },
+      data: { recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, reviewRemindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated, digestSent, taxRemindersSent: taxReminders.sent.length, taxRemindersPending: taxReminders.wouldSend.length },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";
