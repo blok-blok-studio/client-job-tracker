@@ -62,8 +62,24 @@ async function main() {
     }
   }
 
+  // On --reset, also remove catalog rows whose key no longer exists in source
+  // (entries merged or retired during research updates)
+  let pruned = 0;
+  if (reset) {
+    const sourceKeys = OBLIGATION_SEEDS.map((o) => o.key);
+    const orphans = await prisma.taxObligation.findMany({
+      where: { key: { notIn: sourceKeys } },
+      select: { id: true, key: true },
+    });
+    for (const o of orphans) {
+      await prisma.taxObligation.delete({ where: { id: o.id } });
+      pruned++;
+      console.log(`- pruned ${o.key}`);
+    }
+  }
+
   console.log(
-    `Done: ${created} created, ${updated} reset, ${kept} kept as-is (${OBLIGATION_SEEDS.length} in source).`
+    `Done: ${created} created, ${updated} reset, ${kept} kept as-is, ${pruned} pruned (${OBLIGATION_SEEDS.length} in source).`
   );
 }
 

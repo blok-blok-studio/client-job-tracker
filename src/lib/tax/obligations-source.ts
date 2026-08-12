@@ -62,7 +62,7 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     name: "Federal income tax return",
     formName: "Form 1040 + Schedule C",
     description:
-      "Annual federal return; the single-member LLC reports on Schedule C. Due April 15 (weekend/holiday shifts apply). An extension (Form 4868) moves filing to October 15 but not payment. IRS e-file typically opens in late January — the earliest-submission reminder fires then.",
+      "Annual federal return; the single-member LLC and the German freelance activity BOTH report on Schedule C (worldwide income), with Schedule SE (or the totalization exemption statement) and Form 8995 for the QBI deduction (20%, now permanent; new $400 minimum deduction from 2026 — web design is not an SSTB). Reconcile Stripe's 1099-K gross to Schedule C receipts to avoid IRS mismatch letters. Due April 15 (weekend/holiday shifts apply); Form 4868 extends filing to October 15 but not payment. IRS e-file opens late January — the earliest-submission reminder fires then.",
     frequency: "ANNUAL",
     dueRules: [{ month: 4, day: 15 }],
     earliestOpen: { month: 1, day: 27 },
@@ -76,7 +76,7 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     name: "Quarterly estimated tax payments",
     formName: "Form 1040-ES",
     description:
-      "Estimated federal income + self-employment tax, paid quarterly: April 15, June 15, September 15, and January 15 of the following year. The January payment can be skipped if the annual return is filed and fully paid by January 31.",
+      "Estimated federal income + self-employment tax (15.3% SE up to the $184,500 Social Security base for 2026, Medicare uncapped; half deductible), paid quarterly: April 15, June 15, September 15, and January 15 of the following year. Safe harbor against penalties: pay 90% of current-year tax or 100% of prior-year (110% if prior AGI over $150k), or owe under $1,000. WORLDWIDE income counts — include German freelance income in the estimate. The January payment can be skipped if the annual return is filed and fully paid by January 31.",
     frequency: "QUARTERLY",
     dueRules: [
       { month: 4, day: 15 },
@@ -97,7 +97,7 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     name: "Texas Franchise Tax / Public Information Report",
     formName: "Texas Comptroller Franchise Report + PIR",
     description:
-      "Annual Texas franchise filing due May 15. Since report year 2024 entities under the no-tax-due revenue threshold (about $2.47M) no longer file a No Tax Due Report but still must file the Public Information Report. Confirm the current threshold and which forms apply with the CPA.",
+      "Annual Texas franchise filing due May 15 (May 17, 2027 — the 15th is a Saturday). No-tax-due revenue threshold is $2,650,000 for report years 2026-2027 (inflation-adjusted every two years). Below it: no tax and no tax form, but the Public Information Report is STILL due — missing it can forfeit the LLC. Also keep a Texas registered agent continuously (required; lapse risks involuntary termination).",
     frequency: "ANNUAL",
     dueRules: [{ month: 5, day: 15 }],
     sourceUrls: ["https://comptroller.texas.gov/taxes/franchise/"],
@@ -158,7 +158,7 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     profileKey: "us-llc",
     name: "Texas sales tax on web services — permit and collection check",
     description:
-      "IMPORTANT: Texas treats web design, development, and hosting as taxable 'data processing services' — 80% of the charge is taxable (20% exempt) at the local rate up to 8.25%. Selling web work to TEXAS clients (e.g. DFW plumbers) likely requires a Texas sales tax permit and collecting/remitting tax on those invoices. The definition was expanded again Oct 2025. Semi-annual check: confirm permit status and which client invoices need tax with the CPA. Out-of-state clients are generally not affected; multi-state clients can give an exemption certificate.",
+      "IMPORTANT: Texas treats web design/development, website maintenance, hosting — and per the amended Rule 3.330 (effective April 2, 2025) explicitly SEO, social media marketing, and lead generation — as taxable 'data processing services': 80% of the charge is taxable (20% exempt by §151.351), effective ~6.6% at the max 8.25% rate. Selling these to TEXAS clients (e.g. DFW plumbers) requires a sales tax permit and collecting/remitting; once permitted, $0 returns are due every period regardless. Local rate sources to the studio's own location for services; multi-state clients can allocate out-of-state use via exemption certificate. Pure consulting/strategy stays nontaxable — itemize invoices (burden of proof on the seller when bundled). Also self-assess Texas use tax on untaxed out-of-state purchases. Other states: economic nexus typically triggers at $100k of sales into a state — set a tripwire at ~$75k into any single state. Semi-annual check with the CPA.",
     frequency: "ANNUAL",
     dueRules: [
       { month: 2, day: 15 },
@@ -195,16 +195,16 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     country: "US",
     appliesTo: "SELF",
     profileKey: "us-llc",
-    name: "Beneficial ownership (BOI) reporting — currently EXEMPT",
+    name: "Beneficial ownership (BOI) reporting — PERMANENTLY CLOSED",
     formName: "FinCEN BOI",
     description:
-      "Status checked Aug 2026: FinCEN's March 2025 interim final rule EXEMPTS all US-formed companies (including this LLC) from BOI reporting — only foreign companies registered in a US state still file. FinCEN intends to finalize the rule in 2026; if the final rule changes course, domestic reporting could return. Nothing to file today; keep an eye on the final rule.",
+      "CLOSED: FinCEN's FINAL rule of August 11, 2026 permanently removed BOI reporting for all US-formed companies and US persons — only foreign-formed entities registered in a US state still report. A Texas LLC has zero BOI obligation, ever, and FinCEN is deleting previously reported US-person data. Kept as a record that this was checked.",
     frequency: "WATCH",
     dueRules: [],
     sourceUrls: [
-      "https://www.fincen.gov/boi",
-      "https://www.fincen.gov/news/news-releases/fincen-removes-beneficial-ownership-reporting-requirements-us-companies-and-us",
+      "https://www.fincen.gov/news/news-releases/fincen-permanently-ends-beneficial-ownership-reporting-requirements-millions",
     ],
+    enabled: false,
   },
   {
     key: "us-de-treaty-totalization",
@@ -212,16 +212,60 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     appliesTo: "SELF",
     profileKey: "us-llc",
     name: "US-Germany double taxation + social security coordination",
-    formName: "Form 1116 / certificate of coverage",
+    formName: "Form 1116 / certificate D/USA 101",
     description:
-      "The US taxes citizens on WORLDWIDE income: German freelance earnings must appear on the 1040, with German income tax offset via the foreign tax credit (Form 1116) under the US-Germany treaty. Separately, the US-Germany totalization agreement decides WHERE self-employment/social contributions are owed — without a certificate of coverage the same income can be hit by US self-employment tax AND German contributions. This is the single most important structural question for the two-country setup: have the CPA and Steuerberater agree on the arrangement once, then it mostly runs itself.",
+      "The US taxes citizens on WORLDWIDE income: German freelance earnings go on the 1040, offset via the foreign tax credit (Form 1116; note the separate foreign-branch basket — credits can't cross baskets). Since German rates exceed US rates, FTC usually zeroes the US income tax and banks excess credits. FEIE (Form 2555, $132,900 for 2026) is the alternative but never covers SE tax and revoking it locks you out 5 years — for high-German-tax filers FTC usually wins. Social security: the totalization agreement assigns coverage territorially; get certificate D/USA 101 from the German Krankenkasse and attach it to the 1040 EVERY year with 'Exempt, see attached statement' on Schedule SE — without it the IRS default is US SE tax on top of German contributions (pure 15.3% loss). Convert EUR at the IRS yearly-average rate. The unresolved residence question (where Chase actually lives, day-counted) drives FEIE eligibility, 8938 thresholds ($50k US-resident vs $200k abroad), and German unlimited tax liability — settle and document it with both advisors once.",
     frequency: "WATCH",
     dueRules: [],
     sourceUrls: [
       "https://www.irs.gov/individuals/international-taxpayers/foreign-tax-credit",
+      "https://www.irs.gov/individuals/international-taxpayers/self-employment-tax-for-businesses-abroad",
       "https://www.ssa.gov/international/Agreement_Pamphlets/germany.html",
     ],
     verifyWithAdvisor: true,
+  },
+  {
+    key: "us-form-8858",
+    country: "US",
+    appliesTo: "SELF",
+    profileKey: "us-llc",
+    name: "Form 8858 — foreign branch information return (LIKELY REQUIRED)",
+    formName: "Form 8858 + Schedule M",
+    description:
+      "Deep research verdict: very likely applies. Since 2018, any US person operating a FOREIGN BRANCH — a business abroad with its own books, no entity needed — files Form 8858 with the 1040. A US citizen freelancing from Germany, registered with the Finanzamt and keeping German books, is the textbook case. Penalty for not filing: $10,000 per year, plus a 10% foreign-tax-credit haircut, plus the statute of limitations stays OPEN on the whole return — and it may already be accruing for past years. Filing protectively costs nothing (it is an information return). For missed past years use the Streamlined Foreign Offshore Procedures or the delinquent-return procedure WITH a reasonable-cause statement — do not quietly attach late forms. Put this in front of the CPA immediately.",
+    frequency: "ANNUAL",
+    dueRules: [{ month: 4, day: 15 }],
+    sourceUrls: ["https://www.irs.gov/instructions/i8858"],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "us-backup-withholding",
+    country: "US",
+    appliesTo: "CONTRACTOR",
+    profileKey: "us-llc",
+    name: "Backup withholding + B-notices (missing/mismatched TINs)",
+    formName: "Form 945 / CP2100 B-notice",
+    description:
+      "If a US contractor won't provide a TIN on a W-9: withhold 24% of payments. If the IRS sends a CP2100/CP2100A notice (TIN mismatch on a filed 1099): send the contractor a B-notice within 15 business days and start withholding within 30 business days unless they cure it. Any year backup withholding actually happens, Form 945 is due by Jan 31 of the following year. The W-9-before-first-payment rule normally keeps this dormant.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.irs.gov/businesses/small-businesses-self-employed/backup-withholding",
+      "https://www.irs.gov/individuals/understanding-your-cp2100-or-cp2100a-notice",
+    ],
+  },
+  {
+    key: "us-tx-dba",
+    country: "US",
+    appliesTo: "SELF",
+    profileKey: "us-llc",
+    name: "Texas assumed name certificate (DBA) check",
+    formName: "SOS Form 503",
+    description:
+      "If the LLC's legal name is not literally the trade name used on contracts, invoices, and marketing ('BlokBlok Studio'), Texas requires an assumed name certificate: Form 503 with the Secretary of State, $25, valid up to 10 years, renew within 6 months of expiry. One-time check: compare the certificate of formation against how the studio actually signs and advertises.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: ["https://www.sos.state.tx.us/corp/instructions/503.shtml"],
   },
   {
     key: "us-record-retention",
@@ -230,7 +274,7 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     profileKey: "us-llc",
     name: "US record retention windows",
     description:
-      "Never purge early: W-9s — keep 3 years after the last year a 1099 was filed for that contractor. Employment/contractor tax records — 4 years minimum. Business returns and IRS correspondence — 7 years. Bank/credit card statements and cancelled checks — 7 years. The tracker's contractor invoices, hours entries, and audit trails are deliberately delete-proof; this entry documents why.",
+      "Never purge early. Actual IRS rules: employment/contractor tax records (incl. W-9s and backup-withholding evidence) — 4 years; audit window 3 years generally, 6 years if income understated over 25%, unlimited for fraud or non-filing. House POLICY on top of that: keep W-9s 4 years after the last 1099 year, returns and IRS correspondence 7 years, bank/card statements 7 years. The tracker's contractor invoices, hours entries, and audit trails are deliberately delete-proof; this entry documents why.",
     frequency: "WATCH",
     dueRules: [],
     sourceUrls: [
@@ -280,7 +324,7 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     name: "W-8BEN on file for non-US contractors",
     formName: "Form W-8BEN / W-8BEN-E",
     description:
-      "Non-US contractors (individuals: W-8BEN; entities: W-8BEN-E) must certify foreign status before payment — without a valid form the IRS requires 30% withholding. Forms expire after three calendar years; the document chaser warns before expiry. No 1099-NEC is needed for non-US persons working outside the US.",
+      "Non-US contractors (individuals: W-8BEN; entities: W-8BEN-E) certify foreign status before payment. Services performed ENTIRELY outside the US are foreign-source: no 1099-NEC, no withholding, no Form 1042 — the W-8 documents that position, so also get a written statement that no work is performed on US soil. If a contractor ever works even partly IN the US, that portion becomes US-source: 30% withholding default plus Form 1042/1042-S duties. Validity runs through Dec 31 of the third year after signing (forms signed in 2023 die Dec 31, 2026 — the expiry chaser tracks this).",
     frequency: "WATCH",
     dueRules: [],
     sourceUrls: ["https://www.irs.gov/forms-pubs/about-form-w-8-ben"],
@@ -320,9 +364,9 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     appliesTo: "SELF",
     profileKey: "de-freelancer",
     name: "Einkommensteuererklärung (German income tax return)",
-    formName: "Einkommensteuererklärung + Anlage S/EÜR",
+    formName: "Einkommensteuererklärung + Anlage S + Anlage EÜR",
     description:
-      "With a Steuerberater the return for tax year N is due at the end of February of year N+2 (the 2025 return is due Feb 28, 2027). Filing without an advisor would move it to July 31 of year N+1. The Steuerberater handles the filing — this reminder is for delivering records to them well ahead of the deadline.",
+      "With a Steuerberater the return for tax year N is due at the end of February of year N+2 — the 2025 return lands March 1, 2027 (Feb 28 is a Sunday). Without an advisor it would be July 31 of N+1. Must include Anlage S and the standardized Anlage EÜR (mandatory for every Freiberufler, no minimum threshold, via ELSTER). Make sure the §138 Abs. 2 AO notice about the US LLC rides along with the return (see the LLC entries). This reminder is for delivering records to the Steuerberater well ahead of the deadline.",
     frequency: "ANNUAL",
     dueRules: [{ month: 2, day: 28 }],
     sourceUrls: [
@@ -338,7 +382,7 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     profileKey: "de-freelancer",
     name: "Kleinunternehmer revenue-limit check",
     description:
-      "Quarterly check of German revenue against the Kleinunternehmer limits: EUR 25,000 total in the PRIOR year, and a HARD EUR 100,000 cap in the CURRENT year — since 2025 the exemption ends immediately with the transaction that crosses 100k (not at year end). Crossing either limit means charging VAT and filing VAT returns; talk to the Steuerberater before that happens.",
+      "Quarterly check of German revenue against the Kleinunternehmer limits (both NET figures since 2025): EUR 25,000 total in the PRIOR year, and a HARD EUR 100,000 cap in the CURRENT year — the very transaction that crosses 100k is already taxable (regular VAT from that moment, not retroactive). While in the regime: no Voranmeldungen, no annual VAT return, no Zusammenfassende Meldung even for EU B2B clients (§18a Abs. 4 UStG), and invoices MUST carry the §19 exemption note (§34a UStDV — statutory since 2025). Exiting the regime flips all of that on at once, including quarterly ZM by the 25th after quarter-end — talk to the Steuerberater BEFORE it happens.",
     frequency: "QUARTERLY",
     dueRules: [
       { month: 3, day: 31 },
@@ -392,7 +436,7 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     profileKey: "de-freelancer",
     name: "Reverse-charge VAT on foreign services (§13b) — Kleinunternehmer NOT exempt",
     description:
-      "Commonly missed: the Kleinunternehmer exemption does NOT cover reverse charge. Buying services from foreign providers through the German freelance business (Vercel, Google Ads, US SaaS, foreign subcontractors) makes the German recipient owe 19% German VAT on those purchases under §13b UStG — payable out of pocket, with no input-VAT deduction, via a Voranmeldung filed just for those periods. Quarterly reminder: tally foreign B2B service purchases on the German side and hand the list to the Steuerberater. (Purchases run through the US LLC are not affected.)",
+      "Commonly missed and VERIFIED against §18(4a) UStG: the Kleinunternehmer exemption does NOT cover reverse charge. Buying services from foreign providers through the German freelance business (Vercel, Google Ireland, Meta, US SaaS, foreign subcontractors) makes the German recipient owe 19% German VAT under §13b — payable out of pocket, no input-VAT deduction, via a Voranmeldung due the 10th after any period with such purchases. A USt-IdNr (free from BZSt) is needed so EU suppliers issue net reverse-charge invoices instead of charging their local VAT on top. Quarterly reminder: tally foreign B2B service purchases on the German side for the Steuerberater. (Purchases run through the US LLC are not affected.)",
     frequency: "QUARTERLY",
     dueRules: [
       { month: 1, day: 10 },
@@ -411,12 +455,12 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     country: "DE",
     appliesTo: "CONTRACTOR",
     profileKey: "de-freelancer",
-    name: "Künstlersozialabgabe check (paying German creatives)",
-    formName: "KSK Meldung",
+    name: "Künstlersozialabgabe (paying German creatives) — annual Meldung",
+    formName: "KSK Jahresmeldung",
     description:
-      "German businesses that regularly commission creative work (design, copywriting, photography) from German freelancers owe the Künstlersozialabgabe — 4.9% of those fees in 2026, reported to the Künstlersozialkasse; the 2026 de-minimis threshold is EUR 1,000/year. Purely technical website maintenance is generally not covered. Check applies if the GERMAN freelance side commissions German creatives. Flip side worth knowing: German clients commissioning design from Chase may owe KSA on his fees (their duty, not his).",
-    frequency: "WATCH",
-    dueRules: [],
+      "Commissioning creative work (design, copywriting, photography) from German freelancers via the German side triggers the Künstlersozialabgabe: 4.9% of those fees in 2026, with the ANNUAL Meldung to the Künstlersozialkasse due March 31 for the prior year (register first as abgabepflichtiges Unternehmen; monthly prepayments once assessed; 5-year retroactive collection on discovery). CAUTION: the EUR 1,000 de-minimis does NOT apply to 'typische Verwerter' — businesses like design studios that market others' creative work — which likely includes BlokBlok, so assume first euro counts. Purely technical work (hosting, maintenance) is not covered. Flip side: German clients commissioning design from Chase may owe KSA on his fees (their duty, not his).",
+    frequency: "ANNUAL",
+    dueRules: [{ month: 3, day: 31 }],
     sourceUrls: [
       "https://www.kuenstlersozialkasse.de/unternehmen-und-verwerter/faq-unternehmen-und-verwerter",
       "https://www.sparkasse.de/aktuelles/kuenstlersozialabgabe.html",
@@ -454,7 +498,82 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     ],
   },
 
+  {
+    key: "de-llc-typenvergleich",
+    country: "DE",
+    appliesTo: "SELF",
+    profileKey: "de-freelancer",
+    name: "US LLC classification in Germany (Typenvergleich) — HIGHEST-RISK OPEN ITEM",
+    description:
+      "Germany ignores US 'disregarded entity' status and classifies the Texas LLC by comparing its OPERATING AGREEMENT to German company types (BMF letter 19.3.2004, confirmed by the BFH). Many standard single-member agreements come out as a CORPORATION in German eyes. If so, and the LLC is managed from a German desk (place of management = Germany), the LLC itself owes German corporate tax + Gewerbesteuer, draws are taxed AGAIN as dividends, and the US/German taxes attach to different taxpayers so credits misalign — combined burdens can pass 60%. If it compares as TRANSPARENT instead, the income is simply personal business income (clean, but then the LLC gives no German benefit at all). Mitigation: have the Steuerberater run the BMF-2004 comparison on the actual operating agreement NOW, before any Finanzamt inquiry; member-managed structure with automatic profit allocation and restricted transferability points toward transparent; amending the agreement later can trigger a deemed liquidation, so fix it early. If settling in Germany long-term, seriously consider winding the LLC down and operating as a German Freiberufler invoicing US clients directly.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.roedl.com/insights/usa-llc-limited-liability-company-steuern/",
+      "https://www.ey.com/de_de/technical/steuernachrichten/einordnung-einer-llc-als-personen-oder-kapitalgesellschaft",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "de-138-ao-llc-notice",
+    country: "DE",
+    appliesTo: "SELF",
+    profileKey: "de-freelancer",
+    name: "Report the US LLC to the Finanzamt (§138 Abs. 2 AO)",
+    description:
+      "German residents must report foreign business formations/acquisitions and participations in foreign companies to the Finanzamt — electronically, with the income tax return, at the latest 14 months after year-end. An unreported US LLC is an Ordnungswidrigkeit with fines up to EUR 25,000, and a bad look in any later dispute (especially one about the LLC's classification). Cross-check with the Steuerberater immediately that this notice has been or will be filed.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: ["https://www.gesetze-im-internet.de/ao_1977/__138.html"],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "de-social-insurance",
+    country: "DE",
+    appliesTo: "SELF",
+    profileKey: "de-freelancer",
+    name: "German social insurance traps (health, pension, KSK insurability)",
+    description:
+      "Three separate checks. (1) Health insurance is MANDATORY in Germany — as self-employed, freiwillige GKV (~14.6-17.5% on a minimum base of ~EUR 1,318/month) or PKV; being uninsured accrues back-premiums. (2) One-client pension trap (§2 Nr. 9 SGB VI): any self-employed person earning ~5/6+ of revenue from ONE client with no employees owes compulsory pension contributions (~18.6%) — profession-independent, separate from Scheinselbstständigkeit, frequently missed; a start-up exemption exists for the first 3 years. (3) KSK insurability: if the design work is predominantly creative and earns over EUR 3,900/year, Chase himself is OBLIGATORILY insured through the Künstlersozialkasse — a duty but also a benefit, since the KSK pays the 'employer half' of health + pension. Verify all three with the Steuerberater.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.deutsche-rentenversicherung.de/DRV/DE/Rente/Arbeitnehmer-und-Selbststaendige/03_Selbststaendige/statusfeststellungsverfahren.html",
+      "https://www.kuenstlersozialkasse.de/",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
+    key: "de-freiberufler-gewerbe",
+    country: "DE",
+    appliesTo: "SELF",
+    profileKey: "de-freelancer",
+    name: "Freiberufler vs. Gewerbe classification (contested for web designers)",
+    description:
+      "Web designer is not a listed Katalogberuf — Freiberufler status rests on the work being predominantly creative/artistic (comparable to a Grafik-Designer). Template-based work, hosting resale, maintenance contracts, or product sales lean gewerblich; reclassification means Gewerbeanmeldung, Gewerbesteuer (EUR 24,500 allowance, largely credited against income tax), IHK membership dues, and retroactive exposure. Protection: keep portfolio evidence of the creative character of the work, and run separable commercial side-activities (hosting margins, affiliate income) as a separate operation with separate records.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.e-recht24.de/unternehmensgruendung/11066-webdesigner-freiberufler.html",
+    ],
+    verifyWithAdvisor: true,
+  },
+
   // ---------- DE — client paperwork ----------
+  {
+    key: "de-impressum-ddg",
+    country: "DE",
+    appliesTo: "CLIENT",
+    profileKey: "de-freelancer",
+    name: "Impressum + website legal hygiene (own site and client sites)",
+    description:
+      "German sites need a full provider Impressum under §5 DDG (the TMG was repealed May 2024 — update any legacy '§5 TMG' references in footers Chase builds) plus a DSGVO privacy notice; editorial content adds §18 MStV. Fines are theoretical but Abmahnung letters (EUR 500-1,500) are common. As a service matter, every German client site BlokBlok ships should have a correct Impressum + Datenschutzerklärung. Related commercial norm (not law): IT-/Medienhaftpflicht insurance — copyright and photo-license claims are the classic web design loss.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.it-recht-kanzlei.de/tmg-ttdsg-ausser-kraft-impressum-datenschutz.html",
+    ],
+  },
   {
     key: "de-invoice-vat-notes",
     country: "DE",
@@ -487,30 +606,16 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     country: "DE",
     appliesTo: "CLIENT",
     profileKey: "de-freelancer",
-    name: "German e-invoicing mandate — stage 1",
+    name: "German e-invoicing mandate — Kleinunternehmer are EXEMPT from issuing",
     formName: "XRechnung / ZUGFeRD (EN 16931)",
     description:
-      "Since Jan 2025 German businesses must be able to RECEIVE structured e-invoices. From Jan 1, 2027, businesses with prior-year turnover above EUR 800k must ISSUE them for domestic B2B sales. A plain PDF does not qualify — formats must follow EN 16931 (XRechnung or ZUGFeRD). Check whether German clients expect e-invoices from us before this date.",
-    frequency: "ONE_TIME",
-    dueRules: [{ month: 1, day: 1, year: 2027 }],
+      "Corrected after deep research: Kleinunternehmer are PERMANENTLY exempt from the e-invoice ISSUANCE mandate (§34a Satz 4 UStDV) — the 2027 (>EUR 800k) and 2028 (everyone) stages never bite while §19 status holds. What DOES apply since Jan 2025: the ability to RECEIVE structured e-invoices (an email inbox suffices) and archiving received e-invoices in their original structured format for 8 years. If Kleinunternehmer status is ever lost, the issuance duty starts (2028 rule, or 2027 only above EUR 800k turnover) in EN 16931 formats — plain PDF does not qualify.",
+    frequency: "WATCH",
+    dueRules: [],
     sourceUrls: [
-      "https://www.cleartax.com/de/en/b2b-e-invoicing-germany",
-      "https://edicomgroup.com/blog/germany-b2b-electronic-invoice",
+      "https://www.etl.de/e-rechnung/regelungen-kleinunternehmer/",
+      "https://www.ihk.de/rhein-neckar/recht/steuerrecht/umsatzsteuer/e-rechnungspflicht-5931752",
     ],
-    verifyWithAdvisor: true,
-  },
-  {
-    key: "de-einvoicing-2028",
-    country: "DE",
-    appliesTo: "CLIENT",
-    profileKey: "de-freelancer",
-    name: "German e-invoicing mandate — stage 2 (everyone)",
-    formName: "XRechnung / ZUGFeRD (EN 16931)",
-    description:
-      "From Jan 1, 2028 ALL German businesses must issue structured e-invoices for domestic B2B sales, regardless of turnover (small-value invoices up to EUR 250 exempt). Ensure invoicing to German business clients can produce EN 16931 formats by then.",
-    frequency: "ONE_TIME",
-    dueRules: [{ month: 1, day: 1, year: 2028 }],
-    sourceUrls: ["https://www.cleartax.com/de/en/b2b-e-invoicing-germany"],
     verifyWithAdvisor: true,
   },
 
