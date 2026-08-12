@@ -12,6 +12,11 @@ export const maxDuration = 300;
 export async function GET() {
   try {
     const session = await getSession();
+    // The bundle contains every contractor's PII, tax IDs, and audit trails —
+    // owner-only, not every team member.
+    if (session?.role !== "OWNER") {
+      return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+    }
 
     const [contractors, taxDocuments, obligations, profiles] = await Promise.all([
       prisma.contractor.findMany({

@@ -25,6 +25,40 @@ export function hashPassword(plaintext: string): string {
   return bcrypt.hashSync(plaintext, BCRYPT_ROUNDS);
 }
 
+// --- Second-factor auth helpers ---
+
+const MFA_EXPIRY = 5 * 60; // a partial login (password OK, awaiting 2FA) lives 5 minutes
+
+export function hashPin(pin: string): string {
+  return bcrypt.hashSync(pin, BCRYPT_ROUNDS);
+}
+
+export function verifyPin(pin: string, pinHash: string): boolean {
+  return bcrypt.compareSync(pin, pinHash);
+}
+
+// Does this account have any second factor configured?
+export function userHasMfa(user: { totpEnabled: boolean; pinHash: string | null }): boolean {
+  return user.totpEnabled || !!user.pinHash;
+}
+
+// Short-lived token issued after a correct password when 2FA is still pending.
+// It is NOT a session — it only authorizes the /api/auth/mfa second step, and
+// carries a distinct `stage` claim so it can never be used as a session cookie.
+export function createMfaToken(userId: string): string {
+  return jwt.sign({ sub: userId, stage: "mfa" }, getAuthSecret(), { expiresIn: MFA_EXPIRY });
+}
+
+export function verifyMfaToken(token: string): string | null {
+  try {
+    const payload = jwt.verify(token, getAuthSecret()) as { sub?: string; stage?: string };
+    if (payload?.stage !== "mfa" || !payload.sub) return null;
+    return payload.sub;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Authenticate a team member by email + password.
  *
@@ -37,6 +71,27 @@ export async function authenticateUser(
   email: string,
   password: string
 ): Promise<SessionUser | null> {
+  const result = await authenticateCredentials(email, password);
+  if (!result) return null;
+  // Legacy single-step callers: stamp the login immediately.
+  await prisma.user.update({ where: { id: result.id }, data: { lastLoginAt: new Date() } }).catch(() => {});
+  return { id: result.id, email: result.email, name: result.name, role: result.role };
+}
+
+export interface CredentialResult extends SessionUser {
+  totpEnabled: boolean;
+  pinHash: string | null;
+}
+
+/**
+ * Verify email + password only. Returns the user with their MFA state (no
+ * session issued, no lastLoginAt stamp) so the login route can decide whether a
+ * second factor is still required. Returns null on any failure.
+ */
+export async function authenticateCredentials(
+  email: string,
+  password: string
+): Promise<CredentialResult | null> {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail || !password) return null;
 
@@ -45,18 +100,20 @@ export async function authenticateUser(
   if (user) {
     if (!user.isActive) return null;
     if (!bcrypt.compareSync(password, user.passwordHash)) return null;
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-    return { id: user.id, email: user.email, name: user.name, role: user.role };
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      totpEnabled: user.totpEnabled,
+      pinHash: user.pinHash,
+    };
   }
 
   // No matching user — allow one-time bootstrap from the legacy env password.
   const bootstrap = await maybeBootstrapOwner(normalizedEmail, password);
-  return bootstrap;
+  if (!bootstrap) return null;
+  return { ...bootstrap, totpEnabled: false, pinHash: null };
 }
 
 async function maybeBootstrapOwner(

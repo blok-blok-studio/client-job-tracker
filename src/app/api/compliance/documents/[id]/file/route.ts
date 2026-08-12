@@ -14,6 +14,10 @@ export async function GET(
   try {
     const { id } = await params;
     const session = await getSession();
+    // Tax documents can contain SSNs/TINs (W-9, W-8BEN) — owner-only decryption.
+    if (session?.role !== "OWNER") {
+      return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+    }
 
     const doc = await prisma.taxDocument.findUnique({
       where: { id },

@@ -8,6 +8,9 @@ import { OBLIGATION_SEEDS, PROFILE_SEEDS } from "@/lib/tax/obligations-source";
 export async function POST() {
   try {
     const session = await getSession();
+    if (session?.role !== "OWNER") {
+      return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+    }
 
     const profileIds = new Map<string, string>();
     for (const p of PROFILE_SEEDS) {

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  authenticateUser,
+  authenticateCredentials,
   createSessionToken,
+  createMfaToken,
   getSessionCookieConfig,
   checkRateLimit,
+  userHasMfa,
 } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { requestMeta } from "@/lib/request-meta";
@@ -30,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const meta = requestMeta(request);
-    const user = await authenticateUser(email, password);
+    const user = await authenticateCredentials(email, password);
     if (!user) {
       // Audit trail: failed attempt with source IP
       await prisma.activityLog.create({
@@ -42,20 +44,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Audit trail: successful sign-in with source IP
+    // Password is correct. If the account has a second factor configured, DON'T
+    // issue a session — hand back a short-lived MFA token and require step two.
+    if (userHasMfa(user)) {
+      return NextResponse.json({
+        mfaRequired: true,
+        methods: {
+          totp: user.totpEnabled,
+          pin: !!user.pinHash,
+        },
+        mfaToken: createMfaToken(user.id),
+      });
+    }
+
+    // No second factor — complete the login now.
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }).catch(() => {});
     await prisma.activityLog.create({
       data: { actor: user.name, action: "login", details: `${user.name} signed in`, ...meta },
     }).catch(() => {});
 
-    const token = createSessionToken(user);
-    const cookieConfig = getSessionCookieConfig(token);
-
+    const token = createSessionToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    });
     const response = NextResponse.json({
       success: true,
       user: { name: user.name, email: user.email, role: user.role },
     });
-    response.cookies.set(cookieConfig);
-
+    response.cookies.set(getSessionCookieConfig(token));
     return response;
   } catch {
     return NextResponse.json(

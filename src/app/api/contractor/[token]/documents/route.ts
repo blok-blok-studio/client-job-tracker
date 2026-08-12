@@ -6,6 +6,7 @@ import prisma from "@/lib/prisma";
 import { requestMeta } from "@/lib/request-meta";
 import { notifySlack } from "@/lib/slack";
 import { encryptBuffer } from "@/lib/encryption";
+import { fetchBlobBounded, isAllowedBlobUrl, BlobFetchError } from "@/lib/blob-fetch";
 
 export const maxDuration = 300;
 
@@ -107,20 +108,20 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Document not found" }, { status: 404 });
     }
 
-    if (!/^https:\/\/[\w.-]+\.public\.blob\.vercel-storage\.com\//.test(d.blobUrl)) {
+    if (!isAllowedBlobUrl(d.blobUrl)) {
       return NextResponse.json({ success: false, error: "Invalid file URL" }, { status: 400 });
     }
 
     const { ipAddress, userAgent } = requestMeta(request);
 
-    const fileRes = await fetch(d.blobUrl);
-    if (!fileRes.ok) {
-      return NextResponse.json({ success: false, error: "Uploaded file not found" }, { status: 400 });
-    }
-    const fileBuffer = Buffer.from(await fileRes.arrayBuffer());
-    if (fileBuffer.length > 25 * 1024 * 1024) {
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = await fetchBlobBounded(d.blobUrl, 25 * 1024 * 1024);
+    } catch (e) {
       await del(d.blobUrl).catch(() => {});
-      return NextResponse.json({ success: false, error: "File too large" }, { status: 400 });
+      const status = e instanceof BlobFetchError ? e.status : 400;
+      const message = e instanceof BlobFetchError ? e.message : "Uploaded file not found";
+      return NextResponse.json({ success: false, error: message }, { status });
     }
 
     const { encrypted, iv } = encryptBuffer(fileBuffer);

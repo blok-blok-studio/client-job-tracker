@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 // Global command-palette search across clients, tasks, files, deliverables,
 // contracts, content posts, contractors, and contractor invoices.
 export async function GET(request: NextRequest) {
-  const q = request.nextUrl.searchParams.get("q")?.trim();
+  const q = request.nextUrl.searchParams.get("q")?.trim().slice(0, 100);
   if (!q || q.length < 2) {
     return NextResponse.json({
       success: true,

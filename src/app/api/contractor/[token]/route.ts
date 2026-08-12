@@ -8,6 +8,7 @@ import { requestMeta } from "@/lib/request-meta";
 import { notifySlack } from "@/lib/slack";
 import { encryptBuffer } from "@/lib/encryption";
 import { scanContractorInvoice } from "@/lib/invoice-scan";
+import { fetchBlobBounded, isAllowedBlobUrl, BlobFetchError } from "@/lib/blob-fetch";
 
 // Registration downloads the blob, encrypts it, and runs the AI scan after
 // responding — needs longer than the default function window.
@@ -133,22 +134,23 @@ export async function POST(
     const d = parsed.data;
 
     // Only accept files that actually live in our Blob store
-    if (!/^https:\/\/[\w.-]+\.public\.blob\.vercel-storage\.com\//.test(d.blobUrl)) {
+    if (!isAllowedBlobUrl(d.blobUrl)) {
       return NextResponse.json({ success: false, error: "Invalid file URL" }, { status: 400 });
     }
 
     const { ipAddress, userAgent } = requestMeta(request);
 
-    // Pull the plaintext upload server-side, encrypt it, store the ciphertext,
-    // and delete the plaintext blob — files never persist unencrypted.
-    const fileRes = await fetch(d.blobUrl);
-    if (!fileRes.ok) {
-      return NextResponse.json({ success: false, error: "Uploaded file not found" }, { status: 400 });
-    }
-    const fileBuffer = Buffer.from(await fileRes.arrayBuffer());
-    if (fileBuffer.length > 25 * 1024 * 1024) {
+    // Pull the plaintext upload server-side (size-capped, no redirects), encrypt
+    // it, store the ciphertext, and delete the plaintext blob — files never
+    // persist unencrypted.
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = await fetchBlobBounded(d.blobUrl, 25 * 1024 * 1024);
+    } catch (e) {
       await del(d.blobUrl).catch(() => {});
-      return NextResponse.json({ success: false, error: "File too large" }, { status: 400 });
+      const status = e instanceof BlobFetchError ? e.status : 400;
+      const message = e instanceof BlobFetchError ? e.message : "Uploaded file not found";
+      return NextResponse.json({ success: false, error: message }, { status });
     }
 
     const { encrypted, iv } = encryptBuffer(fileBuffer);

@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   "/upload",
   "/contractor/",
   "/api/auth/login",
+  "/api/auth/mfa",
   "/api/newsletter/subscribe",
   "/api/newsletter/unsubscribe",
   "/api/leads/intake",
@@ -85,6 +86,10 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-XSS-Protection", "1; mode=block");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  // Force HTTPS for a year incl. subdomains (harmless on localhost; browsers ignore it there)
+  response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  // Drop powerful browser features the app never uses
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
   return response;
 }
 
