@@ -7,13 +7,18 @@ import { requestMeta } from "@/lib/request-meta";
 import { notifySlack } from "@/lib/slack";
 import { encryptBuffer } from "@/lib/encryption";
 import { fetchBlobBounded, isAllowedBlobUrl, BlobFetchError } from "@/lib/blob-fetch";
+import { isSelfHeldDocType, SELF_HELD_ATTESTATION_TEXT } from "@/lib/tax/obligations-source";
 
 export const maxDuration = 300;
 
 // Public, token-scoped tax document API for the contractor portal.
 // GET  — the contractor's requested/received tax documents (W-9, W-8BEN, ...)
-// POST — attach an uploaded file to a requested document: pulled server-side,
-//        AES-256-GCM encrypted, plaintext blob deleted (same flow as invoices).
+// POST — either:
+//   • attest (SSN/TIN forms like W-9/W-8BEN): record a timestamped confirmation
+//     that the contractor holds the form and sent it to the accountant. We store
+//     NO copy and no SSN — data minimization.
+//   • upload (non-sensitive forms like the signed agreement): file pulled
+//     server-side, AES-256-GCM encrypted, plaintext blob deleted.
 
 const DOC_LABELS: Record<string, string> = {
   W9: "Form W-9 (US taxpayer info)",
@@ -70,6 +75,8 @@ export async function GET(
         ...d,
         label: DOC_LABELS[d.type] || d.type,
         downloadable: !!fileUrl,
+        // self-held forms are confirmed by attestation, never uploaded here
+        selfHeld: isSelfHeldDocType(d.type),
       })),
     },
   });
@@ -77,8 +84,11 @@ export async function GET(
 
 const submitSchema = z.object({
   documentId: z.string().max(64),
-  blobUrl: z.string().url(),
-  filename: z.string().min(1).max(300),
+  // Present for a self-attestation (SSN/TIN forms); absent for a file upload
+  attest: z.literal(true).optional(),
+  // Present for a file upload (non-sensitive forms)
+  blobUrl: z.string().url().optional(),
+  filename: z.string().min(1).max(300).optional(),
   contentType: z.string().max(200).optional(),
   size: z.number().int().nonnegative().optional(),
 });
@@ -108,11 +118,61 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Document not found" }, { status: 404 });
     }
 
+    const { ipAddress, userAgent } = requestMeta(request);
+    const selfHeld = isSelfHeldDocType(doc.type);
+
+    // Self-held SSN/TIN forms are confirmed by attestation only — we store no
+    // copy. Reject any attempt to upload a file for these types.
+    if (selfHeld) {
+      if (d.attest !== true) {
+        return NextResponse.json(
+          { success: false, error: "This form is confirmed by attestation, not upload." },
+          { status: 400 }
+        );
+      }
+      const validUntil =
+        doc.type === "W8BEN"
+          ? new Date(Date.UTC(new Date().getUTCFullYear() + 3, 11, 31))
+          : undefined;
+
+      const updated = await prisma.taxDocument.update({
+        where: { id: doc.id },
+        data: {
+          status: "ATTESTED",
+          attestedAt: new Date(),
+          attestationText: SELF_HELD_ATTESTATION_TEXT,
+          receivedAt: new Date(),
+          submitIp: ipAddress,
+          submitUserAgent: userAgent,
+          ...(validUntil ? { validUntil } : {}),
+        },
+        select: docSelect,
+      });
+
+      await prisma.activityLog.create({
+        data: {
+          actor: "contractor",
+          action: "tax_document_attested",
+          details: `${contractor.name} confirmed their ${doc.type} (sent to accountant; no copy stored)`,
+          ipAddress,
+          userAgent,
+        },
+      }).catch(() => {});
+
+      notifySlack(
+        `:white_check_mark: *${contractor.name}* confirmed their ${DOC_LABELS[doc.type] || doc.type} (delivered to accountant; not stored here)`
+      ).catch(() => {});
+
+      return NextResponse.json({ success: true, data: updated });
+    }
+
+    // Non-sensitive forms (e.g. signed agreement) — normal encrypted upload path
+    if (!d.blobUrl || !d.filename) {
+      return NextResponse.json({ success: false, error: "A file is required." }, { status: 400 });
+    }
     if (!isAllowedBlobUrl(d.blobUrl)) {
       return NextResponse.json({ success: false, error: "Invalid file URL" }, { status: 400 });
     }
-
-    const { ipAddress, userAgent } = requestMeta(request);
 
     let fileBuffer: Buffer;
     try {

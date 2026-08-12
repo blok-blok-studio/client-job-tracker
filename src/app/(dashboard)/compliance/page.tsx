@@ -23,6 +23,7 @@ import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
+import { isSelfHeldDocType } from "@/lib/tax/obligations-source";
 
 interface Profile {
   id: string;
@@ -54,7 +55,7 @@ interface TaxDoc {
   id: string;
   type: string;
   direction: "INBOUND" | "OUTBOUND";
-  status: "REQUESTED" | "RECEIVED" | "SENT" | "EXPIRED" | "NA";
+  status: "REQUESTED" | "RECEIVED" | "SENT" | "EXPIRED" | "NA" | "ATTESTED";
   filename: string | null;
   fileUrl: string | null;
   validUntil: string | null;
@@ -94,6 +95,7 @@ const APPLIES_LABELS: Record<Obligation["appliesTo"], string> = {
 
 const DOC_STATUS_VARIANT: Record<TaxDoc["status"], "green" | "yellow" | "red" | "gray"> = {
   REQUESTED: "yellow",
+  ATTESTED: "green",
   RECEIVED: "green",
   SENT: "green",
   EXPIRED: "red",
@@ -631,37 +633,50 @@ export default function CompliancePage() {
                             <ExternalLink size={13} />
                           </a>
                         )}
-                        {d.status !== "NA" && (
-                          <button
-                            onClick={() => {
-                              attachTargetRef.current = d.id;
-                              attachFileRef.current?.click();
-                            }}
-                            disabled={!!attachingId}
-                            className="text-bb-dim hover:text-bb-orange transition-colors disabled:opacity-50"
-                            title={
-                              d.direction === "OUTBOUND"
-                                ? "Attach the file to deliver via their portal (encrypted)"
-                                : "Attach a file received outside the portal (encrypted)"
-                            }
-                          >
-                            <Upload size={13} className={attachingId === d.id ? "animate-pulse" : ""} />
-                          </button>
-                        )}
-                        {d.status === "REQUESTED" && (
-                          <button
-                            onClick={() =>
-                              patchDocument(
-                                d.id,
-                                { status: d.direction === "OUTBOUND" ? "SENT" : "RECEIVED" },
-                                d.direction === "OUTBOUND" ? "Marked as sent" : "Marked as received"
-                              )
-                            }
-                            disabled={busy}
-                            className="px-2.5 py-1 text-[11px] rounded-md border border-bb-border text-bb-muted hover:text-white transition-colors disabled:opacity-50"
-                          >
-                            Mark {d.direction === "OUTBOUND" ? "sent" : "received"}
-                          </button>
+                        {/* Self-held SSN/TIN forms are never stored — no file
+                            attach and no manual "received" (the contractor
+                            attests via their portal). */}
+                        {isSelfHeldDocType(d.type) ? (
+                          d.status === "REQUESTED" && (
+                            <span className="text-[10px] text-bb-dim italic shrink-0">
+                              self-held · awaiting contractor confirmation
+                            </span>
+                          )
+                        ) : (
+                          <>
+                            {d.status !== "NA" && (
+                              <button
+                                onClick={() => {
+                                  attachTargetRef.current = d.id;
+                                  attachFileRef.current?.click();
+                                }}
+                                disabled={!!attachingId}
+                                className="text-bb-dim hover:text-bb-orange transition-colors disabled:opacity-50"
+                                title={
+                                  d.direction === "OUTBOUND"
+                                    ? "Attach the file to deliver via their portal (encrypted)"
+                                    : "Attach a file received outside the portal (encrypted)"
+                                }
+                              >
+                                <Upload size={13} className={attachingId === d.id ? "animate-pulse" : ""} />
+                              </button>
+                            )}
+                            {d.status === "REQUESTED" && (
+                              <button
+                                onClick={() =>
+                                  patchDocument(
+                                    d.id,
+                                    { status: d.direction === "OUTBOUND" ? "SENT" : "RECEIVED" },
+                                    d.direction === "OUTBOUND" ? "Marked as sent" : "Marked as received"
+                                  )
+                                }
+                                disabled={busy}
+                                className="px-2.5 py-1 text-[11px] rounded-md border border-bb-border text-bb-muted hover:text-white transition-colors disabled:opacity-50"
+                              >
+                                Mark {d.direction === "OUTBOUND" ? "sent" : "received"}
+                              </button>
+                            )}
+                          </>
                         )}
                         {d.status !== "NA" && (
                           <button

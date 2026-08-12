@@ -57,6 +57,8 @@ export async function GET() {
           validUntil: true,
           requestedAt: true,
           receivedAt: true,
+          attestedAt: true,
+          attestationText: true,
           submitIp: true,
           submitUserAgent: true,
           note: true,

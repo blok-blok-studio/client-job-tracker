@@ -189,7 +189,7 @@ export async function processTaxReminders(): Promise<{
       take: 25,
     }),
     prisma.taxDocument.findMany({
-      where: { status: "RECEIVED", validUntil: { not: null, lt: ninetyDaysOut } },
+      where: { status: { in: ["RECEIVED", "ATTESTED"] }, validUntil: { not: null, lt: ninetyDaysOut } },
       include: {
         contractor: { select: { name: true } },
         client: { select: { name: true } },

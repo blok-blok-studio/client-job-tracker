@@ -795,6 +795,19 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
   },
 ];
 
+// SSN/TIN-bearing forms we deliberately DO NOT store. The contractor keeps the
+// original and delivers it directly to the accountant; the portal collects only
+// a timestamped self-attestation, so no sensitive personal data lands on our
+// servers (data minimization — the safest record is the one we don't hold).
+export const SELF_HELD_DOC_TYPES = ["W9", "W8BEN"];
+
+export function isSelfHeldDocType(type: string): boolean {
+  return SELF_HELD_DOC_TYPES.includes(type);
+}
+
+export const SELF_HELD_ATTESTATION_TEXT =
+  "I confirm that I have completed this tax form and will provide it directly to Blok Blok Studio's accountant. I understand Blok Blok Studio does not store my SSN/Tax ID.";
+
 // Which inbound/outbound documents a person needs, by their country + relationship.
 // Used when a contractor/client gets a country (or, for the country-independent
 // base set, is created at all) to auto-create TaxDocument rows. The exchange is
@@ -833,7 +846,7 @@ export function requiredDocTypes(opts: {
         {
           type: "W9",
           direction: "INBOUND",
-          note: "Completed W-9 required before first payment (feeds the 1099-NEC).",
+          note: "Complete your W-9 and send it directly to Blok Blok's accountant (feeds the 1099-NEC). Confirm here once done — we don't store your SSN.",
         },
         {
           type: "1099_NEC_COPY",
@@ -849,7 +862,7 @@ export function requiredDocTypes(opts: {
         {
           type: "W8BEN",
           direction: "INBOUND",
-          note: "W-8BEN (individual) or W-8BEN-E (entity) required before first payment; valid 3 years.",
+          note: "Complete your W-8BEN (individual) or W-8BEN-E (entity) and send it directly to Blok Blok's accountant; valid 3 years. Confirm here once done — we don't store it.",
         },
       ];
     }

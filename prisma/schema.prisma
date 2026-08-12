@@ -1332,7 +1332,12 @@ model TaxDocument {
   requestedAt DateTime @default(now())
   receivedAt  DateTime?
 
-  // Stamped when uploaded through the public contractor portal
+  // Self-attestation (for SSN/TIN forms we deliberately DON'T store — the
+  // contractor confirms they hold the form and delivered it to the accountant)
+  attestedAt      DateTime?
+  attestationText String?
+
+  // Stamped when uploaded/attested through the public contractor portal
   submitIp        String?
   submitUserAgent String? @db.Text
 
@@ -1357,4 +1362,5 @@ enum TaxDocStatus {
   SENT
   EXPIRED
   NA
+  ATTESTED // contractor confirmed they hold the form (SSN/TIN) — no copy stored here
 }

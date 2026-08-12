@@ -42,13 +42,14 @@ interface TaxDocRow {
   type: string;
   label: string;
   direction: "INBOUND" | "OUTBOUND";
-  status: "REQUESTED" | "RECEIVED" | "SENT" | "EXPIRED" | "NA";
+  status: "REQUESTED" | "RECEIVED" | "SENT" | "EXPIRED" | "NA" | "ATTESTED";
   note: string | null;
   filename: string | null;
   validUntil: string | null;
   requestedAt: string;
   receivedAt: string | null;
   downloadable: boolean;
+  selfHeld: boolean;
 }
 
 interface HoursRow {
@@ -190,6 +191,29 @@ export default function ContractorPortal({
       loadDocs(t);
     });
   }, [params, loadPortal, loadHours, loadDocs]);
+
+  const handleAttest = async (docId: string) => {
+    if (!token || docUploading) return;
+    setDocUploading(docId);
+    setDocError("");
+    setDocSuccess(false);
+    try {
+      const res = await fetch(`/api/contractor/${token}/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId: docId, attest: true }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json?.error || "Failed to confirm");
+      setDocSuccess(true);
+      loadDocs(token);
+      loadPortal(token);
+    } catch (err) {
+      setDocError(err instanceof Error ? err.message : "Failed, please try again");
+    } finally {
+      setDocUploading("");
+    }
+  };
 
   const handleDocUpload = async (docId: string, f: File) => {
     if (!token || docUploading) return;
@@ -920,6 +944,10 @@ export default function ContractorPortal({
                           <p className="text-[10px] text-gray-500">
                             {doc.status === "REQUESTED"
                               ? `Requested ${new Date(doc.requestedAt).toLocaleDateString()}`
+                              : doc.status === "ATTESTED"
+                              ? `Confirmed ${doc.receivedAt ? new Date(doc.receivedAt).toLocaleDateString() : ""}${
+                                  doc.validUntil ? `, valid until ${new Date(doc.validUntil).toLocaleDateString()}` : ""
+                                }`
                               : doc.receivedAt
                               ? `Received ${new Date(doc.receivedAt).toLocaleDateString()}${
                                   doc.filename ? ` (${doc.filename})` : ""
@@ -927,7 +955,21 @@ export default function ContractorPortal({
                               : doc.status.toLowerCase()}
                           </p>
                         </div>
-                        {doc.status === "REQUESTED" ? (
+                        {doc.status === "REQUESTED" && doc.selfHeld ? (
+                          <button
+                            type="button"
+                            disabled={!!docUploading}
+                            onClick={() => handleAttest(doc.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity shrink-0"
+                          >
+                            {docUploading === doc.id ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <CheckCircle size={12} />
+                            )}
+                            Confirm
+                          </button>
+                        ) : doc.status === "REQUESTED" ? (
                           <button
                             type="button"
                             disabled={!!docUploading}
@@ -947,19 +989,24 @@ export default function ContractorPortal({
                         ) : (
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${
-                              doc.status === "RECEIVED" || doc.status === "SENT"
+                              doc.status === "RECEIVED" || doc.status === "SENT" || doc.status === "ATTESTED"
                                 ? "bg-green-500/10 text-green-400 border border-green-500/20"
                                 : doc.status === "EXPIRED"
                                 ? "bg-red-500/10 text-red-400 border border-red-500/20"
                                 : "bg-white/5 text-gray-500 border border-white/10"
                             }`}
                           >
-                            {doc.status === "RECEIVED" ? "ON FILE" : doc.status}
+                            {doc.status === "RECEIVED" ? "ON FILE" : doc.status === "ATTESTED" ? "CONFIRMED" : doc.status}
                           </span>
                         )}
                       </div>
                       {doc.note && doc.status === "REQUESTED" && (
                         <p className="text-xs text-gray-500 mt-1.5 ml-7">{doc.note}</p>
+                      )}
+                      {doc.selfHeld && doc.status === "REQUESTED" && (
+                        <p className="text-[10px] text-gray-600 mt-1 ml-7">
+                          Your SSN / Tax ID stays with you — Blok Blok never stores it here.
+                        </p>
                       )}
                     </div>
                   ))}
