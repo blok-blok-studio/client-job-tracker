@@ -9,6 +9,7 @@ import {
   Copy,
   Check,
   AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import { useToast } from "@/components/shared/Toast";
@@ -30,10 +31,11 @@ export default function SecurityPage() {
 
   // TOTP setup flow
   const [setupPassword, setSetupPassword] = useState("");
-  const [qr, setQr] = useState<{ qrDataUrl: string; secret: string } | null>(null);
+  const [qr, setQr] = useState<{ qrDataUrl: string; secret: string; uri: string } | null>(null);
   const [enableCode, setEnableCode] = useState("");
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
 
   // PIN
   const [pinPassword, setPinPassword] = useState("");
@@ -77,7 +79,7 @@ export default function SecurityPage() {
     if (!setupPassword) return;
     const data = await totpAction("setup", { password: setupPassword }, "");
     if (data) {
-      setQr({ qrDataUrl: data.qrDataUrl, secret: data.secret });
+      setQr({ qrDataUrl: data.qrDataUrl, secret: data.secret, uri: data.uri });
       setBackupCodes(null);
     }
   }
@@ -146,6 +148,14 @@ export default function SecurityPage() {
     navigator.clipboard.writeText(backupCodes.join("\n")).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function copyKey() {
+    if (!qr) return;
+    navigator.clipboard.writeText(qr.secret).then(() => {
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2000);
     });
   }
 
@@ -235,25 +245,50 @@ export default function SecurityPage() {
             </div>
           ) : qr ? (
             <div className="space-y-3">
-              <p className="text-xs text-bb-muted">
+              {/* On this phone: one tap adds the account to the authenticator app */}
+              <a
+                href={qr.uri}
+                className="sm:hidden flex items-center justify-center gap-2 w-full py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold rounded-md transition-colors"
+              >
+                <ExternalLink size={15} />
+                Add to my authenticator app
+              </a>
+              <p className="sm:hidden text-center text-[11px] text-bb-dim">
+                Tap above if your authenticator app is on this phone. On a computer, scan the code below.
+              </p>
+
+              <p className="hidden sm:block text-xs text-bb-muted">
                 Scan this with Google Authenticator, Authy, or 1Password, then enter the 6-digit code it shows.
               </p>
               <div className="flex items-start gap-4 flex-wrap">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qr.qrDataUrl} alt="2FA QR code" width={180} height={180} className="rounded-md bg-white p-1" />
-                <div className="text-xs text-bb-dim space-y-1">
-                  <p>Can&apos;t scan? Enter this key manually:</p>
-                  <code className="block break-all text-white bg-bb-black border border-bb-border rounded px-2 py-1">
-                    {qr.secret}
-                  </code>
+                <div className="text-xs text-bb-dim space-y-1 min-w-0">
+                  <p>Or enter this key manually:</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 break-all text-white bg-bb-black border border-bb-border rounded px-2 py-1 min-w-0">
+                      {qr.secret}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={copyKey}
+                      className="shrink-0 p-1.5 rounded-md border border-bb-border text-bb-muted hover:text-white transition-colors"
+                      aria-label="Copy key"
+                    >
+                      {copiedKey ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="flex gap-2">
                 <input
                   type="text"
                   inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
+                  maxLength={6}
                   value={enableCode}
-                  onChange={(e) => setEnableCode(e.target.value)}
+                  onChange={(e) => setEnableCode(e.target.value.replace(/\D/g, ""))}
                   placeholder="123456"
                   className={`${inputClass} max-w-[140px] text-center tracking-widest`}
                 />
