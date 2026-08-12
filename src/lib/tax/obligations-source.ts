@@ -207,6 +207,23 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     ],
   },
   {
+    key: "us-de-treaty-totalization",
+    country: "US",
+    appliesTo: "SELF",
+    profileKey: "us-llc",
+    name: "US-Germany double taxation + social security coordination",
+    formName: "Form 1116 / certificate of coverage",
+    description:
+      "The US taxes citizens on WORLDWIDE income: German freelance earnings must appear on the 1040, with German income tax offset via the foreign tax credit (Form 1116) under the US-Germany treaty. Separately, the US-Germany totalization agreement decides WHERE self-employment/social contributions are owed — without a certificate of coverage the same income can be hit by US self-employment tax AND German contributions. This is the single most important structural question for the two-country setup: have the CPA and Steuerberater agree on the arrangement once, then it mostly runs itself.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: [
+      "https://www.irs.gov/individuals/international-taxpayers/foreign-tax-credit",
+      "https://www.ssa.gov/international/Agreement_Pamphlets/germany.html",
+    ],
+    verifyWithAdvisor: true,
+  },
+  {
     key: "us-record-retention",
     country: "US",
     appliesTo: "SELF",
@@ -452,6 +469,20 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
     verifyWithAdvisor: true,
   },
   {
+    key: "de-gdpr-dsgvo",
+    country: "DE",
+    appliesTo: "CLIENT",
+    profileKey: "de-freelancer",
+    name: "GDPR / DSGVO paperwork for EU clients",
+    formName: "AVV / DPA (Art. 28 DSGVO)",
+    description:
+      "Not tax, but real legal exposure with EU clients: processing personal data on a client's behalf (hosting their site, handling their form submissions or customer lists) requires a signed Auftragsverarbeitungsvertrag (data processing agreement) with that client, and BlokBlok's own sites/processes need a compliant privacy notice. German clients increasingly ask for the AVV up front — having a standard one ready is both protection and a sales asset. Have a lawyer produce the template once.",
+    frequency: "WATCH",
+    dueRules: [],
+    sourceUrls: ["https://gdpr.eu/what-is-data-processing-agreement/"],
+    verifyWithAdvisor: true,
+  },
+  {
     key: "de-einvoicing-2027",
     country: "DE",
     appliesTo: "CLIENT",
@@ -557,6 +588,11 @@ export function requiredDocTypes(opts: {
         type: "RECHNUNG_INFO",
         direction: "OUTBOUND",
         note: "Invoices need German-compatible VAT wording (Kleinunternehmer §19 note or reverse charge). E-invoicing mandate phases in 2027-2028.",
+      },
+      {
+        type: "DPA_AVV",
+        direction: "OUTBOUND",
+        note: "Signed Auftragsverarbeitungsvertrag (GDPR data processing agreement) if we host or process personal data for this client.",
       },
     ];
   }
