@@ -532,41 +532,66 @@ export const OBLIGATION_SEEDS: ObligationSeed[] = [
 ];
 
 // Which inbound/outbound documents a person needs, by their country + relationship.
-// Used when a contractor/client gets a country to auto-create TaxDocument rows.
+// Used when a contractor/client gets a country (or, for the country-independent
+// base set, is created at all) to auto-create TaxDocument rows. The exchange is
+// deliberately two-way: what they owe us AND what we owe them.
 export function requiredDocTypes(opts: {
   kind: "contractor" | "client";
-  country: string;
+  country: string | null;
 }): { type: string; direction: "INBOUND" | "OUTBOUND"; note: string }[] {
   const { kind, country } = opts;
   if (kind === "contractor") {
-    // Every contractor, any country: a signed independent contractor agreement
-    // (with IP assignment) is the core legal cover — classification defense,
-    // ownership of the work, and payment terms all hang off it.
-    const agreement = {
-      type: "CONTRACTOR_AGREEMENT",
-      direction: "INBOUND" as const,
-      note: "Signed independent contractor agreement (incl. IP assignment) required before work starts.",
-    };
+    // Country-independent base set for every contractor:
+    // - a signed independent contractor agreement (incl. IP assignment) is the
+    //   core legal cover — classification defense, ownership, payment terms
+    // - they get their countersigned copy back, and our billing details so
+    //   their invoices to us are compliant
+    const base: { type: string; direction: "INBOUND" | "OUTBOUND"; note: string }[] = [
+      {
+        type: "CONTRACTOR_AGREEMENT",
+        direction: "INBOUND",
+        note: "Signed independent contractor agreement (incl. IP assignment) required before work starts.",
+      },
+      {
+        type: "COUNTERSIGNED_AGREEMENT",
+        direction: "OUTBOUND",
+        note: "Their copy of the fully signed agreement — send it back once countersigned.",
+      },
+      {
+        type: "COMPANY_INFO",
+        direction: "OUTBOUND",
+        note: "Blok Blok's billing details sheet (legal name, address) so their invoices to us are compliant.",
+      },
+    ];
     if (country === "US") {
       return [
-        agreement,
+        ...base,
         {
           type: "W9",
           direction: "INBOUND",
           note: "Completed W-9 required before first payment (feeds the 1099-NEC).",
         },
+        {
+          type: "1099_NEC_COPY",
+          direction: "OUTBOUND",
+          note: "Copy of their 1099-NEC due to them by Jan 31 if paid $2,000+ during the year.",
+        },
       ];
     }
-    // Any non-US contractor paid by the US LLC
-    return [
-      agreement,
-      {
-        type: "W8BEN",
-        direction: "INBOUND",
-        note: "W-8BEN (individual) or W-8BEN-E (entity) required before first payment; valid 3 years.",
-      },
-    ];
+    if (country) {
+      // Any non-US contractor paid by the US LLC
+      return [
+        ...base,
+        {
+          type: "W8BEN",
+          direction: "INBOUND",
+          note: "W-8BEN (individual) or W-8BEN-E (entity) required before first payment; valid 3 years.",
+        },
+      ];
+    }
+    return base;
   }
+  if (!country) return [];
   // Clients
   if (country === "US") {
     return [

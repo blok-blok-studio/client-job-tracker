@@ -28,6 +28,28 @@ async function findContractor(token: string) {
   });
 }
 
+// Onboarding gate: these must be on file before invoices can be submitted.
+// Hours logging is deliberately NOT gated — work records stay recordable.
+const BLOCKING_DOC_TYPES = ["CONTRACTOR_AGREEMENT", "W9", "W8BEN"];
+const BLOCKING_DOC_LABELS: Record<string, string> = {
+  CONTRACTOR_AGREEMENT: "Signed contractor agreement",
+  W9: "Form W-9",
+  W8BEN: "Form W-8BEN / W-8BEN-E",
+};
+
+async function missingRequiredDocs(contractorId: string): Promise<string[]> {
+  const open = await prisma.taxDocument.findMany({
+    where: {
+      contractorId,
+      direction: "INBOUND",
+      status: "REQUESTED",
+      type: { in: BLOCKING_DOC_TYPES },
+    },
+    select: { type: true },
+  });
+  return open.map((d) => BLOCKING_DOC_LABELS[d.type] || d.type);
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
@@ -38,27 +60,31 @@ export async function GET(
     return NextResponse.json({ success: false, error: "Invalid link" }, { status: 404 });
   }
 
-  const invoices = await prisma.contractorInvoice.findMany({
-    where: { contractorId: contractor.id },
-    orderBy: { submittedAt: "desc" },
-    take: 50,
-    select: {
-      id: true,
-      invoiceNumber: true,
-      amount: true,
-      currency: true,
-      filename: true,
-      status: true,
-      submittedAt: true,
-      paidAt: true,
-    },
-  });
+  const [invoices, missingDocs] = await Promise.all([
+    prisma.contractorInvoice.findMany({
+      where: { contractorId: contractor.id },
+      orderBy: { submittedAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        invoiceNumber: true,
+        amount: true,
+        currency: true,
+        filename: true,
+        status: true,
+        submittedAt: true,
+        paidAt: true,
+      },
+    }),
+    missingRequiredDocs(contractor.id),
+  ]);
 
   return NextResponse.json({
     success: true,
     data: {
       contractor: { name: contractor.name, company: contractor.company },
       invoices,
+      missingDocs,
     },
   });
 }
@@ -85,6 +111,18 @@ export async function POST(
     const contractor = await findContractor(token);
     if (!contractor || !contractor.isActive) {
       return NextResponse.json({ success: false, error: "Invalid link" }, { status: 404 });
+    }
+
+    // Required paperwork gates invoice submission (not hours logging)
+    const missing = await missingRequiredDocs(contractor.id);
+    if (missing.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Before submitting invoices, please provide: ${missing.join(", ")} (see the Documents tab)`,
+        },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();

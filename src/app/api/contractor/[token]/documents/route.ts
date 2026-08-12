@@ -18,6 +18,9 @@ const DOC_LABELS: Record<string, string> = {
   W9: "Form W-9 (US taxpayer info)",
   W8BEN: "Form W-8BEN / W-8BEN-E (foreign status)",
   CONTRACTOR_AGREEMENT: "Signed contractor agreement",
+  COUNTERSIGNED_AGREEMENT: "Your countersigned agreement copy",
+  COMPANY_INFO: "Blok Blok billing details",
+  "1099_NEC_COPY": "Your 1099-NEC copy",
 };
 
 async function findContractor(token: string) {
@@ -31,9 +34,11 @@ async function findContractor(token: string) {
 const docSelect = {
   id: true,
   type: true,
+  direction: true,
   status: true,
   note: true,
   filename: true,
+  fileUrl: true,
   validUntil: true,
   requestedAt: true,
   receivedAt: true,
@@ -50,15 +55,21 @@ export async function GET(
   }
 
   const documents = await prisma.taxDocument.findMany({
-    where: { contractorId: contractor.id, direction: "INBOUND", status: { not: "NA" } },
-    orderBy: { requestedAt: "asc" },
+    where: { contractorId: contractor.id, status: { not: "NA" } },
+    orderBy: [{ direction: "asc" }, { requestedAt: "asc" }],
     select: docSelect,
   });
 
   return NextResponse.json({
     success: true,
     data: {
-      documents: documents.map((d) => ({ ...d, label: DOC_LABELS[d.type] || d.type })),
+      // fileUrl itself never leaves the server — the portal downloads through
+      // the token-scoped decrypt route instead
+      documents: documents.map(({ fileUrl, ...d }) => ({
+        ...d,
+        label: DOC_LABELS[d.type] || d.type,
+        downloadable: !!fileUrl,
+      })),
     },
   });
 }

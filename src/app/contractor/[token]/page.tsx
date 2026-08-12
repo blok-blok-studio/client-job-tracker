@@ -41,12 +41,14 @@ interface TaxDocRow {
   id: string;
   type: string;
   label: string;
+  direction: "INBOUND" | "OUTBOUND";
   status: "REQUESTED" | "RECEIVED" | "SENT" | "EXPIRED" | "NA";
   note: string | null;
   filename: string | null;
   validUntil: string | null;
   requestedAt: string;
   receivedAt: string | null;
+  downloadable: boolean;
 }
 
 interface HoursRow {
@@ -97,6 +99,7 @@ export default function ContractorPortal({
   const [token, setToken] = useState("");
   const [contractor, setContractor] = useState<ContractorInfo | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [missingDocs, setMissingDocs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [invalid, setInvalid] = useState(false);
   const [tab, setTab] = useState<"invoices" | "hours" | "documents">("invoices");
@@ -148,6 +151,7 @@ export default function ContractorPortal({
         if (d.success) {
           setContractor(d.data.contractor);
           setInvoices(d.data.invoices);
+          setMissingDocs(d.data.missingDocs || []);
         } else {
           setInvalid(true);
         }
@@ -214,6 +218,8 @@ export default function ContractorPortal({
       if (!res.ok || !json.success) throw new Error(json?.error || "Failed to submit document");
       setDocSuccess(true);
       loadDocs(token);
+      loadPortal(token); // refreshes the invoice-tab gating
+
     } catch (err) {
       setDocError(err instanceof Error ? err.message : "Upload failed, please try again");
     } finally {
@@ -441,6 +447,27 @@ export default function ContractorPortal({
 
         {tab === "invoices" && (
           <>
+            {/* Onboarding gate: required paperwork before invoices can be submitted */}
+            {missingDocs.length > 0 && (
+              <div className="mb-6 px-4 py-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                <p className="text-sm text-yellow-300 flex items-start gap-2">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <span>
+                    Before submitting invoices, we need the following on file:{" "}
+                    <span className="font-medium">{missingDocs.join(", ")}</span>. It only takes a
+                    minute.
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setTab("documents")}
+                  className="mt-2 ml-6 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  Go to Documents
+                </button>
+              </div>
+            )}
+
             {/* Success banner */}
             {success && (
               <div className="flex items-center gap-2 mb-6 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
@@ -451,8 +478,8 @@ export default function ContractorPortal({
               </div>
             )}
 
-            {/* Drop zone / selected file */}
-            {!file ? (
+            {/* Drop zone / selected file (hidden while required paperwork is missing) */}
+            {missingDocs.length === 0 && (!file ? (
               <div
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
@@ -495,7 +522,7 @@ export default function ContractorPortal({
                   <X size={14} />
                 </button>
               </div>
-            )}
+            ))}
 
             <input
               ref={fileInputRef}
@@ -875,60 +902,111 @@ export default function ContractorPortal({
                 <p className="text-xs text-red-300">{docError}</p>
               </div>
             )}
-            <div className="space-y-2">
-              {taxDocs.map((doc) => (
-                <div key={doc.id} className="p-3 bg-white/[0.03] border border-white/5 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <FileText size={16} className="text-orange-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">{doc.label}</p>
-                      <p className="text-[10px] text-gray-500">
-                        {doc.status === "REQUESTED"
-                          ? `Requested ${new Date(doc.requestedAt).toLocaleDateString()}`
-                          : doc.receivedAt
-                          ? `Received ${new Date(doc.receivedAt).toLocaleDateString()}${
-                              doc.filename ? ` (${doc.filename})` : ""
-                            }${doc.validUntil ? `, valid until ${new Date(doc.validUntil).toLocaleDateString()}` : ""}`
-                          : doc.status.toLowerCase()}
-                      </p>
-                    </div>
-                    {doc.status === "REQUESTED" ? (
-                      <button
-                        type="button"
-                        disabled={!!docUploading}
-                        onClick={() => {
-                          docTargetRef.current = doc.id;
-                          docFileRef.current?.click();
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity shrink-0"
-                      >
-                        {docUploading === doc.id ? (
-                          <Loader2 size={12} className="animate-spin" />
+            {/* Documents we need from them */}
+            {taxDocs.some((d) => d.direction === "INBOUND") && (
+              <div className="space-y-2">
+                <h2 className="text-sm font-medium text-white flex items-center gap-2">
+                  <Upload size={15} className="text-white/40" />
+                  Documents we need from you
+                </h2>
+                {taxDocs
+                  .filter((d) => d.direction === "INBOUND")
+                  .map((doc) => (
+                    <div key={doc.id} className="p-3 bg-white/[0.03] border border-white/5 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <FileText size={16} className="text-orange-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">{doc.label}</p>
+                          <p className="text-[10px] text-gray-500">
+                            {doc.status === "REQUESTED"
+                              ? `Requested ${new Date(doc.requestedAt).toLocaleDateString()}`
+                              : doc.receivedAt
+                              ? `Received ${new Date(doc.receivedAt).toLocaleDateString()}${
+                                  doc.filename ? ` (${doc.filename})` : ""
+                                }${doc.validUntil ? `, valid until ${new Date(doc.validUntil).toLocaleDateString()}` : ""}`
+                              : doc.status.toLowerCase()}
+                          </p>
+                        </div>
+                        {doc.status === "REQUESTED" ? (
+                          <button
+                            type="button"
+                            disabled={!!docUploading}
+                            onClick={() => {
+                              docTargetRef.current = doc.id;
+                              docFileRef.current?.click();
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity shrink-0"
+                          >
+                            {docUploading === doc.id ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <Upload size={12} />
+                            )}
+                            Upload
+                          </button>
                         ) : (
-                          <Upload size={12} />
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${
+                              doc.status === "RECEIVED" || doc.status === "SENT"
+                                ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                                : doc.status === "EXPIRED"
+                                ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                                : "bg-white/5 text-gray-500 border border-white/10"
+                            }`}
+                          >
+                            {doc.status === "RECEIVED" ? "ON FILE" : doc.status}
+                          </span>
                         )}
-                        Upload
-                      </button>
-                    ) : (
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${
-                          doc.status === "RECEIVED" || doc.status === "SENT"
-                            ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                            : doc.status === "EXPIRED"
-                            ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                            : "bg-white/5 text-gray-500 border border-white/10"
-                        }`}
-                      >
-                        {doc.status === "RECEIVED" ? "ON FILE" : doc.status}
-                      </span>
-                    )}
-                  </div>
-                  {doc.note && doc.status === "REQUESTED" && (
-                    <p className="text-xs text-gray-500 mt-1.5 ml-7">{doc.note}</p>
-                  )}
-                </div>
-              ))}
-            </div>
+                      </div>
+                      {doc.note && doc.status === "REQUESTED" && (
+                        <p className="text-xs text-gray-500 mt-1.5 ml-7">{doc.note}</p>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {/* Documents from Blok Blok */}
+            {taxDocs.some((d) => d.direction === "OUTBOUND") && (
+              <div className="space-y-2 mt-8">
+                <h2 className="text-sm font-medium text-white flex items-center gap-2">
+                  <FileText size={15} className="text-white/40" />
+                  Documents from Blok Blok
+                </h2>
+                {taxDocs
+                  .filter((d) => d.direction === "OUTBOUND")
+                  .map((doc) => (
+                    <div key={doc.id} className="p-3 bg-white/[0.03] border border-white/5 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <FileText size={16} className="text-orange-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">{doc.label}</p>
+                          <p className="text-[10px] text-gray-500">
+                            {doc.downloadable && doc.receivedAt
+                              ? `Sent ${new Date(doc.receivedAt).toLocaleDateString()}${
+                                  doc.filename ? ` (${doc.filename})` : ""
+                                }`
+                              : "Coming soon from the Blok Blok team"}
+                          </p>
+                        </div>
+                        {doc.downloadable ? (
+                          <a
+                            href={`/api/contractor/${token}/documents/${doc.id}/file`}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/15 text-white text-xs font-medium rounded-lg transition-colors shrink-0"
+                          >
+                            <FileText size={12} />
+                            Download
+                          </a>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 bg-white/5 text-gray-500 border border-white/10">
+                            PENDING
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
             <input
               ref={docFileRef}
               type="file"

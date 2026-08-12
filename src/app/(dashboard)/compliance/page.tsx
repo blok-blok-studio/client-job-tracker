@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import {
+  Upload,
   Landmark,
   CalendarClock,
   FileCheck2,
@@ -152,6 +154,9 @@ export default function CompliancePage() {
   const [showAddDoc, setShowAddDoc] = useState(false);
   const [addDoc, setAddDoc] = useState({ person: "", type: "", direction: "INBOUND" as "INBOUND" | "OUTBOUND" });
   const [countryDrafts, setCountryDrafts] = useState<Record<string, string>>({});
+  const [attachingId, setAttachingId] = useState("");
+  const attachFileRef = useRef<HTMLInputElement>(null);
+  const attachTargetRef = useRef<string>("");
   const { toast } = useToast();
 
   const fetchAll = useCallback(async () => {
@@ -251,6 +256,34 @@ export default function CompliancePage() {
       }
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function attachFile(docId: string, f: File) {
+    if (attachingId) return;
+    setAttachingId(docId);
+    try {
+      const ext = f.name.includes(".") ? "." + f.name.split(".").pop() : "";
+      const blob = await vercelBlobUpload(`tax-documents/${crypto.randomUUID()}${ext}`, f, {
+        access: "public",
+        handleUploadUrl: "/api/compliance/documents/upload-blob",
+      });
+      const res = await fetch(`/api/compliance/documents/${docId}/attach`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blobUrl: blob.url, filename: f.name, contentType: blob.contentType || f.type }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast("File attached — encrypted and delivered", "success");
+        await fetchAll();
+      } else {
+        toast(json?.error || "Failed to attach file", "error");
+      }
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Upload failed", "error");
+    } finally {
+      setAttachingId("");
     }
   }
 
@@ -598,6 +631,23 @@ export default function CompliancePage() {
                             <ExternalLink size={13} />
                           </a>
                         )}
+                        {d.status !== "NA" && (
+                          <button
+                            onClick={() => {
+                              attachTargetRef.current = d.id;
+                              attachFileRef.current?.click();
+                            }}
+                            disabled={!!attachingId}
+                            className="text-bb-dim hover:text-bb-orange transition-colors disabled:opacity-50"
+                            title={
+                              d.direction === "OUTBOUND"
+                                ? "Attach the file to deliver via their portal (encrypted)"
+                                : "Attach a file received outside the portal (encrypted)"
+                            }
+                          >
+                            <Upload size={13} className={attachingId === d.id ? "animate-pulse" : ""} />
+                          </button>
+                        )}
                         {d.status === "REQUESTED" && (
                           <button
                             onClick={() =>
@@ -737,6 +787,19 @@ export default function CompliancePage() {
           </div>
         )}
       </div>
+
+      <input
+        ref={attachFileRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f && attachTargetRef.current) attachFile(attachTargetRef.current, f);
+          e.target.value = "";
+        }}
+      />
 
       {/* Add document modal */}
       <Modal open={showAddDoc} onClose={() => setShowAddDoc(false)} title="Add Document Requirement">

@@ -74,13 +74,15 @@ export async function POST(request: NextRequest) {
       include: { invoices: true },
     });
 
-    // Country set at creation → create the tax documents that country requires
-    if (d.country) {
+    // Onboarding paperwork: the base document set (signed agreement both ways,
+    // company info) is created for every contractor; a country adds W-9/W-8BEN
+    // and the 1099-copy requirement.
+    {
       const { ensureRequiredDocs } = await import("@/lib/tax/documents");
       await ensureRequiredDocs({
         kind: "contractor",
         id: contractor.id,
-        country: d.country.toUpperCase(),
+        country: d.country ? d.country.toUpperCase() : null,
         actor: session?.name || "team",
       }).catch(() => {});
     }
