@@ -144,12 +144,13 @@ export async function PATCH(
         emailError = "No email address on file for this contractor — share the link instead.";
       } else {
         try {
-          await sendContractorAgreementEmail({
+          const sent = await sendContractorAgreementEmail({
             to: contract.contractor.email,
             contractorName: contract.contractor.name,
             title: contract.title,
             agreementUrl: agreementUrl(contract.token),
           });
+          if (!sent) throw new Error("Email isn't configured on the server (RESEND_API_KEY) — copy the link instead.");
           await prisma.contractorContractAudit.create({
             data: {
               contractId: id,

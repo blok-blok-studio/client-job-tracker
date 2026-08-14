@@ -1188,3 +1188,74 @@ export async function sendContractorAgreementSignedEmail(params: {
   }
   return data;
 }
+
+/**
+ * Contractor onboarding: their private portal link, sent automatically when a
+ * contractor is added (and re-sendable from the team side). This is a direct
+ * transactional send triggered by an explicit action — it is deliberately not
+ * routed through the lifecycle engine or its master switch, which stays off.
+ */
+export async function sendContractorPortalEmail(params: {
+  to: string;
+  contractorName: string;
+  portalUrl: string;
+  /** Paperwork that has to be on file before invoices can be submitted */
+  requiredDocs?: string[];
+  /** true when this is a re-send of an existing link */
+  resend?: boolean;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const docsBlock =
+    params.requiredDocs && params.requiredDocs.length > 0
+      ? `<p style="color: #333; font-size: 15px; line-height: 1.6;">Before your first invoice can go through, we need these on file — you can do it all from the portal:</p>
+         <ul style="color: #333; font-size: 15px; line-height: 1.8;">
+           ${params.requiredDocs.map((d) => `<li>${d}</li>`).join("")}
+         </ul>`
+      : "";
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: params.resend
+      ? "Your Blok Blok Studio contractor portal link"
+      : "Welcome to Blok Blok Studio — your contractor portal",
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">Hi ${params.contractorName.split(" ")[0]},</p>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          ${
+            params.resend
+              ? "Here's your private link to the Blok Blok contractor portal again — it's where you submit invoices, log your hours, sign your agreement, and keep your paperwork."
+              : "Welcome aboard. This is your private link to the Blok Blok contractor portal — it's where you submit invoices, log your hours, sign your agreement, and add a photo of yourself so we know who's who."
+          }
+        </p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.portalUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            Open your portal
+          </a>
+        </div>
+        ${docsBlock}
+        <p style="color: #666; font-size: 14px; line-height: 1.6;">
+          Bookmark it — the link is yours and doesn't expire. Please don't forward it; anything submitted through it is recorded as coming from you. Questions? Just reply to this email.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">Blok Blok Studio · chase@blokblokstudio.com</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send contractor portal email:", error);
+    throw new Error(`Resend error: ${error.message}`);
+  }
+  return data;
+}

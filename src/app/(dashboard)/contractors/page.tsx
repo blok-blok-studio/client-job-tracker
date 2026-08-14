@@ -24,6 +24,7 @@ import {
   Undo2,
   FileSignature,
   User,
+  Mail,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import ContractsView from "@/components/contractors/ContractsView";
@@ -245,7 +246,7 @@ export default function ContractorsPage() {
   const { toast } = useToast();
 
   // Add-contractor form
-  const [form, setForm] = useState({ name: "", email: "", company: "", phone: "", notes: "", country: "" });
+  const [form, setForm] = useState({ name: "", email: "", company: "", phone: "", notes: "", country: "", sendWelcomeEmail: true });
   const [saving, setSaving] = useState(false);
 
   // Detail modal state
@@ -471,8 +472,14 @@ export default function ContractorsPage() {
       const json = await res.json();
       if (res.ok && json.success) {
         setShowAdd(false);
-        setForm({ name: "", email: "", company: "", phone: "", notes: "", country: "" });
-        toast("Contractor added — copy their upload link from the card", "success");
+        setForm({ name: "", email: "", company: "", phone: "", notes: "", country: "", sendWelcomeEmail: true });
+        if (json.emailed) {
+          toast(`Contractor added — portal link emailed to ${json.data.email}`, "success");
+        } else if (json.emailError) {
+          toast(`Contractor added, but the email didn't send: ${json.emailError}`, "error");
+        } else {
+          toast("Contractor added — copy their portal link from the card", "success");
+        }
         fetchContractors();
       } else {
         toast(json?.error || "Failed to add contractor", "error");
@@ -597,7 +604,9 @@ export default function ContractorsPage() {
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        toast(okMessage, "success");
+        // An email that silently failed must not report success
+        if (json.emailError) toast(json.emailError, "error");
+        else toast(okMessage, "success");
         setManaging(json.data);
         await fetchContractors();
       } else {
@@ -996,6 +1005,29 @@ export default function ContractorsPage() {
               className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 resize-none"
             />
           </div>
+          <label
+            className={cn(
+              "flex items-start gap-3 p-3 rounded-lg border cursor-pointer",
+              form.email.trim() ? "border-bb-border bg-bb-black" : "border-bb-border/50 bg-bb-black/50 opacity-60"
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={form.sendWelcomeEmail && !!form.email.trim()}
+              disabled={!form.email.trim()}
+              onChange={(e) => setForm((p) => ({ ...p, sendWelcomeEmail: e.target.checked }))}
+              className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
+            />
+            <div>
+              <span className="text-sm font-medium text-white">Email them their portal link now</span>
+              <p className="text-[10px] text-bb-dim mt-0.5">
+                {form.email.trim()
+                  ? "Welcome email with their private link and the paperwork we still need. Without it they can't invoice or log hours."
+                  : "Add an email address to send this automatically."}
+              </p>
+            </div>
+          </label>
+
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
@@ -1009,7 +1041,7 @@ export default function ContractorsPage() {
               disabled={!form.name.trim() || saving}
               className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
-              {saving ? "Adding..." : "Add & Create Link"}
+              {saving ? "Adding..." : form.sendWelcomeEmail && form.email.trim() ? "Add & Send Link" : "Add & Create Link"}
             </button>
           </div>
         </form>
@@ -1077,6 +1109,21 @@ export default function ContractorsPage() {
                   )}
                 </button>
               </div>
+              <button
+                onClick={() =>
+                  patchContractor(
+                    managing.id,
+                    { sendPortalEmail: true },
+                    `Portal link emailed to ${managing.email}`
+                  )
+                }
+                disabled={busy || !managing.email}
+                title={managing.email ? `Email it to ${managing.email}` : "No email address on file"}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-bb-surface border border-bb-border text-bb-muted hover:text-white text-xs font-medium rounded-md transition-colors disabled:opacity-40"
+              >
+                <Mail size={13} />
+                {managing.email ? "Email them this link" : "No email on file"}
+              </button>
             </div>
 
             {/* Client assignments — which clients this contractor can log hours against */}

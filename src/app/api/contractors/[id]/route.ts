@@ -89,6 +89,8 @@ const patchSchema = z.object({
     .optional()
     .or(z.literal("")),
   links: z.record(z.string().max(30), z.string().max(300)).optional(),
+  /** Email them their portal link (use after adding, or after rotating the link) */
+  sendPortalEmail: z.boolean().optional(),
 });
 
 // PATCH /api/contractors/[id] — edit details, pause the link, or rotate the token
@@ -219,7 +221,41 @@ export async function PATCH(
       });
     }
 
-    return NextResponse.json({ success: true, data: contractor });
+    // Send (or re-send) their portal link. Always uses the token as it stands
+    // after this update, so rotating the link and emailing it is one action.
+    let emailError: string | null = null;
+    let emailed = false;
+    if (d.sendPortalEmail) {
+      if (!contractor.email) {
+        emailError = "No email address on file for this contractor.";
+      } else {
+        try {
+          const { sendContractorPortalEmail } = await import("@/lib/email");
+          const { contractorPortalUrl, requiredDocLabels } = await import("@/lib/contractor-onboarding");
+          const sent = await sendContractorPortalEmail({
+            to: contractor.email,
+            contractorName: contractor.name,
+            portalUrl: contractorPortalUrl(contractor.uploadToken),
+            requiredDocs: await requiredDocLabels(contractor.id),
+            resend: true,
+          });
+          if (!sent) throw new Error("Email isn't configured on the server (RESEND_API_KEY) — share the link manually.");
+          emailed = true;
+          await prisma.activityLog.create({
+            data: {
+              actor: session?.name || "team",
+              action: "contractor_portal_link_sent",
+              details: `Emailed the portal link to ${contractor.name} (${contractor.email})`,
+            },
+          });
+        } catch (err) {
+          emailError = err instanceof Error ? err.message : "Failed to send the email";
+          console.error("[Contractors] Portal email failed:", emailError);
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true, data: contractor, emailed, emailError });
   } catch {
     return NextResponse.json({ success: false, error: "Failed to update contractor" }, { status: 500 });
   }

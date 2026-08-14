@@ -7,6 +7,7 @@ import Modal from "@/components/shared/Modal";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { useToast } from "@/components/shared/Toast";
 import { ListSkeleton } from "@/components/shared/Skeleton";
+import { PAGE_OPTIONS } from "@/lib/page-access";
 
 interface TeamUser {
   id: string;
@@ -21,23 +22,6 @@ interface TeamUser {
   allowedPages?: string[];
 }
 
-const PAGE_OPTIONS: Array<{ key: string; label: string }> = [
-  { key: "clients", label: "Clients" },
-  { key: "services", label: "Services" },
-  { key: "kanban", label: "Kanban" },
-  { key: "my-tasks", label: "My Tasks" },
-  { key: "calendar", label: "Calendar" },
-  { key: "content", label: "Content" },
-  { key: "newsletter", label: "Newsletter" },
-  { key: "files", label: "Files" },
-  { key: "deliverables", label: "Deliverables" },
-  { key: "vault", label: "Vault" },
-  { key: "money", label: "Money" },
-  { key: "activity", label: "Activity" },
-  { key: "reports", label: "Reports" },
-  { key: "monthly-reports", label: "Monthly Reports" },
-  { key: "support", label: "Support" },
-];
 
 export default function TeamPage() {
   const { toast } = useToast();

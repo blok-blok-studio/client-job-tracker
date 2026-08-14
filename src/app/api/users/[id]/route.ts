@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession, hashPassword } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { isValidPageList } from "@/lib/page-access";
 
 // PATCH /api/users/[id] — update name, role, active state, or password (owner only)
 export async function PATCH(
@@ -39,11 +40,10 @@ export async function PATCH(
     allowedPages?: string[];
   } = {};
 
-  const VALID_PAGES = ["clients", "kanban", "my-tasks", "calendar", "content", "newsletter", "files", "vault", "money", "activity", "reports", "monthly-reports", "support", "contractors", "compliance", "security"];
   if (body.allowedPages !== undefined) {
     if (session.role !== "OWNER")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    if (!Array.isArray(body.allowedPages) || !body.allowedPages.every((x) => VALID_PAGES.includes(x)))
+    if (!isValidPageList(body.allowedPages))
       return NextResponse.json({ error: "Invalid page list" }, { status: 400 });
     data.allowedPages = body.allowedPages;
   }

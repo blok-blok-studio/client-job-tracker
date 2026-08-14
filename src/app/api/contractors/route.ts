@@ -45,6 +45,8 @@ const createSchema = z.object({
   phone: z.string().max(50).optional().or(z.literal("")),
   notes: z.string().max(2000).optional().or(z.literal("")),
   country: z.string().length(2).optional().or(z.literal("")),
+  /** Email them their portal link on creation (default on when we have an address) */
+  sendWelcomeEmail: z.boolean().optional().default(true),
 });
 
 // POST /api/contractors — add a contractor and mint their upload link
@@ -95,7 +97,39 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, data: contractor });
+    // Onboarding: send them their portal link straight away. A contractor who
+    // never receives the link can't invoice, log hours, or sign anything.
+    let emailError: string | null = null;
+    let emailed = false;
+    if (d.sendWelcomeEmail && contractor.email) {
+      try {
+        const { sendContractorPortalEmail } = await import("@/lib/email");
+        const { contractorPortalUrl, requiredDocLabels } = await import("@/lib/contractor-onboarding");
+        const sent = await sendContractorPortalEmail({
+          to: contractor.email,
+          contractorName: contractor.name,
+          portalUrl: contractorPortalUrl(contractor.uploadToken),
+          requiredDocs: await requiredDocLabels(contractor.id),
+        });
+        // The helper no-ops when RESEND_API_KEY is missing — don't claim a send
+        if (!sent) throw new Error("Email isn't configured on the server (RESEND_API_KEY) — share the link manually.");
+        emailed = true;
+        await prisma.activityLog.create({
+          data: {
+            actor: session?.name || "team",
+            action: "contractor_portal_link_sent",
+            details: `Emailed the portal link to ${contractor.name} (${contractor.email})`,
+          },
+        });
+      } catch (err) {
+        emailError = err instanceof Error ? err.message : "Failed to send the welcome email";
+        console.error("[Contractors] Welcome email failed:", emailError);
+      }
+    } else if (d.sendWelcomeEmail && !contractor.email) {
+      emailError = "No email address on file — share their portal link manually.";
+    }
+
+    return NextResponse.json({ success: true, data: contractor, emailed, emailError });
   } catch {
     return NextResponse.json({ success: false, error: "Failed to add contractor" }, { status: 500 });
   }
