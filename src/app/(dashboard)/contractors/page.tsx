@@ -22,8 +22,12 @@ import {
   AlertTriangle,
   Timer,
   Undo2,
+  FileSignature,
+  User,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
+import ContractsView from "@/components/contractors/ContractsView";
+import ContractorAvatar from "@/components/contractors/ContractorAvatar";
 import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
@@ -114,6 +118,12 @@ interface ContractorRow {
   phone: string | null;
   notes: string | null;
   isActive: boolean;
+  avatarUrl: string | null;
+  accentColor: string | null;
+  emoji: string | null;
+  role: string | null;
+  country: string | null;
+  location: string | null;
   uploadToken: string;
   createdAt: string;
   invoices: InvoiceRow[];
@@ -224,7 +234,7 @@ function ts(date: string) {
 export default function ContractorsPage() {
   const [loading, setLoading] = useState(true);
   const [contractors, setContractors] = useState<ContractorRow[]>([]);
-  const [view, setView] = useState<"invoices" | "hours">("invoices");
+  const [view, setView] = useState<"invoices" | "hours" | "contracts">("invoices");
   const [statusTab, setStatusTab] = useState("PENDING");
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -295,7 +305,11 @@ export default function ContractorsPage() {
     const invoiceId = sp.get("invoice");
     const hoursId = sp.get("hours");
     const contractorId = sp.get("contractor");
-    if (invoiceId && contractors.some((c) => c.invoices.some((i) => i.id === invoiceId))) {
+    const contractId = sp.get("contract");
+    if (contractId) {
+      // ContractsView opens the agreement itself once its list is loaded
+      setView("contracts");
+    } else if (invoiceId && contractors.some((c) => c.invoices.some((i) => i.id === invoiceId))) {
       setStatusTab("ALL");
       setSelectedId(invoiceId);
     } else if (hoursId && contractors.some((c) => c.hoursEntries.some((h) => h.id === hoursId))) {
@@ -620,7 +634,9 @@ export default function ContractorsPage() {
         subtitle={
           view === "invoices"
             ? "Contractor invoices — uploads, payment status, and audit trail"
-            : "Contractor hours — self-reported work sessions with attestation and audit trail"
+            : view === "hours"
+            ? "Contractor hours — self-reported work sessions with attestation and audit trail"
+            : "Contractor agreements — draft, counter-sign, send for signature, and keep the record"
         }
       />
       <div className="px-4 lg:px-6 space-y-4">
@@ -630,6 +646,7 @@ export default function ContractorsPage() {
             [
               { key: "invoices", label: "Invoices", icon: Receipt },
               { key: "hours", label: "Hours", icon: Timer },
+              { key: "contracts", label: "Contracts", icon: FileSignature },
             ] as const
           ).map((t) => (
             <button
@@ -647,6 +664,7 @@ export default function ContractorsPage() {
         </div>
 
         {/* Summary tiles */}
+        {view !== "contracts" && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {(view === "invoices"
             ? [
@@ -679,6 +697,7 @@ export default function ContractorsPage() {
             </div>
           ))}
         </div>
+        )}
 
         {/* Contractor cards */}
         <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
@@ -705,22 +724,35 @@ export default function ContractorsPage() {
                 <div
                   key={c.id}
                   className={cn(
-                    "flex items-center gap-2 pl-3 pr-2 py-1.5 bg-bb-black border border-bb-border rounded-lg",
+                    "flex items-center gap-2 pl-1.5 pr-2 py-1.5 bg-bb-black border border-bb-border rounded-lg",
                     !c.isActive && "opacity-50"
                   )}
                 >
-                  <button
-                    onClick={() => setManaging(c)}
-                    className="text-sm text-white hover:text-bb-orange transition-colors"
-                    title="Manage contractor"
+                  <a
+                    href={`/contractors/${c.id}`}
+                    className="flex items-center gap-2 group"
+                    title="Open profile"
                   >
-                    {c.name}
-                  </button>
-                  {c.company && <span className="text-[10px] text-bb-dim hidden sm:inline">{c.company}</span>}
+                    <ContractorAvatar contractor={c} size={26} />
+                    <span className="text-sm text-white group-hover:text-bb-orange transition-colors">
+                      {c.name}
+                    </span>
+                  </a>
+                  {c.role && <span className="text-[10px] text-bb-dim hidden sm:inline">{c.role}</span>}
+                  {!c.role && c.company && (
+                    <span className="text-[10px] text-bb-dim hidden sm:inline">{c.company}</span>
+                  )}
                   {!c.isActive && <Badge variant="gray">OFF</Badge>}
                   <span className="text-[10px] text-bb-dim">
                     {c.invoices.filter((i) => i.status === "PENDING").length} pending
                   </span>
+                  <button
+                    onClick={() => setManaging(c)}
+                    className="p-1 rounded text-bb-dim hover:text-bb-orange transition-colors"
+                    title="Manage contractor"
+                  >
+                    <User size={13} />
+                  </button>
                   <button
                     onClick={() => copyLink(c.uploadToken)}
                     className="p-1 rounded text-bb-dim hover:text-bb-orange transition-colors"
@@ -736,6 +768,7 @@ export default function ContractorsPage() {
 
         {/* Status tabs + search */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          {view !== "contracts" && (
           <div className="flex gap-1 bg-bb-surface border border-bb-border rounded-lg p-1 overflow-x-auto w-full sm:w-auto">
             {(view === "invoices" ? STATUS_TABS : HOURS_TABS).map((tab) => (
               <button
@@ -752,6 +785,7 @@ export default function ContractorsPage() {
               </button>
             ))}
           </div>
+          )}
           {view === "hours" && (
             <select
               value={hoursClientFilter}
@@ -774,7 +808,9 @@ export default function ContractorsPage() {
               placeholder={
                 view === "invoices"
                   ? "Search contractors, invoice numbers, files..."
-                  : "Search contractors, clients, work descriptions..."
+                  : view === "hours"
+                  ? "Search contractors, clients, work descriptions..."
+                  : "Search agreements by contractor, title, or signer..."
               }
               className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
             />
@@ -840,6 +876,11 @@ export default function ContractorsPage() {
               })
             )}
           </div>
+        )}
+
+        {/* Contract list */}
+        {view === "contracts" && (
+          <ContractsView contractors={contractors} search={search} onChanged={fetchContractors} />
         )}
 
         {/* Invoice list */}
@@ -985,6 +1026,19 @@ export default function ContractorsPage() {
       >
         {managing && (
           <div className="space-y-4">
+            <a
+              href={`/contractors/${managing.id}`}
+              className="flex items-center gap-3 p-2.5 rounded-lg bg-bb-black border border-bb-border hover:border-bb-orange/50 transition-colors"
+            >
+              <ContractorAvatar contractor={managing} size={34} />
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm text-white truncate">Open full profile</span>
+                <span className="block text-[11px] text-bb-dim truncate">
+                  Photo, skills, agreements, hours, and paperwork in one place
+                </span>
+              </span>
+              <User size={14} className="text-bb-orange shrink-0" />
+            </a>
             <div className="text-xs text-bb-dim space-y-0.5">
               {managing.company && <p>{managing.company}</p>}
               {managing.email && <p>{managing.email}</p>}

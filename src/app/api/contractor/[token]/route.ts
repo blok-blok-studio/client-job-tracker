@@ -25,7 +25,7 @@ async function findContractor(token: string) {
   if (!token || token.length < 16) return null;
   return prisma.contractor.findUnique({
     where: { uploadToken: token },
-    select: { id: true, name: true, company: true, isActive: true },
+    select: { id: true, name: true, company: true, isActive: true, avatarUrl: true },
   });
 }
 
@@ -83,7 +83,11 @@ export async function GET(
   return NextResponse.json({
     success: true,
     data: {
-      contractor: { name: contractor.name, company: contractor.company },
+      contractor: {
+        name: contractor.name,
+        company: contractor.company,
+        avatarUrl: contractor.avatarUrl,
+      },
       invoices,
       missingDocs,
     },

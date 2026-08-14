@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   "/review/",
   "/upload",
   "/contractor/",
+  "/agreement/",
   "/api/auth/login",
   "/api/auth/mfa",
   "/api/newsletter/subscribe",
@@ -22,6 +23,7 @@ const PUBLIC_PATHS = [
   "/api/contract/",
   "/api/review/",
   "/api/contractor/",
+  "/api/agreement/",
   "/api/client-media/upload-portal",
   "/api/client-media/upload-blob",
   "/api/client-media/upload-stream",
@@ -101,6 +103,7 @@ const SHORT_LINKS: Record<string, string> = {
   o: "onboard",
   u: "upload",
   i: "contractor",
+  a: "agreement",
 };
 
 export async function middleware(request: NextRequest) {
@@ -108,7 +111,7 @@ export async function middleware(request: NextRequest) {
 
   cleanupRateLimits();
 
-  const shortMatch = pathname.match(/^\/(c|r|o|u|i)\/([\w-]+)$/);
+  const shortMatch = pathname.match(/^\/(c|r|o|u|i|a)\/([\w-]+)$/);
   if (shortMatch) {
     const url = request.nextUrl.clone();
     url.pathname = `/${SHORT_LINKS[shortMatch[1]]}/${shortMatch[2]}`;

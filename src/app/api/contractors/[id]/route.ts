@@ -4,6 +4,52 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 
+// GET /api/contractors/[id] — everything the profile page shows
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const contractor = await prisma.contractor.findUnique({
+      where: { id },
+      include: {
+        invoices: { orderBy: { submittedAt: "desc" }, take: 25 },
+        hoursEntries: {
+          orderBy: { startAt: "desc" },
+          take: 300,
+          include: { correctedBy: { select: { id: true } } },
+        },
+        clientAssignments: { include: { client: { select: { id: true, name: true } } } },
+        taxDocuments: { orderBy: { requestedAt: "asc" } },
+        contracts: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            token: true,
+            kind: true,
+            title: true,
+            status: true,
+            signedAt: true,
+            signedName: true,
+            expiresAt: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!contractor) {
+      return NextResponse.json({ success: false, error: "Contractor not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, data: contractor });
+  } catch {
+    return NextResponse.json({ success: false, error: "Failed to load contractor" }, { status: 500 });
+  }
+}
+
 const patchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   email: z.string().email().nullable().optional().or(z.literal("")),
@@ -21,6 +67,28 @@ const patchSchema = z.object({
   clientIds: z.array(z.string().max(64)).max(200).optional(),
   country: z.string().length(2).nullable().optional().or(z.literal("")),
   additionalCountries: z.array(z.string().length(2)).max(10).optional(),
+  // Profile fields — none of this is legally load-bearing, it's who they are
+  avatarUrl: z.string().url().nullable().optional().or(z.literal("")),
+  role: z.string().max(100).nullable().optional().or(z.literal("")),
+  skills: z.array(z.string().min(1).max(40)).max(20).optional(),
+  accentColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Use a hex colour like #f97316")
+    .nullable()
+    .optional()
+    .or(z.literal("")),
+  emoji: z.string().max(8).nullable().optional().or(z.literal("")),
+  bio: z.string().max(2000).nullable().optional().or(z.literal("")),
+  funFact: z.string().max(300).nullable().optional().or(z.literal("")),
+  location: z.string().max(200).nullable().optional().or(z.literal("")),
+  timezone: z.string().max(100).nullable().optional().or(z.literal("")),
+  startedAt: z
+    .string()
+    .refine((v) => !isNaN(Date.parse(v)), "Invalid date")
+    .nullable()
+    .optional()
+    .or(z.literal("")),
+  links: z.record(z.string().max(30), z.string().max(300)).optional(),
 });
 
 // PATCH /api/contractors/[id] — edit details, pause the link, or rotate the token
@@ -63,6 +131,20 @@ export async function PATCH(
         ...(d.additionalCountries !== undefined && {
           additionalCountries: d.additionalCountries.map((c) => c.toUpperCase()),
         }),
+        ...(d.avatarUrl !== undefined && {
+          avatarUrl: d.avatarUrl || null,
+          avatarUpdatedAt: d.avatarUrl ? new Date() : null,
+        }),
+        ...(d.role !== undefined && { role: d.role || null }),
+        ...(d.skills !== undefined && { skills: d.skills }),
+        ...(d.accentColor !== undefined && { accentColor: d.accentColor || null }),
+        ...(d.emoji !== undefined && { emoji: d.emoji || null }),
+        ...(d.bio !== undefined && { bio: d.bio || null }),
+        ...(d.funFact !== undefined && { funFact: d.funFact || null }),
+        ...(d.location !== undefined && { location: d.location || null }),
+        ...(d.timezone !== undefined && { timezone: d.timezone || null }),
+        ...(d.startedAt !== undefined && { startedAt: d.startedAt ? new Date(d.startedAt) : null }),
+        ...(d.links !== undefined && { links: d.links }),
         ...(d.clientIds !== undefined && {
           clientAssignments: {
             deleteMany: {},
@@ -164,11 +246,16 @@ export async function DELETE(
     if (!existing) {
       return NextResponse.json({ success: false, error: "Contractor not found" }, { status: 404 });
     }
-    if (existing._count.invoices > 0 || existing._count.hoursEntries > 0) {
+    // Agreements that ever left draft are legal records too — a signed contract
+    // must not disappear because someone tidied up the contractor list.
+    const releasedContracts = await prisma.contractorContract.count({
+      where: { contractorId: id, status: { not: "DRAFT" } },
+    });
+    if (existing._count.invoices > 0 || existing._count.hoursEntries > 0 || releasedContracts > 0) {
       return NextResponse.json(
         {
           success: false,
-          error: "This contractor has invoices or logged hours on record. Deactivate them instead — those are kept as legal records.",
+          error: "This contractor has invoices, logged hours, or agreements on record. Deactivate them instead — those are kept as legal records.",
         },
         { status: 400 }
       );

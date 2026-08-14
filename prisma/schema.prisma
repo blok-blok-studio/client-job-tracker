@@ -900,16 +900,96 @@ model Contractor {
   country             String?
   additionalCountries String[] @default([])
 
+  // --- Profile (the human side; all optional, none of it legally load-bearing) ---
+  avatarUrl       String? // selfie / profile photo (public Vercel Blob, unguessable path)
+  avatarUpdatedAt DateTime?
+  role            String? // free-form: "Video Editor", "Frontend Dev"
+  skills          String[] @default([])
+  accentColor     String? // hex, drives their profile chrome
+  emoji           String? // one emoji they pick — shows next to their name
+  bio             String?  @db.Text
+  funFact         String?
+  location        String?
+  timezone        String? // IANA, remembered from their hours logs
+  startedAt       DateTime? // first day working with us (tenure badge)
+  links           Json? // { portfolio, github, instagram, ... }
+
   invoices          ContractorInvoice[]
   scheduledSteps    ScheduledStep[]
   hoursEntries      ContractorHoursEntry[]
   clientAssignments ContractorClientAssignment[]
   taxDocuments      TaxDocument[]
+  contracts         ContractorContract[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
+}
+
+// --- CONTRACTOR CONTRACTS ---
+// Agreements we send TO contractors (IC agreement, NDA, SOW). Deliberately a
+// separate model from ContractSignature (client contracts): different party,
+// different lifecycle, no payment links — and keeping them apart means client
+// contract code never has to reason about a nullable client.
+model ContractorContract {
+  id           String     @id @default(cuid())
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  token        String @unique // public signing link
+  kind         String @default("IC_AGREEMENT") // IC_AGREEMENT | NDA | SOW | OTHER
+  title        String @default("Independent Contractor Agreement")
+  contractBody String @db.Text
+
+  // Provider (Blok Blok) counter-signature — captured at generation time
+  providerSignedName    String?
+  providerSignatureData String?   @db.Text // Base64 PNG of drawn signature
+  providerSignedAt      DateTime?
+  providerIpAddress     String?
+  providerUserAgent     String?   @db.Text
+
+  // Contractor signature
+  signedName    String?
+  signatureData String?   @db.Text
+  signedAt      DateTime?
+  ipAddress     String?
+  userAgent     String?   @db.Text
+
+  // Document integrity (SHA-256)
+  documentHash       String?
+  signedDocumentHash String?
+
+  status    ContractStatus @default(DRAFT)
+  expiresAt DateTime?
+
+  // Governing-law / jurisdiction snapshot the body was drafted under
+  country String?
+
+  auditLogs ContractorContractAudit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contractorId])
+  @@index([status])
+}
+
+// Immutable audit trail for contractor agreements (created / sent / viewed / signed)
+model ContractorContractAudit {
+  id         String             @id @default(cuid())
+  contractId String
+  contract   ContractorContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  event     String // "created" | "provider_signed" | "sent" | "viewed" | "contractor_signed" | "voided"
+  actor     String // "provider" | "contractor" | "system"
+  ipAddress String?
+  userAgent String? @db.Text
+  metadata  String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([contractId])
 }
 
 model ContractorInvoice {

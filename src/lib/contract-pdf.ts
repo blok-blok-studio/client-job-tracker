@@ -1,0 +1,409 @@
+import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import fs from "fs";
+import path from "path";
+
+// Shared branded contract PDF renderer. Used for client service agreements and
+// for the agreements we send to contractors — same letterhead, same signature
+// panel, same integrity footer, so every signed document out of the studio looks
+// like it came from the same place.
+
+// Brand palette — matches blokblokstudio.com (Tailwind orange-500 accent on
+// black with the site's neutral gray scale)
+const ORANGE = rgb(0.976, 0.451, 0.086); // #f97316 (orange-500)
+const BLACK = rgb(0.039, 0.039, 0.039); // #0a0a0a (gray-950)
+const DARK_TEXT = rgb(0.09, 0.09, 0.09); // #171717 (gray-900)
+const BODY_TEXT = rgb(0.149, 0.149, 0.149); // #262626 (gray-800)
+const MUTED = rgb(0.451, 0.451, 0.451); // #737373 (gray-500)
+const FAINT = rgb(0.639, 0.639, 0.639); // #a3a3a3 (gray-400)
+const LIGHT_BORDER = rgb(0.898, 0.898, 0.898); // #e5e5e5 (gray-200)
+const PANEL_BG = rgb(0.98, 0.98, 0.98); // #fafafa (gray-50)
+
+export interface ContractPdfInput {
+  /** Shown on the letterhead and in the running header, e.g. "Service Agreement". */
+  documentLabel: string;
+  /** Who the document was prepared for — company name where there is one. */
+  counterpartyLabel: string;
+  /** Signature-column heading for the other side, e.g. "Client" or "Contractor". */
+  counterpartyRole: string;
+  contractBody: string;
+  providerSignedName: string | null;
+  providerSignatureData: string | null;
+  providerSignedAt: Date | null;
+  signedName: string | null;
+  signatureData: string | null;
+  signedAt: Date | null;
+  documentHash: string | null;
+  signedDocumentHash: string | null;
+}
+
+// pdf-lib's standard Helvetica draws the euro sign on top of the character that
+// follows it, so "€60" reads as "€0" — a contract must never misstate a fee.
+// Spelling it out is the one substitution that keeps the amount unambiguous.
+function euroSafe(text: string): string {
+  return (
+    text
+      // Client contracts print amounts as "€5,000 EUR" — collapse rather than
+      // ending up with "EUR 5,000 EUR"
+      .replace(/€\s?([\d.,]+)\s+EUR\b/g, "EUR $1")
+      .replace(/€\s?/g, "EUR ")
+  );
+}
+
+export async function renderContractPdf(input: ContractPdfInput): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const fontItalic = await pdf.embedFont(StandardFonts.HelveticaOblique);
+  const fontMono = await pdf.embedFont(StandardFonts.Courier);
+
+  const PAGE_WIDTH = 612; // Letter
+  const PAGE_HEIGHT = 792;
+  const MARGIN = 64;
+  const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
+  const BOTTOM_LIMIT = MARGIN + 28; // keep clear of the per-page footer
+  const FONT_SIZE = 9.5;
+  const LINE_HEIGHT = 15;
+  const HEADING_SIZE = 11.5;
+
+  const counterpartyLabel = euroSafe(input.counterpartyLabel);
+  const documentLabel = euroSafe(input.documentLabel);
+  const docTitleUpper = documentLabel.toUpperCase();
+
+  let page!: PDFPage;
+  let y = 0;
+  let pageCount = 0;
+
+  function newPage() {
+    page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    pageCount++;
+    // Orange brand bar across the top of every page
+    page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 5, width: PAGE_WIDTH, height: 5, color: ORANGE });
+    if (pageCount > 1) {
+      // Slim running header on continuation pages
+      page.drawText("BLOK BLOK STUDIO", { x: MARGIN, y: PAGE_HEIGHT - 34, size: 7.5, font: fontBold, color: MUTED });
+      const right = `${documentLabel} — ${counterpartyLabel}`;
+      const rw = font.widthOfTextAtSize(right, 7.5);
+      page.drawText(right, { x: PAGE_WIDTH - MARGIN - rw, y: PAGE_HEIGHT - 34, size: 7.5, font, color: MUTED });
+      page.drawLine({
+        start: { x: MARGIN, y: PAGE_HEIGHT - 42 },
+        end: { x: PAGE_WIDTH - MARGIN, y: PAGE_HEIGHT - 42 },
+        thickness: 0.5,
+        color: LIGHT_BORDER,
+      });
+      y = PAGE_HEIGHT - 66;
+    } else {
+      y = PAGE_HEIGHT - 64;
+    }
+  }
+
+  function ensureSpace(needed: number) {
+    if (y - needed < BOTTOM_LIMIT) newPage();
+  }
+
+  // Wrap text into lines that fit within a given width
+  function wrapText(text: string, fontSize: number, currentFont: PDFFont, maxWidth = CONTENT_WIDTH): string[] {
+    const words = text.split(" ");
+    const lines: string[] = [];
+    let currentLine = "";
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      if (currentFont.widthOfTextAtSize(testLine, fontSize) > maxWidth) {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+    return lines;
+  }
+
+  function drawWrapped(
+    text: string,
+    fontSize: number,
+    currentFont: PDFFont,
+    color = BODY_TEXT,
+    x = MARGIN,
+    maxWidth = CONTENT_WIDTH,
+    lineHeight = LINE_HEIGHT
+  ) {
+    for (const line of wrapText(text, fontSize, currentFont, maxWidth)) {
+      ensureSpace(lineHeight);
+      page.drawText(line, { x, y, size: fontSize, font: currentFont, color });
+      y -= lineHeight;
+    }
+  }
+
+  // Bullet item with a hanging indent and an orange bullet
+  function drawBullet(text: string) {
+    const indent = 14;
+    const lines = wrapText(text, FONT_SIZE, font, CONTENT_WIDTH - indent);
+    ensureSpace(LINE_HEIGHT);
+    page.drawCircle({ x: MARGIN + 3, y: y + 3.2, size: 1.6, color: ORANGE });
+    for (let i = 0; i < lines.length; i++) {
+      if (i > 0) ensureSpace(LINE_HEIGHT);
+      page.drawText(lines[i], { x: MARGIN + indent, y, size: FONT_SIZE, font, color: BODY_TEXT });
+      y -= LINE_HEIGHT;
+    }
+    y -= 1;
+  }
+
+  // Section heading with an orange left bar — nothing ever crosses the text
+  function drawSectionHeading(text: string) {
+    const indent = 12;
+    const lines = wrapText(text, HEADING_SIZE, fontBold, CONTENT_WIDTH - indent);
+    const blockHeight = lines.length * (HEADING_SIZE + 5);
+    ensureSpace(blockHeight + 26);
+    y -= 14;
+    const topOfText = y + HEADING_SIZE * 0.78;
+    for (const line of lines) {
+      page.drawText(line, { x: MARGIN + indent, y, size: HEADING_SIZE, font: fontBold, color: BLACK });
+      y -= HEADING_SIZE + 5;
+    }
+    const bottomOfText = y + HEADING_SIZE + 5 - 3;
+    page.drawRectangle({
+      x: MARGIN,
+      y: bottomOfText,
+      width: 3,
+      height: topOfText - bottomOfText,
+      color: ORANGE,
+    });
+    y -= 6;
+  }
+
+  newPage();
+
+  // ── Cover header: white letterhead with the dark logo ─────────
+  const HEADER_BOTTOM = PAGE_HEIGHT - 128;
+
+  try {
+    const logoBytes = fs.readFileSync(
+      path.join(process.cwd(), "public", "bb_logo_wordmark_subhead_BLK_PNG.png")
+    );
+    const logoImg = await pdf.embedPng(logoBytes);
+    const logoH = 82;
+    const logoW = (logoImg.width / logoImg.height) * logoH;
+    page.drawImage(logoImg, {
+      x: MARGIN - 5,
+      y: PAGE_HEIGHT - 30 - logoH,
+      width: logoW,
+      height: logoH,
+    });
+  } catch {
+    // Logo missing — fall back to text branding
+    page.drawText("BLOK BLOK STUDIO", { x: MARGIN, y: PAGE_HEIGHT - 62, size: 19, font: fontBold, color: BLACK });
+    page.drawText("creative tech studio", { x: MARGIN, y: PAGE_HEIGHT - 78, size: 8.5, font: fontItalic, color: MUTED });
+  }
+
+  // Prepared-for block on the right
+  const preparedFor = "PREPARED FOR";
+  const pfw = fontBold.widthOfTextAtSize(preparedFor, 6.5);
+  page.drawText(preparedFor, { x: PAGE_WIDTH - MARGIN - pfw, y: PAGE_HEIGHT - 52, size: 6.5, font: fontBold, color: FAINT });
+  const counterpartyW = font.widthOfTextAtSize(counterpartyLabel, 9.5);
+  page.drawText(counterpartyLabel, { x: PAGE_WIDTH - MARGIN - counterpartyW, y: PAGE_HEIGHT - 65, size: 9.5, font, color: DARK_TEXT });
+
+  // Rule closing the letterhead
+  page.drawLine({ start: { x: MARGIN, y: HEADER_BOTTOM }, end: { x: MARGIN + 46, y: HEADER_BOTTOM }, thickness: 2.5, color: ORANGE });
+  page.drawLine({ start: { x: MARGIN + 46, y: HEADER_BOTTOM }, end: { x: PAGE_WIDTH - MARGIN, y: HEADER_BOTTOM }, thickness: 0.75, color: LIGHT_BORDER });
+
+  y = HEADER_BOTTOM - 34;
+
+  // ── Contract body ─────────────────────────────────────────────
+  const bodyLines = euroSafe(input.contractBody).split("\n");
+  let consecutiveBlank = 0;
+
+  for (const rawLine of bodyLines) {
+    const trimmed = rawLine.trim();
+
+    if (!trimmed) {
+      consecutiveBlank++;
+      if (consecutiveBlank === 1) y -= 7;
+      continue;
+    }
+    consecutiveBlank = 0;
+
+    // Document title
+    if (
+      trimmed === "SERVICE AGREEMENT" ||
+      trimmed === docTitleUpper ||
+      /^[A-Z][A-Z\s]{8,40}AGREEMENT$/.test(trimmed)
+    ) {
+      ensureSpace(56);
+      const titleSize = trimmed.length > 34 ? 14 : 17;
+      const titleWidth = fontBold.widthOfTextAtSize(trimmed, titleSize);
+      page.drawText(trimmed, { x: (PAGE_WIDTH - titleWidth) / 2, y, size: titleSize, font: fontBold, color: BLACK });
+      y -= 10;
+      page.drawLine({
+        start: { x: (PAGE_WIDTH - 46) / 2, y },
+        end: { x: (PAGE_WIDTH + 46) / 2, y },
+        thickness: 2,
+        color: ORANGE,
+      });
+      y -= 24;
+      continue;
+    }
+
+    // Section headers
+    if (/^SECTION \d+[.:]/i.test(trimmed) || trimmed === "ACKNOWLEDGMENT AND ACCEPTANCE") {
+      drawSectionHeading(trimmed);
+      continue;
+    }
+
+    // Skip the template's fill-in-by-hand signature placeholders — the real
+    // signature panel below carries the captured signatures
+    if (/^(PROVIDER|CLIENT|CONTRACTOR):$/.test(trimmed) || /^(Name|Date|Signature):\s*_{3,}/.test(trimmed)) {
+      continue;
+    }
+
+    // Numbered subsections like "1.1 WEBSITE DESIGN — $8,000 USD".
+    // Must be mostly uppercase — numbered prose paragraphs ("8.1 The Provider
+    // shall...") stay body text.
+    const subsectionMatch = /^\d+\.\d+\s+(.*)$/.exec(trimmed);
+    const letters = subsectionMatch ? subsectionMatch[1].replace(/[^a-zA-Z]/g, "") : "";
+    const isUpperTitle = letters.length > 0 && letters === letters.toUpperCase();
+    if (subsectionMatch && isUpperTitle) {
+      ensureSpace(LINE_HEIGHT + 8);
+      y -= 5;
+      drawWrapped(trimmed, 10, fontBold, DARK_TEXT);
+      y -= 2;
+      continue;
+    }
+
+    // Lettered items with prices (legacy format)
+    if (/^[A-Z]\.\s/.test(trimmed) && /\$|EUR\s/.test(trimmed)) {
+      ensureSpace(LINE_HEIGHT);
+      drawWrapped(trimmed, FONT_SIZE, fontBold, DARK_TEXT);
+      continue;
+    }
+
+    // Money summary lines — bold, never with rules through them
+    if (/^(TOTAL\b|Total\b|Balance Due\b|Subtotal\b)/.test(trimmed) && /\$|EUR\s/.test(trimmed)) {
+      ensureSpace(LINE_HEIGHT + 4);
+      drawWrapped(trimmed, 10, fontBold, BLACK);
+      continue;
+    }
+
+    // Bulleted list items
+    if (/^[-•]\s+/.test(trimmed)) {
+      drawBullet(trimmed.replace(/^[-•]\s+/, ""));
+      continue;
+    }
+
+    // Regular paragraph text
+    drawWrapped(trimmed, FONT_SIZE, font);
+    y -= 2;
+  }
+
+  // ── Signature panel ───────────────────────────────────────────
+  async function embedSignature(data: string | null): Promise<{ img: Awaited<ReturnType<typeof pdf.embedPng>>; w: number; h: number } | null> {
+    if (!data) return null;
+    try {
+      const base64Data = data.replace(/^data:image\/png;base64,/, "");
+      const sigBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+      const img = await pdf.embedPng(sigBytes);
+      const maxW = 190;
+      const maxH = 42;
+      const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+      return { img, w: img.width * scale, h: img.height * scale };
+    } catch {
+      return null;
+    }
+  }
+
+  const providerSig = await embedSignature(input.providerSignatureData);
+  const counterpartySig = await embedSignature(input.signatureData);
+
+  ensureSpace(190);
+  y -= 16;
+  drawSectionHeading("SIGNATURES");
+  y -= 8;
+
+  const colGap = 28;
+  const colWidth = (CONTENT_WIDTH - colGap) / 2;
+  const leftX = MARGIN;
+  const rightX = MARGIN + colWidth + colGap;
+  const sigAreaHeight = 52;
+  const topY = y;
+
+  function drawSignatureColumn(
+    x: number,
+    role: string,
+    name: string | null,
+    sig: { img: Awaited<ReturnType<typeof pdf.embedPng>>; w: number; h: number } | null,
+    signedAt: Date | null
+  ) {
+    let cy = topY;
+    page.drawText(role.toUpperCase(), { x, y: cy, size: 7.5, font: fontBold, color: MUTED });
+    cy -= 10;
+    // Signature area (image or typed script), sitting on a signing line
+    const lineY = cy - sigAreaHeight;
+    if (sig) {
+      page.drawImage(sig.img, { x, y: lineY + 6, width: sig.w, height: sig.h });
+    } else if (name) {
+      page.drawText(name, { x, y: lineY + 10, size: 15, font: fontItalic, color: BLACK });
+    }
+    page.drawLine({ start: { x, y: lineY }, end: { x: x + colWidth, y: lineY }, thickness: 0.75, color: rgb(0.6, 0.6, 0.6) });
+    let metaY = lineY - 13;
+    if (name) {
+      page.drawText(name, { x, y: metaY, size: 8.5, font: fontBold, color: DARK_TEXT });
+      metaY -= 12;
+    }
+    if (signedAt) {
+      page.drawText(
+        `Signed ${signedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} at ${signedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`,
+        { x, y: metaY, size: 7.5, font, color: MUTED }
+      );
+    } else if (!name) {
+      page.drawText("Awaiting signature", { x, y: metaY, size: 7.5, font: fontItalic, color: FAINT });
+    }
+  }
+
+  drawSignatureColumn(leftX, "Provider — Blok Blok Studio", euroSafe(input.providerSignedName || "") || null, providerSig, input.providerSignedAt);
+  drawSignatureColumn(rightX, `${euroSafe(input.counterpartyRole)} — ${counterpartyLabel}`, euroSafe(input.signedName || "") || null, counterpartySig, input.signedAt);
+  y = topY - sigAreaHeight - 50;
+
+  // ── Document integrity panel ──────────────────────────────────
+  if (input.documentHash || input.signedDocumentHash) {
+    const rows = [
+      input.documentHash ? ["Document hash (SHA-256)", input.documentHash] : null,
+      input.signedDocumentHash ? ["Signed hash (SHA-256)", input.signedDocumentHash] : null,
+    ].filter(Boolean) as [string, string][];
+    const panelHeight = 16 + rows.length * 20;
+    ensureSpace(panelHeight + 12);
+    page.drawRectangle({
+      x: MARGIN,
+      y: y - panelHeight + 10,
+      width: CONTENT_WIDTH,
+      height: panelHeight,
+      color: PANEL_BG,
+      borderColor: LIGHT_BORDER,
+      borderWidth: 0.5,
+    });
+    let py = y - 4;
+    for (const [label, value] of rows) {
+      page.drawText(label.toUpperCase(), { x: MARGIN + 10, y: py, size: 6, font: fontBold, color: MUTED });
+      py -= 9;
+      page.drawText(value, { x: MARGIN + 10, y: py, size: 7, font: fontMono, color: DARK_TEXT });
+      py -= 11;
+    }
+    y = y - panelHeight + 2;
+  }
+
+  // ── Per-page footer (numbers need the final page count) ───────
+  const pages = pdf.getPages();
+  pages.forEach((p, i) => {
+    p.drawLine({
+      start: { x: MARGIN, y: 40 },
+      end: { x: PAGE_WIDTH - MARGIN, y: 40 },
+      thickness: 0.5,
+      color: LIGHT_BORDER,
+    });
+    p.drawText("Blok Blok Studio", { x: MARGIN, y: 29, size: 7, font: fontBold, color: MUTED });
+    p.drawText("blokblokstudio.com  ·  chase@blokblokstudio.com", { x: MARGIN + 62, y: 29, size: 7, font, color: FAINT });
+    const pn = `Page ${i + 1} of ${pages.length}`;
+    const pnw = font.widthOfTextAtSize(pn, 7);
+    p.drawText(pn, { x: PAGE_WIDTH - MARGIN - pnw, y: 29, size: 7, font, color: MUTED });
+  });
+
+  return pdf.save();
+}

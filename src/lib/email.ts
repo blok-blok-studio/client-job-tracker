@@ -1093,3 +1093,98 @@ export async function sendClientReportEmail(params: {
   if (error) throw new Error(error.message);
   return data;
 }
+
+// --- Contractor agreements -------------------------------------------------
+// Only ever sent on an explicit action by the team (send link) or by the
+// contractor's own signature (their copy). Not part of the lifecycle engine.
+
+export async function sendContractorAgreementEmail(params: {
+  to: string;
+  contractorName: string;
+  title: string;
+  agreementUrl: string;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: `Please review & sign: ${params.title} — Blok Blok Studio`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">Hi ${params.contractorName.split(" ")[0]},</p>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Your ${params.title.toLowerCase()} is ready. Have a read through and sign it electronically — it takes a minute, and it needs to be on file before we can pay invoices.
+        </p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.agreementUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            Review &amp; Sign
+          </a>
+        </div>
+        <p style="color: #666; font-size: 14px; line-height: 1.6;">
+          Once you sign, you can download a PDF copy from the same link, any time. Questions about a clause? Just reply to this email.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">Blok Blok Studio · chase@blokblokstudio.com</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send contractor agreement email:", error);
+    throw new Error(`Resend error: ${error.message}`);
+  }
+  return data;
+}
+
+export async function sendContractorAgreementSignedEmail(params: {
+  to: string;
+  contractorName: string;
+  title: string;
+  agreementUrl: string;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: `Signed: ${params.title} — Blok Blok Studio`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">Hi ${params.contractorName.split(" ")[0]},</p>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Thanks for signing the ${params.title.toLowerCase()}. Both signatures are on file. Keep this link — your copy lives there for good.
+        </p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.agreementUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            View &amp; download PDF
+          </a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">Blok Blok Studio · chase@blokblokstudio.com</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send signed-agreement copy:", error);
+    throw new Error(`Resend error: ${error.message}`);
+  }
+  return data;
+}

@@ -14,11 +14,28 @@ import {
   Timer,
   ShieldCheck,
   Pencil,
+  Camera,
+  PenLine,
+  Download,
 } from "lucide-react";
 
 interface ContractorInfo {
   name: string;
   company?: string | null;
+  avatarUrl?: string | null;
+}
+
+interface ContractRow {
+  id: string;
+  token: string;
+  kind: string;
+  title: string;
+  status: "DRAFT" | "PENDING" | "SIGNED" | "EXPIRED";
+  signedName: string | null;
+  signedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  providerSignedName: string | null;
 }
 
 interface InvoiceRow {
@@ -103,7 +120,15 @@ export default function ContractorPortal({
   const [missingDocs, setMissingDocs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [invalid, setInvalid] = useState(false);
-  const [tab, setTab] = useState<"invoices" | "hours" | "documents">("invoices");
+  const [tab, setTab] = useState<"invoices" | "hours" | "documents" | "contracts">("invoices");
+
+  // Agreements to read and sign
+  const [contracts, setContracts] = useState<ContractRow[]>([]);
+
+  // Profile photo
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // Tax documents
   const [taxDocs, setTaxDocs] = useState<TaxDocRow[]>([]);
@@ -183,14 +208,50 @@ export default function ContractorPortal({
       .catch(() => {});
   }, []);
 
+  const loadContracts = useCallback((t: string) => {
+    fetch(`/api/contractor/${t}/contracts`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setContracts(d.data.contracts);
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     params.then(({ token: t }) => {
       setToken(t);
       loadPortal(t);
       loadHours(t);
       loadDocs(t);
+      loadContracts(t);
     });
-  }, [params, loadPortal, loadHours, loadDocs]);
+  }, [params, loadPortal, loadHours, loadDocs, loadContracts]);
+
+  const handleAvatarUpload = async (f: File) => {
+    if (!token || avatarUploading) return;
+    setAvatarUploading(true);
+    setAvatarError("");
+    try {
+      const ext = f.name.includes(".") ? "." + f.name.split(".").pop() : ".jpg";
+      const blob = await vercelBlobUpload(`contractor-avatars/${crypto.randomUUID()}${ext}`, f, {
+        access: "public",
+        handleUploadUrl: "/api/contractor/upload-blob",
+        clientPayload: JSON.stringify({ token }),
+      });
+      const res = await fetch(`/api/contractor/${token}/avatar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blobUrl: blob.url }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json?.error || "Failed to save photo");
+      setContractor((c) => (c ? { ...c, avatarUrl: json.data.avatarUrl } : c));
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : "Couldn't save that photo");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
 
   const handleAttest = async (docId: string) => {
     if (!token || docUploading) return;
@@ -426,13 +487,58 @@ export default function ContractorPortal({
   return (
     <div className="min-h-screen bg-[#0A0A0C]">
       <div className="max-w-2xl mx-auto p-4 sm:p-8">
-        {/* Header */}
+        {/* Header — the avatar doubles as the selfie uploader */}
         <div className="text-center mb-6 pt-8">
-          <div className="w-16 h-16 rounded-full mx-auto mb-4 bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center text-white text-xl font-bold">
-            {contractor.name.charAt(0)}
-          </div>
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={avatarUploading}
+            title="Add a photo of yourself"
+            className="group relative w-20 h-20 rounded-full mx-auto mb-4 block overflow-hidden bg-gradient-to-br from-orange-500 to-pink-500 disabled:opacity-60"
+          >
+            {contractor.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={contractor.avatarUrl}
+                alt={contractor.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="w-full h-full flex items-center justify-center text-white text-2xl font-bold">
+                {contractor.name.charAt(0)}
+              </span>
+            )}
+            <span className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              {avatarUploading ? (
+                <Loader2 size={18} className="text-white animate-spin" />
+              ) : (
+                <Camera size={18} className="text-white" />
+              )}
+            </span>
+          </button>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleAvatarUpload(f);
+              e.target.value = "";
+            }}
+          />
+          {avatarError && <p className="text-xs text-red-400 mb-2">{avatarError}</p>}
+          {!contractor.avatarUrl && !avatarError && (
+            <p className="text-[11px] text-gray-600 mb-2">Tap the circle to add a photo of yourself 👋</p>
+          )}
           <h1 className="text-2xl font-bold text-white mb-1">
-            {tab === "invoices" ? "Submit an Invoice" : tab === "hours" ? "Log Your Hours" : "Tax Documents"}
+            {tab === "invoices"
+              ? "Submit an Invoice"
+              : tab === "hours"
+              ? "Log Your Hours"
+              : tab === "contracts"
+              ? "Your Agreements"
+              : "Tax Documents"}
           </h1>
           <p className="text-sm text-gray-400">
             {contractor.company || contractor.name} &middot;{" "}
@@ -440,16 +546,21 @@ export default function ContractorPortal({
               ? "Upload your invoice for payment"
               : tab === "hours"
               ? "Record when you worked"
+              : tab === "contracts"
+              ? "Read, sign, and keep your copy"
               : "Paperwork we need on file to pay you"}
           </p>
         </div>
 
         {/* Tabs */}
-        <div className="flex justify-center gap-1 mb-8 p-1 bg-white/[0.03] border border-white/5 rounded-xl w-fit mx-auto">
+        <div className="flex justify-center gap-1 mb-8 p-1 bg-white/[0.03] border border-white/5 rounded-xl w-fit mx-auto flex-wrap">
           {(
             [
               { key: "invoices" as const, label: "Invoices", icon: Receipt },
               { key: "hours" as const, label: "Log Hours", icon: Timer },
+              ...(contracts.length > 0
+                ? [{ key: "contracts" as const, label: "Agreements", icon: PenLine }]
+                : []),
               ...(taxDocs.length > 0
                 ? [{ key: "documents" as const, label: "Documents", icon: FileText }]
                 : []),
@@ -469,6 +580,72 @@ export default function ContractorPortal({
           ))}
         </div>
 
+        {tab === "contracts" && (
+          <div className="space-y-3">
+            {contracts.map((c) => {
+              const signed = c.status === "SIGNED";
+              const expired = c.status === "EXPIRED";
+              return (
+                <div
+                  key={c.id}
+                  className="p-4 bg-white/[0.03] border border-white/5 rounded-xl flex items-start gap-3"
+                >
+                  <div
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                      signed ? "bg-green-500/10" : expired ? "bg-white/5" : "bg-orange-500/10"
+                    }`}
+                  >
+                    {signed ? (
+                      <CheckCircle size={16} className="text-green-400" />
+                    ) : (
+                      <PenLine size={16} className={expired ? "text-gray-600" : "text-orange-400"} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white font-medium">{c.title}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {signed
+                        ? `Signed by you${c.signedAt ? ` on ${new Date(c.signedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}`
+                        : expired
+                        ? "This link has expired — ask us for a new one"
+                        : `Waiting for your signature${c.expiresAt ? ` · open until ${new Date(c.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}`}
+                    </p>
+                    <div className="flex gap-2 mt-3 flex-wrap">
+                      {!signed && !expired && (
+                        <a
+                          href={`/a/${c.token}`}
+                          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
+                        >
+                          <PenLine size={12} /> Review &amp; sign
+                        </a>
+                      )}
+                      {signed && (
+                        <>
+                          <a
+                            href={`/a/${c.token}`}
+                            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-white/5 border border-white/10 text-gray-300 text-xs font-medium rounded-lg hover:text-white transition-colors"
+                          >
+                            <FileText size={12} /> View
+                          </a>
+                          <a
+                            href={`/api/agreement/${c.token}/pdf`}
+                            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-white/5 border border-white/10 text-gray-300 text-xs font-medium rounded-lg hover:text-white transition-colors"
+                          >
+                            <Download size={12} /> PDF
+                          </a>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <p className="text-[11px] text-gray-600 text-center pt-2">
+              Signed agreements stay here permanently — your copy is always a click away.
+            </p>
+          </div>
+        )}
+
         {tab === "invoices" && (
           <>
             {/* Onboarding gate: required paperwork before invoices can be submitted */}
@@ -482,13 +659,23 @@ export default function ContractorPortal({
                     minute.
                   </span>
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setTab("documents")}
-                  className="mt-2 ml-6 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
-                >
-                  Go to Documents
-                </button>
+                {contracts.some((c) => c.status === "PENDING") ? (
+                  <button
+                    type="button"
+                    onClick={() => setTab("contracts")}
+                    className="mt-2 ml-6 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
+                  >
+                    Sign your agreement
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setTab("documents")}
+                    className="mt-2 ml-6 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
+                  >
+                    Go to Documents
+                  </button>
+                )}
               </div>
             )}
 

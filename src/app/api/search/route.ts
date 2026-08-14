@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // Global command-palette search across clients, tasks, files, deliverables,
-// contracts, content posts, contractors, and contractor invoices.
+// contracts, content posts, contractors, contractor invoices, and contractor agreements.
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim().slice(0, 100);
   if (!q || q.length < 2) {
@@ -18,13 +18,14 @@ export async function GET(request: NextRequest) {
         contractors: [],
         contractorInvoices: [],
         contractorHours: [],
+        contractorContracts: [],
       },
     });
   }
 
   const contains = { contains: q, mode: "insensitive" as const };
 
-  const [clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices, contractorHours] = await Promise.all([
+  const [clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices, contractorHours, contractorContracts] = await Promise.all([
     prisma.client.findMany({
       where: {
         type: { not: "ARCHIVED" },
@@ -129,10 +130,25 @@ export async function GET(request: NextRequest) {
       orderBy: { startAt: "desc" },
       take: 5,
     }),
+    prisma.contractorContract.findMany({
+      where: {
+        OR: [{ title: contains }, { signedName: contains }, { contractor: { name: contains } }],
+      },
+      select: {
+        id: true,
+        title: true,
+        kind: true,
+        status: true,
+        signedAt: true,
+        contractor: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
   ]);
 
   return NextResponse.json({
     success: true,
-    data: { clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices, contractorHours },
+    data: { clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices, contractorHours, contractorContracts },
   });
 }

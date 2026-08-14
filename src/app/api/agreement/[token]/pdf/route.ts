@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { renderContractPdf } from "@/lib/contract-pdf";
 
-// GET — Download signed contract as PDF
+// GET — download the contractor agreement as a branded PDF
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
@@ -10,26 +10,21 @@ export async function GET(
   try {
     const { token } = await params;
 
-    const contract = await prisma.contractSignature.findUnique({
+    const contract = await prisma.contractorContract.findUnique({
       where: { token },
-      include: {
-        client: { select: { name: true, company: true } },
-      },
+      include: { contractor: { select: { name: true, company: true } } },
     });
 
-    if (!contract) {
-      return NextResponse.json(
-        { success: false, error: "Contract not found" },
-        { status: 404 }
-      );
+    if (!contract || contract.status === "DRAFT") {
+      return NextResponse.json({ success: false, error: "Agreement not found" }, { status: 404 });
     }
 
-    const clientLabel = contract.client.company || contract.client.name;
+    const label = contract.contractor.company || contract.contractor.name;
 
     const pdfBytes = await renderContractPdf({
-      documentLabel: "Service Agreement",
-      counterpartyLabel: clientLabel,
-      counterpartyRole: "Client",
+      documentLabel: contract.title,
+      counterpartyLabel: label,
+      counterpartyRole: "Contractor",
       contractBody: contract.contractBody,
       providerSignedName: contract.providerSignedName,
       providerSignatureData: contract.providerSignatureData,
@@ -41,8 +36,9 @@ export async function GET(
       signedDocumentHash: contract.signedDocumentHash,
     });
 
-    const clientName = contract.client.name.replace(/[^a-zA-Z0-9]/g, "-");
-    const filename = `Blok-Blok-Studio-Agreement-${clientName}.pdf`;
+    const safeName = contract.contractor.name.replace(/[^a-zA-Z0-9]/g, "-");
+    const safeTitle = contract.title.replace(/[^a-zA-Z0-9]/g, "-");
+    const filename = `Blok-Blok-Studio-${safeTitle}-${safeName}.pdf`;
 
     return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,
@@ -53,10 +49,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("PDF generation error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to generate PDF" },
-      { status: 500 }
-    );
+    console.error("Agreement PDF error:", error);
+    return NextResponse.json({ success: false, error: "Failed to generate PDF" }, { status: 500 });
   }
 }

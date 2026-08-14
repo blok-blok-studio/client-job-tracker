@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Check, Loader2, Shield, Pen, Type } from "lucide-react";
+import { Check, Loader2, Shield, Pen, Type, Download, FileText } from "lucide-react";
 import SignatureCanvas from "@/components/shared/SignatureCanvas";
 
-interface ContractData {
-  clientName: string;
+interface AgreementData {
+  contractorName: string;
   company: string | null;
+  title: string;
+  kind: string;
   contractBody: string;
   status: string;
   signedName: string | null;
@@ -17,33 +19,11 @@ interface ContractData {
   providerSignedName: string | null;
   providerSignatureData: string | null;
   providerSignedAt: string | null;
+  expiresAt: string | null;
   createdAt: string;
 }
 
-function ContractRenderer({ body }: { body: string }) {
-  // Handle legacy JSON contract bodies from auto-generation
-  // Try to parse as JSON — if it is, show a placeholder notice
-  try {
-    const parsed = JSON.parse(body);
-    if (parsed && typeof parsed === "object") {
-      return (
-        <div className="space-y-4 text-center py-8">
-          <h2 className="text-2xl font-display font-bold text-white">SERVICE AGREEMENT</h2>
-          <p className="text-sm text-bb-muted leading-relaxed max-w-lg mx-auto">
-            This Service Agreement is between <span className="text-white font-medium">Blok Blok Studio</span> (&quot;Provider&quot;) and <span className="text-white font-medium">{parsed.clientName || "Client"}</span> (&quot;Client&quot;).
-          </p>
-          <div className="bg-bb-orange/10 border border-bb-orange/30 rounded-lg p-4 mt-4">
-            <p className="text-sm text-bb-orange">
-              A detailed contract is being prepared. You will receive an updated link once the full agreement is ready for review.
-            </p>
-          </div>
-        </div>
-      );
-    }
-  } catch {
-    // Not JSON — proceed with normal text rendering
-  }
-
+function AgreementRenderer({ body }: { body: string }) {
   const lines = body.split("\n");
 
   return (
@@ -51,115 +31,56 @@ function ContractRenderer({ body }: { body: string }) {
       {lines.map((line, i) => {
         const trimmed = line.trim();
 
-        // Main title
-        if (trimmed === "SERVICE AGREEMENT") {
+        if (!trimmed) return <div key={i} className="h-2" />;
+
+        // Document title — the first all-caps line of the document
+        if (i < 3 && /^[A-Z][A-Z\s-]{6,60}$/.test(trimmed)) {
           return (
-            <h2 key={i} className="text-2xl font-display font-bold text-white text-center pt-2 pb-4">
+            <h2 key={i} className="text-xl sm:text-2xl font-display font-bold text-white text-center pt-2 pb-4">
               {trimmed}
             </h2>
           );
         }
 
-        // Section headers (SECTION 1. ...)
-        if (/^SECTION \d+\./.test(trimmed)) {
+        // Section headings
+        if (/^SECTION \d+\./.test(trimmed) || trimmed === "ACKNOWLEDGMENT AND ACCEPTANCE") {
           return (
-            <h3 key={i} className="text-base font-display font-semibold text-white pt-8 pb-2 border-t border-bb-border/30 mt-6">
+            <h3
+              key={i}
+              className="text-base font-display font-semibold text-white pt-8 pb-2 border-t border-bb-border/30 mt-6"
+            >
               {trimmed}
             </h3>
           );
         }
 
-        // ACKNOWLEDGMENT header
-        if (trimmed === "ACKNOWLEDGMENT AND ACCEPTANCE") {
+        // Fill-in-by-hand signature placeholders — the captured signatures below
+        // are the real ones, so keep them quiet
+        if (/^(PROVIDER|CONTRACTOR|CLIENT):$/.test(trimmed)) {
           return (
-            <h3 key={i} className="text-base font-display font-semibold text-white pt-8 pb-2 border-t border-bb-border/30 mt-6">
-              {trimmed}
-            </h3>
-          );
-        }
-
-        // Sub-headers (e.g. "What is included:", "Estimated timeline:", etc.)
-        if (trimmed === "What is included:") {
-          return (
-            <p key={i} className="text-sm text-bb-muted font-medium pl-8 pt-1">
-              {trimmed}
+            <p key={i} className="text-xs font-medium text-bb-dim uppercase tracking-wide pt-3">
+              {trimmed.replace(":", "")}
             </p>
           );
         }
-
-        // Lettered items (A. Package Name    $5,000 USD or €5,000 EUR)
-        if (/^[A-Z]\.\s/.test(trimmed) && /[$€]/.test(trimmed)) {
-          const parts = trimmed.match(/^([A-Z]\.\s.+?)\s{2,}([$€].+)$/);
-          if (parts) {
-            return (
-              <div key={i} className="flex items-baseline justify-between pt-4 pb-1 pl-4">
-                <span className="text-sm font-semibold text-white">{parts[1]}</span>
-                <span className="text-sm font-mono text-bb-orange font-semibold">{parts[2]}</span>
-              </div>
-            );
-          }
-        }
-
-        // Total line
-        if (trimmed.startsWith("Total") && /[$€]/.test(trimmed)) {
-          const parts = trimmed.match(/^Total\s{2,}([$€].+)$/);
-          if (parts) {
-            return (
-              <div key={i} className="flex items-baseline justify-between pt-3 pb-1 pl-4 border-t border-bb-border/30 mt-2">
-                <span className="text-sm font-bold text-white">Total</span>
-                <span className="text-base font-mono text-bb-orange font-bold">{parts[1]}</span>
-              </div>
-            );
-          }
-        }
-
-        // Itemized breakdown lines (   Package Name    $X,XXX USD or €X,XXX EUR)
-        if (/^\s{3}\S/.test(line) && /[$€]/.test(trimmed) && /USD|EUR/.test(trimmed) && !trimmed.startsWith("Total")) {
-          const parts = trimmed.match(/^(.+?)\s{2,}([$€].+)$/);
-          if (parts) {
-            return (
-              <div key={i} className="flex items-baseline justify-between pl-6 py-0.5">
-                <span className="text-xs text-bb-dim">{parts[1]}</span>
-                <span className="text-xs font-mono text-bb-muted">{parts[2]}</span>
-              </div>
-            );
-          }
-        }
-
-        // Indented deliverable items
-        if (/^\s{8,}/.test(line) && trimmed) {
+        if (/^(Name|Date|Signature):\s*_{3,}/.test(trimmed)) {
           return (
-            <p key={i} className="text-sm text-bb-dim pl-12 py-0.5">
+            <p key={i} className="text-xs text-bb-dim/70">
               {trimmed}
             </p>
           );
         }
 
-        // "Estimated timeline:" and "Post-launch support:" lines
-        if (trimmed.startsWith("Estimated timeline:") || trimmed.startsWith("Post-launch support:")) {
-          const [label, value] = trimmed.split(": ");
+        // Bulleted items
+        if (/^[-•]\s+/.test(trimmed)) {
           return (
-            <p key={i} className="text-xs text-bb-dim pl-8 py-0.5">
-              <span className="text-bb-dim/70">{label}:</span> {value}
+            <p key={i} className="text-sm text-bb-muted leading-relaxed pl-5 relative">
+              <span className="absolute left-0 text-bb-orange">•</span>
+              {trimmed.replace(/^[-•]\s+/, "")}
             </p>
           );
         }
 
-        // Empty lines
-        if (!trimmed) {
-          return <div key={i} className="h-2" />;
-        }
-
-        // Intro paragraph text (between parties, etc.)
-        if (trimmed.startsWith("This Service Agreement") || trimmed.startsWith("This Agreement outlines")) {
-          return (
-            <p key={i} className="text-sm text-bb-muted leading-relaxed">
-              {trimmed}
-            </p>
-          );
-        }
-
-        // Regular paragraph text
         return (
           <p key={i} className="text-sm text-bb-muted leading-relaxed">
             {trimmed}
@@ -170,10 +91,10 @@ function ContractRenderer({ body }: { body: string }) {
   );
 }
 
-export default function ContractSignPage() {
+export default function AgreementSignPage() {
   const { token } = useParams<{ token: string }>();
   const [loading, setLoading] = useState(true);
-  const [contract, setContract] = useState<ContractData | null>(null);
+  const [agreement, setAgreement] = useState<AgreementData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signedName, setSignedName] = useState("");
   const [signatureMode, setSignatureMode] = useState<"type" | "draw">("type");
@@ -183,25 +104,23 @@ export default function ContractSignPage() {
   const [signed, setSigned] = useState(false);
 
   useEffect(() => {
-    async function fetchContract() {
+    async function load() {
       try {
-        const res = await fetch(`/api/contract/${token}`);
+        const res = await fetch(`/api/agreement/${token}`);
         const data = await res.json();
         if (data.success) {
-          setContract(data.data);
-          if (data.data.status === "SIGNED") {
-            setSigned(true);
-          }
+          setAgreement(data.data);
+          if (data.data.status === "SIGNED") setSigned(true);
         } else {
-          setError(data.error || "Invalid contract link");
+          setError(data.error || "Invalid link");
         }
       } catch {
-        setError("Unable to load contract");
+        setError("Unable to load this agreement");
       } finally {
         setLoading(false);
       }
     }
-    fetchContract();
+    load();
   }, [token]);
 
   async function handleSign(e: React.FormEvent) {
@@ -213,7 +132,7 @@ export default function ContractSignPage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/contract/${token}`, {
+      const res = await fetch(`/api/agreement/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -225,7 +144,7 @@ export default function ContractSignPage() {
       if (data.success) {
         setSigned(true);
       } else {
-        setError(data.error || "Failed to sign contract");
+        setError(data.error || "Failed to sign");
       }
     } catch {
       setError("Failed to submit. Please try again.");
@@ -245,7 +164,7 @@ export default function ContractSignPage() {
     );
   }
 
-  if (error && !contract) {
+  if (error && !agreement) {
     return (
       <div className="min-h-screen bg-bb-black flex items-center justify-center px-4">
         <div className="text-center space-y-4 max-w-md">
@@ -259,16 +178,11 @@ export default function ContractSignPage() {
           <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto">
             <span className="text-red-400 text-2xl">!</span>
           </div>
-          <h1 className="text-xl font-display font-semibold text-white">
-            Contract Unavailable
-          </h1>
+          <h1 className="text-xl font-display font-semibold text-white">Agreement Unavailable</h1>
           <p className="text-bb-muted text-sm">{error}</p>
           <p className="text-bb-dim text-xs">
-            If you think this is a mistake, please contact us at{" "}
-            <a
-              href="mailto:chase@blokblokstudio.com"
-              className="text-bb-orange hover:underline"
-            >
+            If you think this is a mistake, email{" "}
+            <a href="mailto:chase@blokblokstudio.com" className="text-bb-orange hover:underline">
               chase@blokblokstudio.com
             </a>
           </p>
@@ -277,11 +191,12 @@ export default function ContractSignPage() {
     );
   }
 
+  if (!agreement) return null;
+
   if (signed) {
     return (
       <div className="min-h-screen bg-bb-black">
         <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
-          {/* Header */}
           <div className="text-center mb-8">
             <Image
               src="/bb_logo_wordmark_subhead_WHT_PNG.png"
@@ -293,39 +208,36 @@ export default function ContractSignPage() {
             <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
               <Check className="text-green-400" size={32} />
             </div>
-            <h1 className="text-2xl font-display font-semibold text-white">
-              Contract Signed
-            </h1>
+            <h1 className="text-2xl font-display font-semibold text-white">Signed</h1>
             <p className="text-bb-muted mt-2">
-              Thank you, {contract?.clientName?.split(" ")[0]}! Your agreement has been recorded.
-              We&apos;ll be in touch to get started.
+              Thanks, {agreement.contractorName.split(" ")[0]} — both signatures are on file.
+              {agreement.kind === "IC_AGREEMENT" && " You can now submit invoices from your portal."}
             </p>
             <a
-              href={`/api/contract/${token}/pdf`}
-              className="inline-block mt-4 px-6 py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white font-semibold rounded-lg transition-colors text-sm"
+              href={`/api/agreement/${token}/pdf`}
+              className="inline-flex items-center gap-2 mt-4 px-6 py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white font-semibold rounded-lg transition-colors text-sm"
             >
+              <Download size={16} />
               Download PDF
             </a>
           </div>
 
-          {/* Full Contract Body */}
-          {contract?.contractBody && (
-            <div className="bg-bb-surface border border-bb-border rounded-xl p-6 sm:p-10 mb-8">
-              <ContractRenderer body={contract.contractBody} />
-            </div>
-          )}
+          <div className="bg-bb-surface border border-bb-border rounded-xl p-6 sm:p-10 mb-8">
+            <AgreementRenderer body={agreement.contractBody} />
+          </div>
 
-          {/* Signature Blocks */}
           <div className="bg-bb-surface border border-bb-border rounded-xl p-6 space-y-6">
             <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">Signatures</p>
-            {contract?.providerSignedName && (
+            {agreement.providerSignedName && (
               <div className="space-y-2 pb-4 border-b border-bb-border/50">
-                <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">Provider</p>
-                {contract.providerSignatureData && (
+                <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">
+                  Blok Blok Studio
+                </p>
+                {agreement.providerSignatureData && (
                   <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={contract.providerSignatureData}
+                      src={agreement.providerSignatureData}
                       alt="Provider signature"
                       className="h-16 object-contain"
                     />
@@ -333,14 +245,18 @@ export default function ContractSignPage() {
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-bb-dim">Signed by</span>
-                  <span className="text-white">{contract.providerSignedName}</span>
+                  <span className="text-white">{agreement.providerSignedName}</span>
                 </div>
-                {contract.providerSignedAt && (
+                {agreement.providerSignedAt && (
                   <div className="flex justify-between text-sm">
                     <span className="text-bb-dim">Date</span>
                     <span className="text-white">
-                      {new Date(contract.providerSignedAt).toLocaleDateString("en-US", {
-                        year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+                      {new Date(agreement.providerSignedAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
                       })}
                     </span>
                   </div>
@@ -348,27 +264,31 @@ export default function ContractSignPage() {
               </div>
             )}
             <div className="space-y-2">
-              <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">Client</p>
-              {(contract?.signatureData || signatureData) && (
+              <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">You</p>
+              {(agreement.signatureData || signatureData) && (
                 <div className="p-3 bg-bb-black rounded-lg border border-bb-border">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={contract?.signatureData || signatureData || ""}
-                    alt="Client signature"
+                    src={agreement.signatureData || signatureData || ""}
+                    alt="Contractor signature"
                     className="h-16 object-contain"
                   />
                 </div>
               )}
               <div className="flex justify-between text-sm">
                 <span className="text-bb-dim">Signed by</span>
-                <span className="text-white">{contract?.signedName || signedName}</span>
+                <span className="text-white">{agreement.signedName || signedName}</span>
               </div>
-              {contract?.signedAt && (
+              {agreement.signedAt && (
                 <div className="flex justify-between text-sm">
                   <span className="text-bb-dim">Date</span>
                   <span className="text-white">
-                    {new Date(contract.signedAt).toLocaleDateString("en-US", {
-                      year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+                    {new Date(agreement.signedAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })}
                   </span>
                 </div>
@@ -380,12 +300,9 @@ export default function ContractSignPage() {
     );
   }
 
-  if (!contract) return null;
-
   return (
     <div className="min-h-screen bg-bb-black">
       <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
-        {/* Header */}
         <div className="text-center mb-8">
           <Image
             src="/bb_logo_wordmark_subhead_WHT_PNG.png"
@@ -395,42 +312,58 @@ export default function ContractSignPage() {
             className="mx-auto mb-8"
           />
           <p className="text-bb-muted mt-2 text-sm sm:text-base">
-            Please review and sign the agreement below, {contract.clientName.split(" ")[0]}.
+            {agreement.contractorName.split(" ")[0]}, here&apos;s your {agreement.title.toLowerCase()} — have a
+            read and sign at the bottom.
           </p>
+          {agreement.expiresAt && (
+            <p className="text-bb-dim text-xs mt-2">
+              This link is open until{" "}
+              {new Date(agreement.expiresAt).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+              .
+            </p>
+          )}
         </div>
 
-        {/* Contract Body */}
         <div className="bg-bb-surface border border-bb-border rounded-xl p-6 sm:p-10 mb-8">
-          <ContractRenderer body={contract.contractBody} />
+          <AgreementRenderer body={agreement.contractBody} />
         </div>
 
-        {/* Provider Signature Block */}
-        {contract.providerSignedName && (
+        {agreement.providerSignedName && (
           <div className="bg-bb-surface border border-bb-border rounded-xl p-6 mb-8 space-y-3">
-            <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">Provider Signature</p>
+            <p className="text-xs font-medium text-bb-dim uppercase tracking-wide">
+              Already signed by Blok Blok Studio
+            </p>
             <div className="p-4 bg-bb-black rounded-lg border border-bb-border">
-              {contract.providerSignatureData ? (
+              {agreement.providerSignatureData ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  src={contract.providerSignatureData}
+                  src={agreement.providerSignatureData}
                   alt="Provider signature"
                   className="h-16 object-contain"
                 />
               ) : (
-                <p className="text-3xl font-serif italic text-white">{contract.providerSignedName}</p>
+                <p className="text-3xl font-serif italic text-white">{agreement.providerSignedName}</p>
               )}
             </div>
-            <div className="flex gap-6 text-sm">
+            <div className="flex gap-6 text-sm flex-wrap">
               <div>
                 <span className="text-bb-dim">Signed by </span>
-                <span className="text-white">{contract.providerSignedName}</span>
+                <span className="text-white">{agreement.providerSignedName}</span>
               </div>
-              {contract.providerSignedAt && (
+              {agreement.providerSignedAt && (
                 <div>
                   <span className="text-bb-dim">on </span>
                   <span className="text-white">
-                    {new Date(contract.providerSignedAt).toLocaleDateString("en-US", {
-                      year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+                    {new Date(agreement.providerSignedAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })}
                   </span>
                 </div>
@@ -439,30 +372,24 @@ export default function ContractSignPage() {
           </div>
         )}
 
-        {/* Signing Section */}
         <form onSubmit={handleSign} className="space-y-6">
           <div className="bg-bb-surface border border-bb-orange/30 rounded-xl p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Shield size={18} className="text-bb-orange" />
-              <h2 className="text-lg font-display font-semibold text-white">
-                Digital Signature
-              </h2>
+              <h2 className="text-lg font-display font-semibold text-white">Digital Signature</h2>
             </div>
             <p className="text-xs text-bb-dim">
-              By signing below, you acknowledge that you have read, understood, and agree to the
-              terms outlined in this Service Agreement. Your full legal name, IP address, and
-              timestamp will be recorded as part of this legally binding digital signature.
+              By signing below you confirm you have read and agree to this agreement. Your full legal
+              name, IP address, and a timestamp are recorded as part of a legally binding electronic
+              signature.
             </p>
 
-            {/* Type / Draw tabs */}
             <div className="flex gap-1 bg-bb-black rounded-lg p-1 border border-bb-border">
               <button
                 type="button"
                 onClick={() => setSignatureMode("type")}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                  signatureMode === "type"
-                    ? "bg-bb-surface text-white"
-                    : "text-bb-dim hover:text-bb-muted"
+                  signatureMode === "type" ? "bg-bb-surface text-white" : "text-bb-dim hover:text-bb-muted"
                 }`}
               >
                 <Type size={14} /> Type
@@ -471,9 +398,7 @@ export default function ContractSignPage() {
                 type="button"
                 onClick={() => setSignatureMode("draw")}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                  signatureMode === "draw"
-                    ? "bg-bb-surface text-white"
-                    : "text-bb-dim hover:text-bb-muted"
+                  signatureMode === "draw" ? "bg-bb-surface text-white" : "text-bb-dim hover:text-bb-muted"
                 }`}
               >
                 <Pen size={14} /> Draw
@@ -489,7 +414,7 @@ export default function ContractSignPage() {
                 value={signedName}
                 onChange={(e) => setSignedName(e.target.value)}
                 className={inputClass}
-                placeholder="e.g. John Smith"
+                placeholder="e.g. Jane Doe"
                 required
               />
             </div>
@@ -498,9 +423,7 @@ export default function ContractSignPage() {
               signedName && (
                 <div className="p-4 bg-bb-black rounded-lg border border-bb-border">
                   <p className="text-xs text-bb-dim mb-1">Signature preview</p>
-                  <p className="text-3xl font-serif italic text-white">
-                    {signedName}
-                  </p>
+                  <p className="text-3xl font-serif italic text-white">{signedName}</p>
                 </div>
               )
             ) : (
@@ -520,20 +443,20 @@ export default function ContractSignPage() {
                 className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
               />
               <span className="text-sm text-bb-muted">
-                I have read and agree to the terms of this Service Agreement. I understand
-                that this constitutes a legally binding digital signature and that my name,
-                IP address, timestamp, and browser information will be recorded for verification purposes.
+                I have read and agree to this agreement, and I am signing it on my own behalf (or with
+                authority for the company named). I understand this is a legally binding electronic
+                signature and that my name, IP address, timestamp, and browser details are recorded.
               </span>
             </label>
           </div>
 
-          {error && (
-            <p className="text-red-400 text-sm text-center">{error}</p>
-          )}
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
           <button
             type="submit"
-            disabled={submitting || !agreed || !signedName.trim() || (signatureMode === "draw" && !signatureData)}
+            disabled={
+              submitting || !agreed || !signedName.trim() || (signatureMode === "draw" && !signatureData)
+            }
             className="w-full py-3 bg-bb-orange hover:bg-bb-orange-light text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
           >
             {submitting ? (
@@ -545,6 +468,13 @@ export default function ContractSignPage() {
               "Sign Agreement"
             )}
           </button>
+
+          <a
+            href={`/api/agreement/${token}/pdf`}
+            className="flex items-center justify-center gap-2 text-xs text-bb-dim hover:text-bb-muted transition-colors"
+          >
+            <FileText size={12} /> Prefer to read it as a PDF?
+          </a>
 
           <p className="text-center text-xs text-bb-dim pb-4">
             Your signature, IP address, and timestamp are securely recorded for legal verification.

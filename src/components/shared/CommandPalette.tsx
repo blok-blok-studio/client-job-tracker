@@ -35,11 +35,19 @@ interface Results {
     status: string;
     contractor: { name: string };
   }>;
+  contractorContracts?: Array<{
+    id: string;
+    title: string;
+    kind: string;
+    status: string;
+    signedAt: string | null;
+    contractor: { name: string };
+  }>;
 }
 
 const EMPTY: Results = {
   clients: [], tasks: [], files: [], deliverables: [], contracts: [], posts: [],
-  contractors: [], contractorInvoices: [], contractorHours: [],
+  contractors: [], contractorInvoices: [], contractorHours: [], contractorContracts: [],
 };
 
 const QUICK_NAV = [
@@ -163,7 +171,16 @@ export default function CommandPalette() {
         icon: <HardHat size={15} className="text-amber-400" />,
         title: c.name,
         subtitle: `contractor${c.company ? ` · ${c.company}` : ""}${c.isActive ? "" : " · inactive"}`,
-        href: `/contractors?contractor=${c.id}`,
+        href: `/contractors/${c.id}`,
+      })),
+      ...(results.contractorContracts ?? []).map((c) => ({
+        key: `ccontract-${c.id}`,
+        icon: <FileSignature size={15} className="text-amber-400" />,
+        title: `${c.contractor.name} — ${c.title}`,
+        subtitle: `contractor agreement · ${c.status.toLowerCase()}${
+          c.signedAt ? ` · signed ${new Date(c.signedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""
+        }`,
+        href: `/contractors?contract=${c.id}`,
       })),
       ...(results.contractorInvoices ?? []).map((inv) => ({
         key: `cinvoice-${inv.id}`,
