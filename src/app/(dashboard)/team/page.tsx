@@ -8,6 +8,7 @@ import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { useToast } from "@/components/shared/Toast";
 import { ListSkeleton } from "@/components/shared/Skeleton";
 import { PAGE_OPTIONS } from "@/lib/page-access";
+import { TEAM_ROLES, teamRoleLabel } from "@/lib/team-roles";
 
 interface TeamUser {
   id: string;
@@ -19,6 +20,7 @@ interface TeamUser {
   createdAt: string;
   slackUserId?: string | null;
   color?: string | null;
+  jobRole?: string | null;
   allowedPages?: string[];
 }
 
@@ -31,7 +33,7 @@ export default function TeamPage() {
   const [forbidden, setForbidden] = useState(false);
 
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "MEMBER" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "MEMBER", jobRole: "" });
   const [saving, setSaving] = useState(false);
 
   const [resetFor, setResetFor] = useState<TeamUser | null>(null);
@@ -88,7 +90,7 @@ export default function TeamPage() {
       }
       toast("Team member added", "success");
       setAddOpen(false);
-      setForm({ name: "", email: "", password: "", role: "MEMBER" });
+      setForm({ name: "", email: "", password: "", role: "MEMBER", jobRole: "" });
       load();
     } catch {
       toast("Failed to add member", "error");
@@ -212,6 +214,11 @@ export default function TeamPage() {
                       <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-bb-elevated text-bb-muted">
                         {u.role}
                       </span>
+                      {teamRoleLabel(u.jobRole) && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-bb-orange/10 text-bb-orange">
+                          {teamRoleLabel(u.jobRole)}
+                        </span>
+                      )}
                       {isSelf && <span className="text-[10px] text-bb-dim">you</span>}
                       {!u.isActive && (
                         <span className="text-[10px] text-red-400">disabled</span>
@@ -237,6 +244,29 @@ export default function TeamPage() {
                     >
                       <option value="MEMBER">Member</option>
                       <option value="OWNER">Owner</option>
+                    </select>
+
+                    <select
+                      value={u.jobRole || ""}
+                      onChange={(e) => {
+                        const key = e.target.value;
+                        const role = TEAM_ROLES.find((r) => r.key === key);
+                        const applyRolePreset = !!role && role.pages.length > 0 && u.role !== "OWNER";
+                        patchUser(
+                          u,
+                          { jobRole: key || null, applyRolePreset },
+                          applyRolePreset
+                            ? `${role!.label} — tabs set to the preset (fine-tune with the tabs button)`
+                            : "Job role updated"
+                        );
+                      }}
+                      className="text-xs bg-bb-elevated border border-bb-border rounded-md px-2 py-1.5 text-white max-w-[150px]"
+                      title="What they do here — picking one sets the tabs that job needs"
+                    >
+                      <option value="">No job role</option>
+                      {TEAM_ROLES.map((r) => (
+                        <option key={r.key} value={r.key}>{r.label}</option>
+                      ))}
                     </select>
 
                     {u.role !== "OWNER" && (
@@ -345,6 +375,24 @@ export default function TeamPage() {
             <option value="MEMBER">Member — full app access</option>
             <option value="OWNER">Owner — can also manage the team</option>
           </select>
+          <div>
+            <select
+              value={form.jobRole}
+              onChange={(e) => setForm({ ...form, jobRole: e.target.value })}
+              className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-bb-orange"
+            >
+              <option value="">What do they do? (optional)</option>
+              {TEAM_ROLES.map((r) => (
+                <option key={r.key} value={r.key}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-bb-dim mt-1.5">
+              {TEAM_ROLES.find((r) => r.key === form.jobRole)?.blurb ||
+                "Picking a job sets the tabs it needs — you can adjust them after."}
+            </p>
+          </div>
           <button
             type="submit"
             disabled={saving}

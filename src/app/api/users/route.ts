@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession, hashPassword } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { TEAM_ROLE_KEYS, pagesForRole } from "@/lib/team-roles";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -24,6 +25,7 @@ export async function GET() {
       slackUserId: true,
       color: true,
       allowedPages: true,
+      jobRole: true,
     },
   });
 
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
   if (session.role !== "OWNER")
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  let body: { name?: string; email?: string; password?: string; role?: string };
+  let body: { name?: string; email?: string; password?: string; role?: string; jobRole?: string };
   try {
     body = await request.json();
   } catch {
@@ -65,8 +67,15 @@ export async function POST(request: NextRequest) {
       { status: 409 }
     );
 
+  // A job role at creation also sets the tabs that job needs, so a new member
+  // lands on a sensible sidebar instead of either everything or nothing.
+  const jobRole = typeof body.jobRole === "string" && body.jobRole.trim() ? body.jobRole.trim() : null;
+  if (jobRole && !TEAM_ROLE_KEYS.includes(jobRole))
+    return NextResponse.json({ error: "Unknown job role" }, { status: 400 });
+  const allowedPages = jobRole && role !== "OWNER" ? pagesForRole(jobRole) : [];
+
   const user = await prisma.user.create({
-    data: { name, email, passwordHash: hashPassword(password), role },
+    data: { name, email, passwordHash: hashPassword(password), role, jobRole, allowedPages },
     select: {
       id: true,
       email: true,
@@ -78,6 +87,7 @@ export async function POST(request: NextRequest) {
       slackUserId: true,
       color: true,
       allowedPages: true,
+      jobRole: true,
     },
   });
 

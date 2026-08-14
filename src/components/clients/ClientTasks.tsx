@@ -41,12 +41,15 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [teamColors, setTeamColors] = useState<Map<string, string | null>>(new Map());
+  const [team, setTeam] = useState<Array<{ id: string; name: string; jobRole?: string | null }>>([]);
+  const [newAssignee, setNewAssignee] = useState("");
 
   useEffect(() => {
     fetch("/api/users/assignable")
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
+          setTeam(d.data as Array<{ id: string; name: string; jobRole?: string | null }>);
           setTeamColors(
             new Map(
               (d.data as Array<{ name: string; color?: string | null }>).map((u) => [
@@ -93,7 +96,7 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newTitle.trim(), clientId, status: "TODO" }),
+        body: JSON.stringify({ title: newTitle.trim(), clientId, status: "TODO", assignedTo: newAssignee || null }),
       });
       const data = await res.json();
       if (data.success) {
@@ -140,6 +143,17 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
             placeholder="Add a task for this client..."
             className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
           />
+          <select
+            value={newAssignee}
+            onChange={(e) => setNewAssignee(e.target.value)}
+            title="Who is doing this?"
+            className="px-2 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-bb-muted focus:outline-none focus:ring-2 focus:ring-bb-orange/50 [color-scheme:dark] max-w-[110px]"
+          >
+            <option value="">Anyone</option>
+            {team.map((u) => (
+              <option key={u.id} value={u.name}>{u.name.split(" ")[0]}</option>
+            ))}
+          </select>
           <button
             type="submit"
             disabled={!newTitle.trim() || adding}

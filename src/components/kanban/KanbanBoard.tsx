@@ -57,6 +57,22 @@ export default function KanbanBoard() {
   const [team, setTeam] = useState<Array<{ id: string; name: string; color?: string | null }>>([]);
   const [unpaid, setUnpaid] = useState<Map<string, number>>(new Map());
   const [view, setView] = useState<"board" | "calendar">("board");
+  const [me, setMe] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const name = d?.user?.name;
+        if (!name) return;
+        setMe(name);
+        // "Mine" is remembered between visits — most people work one lane
+        if (typeof window !== "undefined" && localStorage.getItem("bb_kanban_mine") === "1") {
+          setFilterAssignee(name);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -147,7 +163,7 @@ export default function KanbanBoard() {
         (!q || t.title.toLowerCase().includes(q) || (t.clientName || "").toLowerCase().includes(q)) &&
         (!filterClient || t.clientId === filterClient) &&
         (!filterPriority || t.priority === filterPriority) &&
-        (!filterAssignee || t.assignedTo === filterAssignee)
+        (!filterAssignee || t.assignedTo?.toLowerCase() === filterAssignee.toLowerCase())
     );
   }, [tasks, search, filterClient, filterPriority, filterAssignee]);
 
@@ -353,7 +369,39 @@ export default function KanbanBoard() {
             <option value="MEDIUM">Medium</option>
             <option value="LOW">Low</option>
           </select>
-          <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)} className="flex-1 min-w-[100px] px-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-bb-muted">
+          {me && (
+            <button
+              type="button"
+              onClick={() => {
+                const on = filterAssignee.toLowerCase() === me.toLowerCase();
+                setFilterAssignee(on ? "" : me);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("bb_kanban_mine", on ? "0" : "1");
+                }
+              }}
+              title={`Show only cards assigned to ${me}`}
+              className={`shrink-0 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
+                filterAssignee.toLowerCase() === me.toLowerCase()
+                  ? "bg-bb-orange text-white border-bb-orange"
+                  : "bg-bb-surface text-bb-muted border-bb-border hover:text-white"
+              }`}
+            >
+              Mine
+            </button>
+          )}
+          <select
+            value={filterAssignee}
+            onChange={(e) => {
+              setFilterAssignee(e.target.value);
+              if (typeof window !== "undefined") {
+                localStorage.setItem(
+                  "bb_kanban_mine",
+                  me && e.target.value.toLowerCase() === me.toLowerCase() ? "1" : "0"
+                );
+              }
+            }}
+            className="flex-1 min-w-[100px] px-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-bb-muted"
+          >
             <option value="">All Assignees</option>
             {team.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
           </select>

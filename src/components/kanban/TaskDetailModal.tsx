@@ -7,6 +7,7 @@ import {
 import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
 import { STATUS_COLUMNS, TASK_CATEGORIES, type TaskStatus, type Priority, type TaskCategory } from "@/types";
+import { teamRoleLabel } from "@/lib/team-roles";
 
 interface ChecklistItem {
   id: string;
@@ -88,7 +89,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
   const [newItem, setNewItem] = useState("");
   const [update, setUpdate] = useState("");
   const [posting, setPosting] = useState(false);
-  const [team, setTeam] = useState<Array<{ id: string; name: string; color?: string | null }>>([]);
+  const [team, setTeam] = useState<Array<{ id: string; name: string; color?: string | null; jobRole?: string | null }>>([]);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [editingDesc, setEditingDesc] = useState(false);
@@ -544,19 +545,20 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   Unassigned
                 </button>
                 {[
-                  ...team.map((u) => ({ key: u.name, label: u.name, color: u.color || null })),
+                  ...team.map((u) => ({ key: u.name, label: u.name, color: u.color || null, role: u.jobRole || null })),
                   // Legacy assignee not in the team list (case-insensitive —
                   // old tasks stored lowercase names like "chase")
                   ...(task.assignedTo &&
                   task.assignedTo.toLowerCase() !== "agent" &&
                   !team.some((u) => u.name.toLowerCase() === task.assignedTo!.toLowerCase())
-                    ? [{ key: task.assignedTo, label: task.assignedTo, color: null }]
+                    ? [{ key: task.assignedTo, label: task.assignedTo, color: null, role: null }]
                     : []),
                 ].map((a) => {
                   const selected = task.assignedTo?.toLowerCase() === a.key.toLowerCase();
                   return (
                     <button
                       key={a.key}
+                      title={teamRoleLabel(a.role) || a.label}
                       onClick={() => a.key !== task.assignedTo && patchTask({ assignedTo: a.key })}
                       className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                         selected

@@ -22,6 +22,7 @@ model User {
   slackUserId  String? // Slack member ID (U…) for @-mentions in task alerts
   color        String? // Profile hex color for avatars and task assignee accents
   allowedPages String[]  @default([]) // Sidebar tabs a member may open; empty = all
+  jobRole      String? // What they do here (see src/lib/team-roles.ts); drives the tab preset
 
   // --- Second-factor auth (all opt-in, default off; login is unchanged until enabled) ---
   totpSecret     String? // base32 TOTP secret, AES-256-GCM encrypted at rest ("iv:ciphertext")

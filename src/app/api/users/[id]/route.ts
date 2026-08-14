@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession, hashPassword } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { isValidPageList } from "@/lib/page-access";
+import { TEAM_ROLE_KEYS, pagesForRole } from "@/lib/team-roles";
 
 // PATCH /api/users/[id] — update name, role, active state, or password (owner only)
 export async function PATCH(
@@ -13,7 +14,7 @@ export async function PATCH(
 
   const { id } = await params;
 
-  let body: { name?: string; role?: string; isActive?: boolean; password?: string; slackUserId?: string | null; color?: string | null; allowedPages?: string[] };
+  let body: { name?: string; role?: string; isActive?: boolean; password?: string; slackUserId?: string | null; color?: string | null; allowedPages?: string[]; jobRole?: string | null; applyRolePreset?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -38,7 +39,22 @@ export async function PATCH(
     slackUserId?: string | null;
     color?: string | null;
     allowedPages?: string[];
+    jobRole?: string | null;
   } = {};
+
+  // What they do here, and (optionally) the tabs that job needs. The preset is a
+  // starting point — the per-tab toggles below still override it.
+  if (body.jobRole !== undefined) {
+    if (session.role !== "OWNER")
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const key = typeof body.jobRole === "string" ? body.jobRole.trim() : "";
+    if (key && !TEAM_ROLE_KEYS.includes(key))
+      return NextResponse.json({ error: "Unknown job role" }, { status: 400 });
+    data.jobRole = key || null;
+    if (body.applyRolePreset && key) {
+      data.allowedPages = pagesForRole(key);
+    }
+  }
 
   if (body.allowedPages !== undefined) {
     if (session.role !== "OWNER")
