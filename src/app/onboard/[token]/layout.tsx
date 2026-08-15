@@ -15,10 +15,14 @@ export async function generateMetadata({
     })
     .catch(() => null);
   const who = client?.company || client?.name;
-  return shareMeta(
-    who ? `Welcome, ${who}!` : "Welcome!",
-    "Let's get your project started — complete your onboarding with Blok Blok Studio."
-  );
+  return {
+    ...shareMeta(
+      who ? `Welcome, ${who}!` : "Welcome!",
+      "Let's get your project started — complete your onboarding with Blok Blok Studio."
+    ),
+    // Installed home-screen icon reopens their onboarding, not the team login
+    manifest: `/api/portal-manifest?start=/o/${token}`,
+  };
 }
 
 export default function OnboardLayout({ children }: { children: React.ReactNode }) {

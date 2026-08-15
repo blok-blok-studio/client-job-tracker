@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Image from "next/image";
 import { Plus, Trash2, Check, Loader2, ChevronDown, MessageCircle, Upload, Link2 } from "lucide-react";
 import QRCode from "qrcode";
+import AddToHomeScreen from "@/components/shared/AddToHomeScreen";
 
 interface Contact {
   name: string;
@@ -1126,6 +1127,8 @@ export default function OnboardPage() {
             Blok Blok Studio team.
           </p>
         </form>
+
+        <AddToHomeScreen storageKey="onboard" what="your project space" />
       </div>
     </div>
   );

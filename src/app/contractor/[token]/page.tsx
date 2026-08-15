@@ -18,6 +18,7 @@ import {
   PenLine,
   Download,
 } from "lucide-react";
+import AddToHomeScreen from "@/components/shared/AddToHomeScreen";
 
 interface ContractorInfo {
   name: string;
@@ -1259,6 +1260,8 @@ export default function ContractorPortal({
             </p>
           </>
         )}
+
+        <AddToHomeScreen storageKey="contractor" what="your portal" />
 
         {/* Footer */}
         <p className="text-center text-[10px] text-gray-600 mt-12">

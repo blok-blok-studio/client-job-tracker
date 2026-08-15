@@ -15,10 +15,14 @@ export async function generateMetadata({
     })
     .catch(() => null);
   const who = deliverable?.client.company || deliverable?.client.name;
-  return shareMeta(
-    deliverable ? `${deliverable.title}${who ? ` — for ${who}` : ""}` : "Your Deliverables",
-    "Your finished work is ready — review and approve it online with Blok Blok Studio."
-  );
+  return {
+    ...shareMeta(
+      deliverable ? `${deliverable.title}${who ? ` — for ${who}` : ""}` : "Your Deliverables",
+      "Your finished work is ready — review and approve it online with Blok Blok Studio."
+    ),
+    // Installed home-screen icon reopens this review link, not the team login
+    manifest: `/api/portal-manifest?start=/r/${token}`,
+  };
 }
 
 export default function ReviewLayout({ children }: { children: React.ReactNode }) {

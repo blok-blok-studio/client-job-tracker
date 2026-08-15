@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import { Upload, CheckCircle, AlertCircle, Loader2, Film, Image as ImageIcon, Music, X, FileUp, Check, FileText } from "lucide-react";
+import AddToHomeScreen from "@/components/shared/AddToHomeScreen";
 
 interface ClientInfo {
   id: string;
@@ -348,6 +349,8 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
             </button>
           </div>
         )}
+
+        <AddToHomeScreen storageKey="upload" what="your file drop" />
 
         {/* Footer */}
         <p className="text-center text-[10px] text-gray-600 mt-12">

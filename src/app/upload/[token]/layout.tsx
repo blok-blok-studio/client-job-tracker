@@ -15,10 +15,14 @@ export async function generateMetadata({
     })
     .catch(() => null);
   const who = client?.company || client?.name;
-  return shareMeta(
-    who ? `File Drop for ${who}` : "File Drop",
-    "Securely share files with Blok Blok Studio."
-  );
+  return {
+    ...shareMeta(
+      who ? `File Drop for ${who}` : "File Drop",
+      "Securely share files with Blok Blok Studio."
+    ),
+    // Installed home-screen icon reopens their file drop, not the team login
+    manifest: `/api/portal-manifest?start=/u/${token}`,
+  };
 }
 
 export default function UploadLayout({ children }: { children: React.ReactNode }) {

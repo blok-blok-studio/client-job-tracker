@@ -15,10 +15,14 @@ export async function generateMetadata({
     })
     .catch(() => null);
   const who = contractor?.company || contractor?.name;
-  return shareMeta(
-    who ? `Invoice Upload for ${who}` : "Invoice Upload",
-    "Securely submit your invoices to Blok Blok Studio."
-  );
+  return {
+    ...shareMeta(
+      who ? `Invoice Upload for ${who}` : "Invoice Upload",
+      "Securely submit your invoices to Blok Blok Studio."
+    ),
+    // Installed home-screen icon reopens their portal, not the team login
+    manifest: `/api/portal-manifest?start=/i/${token}`,
+  };
 }
 
 export default function ContractorLayout({ children }: { children: React.ReactNode }) {

@@ -7,6 +7,7 @@ import {
   Check, Loader2, FileText, Download, Pencil, ThumbsUp, ChevronLeft, ChevronRight,
   Play, Folder, MessageCircle, Send, CheckCheck,
 } from "lucide-react";
+import AddToHomeScreen from "@/components/shared/AddToHomeScreen";
 
 interface ReviewFile {
   id: string;
@@ -1007,6 +1008,8 @@ export default function DeliverableReviewPage() {
             busy={itemBusy}
           />
         </div>
+
+        <AddToHomeScreen storageKey="review" what="your project reviews" />
       </div>
     </div>
   );

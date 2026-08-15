@@ -33,6 +33,7 @@ const PUBLIC_PATHS = [
   "/api/client-media/generate-thumbnails",
   "/api/exchange-rate",
   "/api/oauth",
+  "/api/portal-manifest",
 ];
 
 // In-memory rate limiter (Edge runtime compatible)
