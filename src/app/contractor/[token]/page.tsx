@@ -42,8 +42,6 @@ interface ContractRow {
 interface InvoiceRow {
   id: string;
   invoiceNumber: string | null;
-  amount: string | number | null;
-  currency: string;
   filename: string;
   status: "PENDING" | "PAID" | "DISPUTED";
   submittedAt: string;
@@ -84,15 +82,6 @@ interface HoursRow {
   submittedAt: string;
   correctsId: string | null;
   correctedBy: { id: string } | null;
-}
-
-const CURRENCIES = ["USD", "EUR", "GBP", "CHF"];
-
-function formatAmount(amount: string | number | null, currency: string) {
-  if (amount === null || amount === undefined) return null;
-  const n = typeof amount === "string" ? parseFloat(amount) : amount;
-  if (Number.isNaN(n)) return null;
-  return `${currency} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function fmtDuration(minutes: number) {
@@ -142,8 +131,6 @@ export default function ContractorPortal({
   // Invoice form
   const [file, setFile] = useState<File | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState("USD");
   const [invoiceDate, setInvoiceDate] = useState("");
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -357,8 +344,6 @@ export default function ContractorPortal({
           contentType: blob.contentType || file.type,
           size: file.size,
           invoiceNumber: invoiceNumber.trim(),
-          amount: amount.trim() ? parseFloat(amount) : null,
-          currency,
           invoiceDate,
           description: description.trim(),
         }),
@@ -370,7 +355,6 @@ export default function ContractorPortal({
 
       setFile(null);
       setInvoiceNumber("");
-      setAmount("");
       setInvoiceDate("");
       setDescription("");
       setSuccess(true);
@@ -772,32 +756,6 @@ export default function ContractorPortal({
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Amount</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0.00"
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Currency</label>
-                    <select
-                      value={currency}
-                      onChange={(e) => setCurrency(e.target.value)}
-                      className={`${inputClass} [color-scheme:dark]`}
-                    >
-                      {CURRENCIES.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Note (optional)</label>
                   <textarea
@@ -860,9 +818,6 @@ export default function ContractorPortal({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white truncate">
                           {inv.invoiceNumber ? `#${inv.invoiceNumber}` : inv.filename}
-                          {formatAmount(inv.amount, inv.currency) && (
-                            <span className="text-gray-400"> &middot; {formatAmount(inv.amount, inv.currency)}</span>
-                          )}
                         </p>
                         <p className="text-[10px] text-gray-500 flex items-center gap-1">
                           <Clock size={9} />

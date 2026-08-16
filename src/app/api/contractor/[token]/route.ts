@@ -66,11 +66,11 @@ export async function GET(
       where: { contractorId: contractor.id },
       orderBy: { submittedAt: "desc" },
       take: 50,
+      // No amounts on the portal — money stays internal (owner-only); the AI
+      // scan reads the figure from the document for the books.
       select: {
         id: true,
         invoiceNumber: true,
-        amount: true,
-        currency: true,
         filename: true,
         status: true,
         submittedAt: true,
@@ -202,8 +202,6 @@ export async function POST(
       select: {
         id: true,
         invoiceNumber: true,
-        amount: true,
-        currency: true,
         filename: true,
         status: true,
         submittedAt: true,
