@@ -23,8 +23,9 @@ export default function PageGuard() {
     if (!me || me.role === "OWNER" || me.allowedPages.length === 0) return;
     const segment = pathname.split("/")[1];
     // Dashboard home, clients detail under /clients, and team (owner-gated
-    // separately) are handled by their own keys
-    if (!segment || segment === "team") return;
+    // separately) are handled by their own keys. /security is everyone's own
+    // account page (password, photo, 2FA) — never gated.
+    if (!segment || segment === "team" || segment === "security") return;
     if (!me.allowedPages.includes(segment)) {
       router.replace("/");
     }

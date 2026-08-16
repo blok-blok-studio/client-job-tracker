@@ -21,6 +21,7 @@ model User {
   lastLoginAt  DateTime?
   slackUserId  String? // Slack member ID (U…) for @-mentions in task alerts
   color        String? // Profile hex color for avatars and task assignee accents
+  avatarUrl    String? // Profile photo (public Vercel Blob, unguessable path)
   allowedPages String[]  @default([]) // Sidebar tabs a member may open; empty = all
   jobRole      String? // What they do here (see src/lib/team-roles.ts); drives the tab preset
 

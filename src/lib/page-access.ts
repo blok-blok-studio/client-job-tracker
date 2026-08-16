@@ -24,7 +24,7 @@ export const PAGE_OPTIONS: Array<{ key: string; label: string }> = [
   { key: "compliance", label: "Compliance" },
   { key: "automations", label: "Automations" },
   { key: "vault", label: "Vault" },
-  { key: "security", label: "Security" },
+  { key: "security", label: "Account" },
   { key: "activity", label: "Activity" },
   { key: "reports", label: "Reports" },
   { key: "monthly-reports", label: "Monthly Reports" },

@@ -51,7 +51,7 @@ const navItems = [
   { href: "/compliance", label: "Compliance", icon: Landmark },
   { href: "/automations", label: "Automations", icon: Zap },
   { href: "/vault", label: "Vault", icon: Lock },
-  { href: "/security", label: "Security", icon: ShieldCheck },
+  { href: "/security", label: "Account", icon: ShieldCheck },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/monthly-reports", label: "Monthly Reports", icon: FileBarChart },
@@ -64,6 +64,7 @@ interface CurrentUser {
   email: string;
   role: "OWNER" | "MEMBER";
   color?: string | null;
+  avatarUrl?: string | null;
   allowedPages?: string[];
 }
 
@@ -75,12 +76,13 @@ export default function Sidebar() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const colorSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Refetch on route change so profile edits (photo, name) show up right away
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d?.user && setCurrentUser(d.user))
       .catch(() => {});
-  }, []);
+  }, [pathname]);
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -112,10 +114,16 @@ export default function Sidebar() {
       ? navItems
       : navItems.filter((n) => !OWNER_ONLY_HREFS.includes(n.href));
 
-  // Members with a granted-pages list only see those tabs (dashboard always shows)
+  // Members with a granted-pages list only see those tabs (dashboard and the
+  // self-service Account page always show)
   const granted =
     currentUser && currentUser.role !== "OWNER" && (currentUser.allowedPages?.length || 0) > 0
-      ? baseItems.filter((n) => n.href === "/" || currentUser.allowedPages!.includes(n.href.slice(1)))
+      ? baseItems.filter(
+          (n) =>
+            n.href === "/" ||
+            n.href === "/security" ||
+            currentUser.allowedPages!.includes(n.href.slice(1))
+        )
       : baseItems;
   const items =
     currentUser?.role === "OWNER"
@@ -180,7 +188,19 @@ export default function Sidebar() {
       <div className="border-t border-bb-border p-4 space-y-3">
         {currentUser && (!collapsed || mobileOpen) && (
           <div className="flex items-center gap-2 min-w-0">
-            {/* Avatar doubles as the profile-color picker */}
+            {/* Avatar doubles as the profile-color picker; a photo (set on the
+                Account page) replaces the initial and links there instead */}
+            {currentUser.avatarUrl ? (
+              <Link
+                href="/security"
+                title="Account settings"
+                className="w-7 h-7 rounded-full shrink-0 overflow-hidden ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow"
+                style={currentUser.color ? { boxShadow: `0 0 0 1.5px ${currentUser.color}` } : undefined}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+              </Link>
+            ) : (
             <label
               className="relative w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 cursor-pointer ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow"
               style={{ backgroundColor: currentUser.color || "#1E1E1E" }}
@@ -209,6 +229,7 @@ export default function Sidebar() {
                 aria-label="Profile color"
               />
             </label>
+            )}
             <div className="min-w-0">
               <p className="text-xs font-medium text-white truncate">{currentUser.name}</p>
               <p className="text-[10px] text-bb-dim truncate capitalize">

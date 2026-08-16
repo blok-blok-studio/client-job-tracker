@@ -20,6 +20,7 @@ interface TeamUser {
   createdAt: string;
   slackUserId?: string | null;
   color?: string | null;
+  avatarUrl?: string | null;
   jobRole?: string | null;
   allowedPages?: string[];
 }
@@ -187,11 +188,14 @@ export default function TeamPage() {
                   }`}
                 >
                   <label
-                    className="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 cursor-pointer ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow"
+                    className="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 cursor-pointer ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow overflow-hidden"
                     style={{ backgroundColor: u.color || "#1E1E1E" }}
                     title="Set profile color"
                   >
-                    {u.role === "OWNER" ? (
+                    {u.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={u.avatarUrl} alt={u.name} className="absolute inset-0 w-full h-full object-cover" />
+                    ) : u.role === "OWNER" ? (
                       <Shield size={16} className={u.color ? "text-black/70" : "text-bb-orange"} />
                     ) : (
                       <UserIcon size={16} className={u.color ? "text-black/70" : "text-bb-muted"} />

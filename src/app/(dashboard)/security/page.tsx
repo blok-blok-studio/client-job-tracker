@@ -10,6 +10,11 @@ import {
   Check,
   AlertTriangle,
   ExternalLink,
+  UserRound,
+  Camera,
+  Mail,
+  Loader2,
+  X,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import { useToast } from "@/components/shared/Toast";
@@ -21,6 +26,16 @@ interface SecurityStatus {
   mfaUpdatedAt: string | null;
 }
 
+interface Profile {
+  id: string;
+  name: string;
+  email: string;
+  role: "OWNER" | "MEMBER";
+  color: string | null;
+  avatarUrl: string | null;
+  jobRole: string | null;
+}
+
 const inputClass =
   "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
 
@@ -28,6 +43,19 @@ export default function SecurityPage() {
   const [status, setStatus] = useState<SecurityStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
+
+  // Profile
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [emailDraft, setEmailDraft] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [emailOpen, setEmailOpen] = useState(false);
+
+  // Change password
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
 
   // TOTP setup flow
   const [setupPassword, setSetupPassword] = useState("");
@@ -51,9 +79,122 @@ export default function SecurityPage() {
     }
   }, []);
 
+  const loadProfile = useCallback(async () => {
+    try {
+      const res = await fetch("/api/profile");
+      const json = await res.json();
+      if (json.success) {
+        setProfile(json.data);
+        setNameDraft(json.data.name);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadProfile();
+  }, [load, loadProfile]);
+
+  async function profileAction(payload: Record<string, unknown>, ok: string): Promise<boolean> {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast(json?.error || "Failed", "error");
+        return false;
+      }
+      if (ok) toast(ok, "success");
+      await loadProfile();
+      return true;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveName() {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || !profile || trimmed === profile.name) return;
+    await profileAction({ action: "update", name: trimmed }, "Name updated");
+  }
+
+  async function saveColor(color: string) {
+    setProfile((p) => (p ? { ...p, color } : p));
+    await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update", color }),
+    }).catch(() => {});
+  }
+
+  async function uploadPhoto(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast("Choose an image file", "error");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast("Photo must be under 8MB", "error");
+      return;
+    }
+    setUploadingPhoto(true);
+    try {
+      const res = await fetch(`/api/uploads/stream?filename=${encodeURIComponent(file.name)}`, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.urls?.[0]) {
+        toast(json?.error || "Upload failed", "error");
+        return;
+      }
+      await profileAction({ action: "update", avatarUrl: json.urls[0] }, "Photo updated");
+    } catch {
+      toast("Upload failed", "error");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  async function removePhoto() {
+    await profileAction({ action: "update", avatarUrl: "" }, "Photo removed");
+  }
+
+  async function changeEmail() {
+    if (
+      await profileAction(
+        { action: "email", email: emailDraft, password: emailPassword },
+        "Email updated — use it next time you log in"
+      )
+    ) {
+      setEmailDraft("");
+      setEmailPassword("");
+      setEmailOpen(false);
+    }
+  }
+
+  async function changePassword() {
+    if (pwNew !== pwConfirm) {
+      toast("New passwords don't match", "error");
+      return;
+    }
+    if (
+      await profileAction(
+        { action: "password", currentPassword: pwCurrent, newPassword: pwNew },
+        "Password changed"
+      )
+    ) {
+      setPwCurrent("");
+      setPwNew("");
+      setPwConfirm("");
+    }
+  }
 
   async function totpAction(action: string, extra: Record<string, unknown>, ok: string) {
     setBusy(true);
@@ -161,8 +302,196 @@ export default function SecurityPage() {
 
   return (
     <div>
-      <TopBar title="Security" subtitle="Protect your account with two-factor authentication and a login PIN" />
+      <TopBar title="Account" subtitle="Your profile, login details, and security settings" />
       <div className="px-4 lg:px-6 max-w-2xl space-y-4 pb-8">
+        {/* Profile */}
+        <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-4">
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+            <UserRound size={15} className="text-bb-orange" />
+            Profile
+          </h2>
+
+          <div className="flex items-center gap-4">
+            {/* Photo — click to upload */}
+            <label
+              className="relative w-16 h-16 rounded-full shrink-0 cursor-pointer overflow-hidden ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow flex items-center justify-center group"
+              style={{ backgroundColor: profile?.color || "#1E1E1E" }}
+              title="Change profile photo"
+            >
+              {profile?.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.avatarUrl} alt={profile.name} className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <span className={`text-xl font-semibold ${profile?.color ? "text-black/80" : "text-white"}`}>
+                  {profile?.name?.charAt(0)?.toUpperCase() || "?"}
+                </span>
+              )}
+              <span className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                {uploadingPhoto ? (
+                  <Loader2 size={18} className="text-white animate-spin" />
+                ) : (
+                  <Camera size={18} className="text-white" />
+                )}
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploadingPhoto}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) uploadPhoto(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+
+            <div className="min-w-0 space-y-1.5">
+              <p className="text-xs text-bb-dim">
+                Tap the photo to change it. Shown next to your tasks and comments.
+              </p>
+              <div className="flex items-center gap-2">
+                {/* Accent color */}
+                <label
+                  className="relative w-6 h-6 rounded-md cursor-pointer ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow"
+                  style={{ backgroundColor: profile?.color || "#FF6B00" }}
+                  title="Profile color"
+                >
+                  <input
+                    type="color"
+                    value={profile?.color || "#FF6B00"}
+                    onChange={(e) => saveColor(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    aria-label="Profile color"
+                  />
+                </label>
+                <span className="text-[11px] text-bb-dim">Accent color</span>
+                {profile?.avatarUrl && (
+                  <button
+                    onClick={removePhoto}
+                    disabled={busy || uploadingPhoto}
+                    className="flex items-center gap-1 px-2 py-1 text-[11px] rounded-md border border-bb-border text-bb-muted hover:text-red-400 transition-colors disabled:opacity-50"
+                  >
+                    <X size={11} /> Remove photo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-[11px] text-bb-dim mb-1">Display name</label>
+              <input
+                type="text"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                maxLength={80}
+                className={inputClass}
+              />
+            </div>
+            <button
+              onClick={saveName}
+              disabled={busy || !nameDraft.trim() || nameDraft.trim() === profile?.name}
+              className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+
+        {/* Login email */}
+        <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+            <Mail size={15} className="text-bb-orange" />
+            Login email
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="text-sm text-white bg-bb-black border border-bb-border rounded px-2.5 py-1.5">
+              {profile?.email || "…"}
+            </code>
+            <button
+              onClick={() => setEmailOpen((v) => !v)}
+              className="px-3 py-1.5 text-xs rounded-md border border-bb-border text-bb-muted hover:text-white transition-colors"
+            >
+              {emailOpen ? "Cancel" : "Change email"}
+            </button>
+          </div>
+          {emailOpen && (
+            <div className="space-y-2">
+              <p className="text-xs text-bb-dim">
+                You&apos;ll log in with the new address next time. Confirm your password to change it.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="email"
+                  value={emailDraft}
+                  onChange={(e) => setEmailDraft(e.target.value)}
+                  placeholder="new@email.com"
+                  autoComplete="email"
+                  className={`${inputClass} max-w-[220px]`}
+                />
+                <input
+                  type="password"
+                  value={emailPassword}
+                  onChange={(e) => setEmailPassword(e.target.value)}
+                  placeholder="Your password"
+                  autoComplete="current-password"
+                  className={`${inputClass} max-w-[180px]`}
+                />
+                <button
+                  onClick={changeEmail}
+                  disabled={busy || !emailDraft || !emailPassword}
+                  className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                >
+                  Update email
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Change password */}
+        <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+            <KeyRound size={15} className="text-bb-orange" />
+            Change password
+          </h2>
+          <div className="grid sm:grid-cols-3 gap-2">
+            <input
+              type="password"
+              value={pwCurrent}
+              onChange={(e) => setPwCurrent(e.target.value)}
+              placeholder="Current password"
+              autoComplete="current-password"
+              className={inputClass}
+            />
+            <input
+              type="password"
+              value={pwNew}
+              onChange={(e) => setPwNew(e.target.value)}
+              placeholder="New password (8+ chars)"
+              autoComplete="new-password"
+              className={inputClass}
+            />
+            <input
+              type="password"
+              value={pwConfirm}
+              onChange={(e) => setPwConfirm(e.target.value)}
+              placeholder="Repeat new password"
+              autoComplete="new-password"
+              className={inputClass}
+            />
+          </div>
+          <button
+            onClick={changePassword}
+            disabled={busy || !pwCurrent || pwNew.length < 8 || !pwConfirm}
+            className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+          >
+            Change password
+          </button>
+        </div>
+
         {/* Status banner */}
         <div
           className={`flex items-center gap-3 p-4 rounded-lg border ${
