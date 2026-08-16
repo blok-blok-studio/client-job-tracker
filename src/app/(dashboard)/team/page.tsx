@@ -182,7 +182,7 @@ export default function TeamPage() {
               return (
                 <div
                   key={u.id}
-                  className={`flex items-center gap-3 px-4 py-3 bg-bb-surface border border-bb-border rounded-lg ${
+                  className={`flex items-center flex-wrap gap-3 px-4 py-3 bg-bb-surface border border-bb-border rounded-lg ${
                     !u.isActive ? "opacity-60" : ""
                   }`}
                 >
@@ -209,7 +209,7 @@ export default function TeamPage() {
                     />
                   </label>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-white truncate">{u.name}</span>
                       <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-bb-elevated text-bb-muted">
                         {u.role}
@@ -232,7 +232,8 @@ export default function TeamPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
+                  {/* Full-width second row on phones; inline on sm+ */}
+                  <div className="flex items-center gap-1 shrink-0 flex-wrap w-full justify-end sm:w-auto sm:justify-start">
                     <select
                       value={u.role}
                       disabled={isSelf}

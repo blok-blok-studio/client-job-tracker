@@ -255,7 +255,7 @@ export default function CalendarPage() {
       <div className="px-4 lg:px-6 pb-8">
         {/* Controls */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* View toggle */}
             <div className="flex items-center gap-1 bg-bb-surface border border-bb-border rounded-lg p-1">
               <button

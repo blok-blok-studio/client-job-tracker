@@ -11,6 +11,9 @@ interface VideoThumbnailProps {
   className?: string;
   iconSize?: number;
   showPlayIcon?: boolean;
+  /** Set false when the parent tile draws its own bottom caption — two
+      bottom-0 overlays render on top of each other. */
+  showFilename?: boolean;
 }
 
 /**
@@ -28,6 +31,7 @@ export default function VideoThumbnail({
   className = "w-full h-full object-cover",
   iconSize = 16,
   showPlayIcon = true,
+  showFilename = true,
 }: VideoThumbnailProps) {
   const [imgError, setImgError] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -55,7 +59,7 @@ export default function VideoThumbnail({
     return (
       <div className="relative w-full h-full bg-black/80 flex items-center justify-center">
         <Film size={iconSize * 2} className="text-white/40" />
-        {filename && (
+        {filename && showFilename && (
           <div className="absolute bottom-0 left-0 right-0 px-1.5 py-1 bg-gradient-to-t from-black/80 to-transparent">
             <p className="text-[9px] text-white/80 truncate">{filename}</p>
           </div>
@@ -84,7 +88,7 @@ export default function VideoThumbnail({
       />
       {showPlayIcon && <PlayOverlay size={iconSize} />}
       {/* Filename overlay at bottom so you can identify the video even if frame doesn't render */}
-      {filename && (
+      {filename && showFilename && (
         <div className="absolute bottom-0 left-0 right-0 px-1.5 py-1 bg-gradient-to-t from-black/80 to-transparent">
           <p className="text-[9px] text-white/80 truncate">{filename}</p>
         </div>
