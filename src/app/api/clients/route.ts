@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import { clientSchema } from "@/lib/validations";
+import { sessionIsOwner, stripClientFinance } from "@/lib/finance-fields";
 
 const DEFAULT_CHECKLIST_ITEMS = [
   "Discovery call completed",
@@ -45,7 +46,11 @@ export async function GET(request: NextRequest) {
     orderBy: { updatedAt: "desc" },
   });
 
-  return NextResponse.json({ success: true, data: clients });
+  const isOwner = await sessionIsOwner();
+  return NextResponse.json({
+    success: true,
+    data: isOwner ? clients : clients.map((c) => stripClientFinance(c)),
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -88,7 +93,8 @@ export async function POST(request: NextRequest) {
         source: parsed.source || null,
         industry: parsed.industry || null,
         notes: parsed.notes || null,
-        monthlyRetainer: parsed.monthlyRetainer ?? null,
+        // Retainer is a money field — only the owner sets it
+        monthlyRetainer: (await sessionIsOwner()) ? parsed.monthlyRetainer ?? null : null,
         contractStart: parsed.contractStart ? new Date(parsed.contractStart) : null,
         contractEnd: parsed.contractEnd ? new Date(parsed.contractEnd) : null,
         timezone: parsed.timezone || null,

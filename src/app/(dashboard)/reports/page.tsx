@@ -19,10 +19,11 @@ interface Summary {
     byUser: Array<{ user: string; minutes: number }>;
     thisMonthMinutes: number;
   };
-  invoices: Array<{ status: string; count: number; total: number }>;
+  /** null for non-owners — finances are owner-only */
+  invoices: Array<{ status: string; count: number; total: number }> | null;
   openTickets: number;
   activeClients: number;
-  leadSources: Array<{ source: string; leads: number; won: number; winRate: number; revenue: number }>;
+  leadSources: Array<{ source: string; leads: number; won: number; winRate: number; revenue: number | null }>;
   newsletterCount: number;
 }
 
@@ -114,7 +115,7 @@ export default function ReportsPage() {
               <StatTile icon={<Users size={13} />} label="Active clients" value={data.activeClients} />
               <StatTile icon={<Mail size={13} />} label="Newsletter list" value={data.newsletterCount} />
               <StatTile icon={<LifeBuoy size={13} />} label="Open tickets" value={data.openTickets} />
-              {(() => {
+              {data.invoices && (() => {
                 const paid = data.invoices.find((i) => i.status === "PAID");
                 const outstanding = data.invoices
                   .filter((i) => i.status === "SENT" || i.status === "OVERDUE")
@@ -192,7 +193,9 @@ export default function ReportsPage() {
                       <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Leads</th>
                       <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Won</th>
                       <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Win rate</th>
-                      <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Revenue</th>
+                      {data.invoices && (
+                        <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Revenue</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -205,7 +208,9 @@ export default function ReportsPage() {
                         <td className="px-4 py-2.5 text-sm text-bb-muted text-right">{ls.leads}</td>
                         <td className="px-4 py-2.5 text-sm text-bb-muted text-right">{ls.won}</td>
                         <td className={`px-4 py-2.5 text-sm text-right ${ls.winRate >= 50 ? "text-emerald-400" : "text-bb-muted"}`}>{ls.winRate}%</td>
-                        <td className="px-4 py-2.5 text-sm font-semibold text-bb-orange text-right">{fmtMoney(ls.revenue)}</td>
+                        {data.invoices && (
+                          <td className="px-4 py-2.5 text-sm font-semibold text-bb-orange text-right">{fmtMoney(ls.revenue || 0)}</td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

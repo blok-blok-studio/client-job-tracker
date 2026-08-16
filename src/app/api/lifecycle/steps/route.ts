@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { SEQUENCE_SOURCE_BY_KEY, stepSource, CANCEL_CONDITIONS } from "@/lib/lifecycle/sequences-source";
+import { sessionIsOwner } from "@/lib/finance-fields";
+
+// Rendered lifecycle emails can carry real client pricing ({{price}} etc.).
+// Finances are owner-only, so member responses get currency figures masked.
+const CURRENCY_RE = /(?:[$€£]\s?|(?:USD|EUR|GBP)\s+)\d[\d,]*(?:\.\d+)?/g;
+function redactAmounts(text: string | null): string | null {
+  return text ? text.replace(CURRENCY_RE, "[amount]") : text;
+}
 
 // GET /api/lifecycle/steps?clientId= | ?contractorId= | ?global=1
 // A record's full lifecycle timeline: sent, pending, cancelled and why.
@@ -38,6 +46,8 @@ export async function GET(request: NextRequest) {
         )?.automationsPaused
       : false;
 
+  const isOwner = await sessionIsOwner();
+
   return NextResponse.json({
     success: true,
     data: {
@@ -59,8 +69,8 @@ export async function GET(request: NextRequest) {
           cancelCondition: src?.cancelCondition
             ? CANCEL_CONDITIONS[src.cancelCondition].description
             : null,
-          renderedSubject: s.renderedSubject,
-          renderedBody: s.renderedBody,
+          renderedSubject: isOwner ? s.renderedSubject : redactAmounts(s.renderedSubject),
+          renderedBody: isOwner ? s.renderedBody : redactAmounts(s.renderedBody),
           taskId: s.taskId,
         };
       }),

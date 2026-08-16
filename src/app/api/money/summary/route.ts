@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
+import { getSession } from "@/lib/auth";
 
 // Financial overview: collected, outstanding, pipeline, MRR, per-client revenue.
+// Finances are owner-only.
 export async function GET() {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 

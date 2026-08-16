@@ -223,9 +223,9 @@ export async function POST(
       },
     });
 
-    const amountText = d.amount ? ` — ${d.currency || "USD"} ${d.amount.toFixed(2)}` : "";
+    // No amounts in Slack — the channel is team-visible, finances are owner-only
     notifySlack(
-      `:page_facing_up: New contractor invoice from *${contractor.name}*${amountText}${
+      `:page_facing_up: New contractor invoice from *${contractor.name}*${
         d.invoiceNumber ? ` (#${d.invoiceNumber})` : ""
       }`
     ).catch(() => {});

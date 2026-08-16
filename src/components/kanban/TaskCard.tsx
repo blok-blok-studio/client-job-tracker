@@ -109,7 +109,7 @@ export default function TaskCard({
         {clientUnpaid != null && clientUnpaid > 0 && (
           <span
             className="rounded px-1.5 py-0.5 text-[9px] font-bold bg-red-500/15 text-red-400 ring-1 ring-red-500/30"
-            title={`This client has ${clientUnpaid.toLocaleString("en-US", { style: "currency", currency: "USD" })} in unpaid invoices`}
+            title="This client has unpaid invoices — details on the Money page"
           >
             $ UNPAID
           </span>

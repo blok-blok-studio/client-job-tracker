@@ -236,15 +236,12 @@ export async function POST(request: NextRequest) {
         {
           const custId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
           if (custId) {
-            const newRetainer = await recalcRetainer(custId).catch(() => null);
+            await recalcRetainer(custId).catch(() => null);
             const churnClient = await prisma.client.findUnique({ where: { stripeCustomerId: custId }, select: { name: true } });
-            const lostItem = subscription.items?.data?.[0];
-            const lost = lostItem?.price?.unit_amount
-              ? ((lostItem.price.unit_amount / 100) * (lostItem.quantity || 1)).toLocaleString("en-US", { style: "currency", currency: (lostItem.price.currency || "usd").toUpperCase() })
-              : "a subscription";
             after(() =>
+              // No amounts in Slack — the channel is team-visible, finances are owner-only
               notifySlack(
-                `:rotating_light: *Subscription canceled* — ${lost}/${lostItem?.price?.recurring?.interval || "mo"} from *${churnClient?.name || "Unknown client"}*${newRetainer != null ? ` · retainer now $${newRetainer}/mo` : ""}`
+                `:rotating_light: *Subscription canceled* — *${churnClient?.name || "Unknown client"}*. Details on the Money page.`
               ).catch(() => {})
             );
           }
@@ -343,7 +340,7 @@ export async function POST(request: NextRequest) {
             },
           }).catch(() => {});
           after(() =>
-            notifySlack(`:moneybag: Payment received — *${amt}* from *${payer?.name || "Unknown client"}*`).catch(() => {})
+            notifySlack(`:moneybag: Payment received from *${payer?.name || "Unknown client"}*`).catch(() => {})
           );
         }
 
@@ -425,7 +422,7 @@ export async function POST(request: NextRequest) {
           const client = await prisma.client.findUnique({ where: { stripeCustomerId: custId }, select: { name: true } });
           if (newRetainer != null) {
             after(() =>
-              notifySlack(`:chart_with_upwards_trend: *New subscription* for *${client?.name || "Unknown client"}* · retainer now $${newRetainer}/mo`).catch(() => {})
+              notifySlack(`:chart_with_upwards_trend: *New subscription* for *${client?.name || "Unknown client"}*`).catch(() => {})
             );
           }
         }

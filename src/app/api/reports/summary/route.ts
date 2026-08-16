@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 // Aggregates for the Reports page: workload, hours, revenue pipeline.
+// Revenue figures are owner-only — members get the workload/hours/funnel
+// counts with the money fields nulled.
 export async function GET() {
+  const session = await getSession();
+  const isOwner = session?.role === "OWNER";
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -73,8 +78,8 @@ export async function GET() {
     leads: r.leads,
     won: r.won,
     winRate: r.leads > 0 ? Math.round((r.won / r.leads) * 100) : 0,
-    revenue: r.revenue,
-  })).sort((a, b) => b.revenue - a.revenue || b.leads - a.leads);
+    revenue: isOwner ? r.revenue : null,
+  })).sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0) || b.leads - a.leads);
 
   // Resolve client names for the hours table
   const clientIds = timeByClient.map((t) => t.clientId).filter((id): id is string => !!id);
@@ -104,11 +109,13 @@ export async function GET() {
           .sort((a, b) => b.minutes - a.minutes),
         thisMonthMinutes: timeThisMonth._sum.minutes || 0,
       },
-      invoices: invoicesByStatus.map((i) => ({
-        status: i.status,
-        count: i._count._all,
-        total: Number(i._sum.amount || 0),
-      })),
+      invoices: isOwner
+        ? invoicesByStatus.map((i) => ({
+            status: i.status,
+            count: i._count._all,
+            total: Number(i._sum.amount || 0),
+          }))
+        : null,
       openTickets: openTicketCount,
       activeClients: activeClientCount,
       leadSources,

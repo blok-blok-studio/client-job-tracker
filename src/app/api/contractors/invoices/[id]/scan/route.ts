@@ -2,16 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { decryptBuffer } from "@/lib/encryption";
 import { scanContractorInvoice } from "@/lib/invoice-scan";
+import { getSession } from "@/lib/auth";
 
 export const maxDuration = 300;
 
 // POST /api/contractors/invoices/[id]/scan — (re)run the AI amount scan.
 // Synchronous: returns the updated invoice when the scan completes.
+// Owner-only: the scan is amount verification and the response carries amounts.
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSession();
+    if (session?.role !== "OWNER") {
+      return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+    }
+
     const { id } = await params;
 
     const invoice = await prisma.contractorInvoice.findUnique({

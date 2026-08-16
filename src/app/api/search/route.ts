@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { sessionIsOwner } from "@/lib/finance-fields";
 
 // Global command-palette search across clients, tasks, files, deliverables,
 // contracts, content posts, contractors, contractor invoices, and contractor agreements.
@@ -147,8 +148,15 @@ export async function GET(request: NextRequest) {
     }),
   ]);
 
+  // Invoice amounts are owner-only — members still find the invoice, just
+  // without the money on it.
+  const isOwner = await sessionIsOwner();
+  const safeInvoices = isOwner
+    ? contractorInvoices
+    : contractorInvoices.map((inv) => ({ ...inv, amount: null, currency: null }));
+
   return NextResponse.json({
     success: true,
-    data: { clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices, contractorHours, contractorContracts },
+    data: { clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices: safeInvoices, contractorHours, contractorContracts },
   });
 }

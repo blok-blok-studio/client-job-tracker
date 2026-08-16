@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sendContract } from "@/lib/contract-send";
+import { getSession } from "@/lib/auth";
 
 // Allow time for Stripe API calls + email sending
 export const maxDuration = 300;
@@ -10,6 +11,11 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; contractId: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id, contractId } = await params;
 
   try {

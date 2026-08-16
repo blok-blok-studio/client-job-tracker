@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { isMoneyAction, sessionIsOwner } from "@/lib/finance-fields";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -31,8 +32,15 @@ export async function GET(request: NextRequest) {
   const activities = await prisma.activityLog.findMany(queryArgs);
 
   const hasMore = activities.length > limit;
-  const data = activities.slice(0, limit);
+  let data = activities.slice(0, limit);
   const nextCursor = hasMore ? data[data.length - 1]?.id : null;
+
+  // Money-bearing entries (invoice/payment/subscription/retainer details carry
+  // amounts) are owner-only. Filtered after the cursor is taken so pagination
+  // still walks the full log — members just get shorter pages.
+  if (!(await sessionIsOwner())) {
+    data = data.filter((a) => !isMoneyAction(a.action));
+  }
 
   return NextResponse.json({
     success: true,

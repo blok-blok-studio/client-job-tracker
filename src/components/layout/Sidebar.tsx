@@ -105,11 +105,19 @@ export default function Sidebar() {
     router.refresh();
   }
 
+  // Money and Contracts are owner-only (finances + priced contract bodies) —
+  // hidden until the fetch confirms OWNER, no matter what tabs were granted.
+  const OWNER_ONLY_HREFS = ["/money", "/contracts"];
+  const baseItems =
+    currentUser?.role === "OWNER"
+      ? navItems
+      : navItems.filter((n) => !OWNER_ONLY_HREFS.includes(n.href));
+
   // Members with a granted-pages list only see those tabs (dashboard always shows)
   const granted =
     currentUser && currentUser.role !== "OWNER" && (currentUser.allowedPages?.length || 0) > 0
-      ? navItems.filter((n) => n.href === "/" || currentUser.allowedPages!.includes(n.href.slice(1)))
-      : navItems;
+      ? baseItems.filter((n) => n.href === "/" || currentUser.allowedPages!.includes(n.href.slice(1)))
+      : baseItems;
   const items =
     currentUser?.role === "OWNER"
       ? [...granted, { href: "/team", label: "Team", icon: UsersRound }]

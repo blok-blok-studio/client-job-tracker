@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { syncEvent } from "@/lib/sync";
+import { getSession } from "@/lib/auth";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id } = await params;
   try {
     const body = await request.json();
@@ -45,6 +51,11 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id } = await params;
   await prisma.invoice.delete({ where: { id } });
   return NextResponse.json({ success: true });

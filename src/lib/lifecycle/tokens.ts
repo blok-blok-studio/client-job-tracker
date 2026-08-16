@@ -242,9 +242,22 @@ export interface RenderResult {
  * as-is (they surface in `missing` so auto-send can refuse; drafts keep them
  * for the human to fill).
  */
-export function renderTokens(text: string, ctx: RenderContext): RenderResult {
+/**
+ * Tokens that resolve to dollar amounts. Kanban task descriptions are visible
+ * to the whole team, and tasks must never show invoice/price figures — renders
+ * bound for a task pass redactMoney so these come out as a placeholder while
+ * the real email/draft body keeps the numbers.
+ */
+const MONEY_TOKENS = new Set(["price", "deposit", "balance", "care_price"]);
+
+export function renderTokens(
+  text: string,
+  ctx: RenderContext,
+  opts?: { redactMoney?: boolean }
+): RenderResult {
   const missing = new Set<string>();
   const rendered = text.replace(TOKEN_RE, (raw, name: string) => {
+    if (opts?.redactMoney && MONEY_TOKENS.has(name)) return "[amount]";
     const def = TOKEN_REGISTRY[name];
     if (!def) {
       missing.add(name);

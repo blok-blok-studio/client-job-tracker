@@ -90,6 +90,8 @@ interface EditClientFormProps {
   onSubmit: (data: Record<string, unknown>) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
+  /** Show the retainer field — finances are owner-only */
+  showFinance?: boolean;
 }
 
 function FilterableSelect({
@@ -148,6 +150,7 @@ export default function EditClientForm({
   onSubmit,
   onCancel,
   submitLabel = "Save Changes",
+  showFinance = false,
 }: EditClientFormProps) {
   const [loading, setLoading] = useState(false);
 
@@ -243,10 +246,13 @@ export default function EditClientForm({
         </div>
       </div>
 
-      <div>
-        <label className={labelClass}>Monthly Retainer ($)</label>
-        <input name="monthlyRetainer" type="number" step="0.01" defaultValue={initialData.monthlyRetainer ?? ""} className={inputClass} placeholder="0.00" />
-      </div>
+      {/* Retainer is a money field — owner-only (the API drops it from member saves anyway) */}
+      {showFinance && (
+        <div>
+          <label className={labelClass}>Monthly Retainer ($)</label>
+          <input name="monthlyRetainer" type="number" step="0.01" defaultValue={initialData.monthlyRetainer ?? ""} className={inputClass} placeholder="0.00" />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>

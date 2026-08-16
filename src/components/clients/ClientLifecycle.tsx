@@ -44,7 +44,7 @@ const DATE_FIELDS: { key: keyof LifecycleFields; label: string; hint?: string }[
 
 const toDateInput = (v: string | null) => (v ? new Date(v).toISOString().slice(0, 10) : "");
 
-export default function ClientLifecycle({ clientId }: { clientId: string }) {
+export default function ClientLifecycle({ clientId, isOwner = false }: { clientId: string; isOwner?: boolean }) {
   const [fields, setFields] = useState<LifecycleFields | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -152,18 +152,22 @@ export default function ClientLifecycle({ clientId }: { clientId: string }) {
           <label className="text-xs text-bb-dim">Project name</label>
           <input value={val("projectName")} onChange={(e) => set("projectName", e.target.value)} className={inputCls} />
         </div>
-        <div>
-          <label className="text-xs text-bb-dim">Price</label>
-          <input type="number" value={val("projectPrice")} onChange={(e) => set("projectPrice", e.target.value)} className={inputCls} />
-        </div>
-        <div>
-          <label className="text-xs text-bb-dim">Deposit received</label>
-          <input type="number" value={val("depositReceived")} onChange={(e) => set("depositReceived", e.target.value)} className={inputCls} />
-        </div>
-        <div>
-          <label className="text-xs text-bb-dim">Balance due</label>
-          <input type="number" value={val("projectBalance")} onChange={(e) => set("projectBalance", e.target.value)} className={inputCls} />
-        </div>
+        {isOwner && (
+          <>
+            <div>
+              <label className="text-xs text-bb-dim">Price</label>
+              <input type="number" value={val("projectPrice")} onChange={(e) => set("projectPrice", e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs text-bb-dim">Deposit received</label>
+              <input type="number" value={val("depositReceived")} onChange={(e) => set("depositReceived", e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs text-bb-dim">Balance due</label>
+              <input type="number" value={val("projectBalance")} onChange={(e) => set("projectBalance", e.target.value)} className={inputCls} />
+            </div>
+          </>
+        )}
         <div className="col-span-2">
           <label className="text-xs text-bb-dim">Live site URL ({"{{url}}"} in emails)</label>
           <input value={val("websiteUrl")} onChange={(e) => set("websiteUrl", e.target.value)} className={inputCls} />

@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { sessionIsOwner } from "@/lib/finance-fields";
 
 // GET /api/contractors — contractors with their invoices for the overview page
 export async function GET() {
@@ -32,7 +33,21 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ success: true, data: contractors });
+    // Invoice amounts are finances — owner-only. Members still work the queue
+    // (statuses, docs, hours) with the dollar figures nulled.
+    const isOwner = await sessionIsOwner();
+    // Prisma include-type inference is broken repo-wide — cast the relations
+    const rows = contractors as unknown as Array<
+      Record<string, unknown> & { invoices: Array<Record<string, unknown>> }
+    >;
+    const data = isOwner
+      ? contractors
+      : rows.map((c) => ({
+          ...c,
+          invoices: c.invoices.map((inv) => ({ ...inv, amount: null, scannedAmount: null })),
+        }));
+
+    return NextResponse.json({ success: true, data });
   } catch {
     return NextResponse.json({ success: false, error: "Failed to load contractors" }, { status: 500 });
   }

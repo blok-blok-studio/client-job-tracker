@@ -4,6 +4,7 @@ import { del } from "@vercel/blob";
 import { clientSchema, CLIENT_LIFECYCLE_DATE_FIELDS } from "@/lib/validations";
 import { getSession } from "@/lib/auth";
 import { onClientChanged, snapshotClient } from "@/lib/lifecycle/engine";
+import { isMoneyAction, stripClientFinance } from "@/lib/finance-fields";
 
 export async function GET(
   _request: NextRequest,
@@ -39,6 +40,26 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Client not found" }, { status: 404 });
     }
 
+    // Finances are owner-only: members get the client without retainers/prices,
+    // invoices, payment links, contract tokens (contract bodies carry pricing),
+    // or money-bearing activity entries.
+    const session = await getSession();
+    if (session?.role !== "OWNER") {
+      // Prisma include-type inference is broken repo-wide — cast the relations
+      const full = client as unknown as Record<string, unknown> & {
+        contracts: Array<Record<string, unknown> & { token: string | null }>;
+        activityLogs: Array<Record<string, unknown> & { action: string }>;
+      };
+      const stripped = {
+        ...stripClientFinance(full),
+        invoices: [],
+        paymentLinks: [],
+        contracts: full.contracts.map((c) => ({ ...c, token: null })),
+        activityLogs: full.activityLogs.filter((log) => !isMoneyAction(log.action)),
+      };
+      return NextResponse.json({ success: true, data: stripped });
+    }
+
     return NextResponse.json({ success: true, data: client });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load client";
@@ -64,6 +85,15 @@ export async function PATCH(
       if (value === undefined) continue;
       if (value === "" || value === null) continue;
       data[key] = value;
+    }
+
+    // Money fields are owner-only — drop them silently from member updates so
+    // the rest of the edit still lands.
+    const patchSession = await getSession().catch(() => null);
+    if (patchSession?.role !== "OWNER") {
+      for (const field of ["monthlyRetainer", "projectPrice", "depositReceived", "projectBalance"]) {
+        delete data[field];
+      }
     }
 
     if (data.contractStart) data.contractStart = new Date(data.contractStart as string);

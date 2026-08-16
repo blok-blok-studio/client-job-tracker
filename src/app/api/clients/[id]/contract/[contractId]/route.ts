@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 // GET — Fetch a single contract's full body for owner review (e.g. previewing a draft before sending)
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; contractId: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id, contractId } = await params;
 
   try {
@@ -38,6 +44,11 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; contractId: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id, contractId } = await params;
 
   try {

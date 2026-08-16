@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { getSession } from "@/lib/auth";
 
-// GET — All contracts across all clients (historical archive)
+// GET — All contracts across all clients (historical archive).
+// Owner-only: contract bodies carry pricing, and this listing exposes the
+// public tokens that unlock them.
 export async function GET(request: NextRequest) {
   try {
+    const session = await getSession();
+    if (session?.role !== "OWNER") {
+      return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") || undefined;
     const year = searchParams.get("year") || undefined;

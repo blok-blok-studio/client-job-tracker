@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { syncEvent } from "@/lib/sync";
+import { getSession } from "@/lib/auth";
 
 const invoiceSchema = z.object({
   clientId: z.string().min(1),
@@ -15,6 +16,11 @@ const invoiceSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const clientId = searchParams.get("clientId");
@@ -34,6 +40,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSession();
+    if (session?.role !== "OWNER") {
+      return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+    }
+
     const body = await request.json();
     const parsed = invoiceSchema.parse(body);
 

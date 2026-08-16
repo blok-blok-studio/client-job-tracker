@@ -61,6 +61,8 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Finances (payments, invoices, contract drafting) are owner-only
+  const [isOwner, setIsOwner] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [newContact, setNewContact] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", role: "", email: "", phone: "" });
@@ -127,6 +129,13 @@ export default function ClientDetailPage() {
   }, [id]);
 
   useEffect(() => { fetchClient(); }, [fetchClient]);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setIsOwner(d?.user?.role === "OWNER"))
+      .catch(() => {});
+  }, []);
 
   // Handle OAuth redirect results
   useEffect(() => {
@@ -642,7 +651,7 @@ export default function ClientDetailPage() {
 
             <ClientServices clientId={id} />
 
-            <ClientLifecycle clientId={id} />
+            <ClientLifecycle clientId={id} isOwner={isOwner} />
 
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
@@ -907,6 +916,7 @@ export default function ClientDetailPage() {
               )}
             </div>
 
+            {isOwner && (
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -1040,6 +1050,7 @@ export default function ClientDetailPage() {
                 )}
               </div>
             </div>
+            )}
 
             {/* ─── Tasks & Work Updates ─── */}
             <ClientTasks clientId={id} />
@@ -1058,7 +1069,8 @@ export default function ClientDetailPage() {
                 {([
                   { key: "passwords" as const, label: "Passwords", icon: <Lock size={14} />, count: client.credentials.length },
                   { key: "media" as const, label: "Media", icon: <ImageIcon size={14} />, count: client.mediaFiles?.length || 0 },
-                  { key: "contracts" as const, label: "Contracts", icon: <FileText size={14} />, count: client.contracts?.length || 0 },
+                  // Contracts carry pricing — owner-only, like everything financial
+                  ...(isOwner ? [{ key: "contracts" as const, label: "Contracts", icon: <FileText size={14} />, count: client.contracts?.length || 0 }] : []),
                   { key: "deliverables" as const, label: "Deliverables", icon: <Send size={14} />, count: client.deliverables?.length || 0 },
                 ]).map((tab) => (
                   <button
@@ -1397,6 +1409,7 @@ export default function ClientDetailPage() {
               </div>
             </div>
 
+            {isOwner && (
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display font-semibold">Invoices</h3>
@@ -1427,12 +1440,14 @@ export default function ClientDetailPage() {
                 {client.invoices.length === 0 && <p className="text-sm text-bb-dim">No invoices</p>}
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Client" className="max-w-2xl">
         <EditClientForm
+          showFinance={isOwner}
           initialData={{
             name: client.name,
             email: client.email || "",

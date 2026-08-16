@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { sendPaymentLinkEmail } from "@/lib/email";
 import { z } from "zod";
+import { getSession } from "@/lib/auth";
 
 const updateSchema = z.object({
   amount: z.number().positive("Amount must be greater than 0"),
@@ -14,6 +15,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; linkId: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id, linkId } = await params;
 
   try {
@@ -129,6 +135,11 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; linkId: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id, linkId } = await params;
 
   try {
@@ -185,6 +196,11 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; linkId: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id, linkId } = await params;
 
   try {

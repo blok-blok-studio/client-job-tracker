@@ -689,14 +689,16 @@ async function executeStep(
   }
 
   // DRAFT and TASK steps: internal only, never email anyone.
+  // Tasks are team-visible — money tokens are redacted in anything that lands
+  // on a kanban card. The step keeps the full rendered draft for sending.
   const title = src?.taskTitle
-    ? renderTokens(src.taskTitle, renderCtx).text
+    ? renderTokens(src.taskTitle, renderCtx, { redactMoney: true }).text
     : template
-      ? renderTokens(template.subject, renderCtx).text
+      ? renderTokens(template.subject, renderCtx, { redactMoney: true }).text
       : src?.label || step.stepKey;
 
   let description = src?.taskDescription
-    ? renderTokens(src.taskDescription, renderCtx).text
+    ? renderTokens(src.taskDescription, renderCtx, { redactMoney: true }).text
     : "";
   let renderedSubject: string | null = null;
   let renderedBody: string | null = null;
@@ -708,9 +710,9 @@ async function executeStep(
       description,
       "",
       "--- Draft (fill and send from the timeline, it never sends itself) ---",
-      `Subject: ${renderedSubject}`,
+      `Subject: ${renderTokens(template.subject, renderCtx, { redactMoney: true }).text}`,
       "",
-      renderedBody,
+      renderTokens(template.body, renderCtx, { redactMoney: true }).text,
     ]
       .join("\n")
       .trim();

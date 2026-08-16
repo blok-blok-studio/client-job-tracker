@@ -214,8 +214,9 @@ export async function scanContractorInvoice(
     });
 
     if (scanStatus === "MISMATCH") {
+      // No amounts in Slack — the channel is team-visible, finances are owner-only
       notifySlack(
-        `:warning: Contractor invoice amount mismatch — *${invoice.contractor.name}* entered ${invoice.currency} ${enteredAmount?.toFixed(2)}, but the document says ${scannedCurrency || invoice.currency} ${scannedAmount?.toFixed(2)}${extracted.invoice_number ? ` (#${extracted.invoice_number})` : ""}. Check it in Contractors.`
+        `:warning: Contractor invoice amount mismatch — *${invoice.contractor.name}*'s entered amount differs from the document${extracted.invoice_number ? ` (#${extracted.invoice_number})` : ""}. Check it in Contractors.`
       ).catch(() => {});
     }
     if (!extracted.is_invoice) {

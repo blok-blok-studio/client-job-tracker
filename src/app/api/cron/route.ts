@@ -420,10 +420,11 @@ export async function GET(request: NextRequest) {
             take: 10,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           })) as any as Array<{ amount: unknown; currency: string; createdAt: Date; client: { name: string } | null }>;
+          // No dollar figures in Slack — the channel is team-visible and
+          // finances are owner-only (amounts live on the Money page).
           const invoiceLines = staleInvoices.map((inv) => {
             const days = Math.floor((now.getTime() - inv.createdAt.getTime()) / (24 * 60 * 60 * 1000));
-            const amt = Number(inv.amount).toLocaleString("en-US", { style: "currency", currency: inv.currency || "USD" });
-            return `• *${amt}* — ${inv.client?.name || "Unknown"} · unpaid ${days} days`;
+            return `• *${inv.client?.name || "Unknown"}* · unpaid ${days} days`;
           });
 
           // Deliverables waiting on a client for 2+ days

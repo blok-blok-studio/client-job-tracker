@@ -6,6 +6,7 @@ import { getCurrencyForCountry } from "@/lib/stripe";
 import { generateAiContractBody } from "@/lib/contract-ai";
 import { sendContract } from "@/lib/contract-send";
 import { z } from "zod";
+import { getSession } from "@/lib/auth";
 
 // Allow up to 120s for exchange rate fetch + Stripe API calls + email sending
 export const maxDuration = 300;
@@ -41,11 +42,16 @@ const generateSchema = z.object({
   draft: z.boolean().optional().default(false),
 });
 
-// POST — Generate a new contract for a client
+// POST — Generate a new contract for a client (owner-only: contracts carry pricing)
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id } = await params;
 
   try {
@@ -223,11 +229,16 @@ export async function POST(
   }
 }
 
-// GET — List all contracts for a client
+// GET — List all contracts for a client (owner-only: exposes signing tokens)
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id } = await params;
 
   try {

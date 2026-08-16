@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { createCheckoutSession, CURRENCY_CONFIG } from "@/lib/stripe";
 import { z } from "zod";
 import { sendPaymentLinkEmail } from "@/lib/email";
+import { getSession } from "@/lib/auth";
 
 // Allow up to 60s for Stripe API calls + email sending
 export const maxDuration = 300;
@@ -17,11 +18,16 @@ const createSchema = z.object({
   milestone: z.string().optional(),
 });
 
-// POST — Create a Stripe Checkout Session for a client
+// POST — Create a Stripe Checkout Session for a client (owner-only: finances)
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id } = await params;
 
   try {
@@ -112,11 +118,16 @@ export async function POST(
   }
 }
 
-// GET — List all payment links for a client
+// GET — List all payment links for a client (owner-only: finances)
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSession();
+  if (session?.role !== "OWNER") {
+    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+  }
+
   const { id } = await params;
 
   try {

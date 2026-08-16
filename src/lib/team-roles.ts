@@ -88,8 +88,10 @@ export const TEAM_ROLES: TeamRole[] = [
   {
     key: "bookkeeper",
     label: "Bookkeeper / Finance",
-    pages: ["clients", "money", "contractors", "compliance", "reports", "monthly-reports"],
-    blurb: "Invoices, contractor payments, and the compliance calendar.",
+    // No Money tab: finances are owner-only. A bookkeeper works the contractor
+    // and compliance queues; dollar figures stay with the owner.
+    pages: ["clients", "contractors", "compliance", "reports", "monthly-reports"],
+    blurb: "Contractor queue, compliance calendar, and reports (amounts stay owner-only).",
   },
   {
     key: "other",

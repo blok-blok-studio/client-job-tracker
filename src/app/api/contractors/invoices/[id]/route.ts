@@ -36,6 +36,11 @@ export async function PATCH(
     }
     const d = parsed.data;
 
+    // Amounts are finances — owner-only to view or edit. Members can still
+    // work statuses/refs/numbers.
+    const isOwner = session?.role === "OWNER";
+    if (!isOwner) delete d.amount;
+
     const existing = await prisma.contractorInvoice.findUnique({
       where: { id },
       include: { contractor: { select: { name: true } } },
@@ -104,7 +109,10 @@ export async function PATCH(
       });
     }
 
-    return NextResponse.json({ success: true, data: invoice });
+    return NextResponse.json({
+      success: true,
+      data: isOwner ? invoice : { ...invoice, amount: null, scannedAmount: null },
+    });
   } catch {
     return NextResponse.json({ success: false, error: "Failed to update invoice" }, { status: 500 });
   }
