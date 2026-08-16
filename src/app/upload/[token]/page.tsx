@@ -89,27 +89,39 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
           },
         });
 
-        // Register in database
-        const regRes = await fetch("/api/client-media/upload-portal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token,
-            blobUrl: blob.url,
-            filename: file.name,
-            contentType: blob.contentType || file.type,
-            size: file.size,
-          }),
-        });
-        const regData = await regRes.json();
-
-        if (regData.success && regData.data?.[0]) {
-          allResults.push(regData.data[0]);
-        } else {
-          allResults.push({ filename: file.name, url: blob.url });
+        // Register in database. The file is already safely in storage at this
+        // point, so registration failures are retried and never surfaced as a
+        // failed upload. Responses are parsed defensively: a platform error page
+        // is not JSON, and Safari's .json() error for that ("The string did not
+        // match the expected pattern.") is useless to a client.
+        let registered: UploadResult | null = null;
+        for (let attempt = 0; attempt < 3 && !registered; attempt++) {
+          if (attempt > 0) await new Promise((r) => setTimeout(r, 1500 * attempt));
+          try {
+            const regRes = await fetch("/api/client-media/upload-portal", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                token,
+                blobUrl: blob.url,
+                filename: file.name,
+                contentType: blob.contentType || file.type,
+                size: file.size,
+              }),
+            });
+            if (!regRes.ok) continue;
+            const regData = await regRes.json();
+            if (regData.success && regData.data?.[0]) registered = regData.data[0];
+          } catch {
+            // network hiccup or non-JSON response — retry
+          }
         }
+        allResults.push(registered ?? { filename: file.name, url: blob.url });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Upload failed";
+        const raw = err instanceof Error ? err.message : "Upload failed";
+        const msg = raw.includes("did not match the expected pattern")
+          ? "A network hiccup interrupted this upload. Please try again."
+          : raw;
         allResults.push({ filename: file.name, error: msg });
       }
 

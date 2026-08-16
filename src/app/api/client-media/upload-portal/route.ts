@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import prisma from "@/lib/prisma";
 import { put } from "@vercel/blob";
 import { randomUUID } from "crypto";
@@ -118,34 +118,41 @@ export async function POST(request: NextRequest) {
       });
 
       if (fileType === "VIDEO") {
-        const serverThumbUrl = await generateVideoThumbnail(blob.url, record.id).catch(
-          (err) => {
-            console.error("[upload-portal] server thumbnail failed:", err);
-            return null;
-          }
-        );
-        if (serverThumbUrl) {
-          await prisma.clientMedia.update({
-            where: { id: record.id },
-            data: { thumbnailUrl: serverThumbUrl },
-          }).catch(() => {});
-        }
-
-        // Transcode non-mp4s and oversized mp4s so playback starts instantly.
-        if (needsPlaybackTranscode(file.type, file.size)) {
-          const playbackUrl = await transcodeToWebMp4(blob.url, record.id).catch(
+        // Post-response via after() — see handleBlobRegistration for why.
+        const videoUrl = blob.url;
+        const videoType = file.type;
+        const videoSize = file.size;
+        const recordId = record.id;
+        after(async () => {
+          const serverThumbUrl = await generateVideoThumbnail(videoUrl, recordId).catch(
             (err) => {
-              console.error("[upload-portal] server transcode failed:", err);
+              console.error("[upload-portal] server thumbnail failed:", err);
               return null;
             }
           );
-          if (playbackUrl) {
+          if (serverThumbUrl) {
             await prisma.clientMedia.update({
-              where: { id: record.id },
-              data: { playbackUrl },
+              where: { id: recordId },
+              data: { thumbnailUrl: serverThumbUrl },
             }).catch(() => {});
           }
-        }
+
+          // Transcode non-mp4s and oversized mp4s so playback starts instantly.
+          if (needsPlaybackTranscode(videoType, videoSize)) {
+            const playbackUrl = await transcodeToWebMp4(videoUrl, recordId).catch(
+              (err) => {
+                console.error("[upload-portal] server transcode failed:", err);
+                return null;
+              }
+            );
+            if (playbackUrl) {
+              await prisma.clientMedia.update({
+                where: { id: recordId },
+                data: { playbackUrl },
+              }).catch(() => {});
+            }
+          }
+        });
       }
 
       results.push({ filename: file.name, url: blob.url, id: record.id });
@@ -231,35 +238,42 @@ async function handleBlobRegistration(request: NextRequest) {
 
     // Browser-side thumbnail extraction can't decode HEVC .mov in Chrome/Android,
     // so any video that arrived without a thumbnail gets one generated server-side
-    // via ffmpeg before we return.
-    if (fileType === "VIDEO" && !validThumbUrl) {
-      const serverThumbUrl = await generateVideoThumbnail(blobUrl, record.id).catch(
-        (err) => {
-          console.error("[upload-portal] server thumbnail failed:", err);
-          return null;
+    // via ffmpeg. Runs via after() so the response isn't held hostage by ffmpeg —
+    // a large iPhone .mov used to push this past the function limit, and Vercel's
+    // plain-text timeout page made Safari surface "The string did not match the
+    // expected pattern." to the client.
+    if (fileType === "VIDEO") {
+      after(async () => {
+        if (!validThumbUrl) {
+          const serverThumbUrl = await generateVideoThumbnail(blobUrl, record.id).catch(
+            (err) => {
+              console.error("[upload-portal] server thumbnail failed:", err);
+              return null;
+            }
+          );
+          if (serverThumbUrl) {
+            await prisma.clientMedia.update({
+              where: { id: record.id },
+              data: { thumbnailUrl: serverThumbUrl },
+            }).catch(() => {});
+          }
         }
-      );
-      if (serverThumbUrl) {
-        await prisma.clientMedia.update({
-          where: { id: record.id },
-          data: { thumbnailUrl: serverThumbUrl },
-        }).catch(() => {});
-      }
-    }
 
-    if (fileType === "VIDEO" && needsPlaybackTranscode(contentType || "", size || 0)) {
-      const playbackUrl = await transcodeToWebMp4(blobUrl, record.id).catch(
-        (err) => {
-          console.error("[upload-portal] server transcode failed:", err);
-          return null;
+        if (needsPlaybackTranscode(contentType || "", size || 0)) {
+          const playbackUrl = await transcodeToWebMp4(blobUrl, record.id).catch(
+            (err) => {
+              console.error("[upload-portal] server transcode failed:", err);
+              return null;
+            }
+          );
+          if (playbackUrl) {
+            await prisma.clientMedia.update({
+              where: { id: record.id },
+              data: { playbackUrl },
+            }).catch(() => {});
+          }
         }
-      );
-      if (playbackUrl) {
-        await prisma.clientMedia.update({
-          where: { id: record.id },
-          data: { playbackUrl },
-        }).catch(() => {});
-      }
+      });
     }
 
     await prisma.activityLog.create({
