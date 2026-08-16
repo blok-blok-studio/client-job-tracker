@@ -6,6 +6,7 @@
 import prisma from "@/lib/prisma";
 import { decrypt, encrypt } from "@/lib/encryption";
 import { refreshToken, exchangeMetaLongLivedToken } from "./utils";
+import { sendTelegramMessage } from "@/lib/telegram";
 
 /** Check if a credential's token is expiring within the given window */
 function isExpiringSoon(expiryIso: string | null, windowMs: number): boolean {
@@ -116,14 +117,46 @@ export async function refreshCredential(credentialId: string): Promise<boolean> 
 
     return true;
   } catch (err) {
-    console.error(`[OAuth Refresh] ${provider} refresh failed for ${credentialId}:`, (err as Error).message);
+    const message = (err as Error).message;
+    console.error(`[OAuth Refresh] ${provider} refresh failed for ${credentialId}:`, message);
+
+    // invalid_grant means the refresh token itself is dead (revoked, expired,
+    // or minted by an OAuth app still in Google's 7-day "Testing" mode).
+    // Retrying every cron run can never succeed — clear the expiry stamp so
+    // the cron stops picking this credential up, log once, and ping Chase.
+    if (message.includes("invalid_grant")) {
+      await prisma.credential.update({
+        where: { id: credentialId },
+        data: { url: null },
+      }).catch(() => {});
+
+      await prisma.activityLog.create({
+        data: {
+          clientId: credential.clientId,
+          actor: "oauth",
+          action: "credential_needs_reconnect",
+          details: `${credential.platform} connection for ${credential.label || "account"} is dead (invalid_grant) — reconnect it from the client page (Connect Account). Auto-refresh retries stopped.`,
+        },
+      }).catch(() => {});
+
+      const chaseChatId = process.env.ADMIN_TELEGRAM_CHAT_ID;
+      if (chaseChatId) {
+        await sendTelegramMessage(
+          chaseChatId,
+          `🔌 <b>${credential.platform}</b> connection (${credential.label || "account"}) is dead and needs a manual reconnect — open the client page and use Connect Account. If it dies again within a week, the Google OAuth app is still in Testing mode and needs to be published to Production in Google Cloud Console.`,
+          "HTML"
+        ).catch(() => {});
+      }
+
+      return false;
+    }
 
     await prisma.activityLog.create({
       data: {
         clientId: credential.clientId,
         actor: "oauth",
         action: "credential_refresh_failed",
-        details: `Failed to refresh ${credential.platform} token: ${(err as Error).message}`,
+        details: `Failed to refresh ${credential.platform} token: ${message}`,
       },
     }).catch(() => {});
 
