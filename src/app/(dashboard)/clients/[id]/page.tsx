@@ -1409,38 +1409,8 @@ export default function ClientDetailPage() {
               </div>
             </div>
 
-            {isOwner && (
-            <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-display font-semibold">Invoices</h3>
-                <Link href="/money" className="text-bb-orange hover:text-bb-orange-light text-sm">Money</Link>
-              </div>
-              <div className="space-y-2">
-                {client.invoices.map((inv) => (
-                  <div key={inv.id} className="flex items-center justify-between p-2 rounded hover:bg-bb-elevated text-sm group">
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono">{formatCurrency(Number(inv.amount))}</span>
-                      <Badge variant={inv.status === "PAID" ? "green" : inv.status === "OVERDUE" ? "red" : "default"} size="sm">{inv.status}</Badge>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        if (!confirm("Delete this invoice? This cannot be undone.")) return;
-                        try {
-                          await fetch(`/api/invoices/${inv.id}`, { method: "DELETE" });
-                          fetchClient();
-                        } catch { /* silently fail */ }
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-bb-dim hover:text-red-400 transition-all"
-                      title="Delete invoice"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-                {client.invoices.length === 0 && <p className="text-sm text-bb-dim">No invoices</p>}
-              </div>
-            </div>
-            )}
+            {/* Invoices panel removed 2026-08-16 — Stripe is the books; income
+                reporting lives there, not in the tracker. */}
           </div>
         </div>
       </div>

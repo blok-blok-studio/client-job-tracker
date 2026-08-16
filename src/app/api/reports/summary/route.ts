@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
 
-// Aggregates for the Reports page: workload, hours, revenue pipeline.
-// Revenue figures are owner-only — members get the workload/hours/funnel
-// counts with the money fields nulled.
+// Aggregates for the Reports page: workload, hours, lead funnel.
+// No income figures anywhere — Stripe is the books (removed 2026-08-16).
 export async function GET() {
-  const session = await getSession();
-  const isOwner = session?.role === "OWNER";
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -20,7 +16,6 @@ export async function GET() {
     timeByClient,
     timeByUser,
     timeThisMonth,
-    invoicesByStatus,
     openTicketCount,
     activeClientCount,
   ] = await Promise.all([
@@ -44,33 +39,24 @@ export async function GET() {
       Array<{ userName: string; _sum: { minutes: number | null } }>
     >,
     prisma.timeEntry.aggregate({ where: { createdAt: { gte: monthStart } }, _sum: { minutes: true } }),
-    prisma.invoice.groupBy({ by: ["status"], _count: { _all: true }, _sum: { amount: true } }) as unknown as Promise<
-      Array<{ status: string; _count: { _all: number }; _sum: { amount: unknown } }>
-    >,
     prisma.supportTicket.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
     prisma.client.count({ where: { type: "ACTIVE" } }),
   ]);
 
-  // Lead-source funnel: leads → active (won) → revenue, per client.source
-  const [allClients, paidInvoices, newsletterCount] = await Promise.all([
+  // Lead-source funnel: leads → active (won), per client.source
+  const [allClients, newsletterCount] = await Promise.all([
     prisma.client.findMany({
       where: { type: { not: "ARCHIVED" } },
       select: { id: true, source: true, type: true },
     }),
-    prisma.invoice.findMany({ where: { status: "PAID" }, select: { clientId: true, amount: true } }),
     prisma.newsletterSubscriber.count({ where: { unsubscribedAt: null } }),
   ]);
-  const revenueByClientId = new Map<string, number>();
-  for (const inv of paidInvoices) {
-    revenueByClientId.set(inv.clientId, (revenueByClientId.get(inv.clientId) || 0) + Number(inv.amount));
-  }
-  const bySource = new Map<string, { leads: number; won: number; revenue: number }>();
+  const bySource = new Map<string, { leads: number; won: number }>();
   for (const c of allClients) {
     const key = c.source?.trim() || "Unknown";
-    const row = bySource.get(key) || { leads: 0, won: 0, revenue: 0 };
+    const row = bySource.get(key) || { leads: 0, won: 0 };
     row.leads++;
     if (c.type === "ACTIVE" || c.type === "PAST") row.won++;
-    row.revenue += revenueByClientId.get(c.id) || 0;
     bySource.set(key, row);
   }
   const leadSources = Array.from(bySource, ([source, r]) => ({
@@ -78,8 +64,7 @@ export async function GET() {
     leads: r.leads,
     won: r.won,
     winRate: r.leads > 0 ? Math.round((r.won / r.leads) * 100) : 0,
-    revenue: isOwner ? r.revenue : null,
-  })).sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0) || b.leads - a.leads);
+  })).sort((a, b) => b.won - a.won || b.leads - a.leads);
 
   // Resolve client names for the hours table
   const clientIds = timeByClient.map((t) => t.clientId).filter((id): id is string => !!id);
@@ -109,13 +94,6 @@ export async function GET() {
           .sort((a, b) => b.minutes - a.minutes),
         thisMonthMinutes: timeThisMonth._sum.minutes || 0,
       },
-      invoices: isOwner
-        ? invoicesByStatus.map((i) => ({
-            status: i.status,
-            count: i._count._all,
-            total: Number(i._sum.amount || 0),
-          }))
-        : null,
       openTickets: openTicketCount,
       activeClients: activeClientCount,
       leadSources,

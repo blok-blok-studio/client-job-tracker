@@ -18,7 +18,6 @@ import {
   ListTodo,
   BarChart3,
   Mail,
-  Wallet,
   FileBarChart,
   FileSignature,
   PackageCheck,
@@ -53,7 +52,6 @@ const navItems = [
   { href: "/automations", label: "Automations", icon: Zap },
   { href: "/vault", label: "Vault", icon: Lock },
   { href: "/security", label: "Security", icon: ShieldCheck },
-  { href: "/money", label: "Money", icon: Wallet },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/monthly-reports", label: "Monthly Reports", icon: FileBarChart },
@@ -105,9 +103,10 @@ export default function Sidebar() {
     router.refresh();
   }
 
-  // Money and Contracts are owner-only (finances + priced contract bodies) —
-  // hidden until the fetch confirms OWNER, no matter what tabs were granted.
-  const OWNER_ONLY_HREFS = ["/money", "/contracts"];
+  // Contracts is owner-only (priced contract bodies) — hidden until the fetch
+  // confirms OWNER, no matter what tabs were granted. (Money page removed
+  // 2026-08-16: Stripe is the books.)
+  const OWNER_ONLY_HREFS = ["/contracts"];
   const baseItems =
     currentUser?.role === "OWNER"
       ? navItems

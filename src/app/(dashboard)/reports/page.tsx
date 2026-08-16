@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  ClipboardList, Flame, CheckCircle2, Clock, Users, LifeBuoy, Receipt, Mail,
+  ClipboardList, Flame, CheckCircle2, Clock, Users, LifeBuoy, Mail,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import { STATUS_COLUMNS } from "@/types";
@@ -19,21 +19,15 @@ interface Summary {
     byUser: Array<{ user: string; minutes: number }>;
     thisMonthMinutes: number;
   };
-  /** null for non-owners — finances are owner-only */
-  invoices: Array<{ status: string; count: number; total: number }> | null;
   openTickets: number;
   activeClients: number;
-  leadSources: Array<{ source: string; leads: number; won: number; winRate: number; revenue: number | null }>;
+  leadSources: Array<{ source: string; leads: number; won: number; winRate: number }>;
   newsletterCount: number;
 }
 
 function fmtHours(mins: number): string {
   const h = mins / 60;
   return h >= 10 ? `${Math.round(h)}h` : `${h.toFixed(1)}h`;
-}
-
-function fmtMoney(n: number): string {
-  return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
 const STATUS_BAR: Record<string, string> = {
@@ -96,7 +90,7 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <TopBar title="Reports" subtitle="Workload, hours, and revenue at a glance" />
+      <TopBar title="Reports" subtitle="Workload, hours, and lead sources at a glance" />
       <div className="px-4 lg:px-6 pb-8 space-y-6">
         {!data ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
@@ -115,18 +109,7 @@ export default function ReportsPage() {
               <StatTile icon={<Users size={13} />} label="Active clients" value={data.activeClients} />
               <StatTile icon={<Mail size={13} />} label="Newsletter list" value={data.newsletterCount} />
               <StatTile icon={<LifeBuoy size={13} />} label="Open tickets" value={data.openTickets} />
-              {data.invoices && (() => {
-                const paid = data.invoices.find((i) => i.status === "PAID");
-                const outstanding = data.invoices
-                  .filter((i) => i.status === "SENT" || i.status === "OVERDUE")
-                  .reduce((a, i) => a + i.total, 0);
-                return (
-                  <>
-                    <StatTile icon={<Receipt size={13} />} label="Invoiced · paid" value={fmtMoney(paid?.total || 0)} accent="text-emerald-400" />
-                    <StatTile icon={<Receipt size={13} />} label="Outstanding" value={fmtMoney(outstanding)} accent={outstanding > 0 ? "text-amber-400" : "text-white"} />
-                  </>
-                );
-              })()}
+              {/* Income tiles removed 2026-08-16 — Stripe is the books */}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -193,9 +176,6 @@ export default function ReportsPage() {
                       <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Leads</th>
                       <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Won</th>
                       <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Win rate</th>
-                      {data.invoices && (
-                        <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-bb-dim text-right">Revenue</th>
-                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -208,9 +188,6 @@ export default function ReportsPage() {
                         <td className="px-4 py-2.5 text-sm text-bb-muted text-right">{ls.leads}</td>
                         <td className="px-4 py-2.5 text-sm text-bb-muted text-right">{ls.won}</td>
                         <td className={`px-4 py-2.5 text-sm text-right ${ls.winRate >= 50 ? "text-emerald-400" : "text-bb-muted"}`}>{ls.winRate}%</td>
-                        {data.invoices && (
-                          <td className="px-4 py-2.5 text-sm font-semibold text-bb-orange text-right">{fmtMoney(ls.revenue || 0)}</td>
-                        )}
                       </tr>
                     ))}
                   </tbody>
