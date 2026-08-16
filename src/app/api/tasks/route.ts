@@ -5,6 +5,7 @@ import { taskSchema } from "@/lib/validations";
 import { getSession } from "@/lib/auth";
 import { notifySlackTaskEvent, slackMention } from "@/lib/slack";
 import { requestMeta } from "@/lib/request-meta";
+import { notifyUserByName } from "@/lib/notifications";
 
 const VALID_STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "BLOCKED"] as const;
 const VALID_PRIORITIES = ["URGENT", "HIGH", "MEDIUM", "LOW"] as const;
@@ -89,6 +90,21 @@ export async function POST(request: NextRequest) {
         detail: assignedNote,
       }).catch(() => {})
     );
+
+    // Inbox: tell the assignee (unless they created it themselves)
+    if (task.assignedTo && task.assignedTo.toLowerCase() !== (session?.name || "").toLowerCase()) {
+      const notifyTask = task;
+      after(() =>
+        notifyUserByName(notifyTask.assignedTo, {
+          type: "task_assigned",
+          title: `${session?.name || "Someone"} assigned you "${notifyTask.title}"`,
+          body: notifyTask.client?.name ? `Client: ${notifyTask.client.name}` : null,
+          link: `/kanban?task=${notifyTask.id}`,
+          taskId: notifyTask.id,
+          clientId: notifyTask.clientId,
+        }).catch(() => {})
+      );
+    }
 
     return NextResponse.json({ success: true, data: task }, { status: 201 });
   } catch {

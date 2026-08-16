@@ -270,6 +270,7 @@ model Task {
   activityLogs   ActivityLog[]
   timeEntries    TimeEntry[]
   deliverable    Deliverable?
+  comments       TaskComment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -279,6 +280,39 @@ model Task {
   @@index([priority])
   @@index([dueDate])
   @@index([isRecurring])
+}
+
+// --- TASK COMMENTS (team discussion thread on a card, @mentions notify) ---
+model TaskComment {
+  id         String   @id @default(cuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId   String? // User.id when known (comments are team-only)
+  authorName String // display name shown on the thread
+  body       String   @db.Text
+  mentions   String[] @default([]) // User.ids @-mentioned in the body
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+}
+
+// --- NOTIFICATIONS (per-user in-app inbox: assignments, mentions, replies) ---
+model Notification {
+  id       String  @id @default(cuid())
+  userId   String // recipient User.id
+  type     String // task_assigned | mention | task_comment | ...
+  title    String
+  body     String? @db.Text
+  link     String? // in-app URL, e.g. /kanban?task=<id>
+  taskId   String?
+  clientId String?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }
 
 // --- MONTHLY CLIENT REPORTS (AI-generated from uploaded analytics) ---

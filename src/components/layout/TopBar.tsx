@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
+import NotificationBell from "./NotificationBell";
 
 interface TopBarProps {
   title: string;
@@ -23,9 +24,7 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
           <Search size={18} />
           <kbd className="hidden md:block text-[10px] text-bb-dim bg-bb-elevated border border-bb-border rounded px-1.5 py-0.5">⌘K</kbd>
         </button>
-        <button className="p-2 rounded-lg hover:bg-bb-elevated text-bb-muted hover:text-white transition-colors relative">
-          <Bell size={20} />
-        </button>
+        <NotificationBell />
       </div>
     </div>
   );

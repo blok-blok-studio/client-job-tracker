@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Calendar, User, Trash2, Plus, Check, X, Send, Loader2, ArrowRight, Timer, Play, Square, Pencil,
+  Calendar, User, Trash2, Plus, Check, X, Send, Loader2, ArrowRight, Timer, Play, Square, Pencil, MessageSquare, AtSign,
 } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
@@ -27,6 +27,13 @@ interface DepTask {
   id: string;
   title: string;
   status: TaskStatus;
+}
+
+interface TaskCommentEntry {
+  id: string;
+  authorName: string;
+  body: string;
+  createdAt: string;
 }
 
 interface TaskDetail {
@@ -179,6 +186,49 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
     setTimerStart(null);
     setElapsed(0);
     await logMinutes(mins);
+  }
+
+  // ── Comments (team thread with @mentions) ──
+  const [comments, setComments] = useState<TaskCommentEntry[]>([]);
+  const [commentBody, setCommentBody] = useState("");
+  const [postingComment, setPostingComment] = useState(false);
+
+  const fetchComments = useCallback(async () => {
+    if (!taskId) return;
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/comments`);
+      const data = await res.json();
+      if (data.success) setComments(data.data);
+    } catch { /* ignore */ }
+  }, [taskId]);
+
+  useEffect(() => {
+    setComments([]);
+    setCommentBody("");
+    fetchComments();
+  }, [taskId, fetchComments]);
+
+  async function postComment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!taskId || !commentBody.trim() || postingComment) return;
+    setPostingComment(true);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: commentBody.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCommentBody("");
+        await fetchComments();
+      }
+    } catch { /* ignore */ }
+    setPostingComment(false);
+  }
+
+  function insertMention(name: string) {
+    setCommentBody((prev) => `${prev}${prev && !prev.endsWith(" ") ? " " : ""}@${name} `);
   }
 
   const fetchTask = useCallback(async () => {
@@ -714,6 +764,64 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                 </button>
               </form>
             </div>
+          </div>
+
+          {/* Comments — team discussion; @mentions ping Slack + the inbox */}
+          <div>
+            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-bb-dim">
+              <MessageSquare size={11} /> Comments {comments.length > 0 && <span className="text-bb-orange normal-case">· {comments.length}</span>}
+            </p>
+            {comments.length > 0 && (
+              <div className="space-y-1.5 mb-2 max-h-56 overflow-y-auto rounded-xl border border-bb-border bg-bb-black p-3">
+                {comments.map((c) => (
+                  <div key={c.id} className="rounded-lg bg-bb-surface border border-bb-border px-3 py-2">
+                    <div className="flex items-center gap-1.5 text-[10px] text-bb-dim">
+                      <span className="font-semibold text-bb-muted">{c.authorName}</span>
+                      <span className="ml-auto">{formatTimestamp(c.createdAt)}</span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-white leading-snug whitespace-pre-wrap">
+                      {c.body.split(/(@[A-Za-zÀ-ÿ0-9._-]+)/g).map((part, i) =>
+                        part.startsWith("@") ? (
+                          <span key={i} className="text-bb-orange font-semibold">{part}</span>
+                        ) : (
+                          part
+                        )
+                      )}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+            <form onSubmit={postComment} className="space-y-1.5">
+              <textarea
+                value={commentBody}
+                onChange={(e) => setCommentBody(e.target.value)}
+                placeholder="Write a comment — @ someone to pull them in..."
+                rows={2}
+                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 resize-y"
+              />
+              <div className="flex flex-wrap items-center gap-1.5">
+                <AtSign size={11} className="text-bb-dim" />
+                {team.map((member) => (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() => insertMention(member.name)}
+                    className="rounded-full bg-bb-elevated hover:bg-bb-border px-2 py-0.5 text-[10px] font-semibold text-bb-dim hover:text-white transition-colors"
+                  >
+                    @{member.name.split(" ")[0]}
+                  </button>
+                ))}
+                <button
+                  type="submit"
+                  disabled={!commentBody.trim() || postingComment}
+                  className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors"
+                >
+                  {postingComment ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                  Comment
+                </button>
+              </div>
+            </form>
           </div>
 
           {/* Updates thread */}

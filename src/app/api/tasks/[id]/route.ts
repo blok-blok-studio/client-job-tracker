@@ -7,6 +7,7 @@ import { notifySlackTaskDone, notifySlackTaskEvent, notifySlackTaskAssigned } fr
 import { getSession } from "@/lib/auth";
 import { requestMeta } from "@/lib/request-meta";
 import { releaseDependents, applyBlockedState, wouldCycle } from "@/lib/task-deps";
+import { notifyUserByName } from "@/lib/notifications";
 
 export async function GET(
   _request: NextRequest,
@@ -115,6 +116,16 @@ export async function PATCH(
           actor: session?.name,
           assigneeName: assignee?.name || parsed.assignedTo!,
           assigneeSlackId: assignee?.slackUserId,
+        }).catch(() => {})
+      );
+      after(() =>
+        notifyUserByName(parsed.assignedTo, {
+          type: "task_assigned",
+          title: `${session?.name || "Someone"} assigned you "${task.title}"`,
+          body: client?.name ? `Client: ${client.name}` : null,
+          link: `/kanban?task=${task.id}`,
+          taskId: task.id,
+          clientId: task.clientId,
         }).catch(() => {})
       );
     }

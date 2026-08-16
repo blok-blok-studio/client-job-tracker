@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Calendar, User, ClipboardList, Loader2 } from "lucide-react";
+import { Plus, Calendar, User, ClipboardList, Loader2, Rocket } from "lucide-react";
 import TaskDetailModal from "@/components/kanban/TaskDetailModal";
 import { STATUS_COLUMNS, type TaskStatus, type Priority } from "@/types";
+import { PROJECT_TEMPLATES } from "@/lib/project-templates";
 
 interface ClientTask {
   id: string;
@@ -43,6 +44,8 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
   const [teamColors, setTeamColors] = useState<Map<string, string | null>>(new Map());
   const [team, setTeam] = useState<Array<{ id: string; name: string; jobRole?: string | null }>>([]);
   const [newAssignee, setNewAssignee] = useState("");
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [applyingTemplate, setApplyingTemplate] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/users/assignable")
@@ -113,6 +116,25 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
     fetchTasks();
   }
 
+  async function applyTemplate(key: string, name: string, taskCount: number) {
+    if (applyingTemplate) return;
+    if (!confirm(`Start "${name}"? This creates ${taskCount} tasks for this client, assigned by role.`)) return;
+    setApplyingTemplate(key);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/apply-template`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateKey: key }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTemplateOpen(false);
+        await fetchTasks();
+      }
+    } catch { /* ignore */ }
+    setApplyingTemplate(null);
+  }
+
   const open = tasks.filter((t) => t.status !== "DONE");
   const done = tasks.filter((t) => t.status === "DONE");
   const visible = showDone ? [...open, ...done] : open;
@@ -125,14 +147,47 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
           <h3 className="text-sm font-display font-semibold text-white">Tasks & Work Updates</h3>
           <span className="text-xs bg-bb-elevated px-1.5 py-0.5 rounded text-bb-dim">{open.length} open</span>
         </div>
-        {done.length > 0 && (
-          <button
-            onClick={() => setShowDone(!showDone)}
-            className="text-xs text-bb-dim hover:text-white transition-colors"
-          >
-            {showDone ? "Hide" : "Show"} done ({done.length})
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {done.length > 0 && (
+            <button
+              onClick={() => setShowDone(!showDone)}
+              className="text-xs text-bb-dim hover:text-white transition-colors"
+            >
+              {showDone ? "Hide" : "Show"} done ({done.length})
+            </button>
+          )}
+          {/* Start project — spawn a full template task set, assigned by role */}
+          <div className="relative">
+            <button
+              onClick={() => setTemplateOpen((v) => !v)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bb-elevated hover:bg-bb-border text-xs font-semibold text-bb-muted hover:text-white transition-colors"
+            >
+              <Rocket size={12} className="text-bb-orange" /> Start project
+            </button>
+            {templateOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setTemplateOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-72 rounded-xl border border-bb-border bg-bb-surface shadow-2xl z-50 overflow-hidden">
+                  {PROJECT_TEMPLATES.map((tpl) => (
+                    <button
+                      key={tpl.key}
+                      onClick={() => applyTemplate(tpl.key, tpl.name, tpl.tasks.length)}
+                      disabled={!!applyingTemplate}
+                      className="w-full text-left px-3 py-2.5 border-b border-bb-border last:border-b-0 hover:bg-bb-elevated transition-colors disabled:opacity-50"
+                    >
+                      <p className="text-xs font-semibold text-white flex items-center gap-1.5">
+                        {applyingTemplate === tpl.key && <Loader2 size={11} className="animate-spin text-bb-orange" />}
+                        {tpl.name}
+                        <span className="ml-auto text-[10px] text-bb-dim font-normal">{tpl.tasks.length} tasks</span>
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-bb-dim leading-snug">{tpl.blurb}</p>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="p-3 space-y-2">
