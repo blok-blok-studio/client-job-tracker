@@ -9,16 +9,44 @@ import {
 } from "@/lib/auth";
 import { isAllowedBlobUrl } from "@/lib/blob-fetch";
 import { requestMeta } from "@/lib/request-meta";
+import { verifyTotp } from "@/lib/totp";
+import { decryptField } from "@/lib/encryption";
+import type { User } from "@prisma/client";
 
 // Self-service account settings for the signed-in user (any role).
 //
 // action "update"   → name / color / avatarUrl — cosmetic, no password gate
-// action "email"    → change login email (password-gated, unique check)
-// action "password" → change password (current password required)
+// action "email"    → change login email (password + 2FA gated, unique check)
+// action "password" → change password (current password + 2FA required)
 //
 // The session JWT embeds name + email, so those changes re-issue the cookie in
 // the same response — otherwise the stale token would keep showing old values
 // (and Slack/@-mention lookups would drift) until the next login.
+
+// Credential changes need a fresh second factor, not just the password — a
+// stolen session + password alone must not be able to take over the account.
+// Accepts an authenticator code or an unused backup code (consumed on use),
+// same rules as the login MFA step.
+async function verifySecondFactor(user: User, mfaCode: unknown): Promise<boolean> {
+  const provided = typeof mfaCode === "string" ? mfaCode.trim() : "";
+  if (!provided) return false;
+
+  const secret = user.totpSecret
+    ? decryptField(user.totpSecret.split(":")[1], user.totpSecret.split(":")[0])
+    : "";
+  if (secret && secret !== "[DECRYPTION_ERROR]" && verifyTotp(secret, provided)) return true;
+
+  if (/^[a-f0-9]{5}-[a-f0-9]{5}$/i.test(provided)) {
+    const idx = user.backupCodes.findIndex((h) => bcrypt.compareSync(provided.toLowerCase(), h));
+    if (idx !== -1) {
+      const remaining = [...user.backupCodes];
+      remaining.splice(idx, 1);
+      await prisma.user.update({ where: { id: user.id }, data: { backupCodes: remaining } });
+      return true;
+    }
+  }
+  return false;
+}
 
 export async function GET() {
   const session = await getSession();
@@ -100,6 +128,9 @@ export async function POST(request: NextRequest) {
     if (!password || typeof password !== "string" || !bcrypt.compareSync(password, user.passwordHash))
       return NextResponse.json({ error: "Incorrect password." }, { status: 403 });
 
+    if (user.totpEnabled && !(await verifySecondFactor(user, (body as { mfaCode?: unknown }).mfaCode)))
+      return NextResponse.json({ error: "Incorrect authentication code." }, { status: 403 });
+
     const normalized = typeof email === "string" ? email.trim().toLowerCase() : "";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized))
       return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
@@ -144,6 +175,9 @@ export async function POST(request: NextRequest) {
       !bcrypt.compareSync(currentPassword, user.passwordHash)
     )
       return NextResponse.json({ error: "Incorrect current password." }, { status: 403 });
+
+    if (user.totpEnabled && !(await verifySecondFactor(user, (body as { mfaCode?: unknown }).mfaCode)))
+      return NextResponse.json({ error: "Incorrect authentication code." }, { status: 403 });
 
     if (typeof newPassword !== "string" || newPassword.length < 8)
       return NextResponse.json({ error: "New password must be at least 8 characters" }, { status: 400 });

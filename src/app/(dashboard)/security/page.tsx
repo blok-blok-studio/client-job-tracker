@@ -50,12 +50,14 @@ export default function SecurityPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
   const [emailPassword, setEmailPassword] = useState("");
+  const [emailCode, setEmailCode] = useState("");
   const [emailOpen, setEmailOpen] = useState(false);
 
   // Change password
   const [pwCurrent, setPwCurrent] = useState("");
   const [pwNew, setPwNew] = useState("");
   const [pwConfirm, setPwConfirm] = useState("");
+  const [pwCode, setPwCode] = useState("");
 
   // TOTP setup flow
   const [setupPassword, setSetupPassword] = useState("");
@@ -169,12 +171,13 @@ export default function SecurityPage() {
   async function changeEmail() {
     if (
       await profileAction(
-        { action: "email", email: emailDraft, password: emailPassword },
+        { action: "email", email: emailDraft, password: emailPassword, mfaCode: emailCode },
         "Email updated — use it next time you log in"
       )
     ) {
       setEmailDraft("");
       setEmailPassword("");
+      setEmailCode("");
       setEmailOpen(false);
     }
   }
@@ -186,13 +189,14 @@ export default function SecurityPage() {
     }
     if (
       await profileAction(
-        { action: "password", currentPassword: pwCurrent, newPassword: pwNew },
+        { action: "password", currentPassword: pwCurrent, newPassword: pwNew, mfaCode: pwCode },
         "Password changed"
       )
     ) {
       setPwCurrent("");
       setPwNew("");
       setPwConfirm("");
+      setPwCode("");
     }
   }
 
@@ -420,7 +424,8 @@ export default function SecurityPage() {
           {emailOpen && (
             <div className="space-y-2">
               <p className="text-xs text-bb-dim">
-                You&apos;ll log in with the new address next time. Confirm your password to change it.
+                You&apos;ll log in with the new address next time. Confirm your password
+                {status?.totpEnabled ? " and authenticator code" : ""} to change it.
               </p>
               <div className="flex flex-wrap gap-2">
                 <input
@@ -439,9 +444,19 @@ export default function SecurityPage() {
                   autoComplete="current-password"
                   className={`${inputClass} max-w-[180px]`}
                 />
+                {status?.totpEnabled && (
+                  <input
+                    type="text"
+                    value={emailCode}
+                    onChange={(e) => setEmailCode(e.target.value)}
+                    placeholder="Authenticator code"
+                    autoComplete="one-time-code"
+                    className={`${inputClass} max-w-[180px]`}
+                  />
+                )}
                 <button
                   onClick={changeEmail}
-                  disabled={busy || !emailDraft || !emailPassword}
+                  disabled={busy || !emailDraft || !emailPassword || (status?.totpEnabled ? !emailCode.trim() : false)}
                   className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   Update email
@@ -483,9 +498,24 @@ export default function SecurityPage() {
               className={inputClass}
             />
           </div>
+          {status?.totpEnabled && (
+            <div className="space-y-1">
+              <input
+                type="text"
+                value={pwCode}
+                onChange={(e) => setPwCode(e.target.value)}
+                placeholder="Authenticator code"
+                autoComplete="one-time-code"
+                className={`${inputClass} max-w-[220px]`}
+              />
+              <p className="text-xs text-bb-dim">
+                Enter the 6-digit code from your authenticator app (or a backup code).
+              </p>
+            </div>
+          )}
           <button
             onClick={changePassword}
-            disabled={busy || !pwCurrent || pwNew.length < 8 || !pwConfirm}
+            disabled={busy || !pwCurrent || pwNew.length < 8 || !pwConfirm || (status?.totpEnabled ? !pwCode.trim() : false)}
             className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
           >
             Change password
