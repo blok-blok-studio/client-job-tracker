@@ -116,6 +116,7 @@ model Client {
   services        ClientService[]
   scheduledSteps  ScheduledStep[]
   meetings        Meeting[]
+  clientFiles     ClientFile[]
 
   // Tax residency (ISO 3166-1 alpha-2, distinct from free-text companyCountry);
   // drives required tax documents
@@ -319,6 +320,36 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([userId, createdAt])
+}
+
+// --- CLIENT FILES (source files clients hand over, e.g. via Google Drive) ---
+// Any file type — docs, zips, brand assets — distinct from ClientMedia, which
+// is the image/video content gallery. A row is either an uploaded FILE (Vercel
+// Blob) or an external LINK (their shared Drive folder, kept for reference).
+model ClientFile {
+  id       String         @id @default(cuid())
+  clientId String
+  client   Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  kind     ClientFileKind @default(FILE)
+  filename String // display name (link label for kind LINK)
+  url      String // Blob URL, or the external link itself
+  fileSize Int? // bytes (null for links)
+  mimeType String? // null for links
+  folder   String? // grouping, e.g. "Brand assets", "Website copy"
+  notes    String?
+  uploadedBy String @default("team")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([folder])
+  @@index([createdAt])
+}
+
+enum ClientFileKind {
+  FILE
+  LINK
 }
 
 // --- MEETINGS (handoff hub: Chase takes the call, the team runs with it) ---

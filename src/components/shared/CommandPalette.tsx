@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, Users, ClipboardList, FileText, Loader2, CornerDownLeft,
   LayoutDashboard, Columns3, CalendarDays, PenSquare, FolderOpen,
-  Package, FileSignature, HardHat, Receipt, Timer, Video,
+  Package, FileSignature, HardHat, Receipt, Timer, Video, HardDrive,
 } from "lucide-react";
 
 interface Results {
@@ -50,12 +50,19 @@ interface Results {
     meetingDate: string;
     client: { name: string } | null;
   }>;
+  clientFiles?: Array<{
+    id: string;
+    filename: string;
+    kind: string;
+    folder: string | null;
+    client: { id: string; name: string };
+  }>;
 }
 
 const EMPTY: Results = {
   clients: [], tasks: [], files: [], deliverables: [], contracts: [], posts: [],
   contractors: [], contractorInvoices: [], contractorHours: [], contractorContracts: [],
-  meetings: [],
+  meetings: [], clientFiles: [],
 };
 
 const QUICK_NAV = [
@@ -221,6 +228,13 @@ export default function CommandPalette() {
           href: `/contractors?hours=${h.id}`,
         };
       }),
+      ...(results.clientFiles ?? []).map((f) => ({
+        key: `clientfile-${f.id}`,
+        icon: <HardDrive size={15} className="text-purple-400" />,
+        title: f.filename,
+        subtitle: `client ${f.kind === "LINK" ? "link" : "file"}${f.folder ? ` · ${f.folder}` : ""} · ${f.client.name}`,
+        href: `/clients/${f.client.id}`,
+      })),
       ...results.files.map((f) => ({
         key: `file-${f.id}`,
         icon: <FileText size={15} className="text-purple-400" />,

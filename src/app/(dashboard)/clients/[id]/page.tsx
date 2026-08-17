@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload, Pen, Type, RotateCcw, Eye, EyeOff, Lock, Image as ImageIcon, Download } from "lucide-react";
+import { ArrowLeft, Edit2, Plus, Check, X, Trash2, Copy, Link2, ExternalLink, Clock, FileText, Loader2, CreditCard, Send, ChevronDown, ChevronUp, Upload, Pen, Type, RotateCcw, Eye, EyeOff, Lock, Image as ImageIcon, Download, HardDrive } from "lucide-react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import { extractThumbnailFromFile } from "@/lib/video-thumbnail";
 import Link from "next/link";
@@ -21,6 +21,7 @@ import ClientTasks from "@/components/clients/ClientTasks";
 import ClientServices from "@/components/clients/ClientServices";
 import ClientLifecycle from "@/components/clients/ClientLifecycle";
 import DeliverablesPanel, { type DeliverableItem } from "@/components/clients/DeliverablesPanel";
+import ClientFilesPanel, { type ClientFileItem } from "@/components/clients/ClientFilesPanel";
 
 interface ClientDetail {
   id: string;
@@ -50,6 +51,7 @@ interface ClientDetail {
   paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; currency: string; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; milestone: string | null; contractId: string | null; createdAt: string }>;
   mediaFiles: Array<{ id: string; url: string; filename: string; fileType: string; fileSize: number; mimeType: string; uploadedBy: string; label: string | null; folder?: string | null; thumbnailUrl?: string | null; playbackUrl?: string | null; notes?: string | null; createdAt: string }>;
   deliverables: DeliverableItem[];
+  clientFiles?: ClientFileItem[];
 }
 
 const tierVariant: Record<string, "orange" | "gray" | "blue"> = { VIP: "orange", STANDARD: "gray", TRIAL: "blue" };
@@ -104,7 +106,7 @@ export default function ClientDetailPage() {
   const [providerSignatureMode, setProviderSignatureMode] = useState<"type" | "draw">("type");
   const [providerSignatureData, setProviderSignatureData] = useState<string | null>(null);
   // Assets section state
-  const [assetsTab, setAssetsTab] = useState<"passwords" | "media" | "contracts" | "deliverables">("media");
+  const [assetsTab, setAssetsTab] = useState<"passwords" | "media" | "files" | "contracts" | "deliverables">("media");
   const [revealedCred, setRevealedCred] = useState<Record<string, { username: string; password: string; notes: string | null }>>({});
   const [revealingCred, setRevealingCred] = useState<string | null>(null);
   const [revealPassword, setRevealPassword] = useState("");
@@ -1059,7 +1061,8 @@ export default function ClientDetailPage() {
             <div
               className="bg-bb-surface border border-bb-border rounded-lg overflow-hidden"
               onDragEnter={(e) => {
-                if (e.dataTransfer.types.includes("Files") && assetsTab !== "media") {
+                // Media is the drop default, but the Files tab takes its own drops
+                if (e.dataTransfer.types.includes("Files") && assetsTab !== "media" && assetsTab !== "files") {
                   setAssetsTab("media");
                 }
               }}
@@ -1069,6 +1072,7 @@ export default function ClientDetailPage() {
                 {([
                   { key: "passwords" as const, label: "Passwords", icon: <Lock size={14} />, count: client.credentials.length },
                   { key: "media" as const, label: "Media", icon: <ImageIcon size={14} />, count: client.mediaFiles?.length || 0 },
+                  { key: "files" as const, label: "Files", icon: <HardDrive size={14} />, count: client.clientFiles?.length || 0 },
                   // Contracts carry pricing — owner-only, like everything financial
                   ...(isOwner ? [{ key: "contracts" as const, label: "Contracts", icon: <FileText size={14} />, count: client.contracts?.length || 0 }] : []),
                   { key: "deliverables" as const, label: "Deliverables", icon: <Send size={14} />, count: client.deliverables?.length || 0 },
@@ -1215,6 +1219,16 @@ export default function ClientDetailPage() {
                     onDelete={handleDeleteMedia}
                     onBatchDelete={handleBatchDeleteMedia}
                     onBatchAssignFolder={handleBatchAssignFolder}
+                    onRefresh={fetchClient}
+                    toast={toast}
+                  />
+                )}
+
+                {/* ─── Client Files Tab (handed over via Drive etc.) ─── */}
+                {assetsTab === "files" && (
+                  <ClientFilesPanel
+                    clientId={id}
+                    files={client.clientFiles || []}
                     onRefresh={fetchClient}
                     toast={toast}
                   />

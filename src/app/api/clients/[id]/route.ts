@@ -33,6 +33,7 @@ export async function GET(
             comments: { orderBy: { createdAt: "asc" } },
           },
         },
+        clientFiles: { orderBy: { createdAt: "desc" } },
       },
     });
 
