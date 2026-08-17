@@ -19,3 +19,16 @@ export function optimizedThumb(url: string | null | undefined, width: ThumbWidth
   if (!BLOB_HOST.test(url) || SKIP_EXT.test(url)) return url;
   return `/_next/image?url=${encodeURIComponent(url)}&w=${width}&q=75`;
 }
+
+/**
+ * Display source for an IMAGE row. HEIC originals are stored untouched but
+ * most browsers can't render them, so uploads generate a JPEG preview saved
+ * on thumbnailUrl — prefer it for display when present. Downloads and copy
+ * links still use the original url.
+ */
+export function imageThumb(
+  media: { url: string; thumbnailUrl?: string | null },
+  width: ThumbWidth = 384
+): string {
+  return optimizedThumb(media.thumbnailUrl || media.url, width);
+}

@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import prisma from "@/lib/prisma";
 import { uploadFileToBlob } from "@/lib/upload";
 import { generateVideoThumbnail, transcodeToWebMp4, needsPlaybackTranscode } from "@/lib/server-video-thumbnail";
+import { isHeicImage, generateHeicPreview } from "@/lib/heic-preview";
 
 export const maxDuration = 300;
 
@@ -87,6 +88,10 @@ export async function POST(request: NextRequest) {
             });
           }
         }
+      } else if (ft === "IMAGE" && isHeicImage(mimeType, filename)) {
+        // JPEG display preview only — the stored HEIC original stays untouched
+        const recordId = record.id;
+        after(() => generateHeicPreview(url, recordId).then(() => {}));
       }
 
       return NextResponse.json({ success: true, data: [finalRecord] }, { status: 201 });
@@ -125,6 +130,8 @@ export async function POST(request: NextRequest) {
             fileSize: file.size,
             mimeType: file.type,
             uploadedBy: "manager",
+            // HEIC display preview sidecar (original stored untouched)
+            thumbnailUrl: result.previewUrl || null,
           },
         });
 

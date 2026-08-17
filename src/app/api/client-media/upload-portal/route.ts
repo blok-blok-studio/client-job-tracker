@@ -4,6 +4,7 @@ import { put } from "@vercel/blob";
 import { randomUUID } from "crypto";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { generateVideoThumbnail, transcodeToWebMp4, needsPlaybackTranscode } from "@/lib/server-video-thumbnail";
+import { isHeicImage, generateHeicPreview } from "@/lib/heic-preview";
 
 // No file size limit — clients upload 4K videos, large photo batches, etc.
 export const maxDuration = 300;
@@ -116,6 +117,13 @@ export async function POST(request: NextRequest) {
           uploadedBy: "client",
         },
       });
+
+      if (fileType === "IMAGE" && isHeicImage(file.type, file.name)) {
+        // JPEG display preview only — the stored HEIC original stays untouched
+        const heicUrl = blob.url;
+        const heicRecordId = record.id;
+        after(() => generateHeicPreview(heicUrl, heicRecordId).then(() => {}));
+      }
 
       if (fileType === "VIDEO") {
         // Post-response via after() — see handleBlobRegistration for why.
@@ -274,6 +282,9 @@ async function handleBlobRegistration(request: NextRequest) {
           }
         }
       });
+    } else if (fileType === "IMAGE" && isHeicImage(contentType, filename)) {
+      // JPEG display preview only — the stored HEIC original stays untouched
+      after(() => generateHeicPreview(blobUrl, record.id).then(() => {}));
     }
 
     await prisma.activityLog.create({

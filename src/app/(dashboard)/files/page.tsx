@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import { extractThumbnailFromFile } from "@/lib/video-thumbnail";
-import { optimizedThumb } from "@/lib/media-thumb";
+import { imageThumb } from "@/lib/media-thumb";
 import TopBar from "@/components/layout/TopBar";
 import VideoThumbnail from "@/components/shared/VideoThumbnail";
 import { useToast } from "@/components/shared/Toast";
@@ -877,7 +877,7 @@ export default function FilesPage() {
                     >
                       {media.fileType === "IMAGE" ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={optimizedThumb(media.url, 384)} alt={media.filename} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                        <img src={imageThumb(media, 384)} alt={media.filename} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       ) : media.fileType === "VIDEO" ? (
                         <VideoThumbnail src={media.playbackUrl || media.url} thumbnailUrl={media.thumbnailUrl} filename={media.filename} showFilename={false} />
                       ) : media.fileType === "AUDIO" ? (
@@ -1010,7 +1010,7 @@ export default function FilesPage() {
                       <div className="w-10 h-10 rounded-md overflow-hidden bg-bb-black border border-bb-border shrink-0">
                         {media.fileType === "IMAGE" ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={optimizedThumb(media.url, 256)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                          <img src={imageThumb(media, 256)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         ) : media.fileType === "VIDEO" ? (
                           <VideoThumbnail src={media.playbackUrl || media.url} thumbnailUrl={media.thumbnailUrl} showPlayIcon={false} />
                         ) : media.fileType === "AUDIO" ? (
@@ -1059,7 +1059,7 @@ export default function FilesPage() {
                 <div className="rounded-lg overflow-hidden bg-bb-surface aspect-video flex items-center justify-center">
                   {selectedMedia.fileType === "IMAGE" ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={optimizedThumb(selectedMedia.url, 1080)} alt="" decoding="async" className="w-full h-full object-contain" />
+                    <img src={imageThumb(selectedMedia, 1080)} alt="" decoding="async" className="w-full h-full object-contain" />
                   ) : selectedMedia.fileType === "VIDEO" ? (
                     <video src={selectedMedia.playbackUrl || selectedMedia.url} controls muted preload="auto" className="w-full h-full object-contain" />
                   ) : selectedMedia.fileType === "AUDIO" ? (
@@ -1309,7 +1309,7 @@ export default function FilesPage() {
                     >
                       {thumb.fileType === "IMAGE" ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={optimizedThumb(thumb.url, 256)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                        <img src={imageThumb(thumb, 256)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       ) : thumb.fileType === "VIDEO" ? (
                         <VideoThumbnail src={thumb.playbackUrl || thumb.url} thumbnailUrl={thumb.thumbnailUrl} showPlayIcon={false} iconSize={10} />
                       ) : thumb.fileType === "AUDIO" ? (

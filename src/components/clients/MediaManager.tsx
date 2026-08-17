@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import VideoThumbnail from "@/components/shared/VideoThumbnail";
-import { optimizedThumb } from "@/lib/media-thumb";
+import { imageThumb } from "@/lib/media-thumb";
 
 interface MediaFile {
   id: string;
@@ -579,7 +579,7 @@ export default function MediaManager({
         {/* Thumbnail — real preview for images and videos */}
         {media.fileType === "IMAGE" ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={optimizedThumb(media.url, 384)} alt={media.filename} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+          <img src={imageThumb(media, 384)} alt={media.filename} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : media.fileType === "VIDEO" ? (
           <VideoThumbnail src={media.playbackUrl || media.url} thumbnailUrl={media.thumbnailUrl} filename={media.filename} showFilename={false} />
         ) : media.fileType === "AUDIO" ? (
@@ -866,7 +866,7 @@ export default function MediaManager({
               <div className="rounded-lg overflow-hidden bg-bb-surface aspect-video flex items-center justify-center">
                 {selectedMedia.fileType === "IMAGE" ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={optimizedThumb(selectedMedia.url, 1080)} alt="" decoding="async" className="w-full h-full object-contain" />
+                  <img src={imageThumb(selectedMedia, 1080)} alt="" decoding="async" className="w-full h-full object-contain" />
                 ) : selectedMedia.fileType === "VIDEO" ? (
                   <video
                     src={selectedMedia.playbackUrl || selectedMedia.url}
@@ -1163,7 +1163,7 @@ export default function MediaManager({
           <div className="w-52 rounded-lg overflow-hidden bg-bb-surface border border-bb-border shadow-modal">
             {hoveredMedia.fileType === "IMAGE" ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={optimizedThumb(hoveredMedia.url, 384)} alt="" decoding="async" className="w-full aspect-video object-cover" />
+              <img src={imageThumb(hoveredMedia, 384)} alt="" decoding="async" className="w-full aspect-video object-cover" />
             ) : (
               <VideoThumbnail src={hoveredMedia.playbackUrl || hoveredMedia.url} thumbnailUrl={hoveredMedia.thumbnailUrl} className="w-full aspect-video object-cover" showPlayIcon={false} />
             )}
@@ -1312,7 +1312,7 @@ export default function MediaManager({
                   >
                     {thumb.fileType === "IMAGE" ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={optimizedThumb(thumb.url, 256)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                      <img src={imageThumb(thumb, 256)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     ) : thumb.fileType === "VIDEO" ? (
                       <VideoThumbnail src={thumb.playbackUrl || thumb.url} thumbnailUrl={thumb.thumbnailUrl} showPlayIcon={false} iconSize={10} />
                     ) : thumb.fileType === "AUDIO" ? (

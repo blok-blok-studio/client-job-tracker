@@ -1,11 +1,6 @@
 import { put } from "@vercel/blob";
 import crypto from "crypto";
-
-async function convertHeicToJpeg(buffer: Buffer): Promise<Buffer> {
-  const heicConvert = (await import("heic-convert")).default;
-  const converted = await heicConvert({ buffer, format: "JPEG", quality: 0.9 });
-  return Buffer.from(converted);
-}
+import { heicToJpegPreview } from "@/lib/heic-preview";
 
 // No artificial file size limit — Vercel Blob handles up to 5GB
 // Vercel serverless functions can handle ~4.5GB request bodies on Pro plan
@@ -158,6 +153,8 @@ export interface UploadResult {
   url: string;
   contentType: string;
   originalName: string;
+  /** JPEG display preview for HEIC/HEIF — the original is stored untouched */
+  previewUrl?: string;
 }
 
 export interface UploadError {
@@ -193,29 +190,38 @@ export async function uploadFileToBlob(
     );
   }
 
-  // Convert HEIC/HEIF to JPEG for browser compatibility
-  let uploadBuffer: Buffer = buffer;
-  let uploadExt = ext;
-  let uploadContentType = file.type;
-  if (file.type === "image/heic" || file.type === "image/heif") {
-    uploadBuffer = await convertHeicToJpeg(buffer);
-    uploadExt = ".jpg";
-    uploadContentType = "image/jpeg";
-  }
-
   const id = crypto.randomUUID();
-  const filename = `${pathPrefix}/${id}${uploadExt}`;
+  const filename = `${pathPrefix}/${id}${ext}`;
 
-  const blob = await put(filename, uploadBuffer, {
+  // Originals are stored byte-for-byte — never converted, resized, or
+  // recompressed. HEIC/HEIF additionally gets a JPEG *preview* sidecar so
+  // non-Safari browsers can display it; the preview never replaces the file.
+  const blob = await put(filename, buffer, {
     access: "public",
     allowOverwrite: true,
-    contentType: uploadContentType,
+    contentType: file.type,
   });
+
+  let previewUrl: string | undefined;
+  if (file.type === "image/heic" || file.type === "image/heif") {
+    try {
+      const preview = await heicToJpegPreview(buffer);
+      const previewBlob = await put(`${pathPrefix}/${id}-preview.jpg`, preview, {
+        access: "public",
+        allowOverwrite: true,
+        contentType: "image/jpeg",
+      });
+      previewUrl = previewBlob.url;
+    } catch {
+      // Preview is best-effort; the original upload already succeeded
+    }
+  }
 
   return {
     url: blob.url,
-    contentType: uploadContentType,
+    contentType: file.type,
     originalName: file.name,
+    previewUrl,
   };
 }
 
