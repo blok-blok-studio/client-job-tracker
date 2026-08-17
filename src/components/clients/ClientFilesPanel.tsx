@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import {
   Plus, Upload, Link2, Trash2, Pencil, ExternalLink, Copy, Loader2,
   FileText, FileImage, FileVideo, FileAudio, FileArchive, File as FileIcon, HardDrive,
@@ -51,7 +52,7 @@ function iconFor(file: ClientFileItem) {
 // the access never gets lost in email threads.
 export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: ClientFilesPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
+  const [uploading, setUploading] = useState<{ done: number; total: number; percent: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [uploadFolder, setUploadFolder] = useState("");
 
@@ -85,39 +86,74 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
   async function uploadFiles(list: FileList | File[]) {
     const items = [...list];
     if (items.length === 0) return;
-    setUploading({ done: 0, total: items.length });
+    setUploading({ done: 0, total: items.length, percent: 0 });
     let failed = 0;
-    for (const file of items) {
-      try {
-        const streamRes = await fetch(
-          `/api/uploads/stream?filename=${encodeURIComponent(file.name)}`,
-          { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file }
-        );
-        const streamJson = await streamRes.json();
-        if (!streamRes.ok || !streamJson.success || !streamJson.urls?.[0]) throw new Error();
+    let lastError = "";
 
-        const res = await fetch("/api/client-files", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientId,
-            kind: "FILE",
-            filename: file.name,
-            url: streamJson.urls[0],
-            fileSize: file.size,
-            mimeType: file.type || "application/octet-stream",
-            folder: uploadFolder.trim() || null,
-          }),
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) throw new Error();
-      } catch {
-        failed++;
+    // Direct browser → Vercel Blob (multipart, no size limit, no serverless
+    // proxy in the middle — the old streaming path hit function limits on big
+    // Drive dumps). A few files upload at once; progress is total bytes sent.
+    const totalBytes = items.reduce((s, f) => s + f.size, 0) || 1;
+    const sentBytes = new Map<number, number>();
+    let done = 0;
+    let cursor = 0;
+
+    const reportProgress = () => {
+      let sent = 0;
+      for (const v of sentBytes.values()) sent += v;
+      const percent = Math.min(99, Math.round((sent / totalBytes) * 100));
+      setUploading({ done, total: items.length, percent });
+    };
+
+    const worker = async () => {
+      while (cursor < items.length) {
+        const index = cursor++;
+        const file = items[index];
+        try {
+          const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
+          const blob = await vercelBlobUpload(
+            `client-files/${clientId}/${crypto.randomUUID()}${ext}`,
+            file,
+            {
+              access: "public",
+              handleUploadUrl: "/api/uploads/blob",
+              multipart: true,
+              onUploadProgress: ({ loaded }) => {
+                sentBytes.set(index, loaded);
+                reportProgress();
+              },
+            }
+          );
+
+          const res = await fetch("/api/client-files", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              clientId,
+              kind: "FILE",
+              filename: file.name,
+              url: blob.url,
+              fileSize: file.size,
+              mimeType: file.type || "application/octet-stream",
+              folder: uploadFolder.trim() || null,
+            }),
+          });
+          const json = await res.json().catch(() => null);
+          if (!res.ok || !json?.success) throw new Error(json?.error || `Couldn't save ${file.name}`);
+          sentBytes.set(index, file.size);
+        } catch (err) {
+          failed++;
+          lastError = err instanceof Error && err.message ? err.message : "Upload failed";
+        }
+        done++;
+        reportProgress();
       }
-      setUploading((u) => (u ? { ...u, done: u.done + 1 } : u));
-    }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(3, items.length) }, worker));
+
     setUploading(null);
-    if (failed > 0) toast(`${failed} of ${items.length} uploads failed`, "error");
+    if (failed > 0) toast(`${failed} of ${items.length} uploads failed — ${lastError}`, "error");
     else toast(items.length === 1 ? "File added" : `${items.length} files added`, "success");
     onRefresh();
   }
@@ -282,9 +318,17 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
       )}
 
       {uploading && (
-        <div className="mb-3 flex items-center gap-2 text-sm text-bb-muted">
-          <Loader2 size={15} className="animate-spin text-bb-orange" />
-          Uploading {uploading.done + 1} of {uploading.total}…
+        <div className="mb-3 space-y-1.5">
+          <div className="flex items-center gap-2 text-sm text-bb-muted">
+            <Loader2 size={15} className="animate-spin text-bb-orange" />
+            Uploading {Math.min(uploading.done + 1, uploading.total)} of {uploading.total} — {uploading.percent}%
+          </div>
+          <div className="h-1.5 bg-bb-black border border-bb-border rounded-full overflow-hidden max-w-sm">
+            <div
+              className="h-full bg-bb-orange transition-all duration-200"
+              style={{ width: `${uploading.percent}%` }}
+            />
+          </div>
         </div>
       )}
 

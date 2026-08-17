@@ -14,7 +14,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       onBeforeGenerateToken: async () => {
         // Session auth is handled by middleware — if we got here, user is authenticated
         return {
-          maximumSizeInBytes: 500 * 1024 * 1024, // 500MB
+          // Drive handoffs include multi-GB videos/zips; uploads are multipart
+          // browser → Blob so no function limits apply
+          maximumSizeInBytes: 4 * 1024 * 1024 * 1024, // 4GB
           allowOverwrite: true,
         };
       },

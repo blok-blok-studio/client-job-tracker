@@ -463,8 +463,13 @@ export default function ClientDetailPage() {
     if (!files.length) return;
     setUploadingMedia(true);
     try {
+      // A few files at a time — a big photo batch used to crawl one-by-one
+      const items = Array.from(files);
       let successCount = 0;
-      for (const file of Array.from(files)) {
+      let cursor = 0;
+      let firstError: string | null = null;
+
+      const uploadOne = async (file: File) => {
         // Upload directly browser → Vercel Blob (no size limit)
         const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
         const blobPath = `client-media/${id}/${crypto.randomUUID()}${ext}`;
@@ -480,7 +485,8 @@ export default function ClientDetailPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ clientId: id, url: blob.url, filename: file.name, fileType: file.type, fileSize: file.size }),
         });
-        const regData = await regRes.json();
+        const regData = await regRes.json().catch(() => null);
+        if (!regRes.ok || !regData?.success) throw new Error(regData?.error || `Couldn't save ${file.name}`);
 
         // Generate and upload thumbnail for videos
         if (file.type.startsWith("video/") && regData.data?.[0]?.id) {
@@ -500,10 +506,26 @@ export default function ClientDetailPage() {
             }
           } catch { /* best-effort */ }
         }
+      };
 
-        successCount++;
+      const worker = async () => {
+        while (cursor < items.length) {
+          const file = items[cursor++];
+          try {
+            await uploadOne(file);
+            successCount++;
+          } catch (err) {
+            if (!firstError) firstError = err instanceof Error ? err.message : "check your connection";
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(4, items.length) }, worker));
+
+      if (firstError) {
+        toast(`${successCount} of ${items.length} uploaded — ${firstError}`, successCount > 0 ? "success" : "error");
+      } else {
+        toast(`${successCount} file${successCount !== 1 ? "s" : ""} uploaded successfully`, "success");
       }
-      toast(`${successCount} file${successCount !== 1 ? "s" : ""} uploaded successfully`, "success");
       fetchClient();
     } catch (err) {
       toast(`Upload failed: ${err instanceof Error ? err.message : "check your connection"}`, "error");
