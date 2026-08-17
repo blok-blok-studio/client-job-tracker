@@ -8,7 +8,7 @@ const dateString = z.string().refine(
 
 export const clientSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  email: z.string().email("Valid email is required"),
+  email: z.string().email("Enter a valid email").optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   company: z.string().optional().or(z.literal("")),
   type: z.enum(["PROSPECT", "ACTIVE", "PAST", "ARCHIVED"]).optional(),

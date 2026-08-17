@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     const client = await prisma.client.create({
       data: {
         name: parsed.name,
-        email: parsed.email,
+        email: parsed.email || null,
         phone: parsed.phone || null,
         company: parsed.company || null,
         type: parsed.type || undefined,
