@@ -98,16 +98,6 @@ export const TEAM_ROLES: TeamRole[] = [
     blurb: "Contractor queue, compliance calendar, and reports (amounts stay owner-only).",
   },
   {
-    key: "contractor",
-    label: "Contractor (Kanban only)",
-    // Outside help who works the board and nothing else. Deliberately the
-    // narrowest preset in the list: no clients, no files, no vault. Their
-    // invoices, hours, and agreements stay on their own /i/<token> portal,
-    // which this account does not replace.
-    pages: ["kanban"],
-    blurb: "Works the Kanban board and nothing else — invoices and hours stay on their portal link.",
-  },
-  {
     key: "other",
     label: "Other / Custom",
     // Careful: an empty list reads as "no restrictions" everywhere, so this
