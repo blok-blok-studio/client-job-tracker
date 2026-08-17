@@ -66,13 +66,20 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
     setUploadProgress(0);
     setResults([]);
 
-    const allResults: UploadResult[] = [];
-    const totalSize = files.reduce((s, f) => s + f.size, 0);
-    let uploadedSize = 0;
+    // A few files upload at once; progress is total bytes sent across all of
+    // them. Results keep the original file order.
+    const allResults: (UploadResult | undefined)[] = new Array(files.length);
+    const totalSize = files.reduce((s, f) => s + f.size, 0) || 1;
+    const sentBytes = new Map<number, number>();
+    let cursor = 0;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    const reportProgress = () => {
+      let sent = 0;
+      for (const v of sentBytes.values()) sent += v;
+      setUploadProgress(Math.min(99, Math.round((sent / totalSize) * 100)));
+    };
 
+    const uploadOne = async (file: File, index: number) => {
       try {
         // Upload directly browser → Vercel Blob via SDK (bypasses 4.5MB serverless limit)
         // Use a UUID prefix to avoid filename collisions
@@ -82,10 +89,11 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
           access: "public",
           handleUploadUrl: "/api/client-media/upload-blob",
           clientPayload: JSON.stringify({ token }),
-          multipart: true,
-          onUploadProgress: ({ loaded, total }) => {
-            const overall = uploadedSize + loaded;
-            setUploadProgress(Math.round((overall / Math.max(totalSize, total)) * 100));
+          // Multipart's extra round trips slow small files down
+          multipart: file.size > 8 * 1024 * 1024,
+          onUploadProgress: ({ loaded }) => {
+            sentBytes.set(index, loaded);
+            reportProgress();
           },
         });
 
@@ -116,19 +124,27 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
             // network hiccup or non-JSON response — retry
           }
         }
-        allResults.push(registered ?? { filename: file.name, url: blob.url });
+        allResults[index] = registered ?? { filename: file.name, url: blob.url };
       } catch (err) {
         const raw = err instanceof Error ? err.message : "Upload failed";
         const msg = raw.includes("did not match the expected pattern")
           ? "A network hiccup interrupted this upload. Please try again."
           : raw;
-        allResults.push({ filename: file.name, error: msg });
+        allResults[index] = { filename: file.name, error: msg };
       }
 
-      uploadedSize += file.size;
-      setUploadProgress(Math.round((uploadedSize / totalSize) * 100));
-      setResults([...allResults]);
-    }
+      sentBytes.set(index, file.size);
+      reportProgress();
+      setResults(allResults.filter(Boolean) as UploadResult[]);
+    };
+
+    const worker = async () => {
+      while (cursor < files.length) {
+        const index = cursor++;
+        await uploadOne(files[index], index);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, files.length) }, worker));
 
     setFiles([]);
     setUploading(false);

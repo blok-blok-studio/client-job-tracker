@@ -117,7 +117,9 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
             {
               access: "public",
               handleUploadUrl: "/api/uploads/blob",
-              multipart: true,
+              // Multipart only pays off on big files; its extra round trips
+              // slow a batch of small ones down
+              multipart: file.size > 8 * 1024 * 1024,
               onUploadProgress: ({ loaded }) => {
                 sentBytes.set(index, loaded);
                 reportProgress();
@@ -150,7 +152,7 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
       }
     };
 
-    await Promise.all(Array.from({ length: Math.min(3, items.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(6, items.length) }, worker));
 
     setUploading(null);
     if (failed > 0) toast(`${failed} of ${items.length} uploads failed — ${lastError}`, "error");

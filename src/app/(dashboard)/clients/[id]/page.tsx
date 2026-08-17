@@ -476,7 +476,9 @@ export default function ClientDetailPage() {
         const blob = await vercelBlobUpload(blobPath, file, {
           access: "public",
           handleUploadUrl: "/api/uploads/blob",
-          multipart: true,
+          // Multipart's extra round trips slow small files down; only worth it
+          // for big ones where parallel chunks win
+          multipart: file.size > 8 * 1024 * 1024,
         });
 
         // Register in DB as client media
@@ -519,7 +521,7 @@ export default function ClientDetailPage() {
           }
         }
       };
-      await Promise.all(Array.from({ length: Math.min(4, items.length) }, worker));
+      await Promise.all(Array.from({ length: Math.min(6, items.length) }, worker));
 
       if (firstError) {
         toast(`${successCount} of ${items.length} uploaded — ${firstError}`, successCount > 0 ? "success" : "error");

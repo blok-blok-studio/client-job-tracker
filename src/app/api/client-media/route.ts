@@ -70,31 +70,42 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      let finalRecord = record;
       if (ft === "VIDEO") {
-        const thumbUrl = await generateVideoThumbnail(url, record.id).catch(() => null);
-        if (thumbUrl) {
-          finalRecord = await prisma.clientMedia.update({
-            where: { id: record.id },
-            data: { thumbnailUrl: thumbUrl },
-          });
-        }
-        if (needsPlaybackTranscode(mimeType || "", fileSize || 0)) {
-          const playbackUrl = await transcodeToWebMp4(url, record.id).catch(() => null);
-          if (playbackUrl) {
-            finalRecord = await prisma.clientMedia.update({
-              where: { id: record.id },
-              data: { playbackUrl },
-            });
+        // ffmpeg work runs post-response — awaiting it here serialized batch
+        // uploads (each register call sat behind minutes of thumb/transcode).
+        // The uploader may PATCH a browser-extracted thumb meanwhile, so only
+        // fill the thumbnail if none has landed (updateMany gate = race-safe).
+        const recordId = record.id;
+        const videoMime = mimeType || "";
+        const videoSize = fileSize || 0;
+        after(async () => {
+          const current = await prisma.clientMedia
+            .findUnique({ where: { id: recordId }, select: { thumbnailUrl: true } })
+            .catch(() => null);
+          if (!current?.thumbnailUrl) {
+            const thumbUrl = await generateVideoThumbnail(url, recordId).catch(() => null);
+            if (thumbUrl) {
+              await prisma.clientMedia
+                .updateMany({ where: { id: recordId, thumbnailUrl: null }, data: { thumbnailUrl: thumbUrl } })
+                .catch(() => {});
+            }
           }
-        }
+          if (needsPlaybackTranscode(videoMime, videoSize)) {
+            const playbackUrl = await transcodeToWebMp4(url, recordId).catch(() => null);
+            if (playbackUrl) {
+              await prisma.clientMedia
+                .update({ where: { id: recordId }, data: { playbackUrl } })
+                .catch(() => {});
+            }
+          }
+        });
       } else if (ft === "IMAGE" && isHeicImage(mimeType, filename)) {
         // JPEG display preview only — the stored HEIC original stays untouched
         const recordId = record.id;
         after(() => generateHeicPreview(url, recordId).then(() => {}));
       }
 
-      return NextResponse.json({ success: true, data: [finalRecord] }, { status: 201 });
+      return NextResponse.json({ success: true, data: [record] }, { status: 201 });
     }
 
     // FormData body = legacy upload path
@@ -135,27 +146,31 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        let finalRecord = record;
         if (fileType === "VIDEO") {
-          const thumbUrl = await generateVideoThumbnail(result.url, record.id).catch(() => null);
-          if (thumbUrl) {
-            finalRecord = await prisma.clientMedia.update({
-              where: { id: record.id },
-              data: { thumbnailUrl: thumbUrl },
-            });
-          }
-          if (needsPlaybackTranscode(file.type, file.size)) {
-            const playbackUrl = await transcodeToWebMp4(result.url, record.id).catch(() => null);
-            if (playbackUrl) {
-              finalRecord = await prisma.clientMedia.update({
-                where: { id: record.id },
-                data: { playbackUrl },
-              });
+          // Post-response, same as the JSON path — see comment there
+          const recordId = record.id;
+          const videoUrl = result.url;
+          const videoMime = file.type;
+          const videoSize = file.size;
+          after(async () => {
+            const thumbUrl = await generateVideoThumbnail(videoUrl, recordId).catch(() => null);
+            if (thumbUrl) {
+              await prisma.clientMedia
+                .updateMany({ where: { id: recordId, thumbnailUrl: null }, data: { thumbnailUrl: thumbUrl } })
+                .catch(() => {});
             }
-          }
+            if (needsPlaybackTranscode(videoMime, videoSize)) {
+              const playbackUrl = await transcodeToWebMp4(videoUrl, recordId).catch(() => null);
+              if (playbackUrl) {
+                await prisma.clientMedia
+                  .update({ where: { id: recordId }, data: { playbackUrl } })
+                  .catch(() => {});
+              }
+            }
+          });
         }
 
-        records.push(finalRecord);
+        records.push(record);
       } catch (err) {
         errors.push({
           filename: file.name,
