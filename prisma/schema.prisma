@@ -115,6 +115,7 @@ model Client {
   deliverables    Deliverable[]
   services        ClientService[]
   scheduledSteps  ScheduledStep[]
+  meetings        Meeting[]
 
   // Tax residency (ISO 3166-1 alpha-2, distinct from free-text companyCountry);
   // drives required tax documents
@@ -273,6 +274,10 @@ model Task {
   deliverable    Deliverable?
   comments       TaskComment[]
 
+  // Origin meeting: task was spun out of a meeting handoff on /meetings
+  meetingId String?
+  meeting   Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -314,6 +319,56 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([userId, createdAt])
+}
+
+// --- MEETINGS (handoff hub: Chase takes the call, the team runs with it) ---
+// One row per meeting: Fathom link + pasted transcript + handoff notes, with
+// assignees who get pinged so they can start creating without asking Chase.
+model Meeting {
+  id          String        @id @default(cuid())
+  title       String
+  meetingDate DateTime      @default(now())
+  clientId    String?
+  client      Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  fathomUrl   String? // Fathom share link (recording + AI summary)
+  transcript  String?       @db.Text // pasted transcript, searchable
+  notes       String?       @db.Text // the handoff: decisions, action items, context
+  status      MeetingStatus @default(NEW)
+  assigneeIds String[]      @default([]) // User.ids who should pick this up
+
+  createdById   String?
+  createdByName String
+
+  tasks    Task[] // kanban tasks spun out of this meeting
+  comments MeetingComment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@index([meetingDate])
+}
+
+enum MeetingStatus {
+  NEW // waiting for someone to pick it up
+  IN_PROGRESS // team is on it (auto-set when the first task is created)
+  DONE
+}
+
+// --- MEETING COMMENTS (questions/updates on a handoff, @mentions notify) ---
+model MeetingComment {
+  id         String   @id @default(cuid())
+  meetingId  String
+  meeting    Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  authorId   String? // User.id when known (comments are team-only)
+  authorName String // display name shown on the thread
+  body       String   @db.Text
+  mentions   String[] @default([]) // User.ids @-mentioned in the body
+
+  createdAt DateTime @default(now())
+
+  @@index([meetingId])
 }
 
 // --- MONTHLY CLIENT REPORTS (AI-generated from uploaded analytics) ---

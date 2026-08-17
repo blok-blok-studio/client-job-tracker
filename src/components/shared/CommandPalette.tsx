@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, Users, ClipboardList, FileText, Loader2, CornerDownLeft,
   LayoutDashboard, Columns3, CalendarDays, PenSquare, FolderOpen,
-  Package, FileSignature, HardHat, Receipt, Timer,
+  Package, FileSignature, HardHat, Receipt, Timer, Video,
 } from "lucide-react";
 
 interface Results {
@@ -43,11 +43,19 @@ interface Results {
     signedAt: string | null;
     contractor: { name: string };
   }>;
+  meetings?: Array<{
+    id: string;
+    title: string;
+    status: string;
+    meetingDate: string;
+    client: { name: string } | null;
+  }>;
 }
 
 const EMPTY: Results = {
   clients: [], tasks: [], files: [], deliverables: [], contracts: [], posts: [],
   contractors: [], contractorInvoices: [], contractorHours: [], contractorContracts: [],
+  meetings: [],
 };
 
 const QUICK_NAV = [
@@ -166,6 +174,15 @@ export default function CommandPalette() {
         subtitle: `${p.platform.toLowerCase()} · ${p.status.toLowerCase()}${p.client ? ` · ${p.client.name}` : ""}`,
         href: "/content",
       })),
+      ...(results.meetings ?? []).map((m) => ({
+        key: `meeting-${m.id}`,
+        icon: <Video size={15} className="text-teal-400" />,
+        title: m.title,
+        subtitle: `meeting · ${m.status.replace(/_/g, " ").toLowerCase()}${
+          m.client ? ` · ${m.client.name}` : ""
+        } · ${new Date(m.meetingDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+        href: `/meetings/${m.id}`,
+      })),
       ...(results.contractors ?? []).map((c) => ({
         key: `contractor-${c.id}`,
         icon: <HardHat size={15} className="text-amber-400" />,
@@ -258,7 +275,7 @@ export default function CommandPalette() {
                 go(items[highlight].href);
               }
             }}
-            placeholder="Search clients, tasks, deliverables, contracts, contractors, hours, posts, files…"
+            placeholder="Search clients, tasks, meetings, deliverables, contracts, contractors, posts, files…"
             className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder:text-bb-dim focus:outline-none"
           />
           <kbd className="hidden sm:block text-[10px] text-bb-dim bg-bb-elevated border border-bb-border rounded px-1.5 py-0.5">esc</kbd>

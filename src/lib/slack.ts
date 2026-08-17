@@ -158,6 +158,25 @@ export async function notifySlackDeliverableComment(opts: {
   );
 }
 
+/** A meeting handoff was posted — tags the assignees so they can pick it up. */
+export async function notifySlackMeetingPosted(opts: {
+  title: string;
+  clientName?: string | null;
+  actor?: string | null;
+  meetingId: string;
+  assignees: Array<{ name: string; slackUserId?: string | null }>;
+  hasRecording: boolean;
+}): Promise<void> {
+  const client = opts.clientName ? ` (*${opts.clientName}*)` : "";
+  const who = opts.assignees.length
+    ? ` — over to ${opts.assignees.map((a) => slackMention(a.name, a.slackUserId)).join(", ")}`
+    : "";
+  const rec = opts.hasRecording ? " · recording attached" : "";
+  await notifySlack(
+    `:memo: *${opts.actor || "Someone"}* posted meeting notes: *${opts.title}*${client}${who}${rec}\n<${APP_URL}/meetings/${opts.meetingId}|Open the handoff>`
+  );
+}
+
 /** Board activity that isn't a completion: updates posted, moves, new tasks. */
 export async function notifySlackTaskEvent(opts: {
   kind: "update" | "moved" | "created";

@@ -10,7 +10,12 @@ import prisma from "@/lib/prisma";
  * assignee matching does.
  */
 
-export type NotificationType = "task_assigned" | "mention" | "task_comment";
+export type NotificationType =
+  | "task_assigned"
+  | "mention"
+  | "task_comment"
+  | "meeting_assigned"
+  | "meeting_comment";
 
 export interface NotifyInput {
   userId: string;

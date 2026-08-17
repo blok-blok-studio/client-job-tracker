@@ -16,6 +16,7 @@ export const PAGE_OPTIONS: Array<{ key: string; label: string }> = [
   { key: "kanban", label: "Kanban" },
   { key: "my-tasks", label: "My Tasks" },
   { key: "calendar", label: "Calendar" },
+  { key: "meetings", label: "Meetings" },
   { key: "content", label: "Content" },
   { key: "newsletter", label: "Newsletter" },
   { key: "files", label: "Files" },

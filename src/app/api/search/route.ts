@@ -3,7 +3,8 @@ import prisma from "@/lib/prisma";
 import { sessionIsOwner } from "@/lib/finance-fields";
 
 // Global command-palette search across clients, tasks, files, deliverables,
-// contracts, content posts, contractors, contractor invoices, and contractor agreements.
+// contracts, content posts, contractors, contractor invoices, contractor
+// agreements, and meetings (title, notes, and full transcript text).
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim().slice(0, 100);
   if (!q || q.length < 2) {
@@ -20,13 +21,14 @@ export async function GET(request: NextRequest) {
         contractorInvoices: [],
         contractorHours: [],
         contractorContracts: [],
+        meetings: [],
       },
     });
   }
 
   const contains = { contains: q, mode: "insensitive" as const };
 
-  const [clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices, contractorHours, contractorContracts] = await Promise.all([
+  const [clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices, contractorHours, contractorContracts, meetings] = await Promise.all([
     prisma.client.findMany({
       where: {
         type: { not: "ARCHIVED" },
@@ -146,6 +148,25 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
+    prisma.meeting.findMany({
+      where: {
+        OR: [
+          { title: contains },
+          { notes: contains },
+          { transcript: contains },
+          { client: { name: contains } },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        meetingDate: true,
+        client: { select: { name: true } },
+      },
+      orderBy: { meetingDate: "desc" },
+      take: 5,
+    }),
   ]);
 
   // Invoice amounts are owner-only — members still find the invoice, just
@@ -157,6 +178,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    data: { clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices: safeInvoices, contractorHours, contractorContracts },
+    data: { clients, tasks, files, deliverables, contracts, posts, contractors, contractorInvoices: safeInvoices, contractorHours, contractorContracts, meetings },
   });
 }
