@@ -152,6 +152,7 @@ export async function POST(
       const row = await prisma.contractorWorkFile.create({
         data: {
           contractorId: contractor.id,
+          uploadedBy: contractor.name,
           clientId: client?.id ?? null,
           clientName: client?.name ?? null,
           filename: f.filename,
@@ -195,7 +196,7 @@ export async function POST(
     notifySlack(
       client
         ? `:package: *${contractor.name}* uploaded finished work for *${client.name}*: ${links}\n<${APP_URL}/clients/${client.id}|Open client> — it's in their Files tab`
-        : `:package: *${contractor.name}* uploaded finished work (general/internal): ${links}`
+        : `:package: *${contractor.name}* uploaded finished work (general/internal): ${links}\n<${APP_URL}/work|Open Work>`
     ).catch(() => {});
 
     return NextResponse.json({ success: true, data: created }, { status: 201 });

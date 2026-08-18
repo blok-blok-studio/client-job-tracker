@@ -1324,13 +1324,15 @@ model ContractorHoursAudit {
   @@index([entryId])
 }
 
-// Finished-work uploads from the contractor portal ("Submit Work" tab).
+// Finished-work uploads — from the contractor portal ("Submit Work" tab) or
+// the internal /work page (contractorId null = a team member's upload).
 // Files are stored byte-for-byte on public-but-unguessable Blob paths (same
 // convention as ClientFile/ClientMedia — deliverables, not sensitive docs).
 model ContractorWorkFile {
-  id           String     @id @default(cuid())
-  contractorId String
-  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  id           String      @id @default(cuid())
+  contractorId String?
+  contractor   Contractor? @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  uploadedBy   String      @default("team") // display name: contractor or team member
 
   // Client tag: SetNull + name snapshot so the record survives client deletion.
   clientId   String?

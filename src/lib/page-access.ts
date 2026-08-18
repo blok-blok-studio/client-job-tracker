@@ -20,6 +20,7 @@ export const PAGE_OPTIONS: Array<{ key: string; label: string }> = [
   { key: "content", label: "Content" },
   { key: "newsletter", label: "Newsletter" },
   { key: "files", label: "Files" },
+  { key: "work", label: "Work" },
   { key: "deliverables", label: "Deliverables" },
   { key: "contractors", label: "Contractors" },
   { key: "compliance", label: "Compliance" },
