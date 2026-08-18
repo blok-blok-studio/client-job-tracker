@@ -17,6 +17,7 @@ import {
   Camera,
   PenLine,
   Download,
+  FolderUp,
 } from "lucide-react";
 import AddToHomeScreen from "@/components/shared/AddToHomeScreen";
 
@@ -70,6 +71,18 @@ interface TaxDocRow {
   selfHeld: boolean;
 }
 
+interface WorkRow {
+  id: string;
+  filename: string;
+  url: string;
+  fileSize: number | null;
+  mimeType: string | null;
+  note: string | null;
+  clientId: string | null;
+  clientName: string | null;
+  createdAt: string;
+}
+
 interface HoursRow {
   id: string;
   workDate: string;
@@ -93,6 +106,13 @@ function formatAmount(amount: string | number | null, currency: string) {
   const n = typeof amount === "string" ? parseFloat(amount) : amount;
   if (Number.isNaN(n)) return null;
   return `${currency} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtBytes(bytes: number | null | undefined) {
+  if (bytes === null || bytes === undefined) return null;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function fmtDuration(minutes: number) {
@@ -121,7 +141,7 @@ export default function ContractorPortal({
   const [missingDocs, setMissingDocs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [invalid, setInvalid] = useState(false);
-  const [tab, setTab] = useState<"invoices" | "hours" | "documents" | "contracts">("invoices");
+  const [tab, setTab] = useState<"invoices" | "work" | "hours" | "documents" | "contracts">("invoices");
 
   // Agreements to read and sign
   const [contracts, setContracts] = useState<ContractRow[]>([]);
@@ -152,6 +172,19 @@ export default function ContractorPortal({
   const [success, setSuccess] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Finished work
+  const [workClients, setWorkClients] = useState<HoursClient[]>([]);
+  const [workHistory, setWorkHistory] = useState<WorkRow[]>([]);
+  const [workPending, setWorkPending] = useState<File[]>([]);
+  const [workClientId, setWorkClientId] = useState("");
+  const [workNote, setWorkNote] = useState("");
+  const [workUploading, setWorkUploading] = useState(false);
+  const [workProgress, setWorkProgress] = useState(0);
+  const [workError, setWorkError] = useState("");
+  const [workSuccess, setWorkSuccess] = useState(false);
+  const [workDragOver, setWorkDragOver] = useState(false);
+  const workFileInputRef = useRef<HTMLInputElement>(null);
 
   // Hours log
   const [hoursClients, setHoursClients] = useState<HoursClient[]>([]);
@@ -200,6 +233,18 @@ export default function ContractorPortal({
       .catch(() => {});
   }, []);
 
+  const loadWork = useCallback((t: string) => {
+    fetch(`/api/contractor/${t}/work`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setWorkClients(d.data.clients);
+          setWorkHistory(d.data.files);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const loadDocs = useCallback((t: string) => {
     fetch(`/api/contractor/${t}/documents`)
       .then((r) => r.json())
@@ -222,11 +267,12 @@ export default function ContractorPortal({
     params.then(({ token: t }) => {
       setToken(t);
       loadPortal(t);
+      loadWork(t);
       loadHours(t);
       loadDocs(t);
       loadContracts(t);
     });
-  }, [params, loadPortal, loadHours, loadDocs, loadContracts]);
+  }, [params, loadPortal, loadWork, loadHours, loadDocs, loadContracts]);
 
   const handleAvatarUpload = async (f: File) => {
     if (!token || avatarUploading) return;
@@ -383,6 +429,74 @@ export default function ContractorPortal({
     }
   };
 
+  const acceptWorkFiles = (list: FileList | File[]) => {
+    const incoming = Array.from(list);
+    if (!incoming.length) return;
+    setWorkPending((prev) => {
+      // Skip files already queued (same name + size)
+      const next = [...prev];
+      for (const f of incoming) {
+        if (!next.some((p) => p.name === f.name && p.size === f.size)) next.push(f);
+      }
+      return next;
+    });
+    setWorkError("");
+    setWorkSuccess(false);
+  };
+
+  const handleWorkSubmit = async () => {
+    if (!workPending.length || !token || workUploading) return;
+    setWorkUploading(true);
+    setWorkProgress(0);
+    setWorkError("");
+
+    try {
+      const uploaded = [];
+      for (let i = 0; i < workPending.length; i++) {
+        const f = workPending[i];
+        const ext = f.name.includes(".") ? "." + f.name.split(".").pop() : "";
+        const blob = await vercelBlobUpload(`contractor-work/${crypto.randomUUID()}${ext}`, f, {
+          access: "public",
+          handleUploadUrl: "/api/contractor/upload-blob",
+          clientPayload: JSON.stringify({ token, purpose: "work" }),
+          onUploadProgress: ({ loaded, total }) => {
+            setWorkProgress(Math.round(((i + loaded / total) / workPending.length) * 100));
+          },
+        });
+        uploaded.push({
+          blobUrl: blob.url,
+          filename: f.name,
+          contentType: blob.contentType || f.type || undefined,
+          size: f.size,
+        });
+      }
+
+      const res = await fetch(`/api/contractor/${token}/work`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: workClientId || null,
+          note: workNote.trim(),
+          files: uploaded,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error || "Failed to submit work");
+      }
+
+      setWorkPending([]);
+      setWorkNote("");
+      setWorkSuccess(true);
+      loadWork(token);
+    } catch (err) {
+      setWorkError(err instanceof Error ? err.message : "Upload failed, please try again");
+    } finally {
+      setWorkUploading(false);
+      setWorkProgress(0);
+    }
+  };
+
   const startCorrection = (entry: HoursRow) => {
     setCorrecting(entry);
     setWorkDate(entry.workDate);
@@ -535,6 +649,8 @@ export default function ContractorPortal({
           <h1 className="text-2xl font-bold text-white mb-1">
             {tab === "invoices"
               ? "Submit an Invoice"
+              : tab === "work"
+              ? "Submit Finished Work"
               : tab === "hours"
               ? "Log Your Hours"
               : tab === "contracts"
@@ -545,6 +661,8 @@ export default function ContractorPortal({
             {contractor.company || contractor.name} &middot;{" "}
             {tab === "invoices"
               ? "Upload your invoice for payment"
+              : tab === "work"
+              ? "Hand off deliverables to the team"
               : tab === "hours"
               ? "Record when you worked"
               : tab === "contracts"
@@ -558,6 +676,7 @@ export default function ContractorPortal({
           {(
             [
               { key: "invoices" as const, label: "Invoices", icon: Receipt },
+              { key: "work" as const, label: "Submit Work", icon: FolderUp },
               { key: "hours" as const, label: "Log Hours", icon: Timer },
               ...(contracts.length > 0
                 ? [{ key: "contracts" as const, label: "Agreements", icon: PenLine }]
@@ -883,6 +1002,182 @@ export default function ContractorPortal({
                       >
                         {inv.status === "PENDING" ? "AWAITING PAYMENT" : inv.status}
                       </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "work" && (
+          <>
+            {workSuccess && (
+              <div className="flex items-center gap-2 mb-6 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
+                <CheckCircle size={16} className="text-green-400 shrink-0" />
+                <p className="text-sm text-green-300">
+                  Work submitted. The team&apos;s been notified — thank you!
+                </p>
+              </div>
+            )}
+
+            {/* Multi-file drop zone */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setWorkDragOver(true); }}
+              onDragLeave={() => setWorkDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setWorkDragOver(false);
+                if (e.dataTransfer.files.length) acceptWorkFiles(e.dataTransfer.files);
+              }}
+              onClick={() => workFileInputRef.current?.click()}
+              className={`flex flex-col items-center justify-center gap-4 py-10 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
+                workDragOver
+                  ? "border-orange-500 bg-orange-500/5 scale-[1.01]"
+                  : "border-white/10 hover:border-white/20 bg-white/[0.02]"
+              }`}
+            >
+              <div className={`p-4 rounded-full transition-colors ${workDragOver ? "bg-orange-500/10" : "bg-white/5"}`}>
+                <FolderUp size={28} className={workDragOver ? "text-orange-400" : "text-white/40"} />
+              </div>
+              <div className="text-center">
+                <p className="text-white font-medium">Drag &amp; drop your finished files here</p>
+                <p className="text-xs text-gray-500 mt-1">or</p>
+                <span className="inline-block mt-2 px-5 py-2 bg-white/10 hover:bg-white/15 text-white text-sm font-medium rounded-lg transition-colors">
+                  Browse Files
+                </span>
+                <p className="text-xs text-gray-500 mt-3">Any file type &middot; Up to 2GB each</p>
+              </div>
+            </div>
+
+            <input
+              ref={workFileInputRef}
+              type="file"
+              multiple
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(e) => {
+                if (e.target.files?.length) acceptWorkFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+
+            {/* Queued files */}
+            {workPending.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {workPending.map((f, i) => (
+                  <div
+                    key={`${f.name}-${f.size}-${i}`}
+                    className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded-xl"
+                  >
+                    <FileText size={16} className="text-orange-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white truncate">{f.name}</p>
+                      <p className="text-[10px] text-gray-500">{fmtBytes(f.size)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWorkPending((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="text-gray-600 hover:text-white"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Details + submit */}
+            {workPending.length > 0 && (
+              <div className="mt-5 space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Client / project</label>
+                  <select
+                    value={workClientId}
+                    onChange={(e) => setWorkClientId(e.target.value)}
+                    className={`${inputClass} [color-scheme:dark]`}
+                  >
+                    <option value="">General / internal</option>
+                    {workClients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  {workClientId && (
+                    <p className="text-[10px] text-gray-600 mt-1">
+                      These files will land in this client&apos;s Files area for the team.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Note (optional)</label>
+                  <textarea
+                    value={workNote}
+                    onChange={(e) => setWorkNote(e.target.value)}
+                    rows={2}
+                    placeholder="What's in this delivery, anything the team should know..."
+                    className={`${inputClass} resize-none`}
+                  />
+                </div>
+
+                {workError && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <AlertCircle size={14} className="text-red-400 shrink-0" />
+                    <p className="text-xs text-red-300">{workError}</p>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleWorkSubmit}
+                  disabled={workUploading}
+                  className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2 relative overflow-hidden"
+                >
+                  {workUploading ? (
+                    <>
+                      <div
+                        className="absolute inset-0 bg-white/10 transition-all duration-300"
+                        style={{ width: `${workProgress}%` }}
+                      />
+                      <span className="relative flex items-center gap-2">
+                        <Loader2 size={16} className="animate-spin" />
+                        Uploading... {workProgress}%
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={16} />
+                      Submit {workPending.length === 1 ? "File" : `${workPending.length} Files`}
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Previous uploads */}
+            {workHistory.length > 0 && (
+              <div className="mt-10">
+                <h2 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                  <FolderUp size={15} className="text-white/40" />
+                  Your submitted work
+                </h2>
+                <div className="space-y-2">
+                  {workHistory.map((w) => (
+                    <div
+                      key={w.id}
+                      className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded-xl"
+                    >
+                      <FileText size={16} className="text-orange-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white truncate">
+                          {w.filename}
+                          {w.clientName && <span className="text-gray-400"> &middot; {w.clientName}</span>}
+                        </p>
+                        <p className="text-[10px] text-gray-500 flex items-center gap-1">
+                          <Clock size={9} />
+                          Submitted {new Date(w.createdAt).toLocaleString()}
+                          {fmtBytes(w.fileSize) && <> &middot; {fmtBytes(w.fileSize)}</>}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>

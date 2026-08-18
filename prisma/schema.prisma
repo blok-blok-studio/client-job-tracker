@@ -124,6 +124,7 @@ model Client {
   additionalCountries   String[]                     @default([])
   contractorHours       ContractorHoursEntry[]
   contractorAssignments ContractorClientAssignment[]
+  contractorWorkFiles   ContractorWorkFile[]
   taxDocuments          TaxDocument[]
 
   createdAt DateTime @default(now())
@@ -1039,6 +1040,7 @@ model Contractor {
   invoices          ContractorInvoice[]
   scheduledSteps    ScheduledStep[]
   hoursEntries      ContractorHoursEntry[]
+  workFiles         ContractorWorkFile[]
   clientAssignments ContractorClientAssignment[]
   taxDocuments      TaxDocument[]
   contracts         ContractorContract[]
@@ -1320,6 +1322,37 @@ model ContractorHoursAudit {
   createdAt DateTime @default(now())
 
   @@index([entryId])
+}
+
+// Finished-work uploads from the contractor portal ("Submit Work" tab).
+// Files are stored byte-for-byte on public-but-unguessable Blob paths (same
+// convention as ClientFile/ClientMedia — deliverables, not sensitive docs).
+model ContractorWorkFile {
+  id           String     @id @default(cuid())
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  // Client tag: SetNull + name snapshot so the record survives client deletion.
+  clientId   String?
+  client     Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientName String? // snapshot at submit time; null client = general/internal work
+
+  filename String
+  url      String
+  fileSize Int?
+  mimeType String?
+  note     String? @db.Text
+
+  // Mirrored row in the client's Files tab so the team sees the work where
+  // client files already live (null for general uploads or a deleted mirror).
+  clientFileId String?
+
+  submitIp        String?
+  submitUserAgent String? @db.Text
+  createdAt       DateTime @default(now())
+
+  @@index([contractorId, createdAt])
+  @@index([clientId])
 }
 
 // --- LIFECYCLE SYSTEM (sequences, templates, scheduled steps, settings) ---

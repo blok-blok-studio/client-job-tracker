@@ -25,6 +25,16 @@ export async function POST(request: Request): Promise<NextResponse> {
           throw new Error("Invalid upload link");
         }
 
+        // Finished-work uploads: any file type (design sources, video, zips…),
+        // stored byte-for-byte — never restrict or transform deliverables.
+        if (payload.purpose === "work") {
+          return {
+            maximumSizeInBytes: 2 * 1024 * 1024 * 1024, // 2GB
+            allowOverwrite: true,
+            tokenPayload: JSON.stringify({ contractorId: contractor.id }),
+          };
+        }
+
         return {
           maximumSizeInBytes: 25 * 1024 * 1024, // 25MB — invoices are documents
           allowedContentTypes: [
