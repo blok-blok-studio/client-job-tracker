@@ -446,6 +446,10 @@ export default function ContractorPortal({
 
   const handleWorkSubmit = async () => {
     if (!workPending.length || !token || workUploading) return;
+    if (!workClientId) {
+      setWorkError("Choose which client this work goes to (or General / internal)");
+      return;
+    }
     setWorkUploading(true);
     setWorkProgress(0);
     setWorkError("");
@@ -475,7 +479,7 @@ export default function ContractorPortal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientId: workClientId || null,
+          clientId: workClientId,
           note: workNote.trim(),
           files: uploaded,
         }),
@@ -487,6 +491,7 @@ export default function ContractorPortal({
 
       setWorkPending([]);
       setWorkNote("");
+      setWorkClientId("");
       setWorkSuccess(true);
       loadWork(token);
     } catch (err) {
@@ -1046,7 +1051,9 @@ export default function ContractorPortal({
                 <span className="inline-block mt-2 px-5 py-2 bg-white/10 hover:bg-white/15 text-white text-sm font-medium rounded-lg transition-colors">
                   Browse Files
                 </span>
-                <p className="text-xs text-gray-500 mt-3">Any file type &middot; Up to 2GB each</p>
+                <p className="text-xs text-gray-500 mt-3">
+                  Any file type &middot; Up to 2GB each &middot; Originals kept as-is, never compressed
+                </p>
               </div>
             </div>
 
@@ -1091,18 +1098,23 @@ export default function ContractorPortal({
             {workPending.length > 0 && (
               <div className="mt-5 space-y-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Client / project</label>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Which client is this for? <span className="text-orange-400">*</span>
+                  </label>
                   <select
                     value={workClientId}
                     onChange={(e) => setWorkClientId(e.target.value)}
                     className={`${inputClass} [color-scheme:dark]`}
                   >
-                    <option value="">General / internal</option>
+                    <option value="" disabled>
+                      Choose a client...
+                    </option>
                     {workClients.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
+                    <option value="general">General / internal (not client work)</option>
                   </select>
-                  {workClientId && (
+                  {workClientId && workClientId !== "general" && (
                     <p className="text-[10px] text-gray-600 mt-1">
                       These files will land in this client&apos;s Files area for the team.
                     </p>
@@ -1129,7 +1141,7 @@ export default function ContractorPortal({
                 <button
                   type="button"
                   onClick={handleWorkSubmit}
-                  disabled={workUploading}
+                  disabled={workUploading || !workClientId}
                   className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2 relative overflow-hidden"
                 >
                   {workUploading ? (

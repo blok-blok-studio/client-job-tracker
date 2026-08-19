@@ -100,6 +100,10 @@ export default function WorkPage() {
 
   const handleSubmit = async () => {
     if (!pending.length || uploading) return;
+    if (!uploadClientId) {
+      toast("Choose which client this work goes to first", "error");
+      return;
+    }
     setUploading(true);
     setProgress(0);
     try {
@@ -131,7 +135,7 @@ export default function WorkPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientId: uploadClientId || null,
+          clientId: uploadClientId,
           note: note.trim(),
           files: uploaded,
         }),
@@ -141,8 +145,9 @@ export default function WorkPage() {
 
       setPending([]);
       setNote("");
+      setUploadClientId("");
       toast(
-        uploadClientId
+        uploadClientId !== "general"
           ? "Work uploaded — it's in the client's Files tab too"
           : "Work uploaded",
         "success"
@@ -227,7 +232,7 @@ export default function WorkPage() {
             <FolderUp size={20} className={dragOver ? "text-bb-orange" : "text-bb-dim"} />
             <p className="text-sm text-bb-muted">
               Drop finished files here or <span className="text-white font-medium">browse</span>
-              <span className="text-bb-dim"> · any type</span>
+              <span className="text-bb-dim"> · any type · originals kept as-is, never compressed</span>
             </p>
           </div>
           <input
@@ -267,14 +272,20 @@ export default function WorkPage() {
                 <select
                   value={uploadClientId}
                   onChange={(e) => setUploadClientId(e.target.value)}
-                  className="px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 sm:w-56 [color-scheme:dark]"
+                  className={cn(
+                    "px-3 py-2 bg-bb-black border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 sm:w-56 [color-scheme:dark]",
+                    uploadClientId ? "border-bb-border text-white" : "border-bb-orange/60 text-bb-dim"
+                  )}
                 >
-                  <option value="">General / internal</option>
+                  <option value="" disabled>
+                    Which client is this for?
+                  </option>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
                   ))}
+                  <option value="general">General / internal (not client work)</option>
                 </select>
                 <input
                   type="text"
@@ -286,7 +297,7 @@ export default function WorkPage() {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={uploading}
+                  disabled={uploading || !uploadClientId}
                   className="flex items-center justify-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50 shrink-0"
                 >
                   {uploading ? (

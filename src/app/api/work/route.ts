@@ -57,7 +57,9 @@ export async function GET() {
 }
 
 const submitSchema = z.object({
-  clientId: z.string().max(100).nullable().optional(),
+  // Required — uploader must actively pick a client, or the literal "general"
+  // for internal/non-client work. No silent default (Chase, 2026-08-19).
+  clientId: z.union([z.literal("general"), z.string().min(1).max(100)]),
   note: z.string().max(2000).optional().or(z.literal("")),
   files: z
     .array(
@@ -81,7 +83,16 @@ export async function POST(request: NextRequest) {
 
     const parsed = submitSchema.safeParse(await request.json());
     if (!parsed.success) {
-      return NextResponse.json({ success: false, error: "Invalid input" }, { status: 400 });
+      const missingClient = parsed.error.issues.some((i) => i.path[0] === "clientId");
+      return NextResponse.json(
+        {
+          success: false,
+          error: missingClient
+            ? "Choose which client this work goes to (or General / internal)"
+            : "Invalid input",
+        },
+        { status: 400 }
+      );
     }
     const d = parsed.data;
 
@@ -90,7 +101,7 @@ export async function POST(request: NextRequest) {
     }
 
     let client: { id: string; name: string } | null = null;
-    if (d.clientId) {
+    if (d.clientId !== "general") {
       client = await prisma.client.findUnique({
         where: { id: d.clientId },
         select: { id: true, name: true },
