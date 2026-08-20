@@ -7,6 +7,7 @@ import {
 import TopBar from "@/components/layout/TopBar";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { useToast } from "@/components/shared/Toast";
+import { readJson } from "@/lib/fetch-json";
 
 interface ReportMetric { label: string; value: string; change?: string | null }
 interface TrajectoryItem {
@@ -97,13 +98,13 @@ export default function MonthlyReportsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId, month, rawData: rawData.trim(), notes: notes.trim() || undefined }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const result = await readJson<{ data: ClientReport }>(res, "Report generation failed. Please try again.");
+      if (result.ok) {
         toast("Report generated", "success");
-        setSelected(data.data);
+        setSelected(result.data!.data);
         load();
       } else {
-        toast(data.error || "Generation failed", "error");
+        toast(result.error!, "error");
       }
     } finally {
       setGenerating(false);
@@ -115,13 +116,13 @@ export default function MonthlyReportsPage() {
     setSending(true);
     try {
       const res = await fetch(`/api/client-reports/${selected.id}/send`, { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
+      const result = await readJson(res, "Send failed. Please try again.");
+      if (result.ok) {
         toast(`Report emailed to ${selected.client.email}`, "success");
         setSelected({ ...selected, status: "SENT", sentTo: selected.client.email });
         load();
       } else {
-        toast(data.error || "Send failed", "error");
+        toast(result.error!, "error");
       }
     } finally {
       setSending(false);

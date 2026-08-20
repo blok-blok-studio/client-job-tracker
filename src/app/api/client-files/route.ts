@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/client-files — register an uploaded file (blob already streamed
-// via /api/uploads/stream) or save an external link (their Drive folder)
+// via browser → Blob) or save an external link (their Drive folder)
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();

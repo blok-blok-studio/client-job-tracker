@@ -9,7 +9,7 @@ import { isAllowedBlobUrl } from "@/lib/blob-fetch";
 // Internal finished-work hub (/work page).
 // GET  — every work upload, contractor and team alike
 // POST — a team member registers finished files (already streamed to Blob via
-//        /api/uploads/stream). Client-tagged files mirror into that client's
+//        browser → Blob). Client-tagged files mirror into that client's
 //        Files tab, same as contractor-portal submissions.
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";

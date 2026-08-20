@@ -5,9 +5,14 @@ import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 300;
 
-// PUT — stream a single file directly to Vercel Blob
-// Receives raw file body (not multipart), so it bypasses the 4.5MB body parsing limit.
-// Authenticated via session cookie (middleware handles auth).
+// PUT — stream a single file to Vercel Blob. Authenticated via session cookie.
+//
+// DEPRECATED for anything that isn't guaranteed small, and currently unused.
+// Streaming avoids Next's body *parsing*, but Vercel still rejects any request
+// body over 4.5MB at the edge with a plain-text 413 (FUNCTION_PAYLOAD_TOO_LARGE)
+// before this handler runs — so callers cannot even report the failure properly.
+// Upload browser → Blob instead: `upload()` from @vercel/blob/client against
+// /api/uploads/blob, or the uploadFile() helper in src/lib/client-upload.ts.
 export async function PUT(request: NextRequest) {
   const ip = getClientIp(request);
   // High enough that a folder drop (1 request per file) doesn't trip it

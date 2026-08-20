@@ -16,8 +16,11 @@ import {
   Loader2,
   X,
 } from "lucide-react";
+import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import TopBar from "@/components/layout/TopBar";
 import { useToast } from "@/components/shared/Toast";
+import { friendlyError } from "@/lib/fetch-json";
+import { safeUuid } from "@/lib/safe-uuid";
 
 interface SecurityStatus {
   totpEnabled: boolean;
@@ -146,19 +149,16 @@ export default function SecurityPage() {
     }
     setUploadingPhoto(true);
     try {
-      const res = await fetch(`/api/uploads/stream?filename=${encodeURIComponent(file.name)}`, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+      // Browser → Blob directly: a phone photo routinely clears the 4.5MB
+      // request limit an API route would impose
+      const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : ".jpg";
+      const blob = await vercelBlobUpload(`avatars/${safeUuid()}${ext}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/uploads/blob",
       });
-      const json = await res.json();
-      if (!res.ok || !json.success || !json.urls?.[0]) {
-        toast(json?.error || "Upload failed", "error");
-        return;
-      }
-      await profileAction({ action: "update", avatarUrl: json.urls[0] }, "Photo updated");
-    } catch {
-      toast("Upload failed", "error");
+      await profileAction({ action: "update", avatarUrl: blob.url }, "Photo updated");
+    } catch (err) {
+      toast(friendlyError(err, "Upload failed. Please try again."), "error");
     } finally {
       setUploadingPhoto(false);
     }

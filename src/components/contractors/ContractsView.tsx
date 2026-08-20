@@ -24,6 +24,7 @@ import SignatureCanvas from "@/components/shared/SignatureCanvas";
 import ContractorAvatar from "@/components/contractors/ContractorAvatar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
+import { friendlyError } from "@/lib/fetch-json";
 
 export interface ContractorOption {
   id: string;
@@ -324,7 +325,7 @@ export default function ContractsView({
       onChanged?.();
       openDetail(json.data.id);
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to create the agreement", "error");
+      toast(friendlyError(err, "Couldn't create the agreement. Please try again."), "error");
     } finally {
       setCreating(false);
     }
@@ -347,7 +348,7 @@ export default function ContractsView({
       if (detail?.id === id) await openDetail(id);
       onChanged?.();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Something went wrong", "error");
+      toast(friendlyError(err, "Something went wrong. Please try again."), "error");
     } finally {
       setBusy(false);
     }
@@ -364,7 +365,7 @@ export default function ContractsView({
       await load();
       onChanged?.();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to delete", "error");
+      toast(friendlyError(err, "Couldn't delete that. Please try again."), "error");
     } finally {
       setBusy(false);
     }

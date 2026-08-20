@@ -7,6 +7,8 @@ import {
   FileText, FileImage, FileVideo, FileAudio, FileArchive, File as FileIcon, HardDrive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { friendlyError } from "@/lib/fetch-json";
+import { safeUuid } from "@/lib/safe-uuid";
 
 export interface ClientFileItem {
   id: string;
@@ -112,7 +114,7 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
         try {
           const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
           const blob = await vercelBlobUpload(
-            `client-files/${clientId}/${crypto.randomUUID()}${ext}`,
+            `client-files/${clientId}/${safeUuid()}${ext}`,
             file,
             {
               access: "public",
@@ -145,7 +147,7 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
           sentBytes.set(index, file.size);
         } catch (err) {
           failed++;
-          lastError = err instanceof Error && err.message ? err.message : "Upload failed";
+          lastError = friendlyError(err, "Upload failed");
         }
         done++;
         reportProgress();

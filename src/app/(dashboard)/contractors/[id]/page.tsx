@@ -31,6 +31,8 @@ import ContractsView, { type ContractorOption } from "@/components/contractors/C
 import ContractorAvatar, { avatarGradient } from "@/components/contractors/ContractorAvatar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
+import { friendlyError } from "@/lib/fetch-json";
+import { safeUuid } from "@/lib/safe-uuid";
 
 interface InvoiceRow {
   id: string;
@@ -238,7 +240,7 @@ export default function ContractorProfilePage() {
       toast(okMessage, "success");
       await load();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to save", "error");
+      toast(friendlyError(err, "Couldn't save. Please try again."), "error");
     } finally {
       setSaving(false);
     }
@@ -249,13 +251,13 @@ export default function ContractorProfilePage() {
     setAvatarUploading(true);
     try {
       const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : ".jpg";
-      const blob = await vercelBlobUpload(`contractor-avatars/${crypto.randomUUID()}${ext}`, file, {
+      const blob = await vercelBlobUpload(`contractor-avatars/${safeUuid()}${ext}`, file, {
         access: "public",
         handleUploadUrl: "/api/contractors/avatar-blob",
       });
       await save({ avatarUrl: blob.url }, "Photo updated");
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Upload failed", "error");
+      toast(friendlyError(err, "Upload failed. Please try again."), "error");
     } finally {
       setAvatarUploading(false);
     }

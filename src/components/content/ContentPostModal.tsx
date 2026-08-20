@@ -43,6 +43,7 @@ import {
   Copy,
   Check,
 } from "lucide-react";
+import { friendlyError } from "@/lib/fetch-json";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -554,7 +555,7 @@ export default function ContentPostModal({
       }
       setMediaUrls((prev) => [...prev, ...urls]);
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+      setUploadError(friendlyError(err, "Upload failed. Please try again."));
     } finally {
       setUploading(false);
     }

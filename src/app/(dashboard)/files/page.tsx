@@ -15,6 +15,8 @@ import { imageThumb } from "@/lib/media-thumb";
 import TopBar from "@/components/layout/TopBar";
 import VideoThumbnail from "@/components/shared/VideoThumbnail";
 import { useToast } from "@/components/shared/Toast";
+import { friendlyError } from "@/lib/fetch-json";
+import { safeUuid } from "@/lib/safe-uuid";
 
 interface MediaFile {
   id: string;
@@ -108,7 +110,7 @@ export default function FilesPage() {
       try {
         // Step 1: upload directly browser → Vercel Blob (no size limit)
         const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
-        const blobPath = `media/${crypto.randomUUID()}${ext}`;
+        const blobPath = `media/${safeUuid()}${ext}`;
         const blob = await vercelBlobUpload(blobPath, file, {
           access: "public",
           handleUploadUrl: "/api/uploads/blob",
@@ -161,7 +163,7 @@ export default function FilesPage() {
 
         successCount++;
       } catch (err) {
-        errors.push(`${file.name}: ${err instanceof Error ? err.message : "unknown error"}`);
+        errors.push(`${file.name}: ${friendlyError(err, "upload failed")}`);
       }
     }
 

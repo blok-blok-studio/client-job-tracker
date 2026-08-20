@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FlaskConical, Trash2, CheckCircle2, XCircle } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
 import LifecycleTimeline from "./LifecycleTimeline";
+import { readJson } from "@/lib/fetch-json";
 
 interface DryRunReport {
   clientId: string;
@@ -24,12 +25,12 @@ export default function DryRunTab() {
     setReport(null);
     try {
       const res = await fetch("/api/lifecycle/dry-run", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setReport(data.data);
+      const result = await readJson<{ data: DryRunReport }>(res, "Dry run failed. Please try again.");
+      if (result.ok) {
+        setReport(result.data!.data);
         toast("Dry run complete — no real emails were sent", "success");
       } else {
-        toast(data.error || "Dry run failed", "error");
+        toast(result.error!, "error");
       }
     } finally {
       setRunning(false);

@@ -22,6 +22,8 @@ import ClientServices from "@/components/clients/ClientServices";
 import ClientLifecycle from "@/components/clients/ClientLifecycle";
 import DeliverablesPanel, { type DeliverableItem } from "@/components/clients/DeliverablesPanel";
 import ClientFilesPanel, { type ClientFileItem } from "@/components/clients/ClientFilesPanel";
+import { friendlyError } from "@/lib/fetch-json";
+import { safeUuid } from "@/lib/safe-uuid";
 
 interface ClientDetail {
   id: string;
@@ -472,7 +474,7 @@ export default function ClientDetailPage() {
       const uploadOne = async (file: File) => {
         // Upload directly browser → Vercel Blob (no size limit)
         const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
-        const blobPath = `client-media/${id}/${crypto.randomUUID()}${ext}`;
+        const blobPath = `client-media/${id}/${safeUuid()}${ext}`;
         const blob = await vercelBlobUpload(blobPath, file, {
           access: "public",
           handleUploadUrl: "/api/uploads/blob",
@@ -517,7 +519,7 @@ export default function ClientDetailPage() {
             await uploadOne(file);
             successCount++;
           } catch (err) {
-            if (!firstError) firstError = err instanceof Error ? err.message : "check your connection";
+            if (!firstError) firstError = friendlyError(err, "check your connection");
           }
         }
       };
@@ -530,7 +532,7 @@ export default function ClientDetailPage() {
       }
       fetchClient();
     } catch (err) {
-      toast(`Upload failed: ${err instanceof Error ? err.message : "check your connection"}`, "error");
+      toast(`Upload failed: ${friendlyError(err, "check your connection")}`, "error");
     }
     finally { setUploadingMedia(false); }
   }

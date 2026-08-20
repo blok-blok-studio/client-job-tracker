@@ -14,6 +14,8 @@ import {
   Sliders,
   Wand2,
 } from "lucide-react";
+import { uploadFile } from "@/lib/client-upload";
+import { friendlyError } from "@/lib/fetch-json";
 
 interface AudioTrack {
   id: string;
@@ -65,6 +67,7 @@ export default function AudioPanel({ videoUrl, onAudioSelected, onMixComplete }:
 
   // Upload state
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadTitle, setUploadTitle] = useState("");
   const uploadRef = useRef<HTMLInputElement>(null);
 
@@ -114,22 +117,10 @@ export default function AudioPanel({ videoUrl, onAudioSelected, onMixComplete }:
     const file = files[0];
     if (!file) return;
     setUploading(true);
+    setUploadError(null);
     try {
-      const url = await new Promise<string>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.addEventListener("load", () => {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            if (data.success && data.urls?.[0]) resolve(data.urls[0]);
-            else reject(new Error(data.error || "Upload failed"));
-          } catch { reject(new Error("Upload failed")); }
-        });
-        xhr.addEventListener("error", () => reject(new Error("Upload failed")));
-        const params = new URLSearchParams({ filename: file.name });
-        xhr.open("PUT", `/api/uploads/stream?${params}`);
-        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-        xhr.send(file);
-      });
+      // Audio tracks routinely clear the 4.5MB an API route could accept
+      const { url } = await uploadFile(file);
 
       // Save as audio track
       await fetch("/api/audio-tracks", {
@@ -153,7 +144,9 @@ export default function AudioPanel({ videoUrl, onAudioSelected, onMixComplete }:
       onAudioSelected(url);
       setUploadTitle("");
       if (videoUrl) setTab("mix");
-    } catch { /* silent */ } finally {
+    } catch (err) {
+      setUploadError(friendlyError(err, "Couldn't upload that track. Please try again."));
+    } finally {
       setUploading(false);
     }
   };
@@ -364,6 +357,9 @@ export default function AudioPanel({ videoUrl, onAudioSelected, onMixComplete }:
               </>
             )}
           </button>
+          {uploadError && (
+            <p className="text-xs text-red-400 text-center">{uploadError}</p>
+          )}
           <input
             ref={uploadRef}
             type="file"

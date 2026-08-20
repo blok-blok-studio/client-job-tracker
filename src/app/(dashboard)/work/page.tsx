@@ -13,9 +13,12 @@ import {
   CalendarDays,
   Download,
 } from "lucide-react";
+import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import TopBar from "@/components/layout/TopBar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
+import { readJson, friendlyError } from "@/lib/fetch-json";
+import { safeUuid } from "@/lib/safe-uuid";
 
 interface WorkRow {
   id: string;
@@ -107,28 +110,40 @@ export default function WorkPage() {
     setUploading(true);
     setProgress(0);
     try {
+      // Straight browser → Blob. Routing finished work through an API route
+      // capped it at Vercel's 4.5MB function body limit, and the 413 came back
+      // as plain text — the failure every big delivery hit.
+      const totalBytes = pending.reduce((sum, f) => sum + f.size, 0) || 1;
+      const sentBytes = new Map<number, number>();
+      const reportProgress = () => {
+        let sent = 0;
+        for (const v of sentBytes.values()) sent += v;
+        setProgress(Math.min(99, Math.round((sent / totalBytes) * 100)));
+      };
+
       const uploaded = [];
       for (let i = 0; i < pending.length; i++) {
         const f = pending[i];
-        const res = await fetch(
-          `/api/uploads/stream?filename=${encodeURIComponent(f.name)}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": f.type || "application/octet-stream" },
-            body: f,
-          }
-        );
-        const json = await res.json();
-        if (!res.ok || !json.success || !json.urls?.[0]) {
-          throw new Error(json?.error || `Failed to upload ${f.name}`);
-        }
+        const ext = f.name.includes(".") ? "." + f.name.split(".").pop() : "";
+        const blob = await vercelBlobUpload(`work/${safeUuid()}${ext}`, f, {
+          access: "public",
+          handleUploadUrl: "/api/uploads/blob",
+          // Multipart only pays off on big files; the extra round trips slow
+          // a batch of small ones down
+          multipart: f.size > 8 * 1024 * 1024,
+          onUploadProgress: ({ loaded }) => {
+            sentBytes.set(i, loaded);
+            reportProgress();
+          },
+        });
+        sentBytes.set(i, f.size);
+        reportProgress();
         uploaded.push({
-          blobUrl: json.urls[0] as string,
+          blobUrl: blob.url,
           filename: f.name,
-          contentType: f.type || undefined,
+          contentType: blob.contentType || f.type || undefined,
           size: f.size,
         });
-        setProgress(Math.round(((i + 1) / pending.length) * 100));
       }
 
       const res = await fetch("/api/work", {
@@ -140,8 +155,8 @@ export default function WorkPage() {
           files: uploaded,
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.error || "Failed to submit work");
+      const result = await readJson<{ success: boolean }>(res, "Couldn't save the upload. Please try again.");
+      if (!result.ok) throw new Error(result.error!);
 
       setPending([]);
       setNote("");
@@ -154,7 +169,7 @@ export default function WorkPage() {
       );
       fetchRows();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Upload failed", "error");
+      toast(friendlyError(err, "Upload failed. Please try again."), "error");
     } finally {
       setUploading(false);
       setProgress(0);

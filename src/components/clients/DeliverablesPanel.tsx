@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { uploadFile } from "@/lib/client-upload";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import { friendlyError } from "@/lib/fetch-json";
 
 export interface DeliverableComment {
   id: string;
@@ -355,7 +356,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
         ]);
       }
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Upload failed", "error");
+      toast(friendlyError(err, "Upload failed. Please try again."), "error");
     } finally {
       setUploading(false);
       setUploadProgress(null);

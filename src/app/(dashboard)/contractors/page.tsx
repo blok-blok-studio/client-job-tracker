@@ -34,6 +34,7 @@ import Badge from "@/components/shared/Badge";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
+import { readJson } from "@/lib/fetch-json";
 
 interface InvoiceNote {
   id: string;
@@ -516,12 +517,12 @@ export default function ContractorsPage() {
     toast("Scanning document…", "success");
     try {
       const res = await fetch(`/api/contractors/invoices/${selected.id}/scan`, { method: "POST" });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson(res, "Scan failed. Please try again.");
+      if (result.ok) {
         toast("Scan complete", "success");
         await fetchContractors();
       } else {
-        toast(json?.error || "Scan failed", "error");
+        toast(result.error!, "error");
       }
     } finally {
       setBusy(false);

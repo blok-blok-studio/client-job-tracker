@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import { Upload, CheckCircle, AlertCircle, Loader2, Film, Image as ImageIcon, Music, X, FileUp, Check, FileText } from "lucide-react";
 import AddToHomeScreen from "@/components/shared/AddToHomeScreen";
+import { friendlyError } from "@/lib/fetch-json";
+import { safeUuid } from "@/lib/safe-uuid";
 
 interface ClientInfo {
   id: string;
@@ -84,7 +86,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
         // Upload directly browser → Vercel Blob via SDK (bypasses 4.5MB serverless limit)
         // Use a UUID prefix to avoid filename collisions
         const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
-        const blobPathname = `client-media/${crypto.randomUUID()}${ext}`;
+        const blobPathname = `client-media/${safeUuid()}${ext}`;
         const blob = await vercelBlobUpload(blobPathname, file, {
           access: "public",
           handleUploadUrl: "/api/client-media/upload-blob",
@@ -126,11 +128,10 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
         }
         allResults[index] = registered ?? { filename: file.name, url: blob.url };
       } catch (err) {
-        const raw = err instanceof Error ? err.message : "Upload failed";
-        const msg = raw.includes("did not match the expected pattern")
-          ? "A network hiccup interrupted this upload. Please try again."
-          : raw;
-        allResults[index] = { filename: file.name, error: msg };
+        allResults[index] = {
+          filename: file.name,
+          error: friendlyError(err, "A network hiccup interrupted this upload. Please try again."),
+        };
       }
 
       sentBytes.set(index, file.size);

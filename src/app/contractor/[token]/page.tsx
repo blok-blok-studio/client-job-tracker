@@ -20,6 +20,9 @@ import {
   FolderUp,
 } from "lucide-react";
 import AddToHomeScreen from "@/components/shared/AddToHomeScreen";
+import { readJson, friendlyError } from "@/lib/fetch-json";
+import { safeUuid } from "@/lib/safe-uuid";
+import { guessContentType, checkDocumentFile } from "@/lib/file-type";
 
 interface ContractorInfo {
   name: string;
@@ -280,9 +283,10 @@ export default function ContractorPortal({
     setAvatarError("");
     try {
       const ext = f.name.includes(".") ? "." + f.name.split(".").pop() : ".jpg";
-      const blob = await vercelBlobUpload(`contractor-avatars/${crypto.randomUUID()}${ext}`, f, {
+      const blob = await vercelBlobUpload(`contractor-avatars/${safeUuid()}${ext}`, f, {
         access: "public",
         handleUploadUrl: "/api/contractor/upload-blob",
+        contentType: guessContentType(f),
         clientPayload: JSON.stringify({ token }),
       });
       const res = await fetch(`/api/contractor/${token}/avatar`, {
@@ -290,11 +294,12 @@ export default function ContractorPortal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blobUrl: blob.url }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.error || "Failed to save photo");
-      setContractor((c) => (c ? { ...c, avatarUrl: json.data.avatarUrl } : c));
+      const result = await readJson<{ data: { avatarUrl: string } }>(res, "Couldn't save that photo.");
+      if (!result.ok) throw new Error(result.error!);
+      const avatarUrl = result.data!.data.avatarUrl;
+      setContractor((c) => (c ? { ...c, avatarUrl } : c));
     } catch (err) {
-      setAvatarError(err instanceof Error ? err.message : "Couldn't save that photo");
+      setAvatarError(friendlyError(err, "Couldn't save that photo."));
     } finally {
       setAvatarUploading(false);
     }
@@ -311,13 +316,13 @@ export default function ContractorPortal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ documentId: docId, attest: true }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.error || "Failed to confirm");
+      const result = await readJson(res, "Couldn't confirm that. Please try again.");
+      if (!result.ok) throw new Error(result.error!);
       setDocSuccess(true);
       loadDocs(token);
       loadPortal(token);
     } catch (err) {
-      setDocError(err instanceof Error ? err.message : "Failed, please try again");
+      setDocError(friendlyError(err, "Couldn't confirm that. Please try again."));
     } finally {
       setDocUploading("");
     }
@@ -325,14 +330,21 @@ export default function ContractorPortal({
 
   const handleDocUpload = async (docId: string, f: File) => {
     if (!token || docUploading) return;
+    const problem = checkDocumentFile(f);
+    if (problem) {
+      setDocError(problem);
+      setDocSuccess(false);
+      return;
+    }
     setDocUploading(docId);
     setDocError("");
     setDocSuccess(false);
     try {
       const ext = f.name.includes(".") ? "." + f.name.split(".").pop() : "";
-      const blob = await vercelBlobUpload(`tax-documents/${crypto.randomUUID()}${ext}`, f, {
+      const blob = await vercelBlobUpload(`tax-documents/${safeUuid()}${ext}`, f, {
         access: "public",
         handleUploadUrl: "/api/contractor/upload-blob",
+        contentType: guessContentType(f),
         clientPayload: JSON.stringify({ token }),
       });
       const res = await fetch(`/api/contractor/${token}/documents`, {
@@ -346,14 +358,14 @@ export default function ContractorPortal({
           size: f.size,
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.error || "Failed to submit document");
+      const result = await readJson(res, "Couldn't submit that document. Please try again.");
+      if (!result.ok) throw new Error(result.error!);
       setDocSuccess(true);
       loadDocs(token);
       loadPortal(token); // refreshes the invoice-tab gating
 
     } catch (err) {
-      setDocError(err instanceof Error ? err.message : "Upload failed, please try again");
+      setDocError(friendlyError(err, "Upload failed. Please try again."));
     } finally {
       setDocUploading("");
     }
@@ -361,7 +373,9 @@ export default function ContractorPortal({
 
   // Live duration preview; end at or before start means the session ends the next day
   const preview = useMemo(() => {
-    if (!/^\d{2}:\d{2}$/.test(startLocal) || !/^\d{2}:\d{2}$/.test(endLocal)) return null;
+    // Some browsers hand back HH:MM:SS from a time input
+    const timeShape = /^\d{2}:\d{2}(:\d{2})?$/;
+    if (!timeShape.test(startLocal) || !timeShape.test(endLocal)) return null;
     const [sh, sm] = startLocal.split(":").map(Number);
     const [eh, em] = endLocal.split(":").map(Number);
     let minutes = eh * 60 + em - (sh * 60 + sm);
@@ -371,6 +385,15 @@ export default function ContractorPortal({
   }, [startLocal, endLocal]);
 
   const acceptFile = (f: File) => {
+    // Check here rather than letting the storage SDK reject mid-upload — its
+    // wording is unusable for someone photographing an invoice on a phone
+    const problem = checkDocumentFile(f);
+    if (problem) {
+      setFile(null);
+      setError(problem);
+      setSuccess(false);
+      return;
+    }
     setFile(f);
     setError("");
     setSuccess(false);
@@ -384,10 +407,11 @@ export default function ContractorPortal({
 
     try {
       const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
-      const blobPathname = `contractor-invoices/${crypto.randomUUID()}${ext}`;
+      const blobPathname = `contractor-invoices/${safeUuid()}${ext}`;
       const blob = await vercelBlobUpload(blobPathname, file, {
         access: "public",
         handleUploadUrl: "/api/contractor/upload-blob",
+        contentType: guessContentType(file),
         clientPayload: JSON.stringify({ token }),
         onUploadProgress: ({ loaded, total }) => {
           setUploadProgress(Math.round((loaded / total) * 100));
@@ -409,10 +433,8 @@ export default function ContractorPortal({
           description: description.trim(),
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error || "Failed to submit invoice");
-      }
+      const result = await readJson(res, "Couldn't submit that invoice. Please try again.");
+      if (!result.ok) throw new Error(result.error!);
 
       setFile(null);
       setInvoiceNumber("");
@@ -422,7 +444,7 @@ export default function ContractorPortal({
       setSuccess(true);
       loadPortal(token);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed, please try again");
+      setError(friendlyError(err, "Upload failed. Please try again."));
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -459,7 +481,7 @@ export default function ContractorPortal({
       for (let i = 0; i < workPending.length; i++) {
         const f = workPending[i];
         const ext = f.name.includes(".") ? "." + f.name.split(".").pop() : "";
-        const blob = await vercelBlobUpload(`contractor-work/${crypto.randomUUID()}${ext}`, f, {
+        const blob = await vercelBlobUpload(`contractor-work/${safeUuid()}${ext}`, f, {
           access: "public",
           handleUploadUrl: "/api/contractor/upload-blob",
           clientPayload: JSON.stringify({ token, purpose: "work" }),
@@ -484,10 +506,8 @@ export default function ContractorPortal({
           files: uploaded,
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error || "Failed to submit work");
-      }
+      const result = await readJson(res, "Couldn't save your upload. Please try again.");
+      if (!result.ok) throw new Error(result.error!);
 
       setWorkPending([]);
       setWorkNote("");
@@ -495,7 +515,7 @@ export default function ContractorPortal({
       setWorkSuccess(true);
       loadWork(token);
     } catch (err) {
-      setWorkError(err instanceof Error ? err.message : "Upload failed, please try again");
+      setWorkError(friendlyError(err, "Upload failed. Please try again."));
     } finally {
       setWorkUploading(false);
       setWorkProgress(0);
@@ -547,6 +567,13 @@ export default function ContractorPortal({
     // the literal typed values and the zone they were typed in.
     const start = new Date(`${workDate}T${startLocal}`);
     const end = new Date(`${workDate}T${endLocal}`);
+    // A browser whose time input hands back an unexpected shape yields Invalid
+    // Date, and .toISOString() below would throw "Invalid time value" at the
+    // contractor. Ask for the times again instead.
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      setHoursError("That date or time didn't read correctly. Please re-enter them and try again.");
+      return;
+    }
     if (end.getTime() <= start.getTime()) end.setDate(end.getDate() + 1);
 
     setHoursSubmitting(true);
@@ -568,15 +595,13 @@ export default function ContractorPortal({
           ...(correcting ? { correctsId: correcting.id } : {}),
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error || "Failed to log hours");
-      }
+      const result = await readJson(res, "Couldn't log those hours. Please try again.");
+      if (!result.ok) throw new Error(result.error!);
       resetHoursForm();
       setHoursSuccess(true);
       loadHours(token);
     } catch (err) {
-      setHoursError(err instanceof Error ? err.message : "Failed to log hours, please try again");
+      setHoursError(friendlyError(err, "Couldn't log those hours. Please try again."));
     } finally {
       setHoursSubmitting(false);
     }

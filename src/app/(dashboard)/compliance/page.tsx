@@ -24,6 +24,8 @@ import Badge from "@/components/shared/Badge";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
 import { isSelfHeldDocType } from "@/lib/tax/obligations-source";
+import { friendlyError } from "@/lib/fetch-json";
+import { safeUuid } from "@/lib/safe-uuid";
 
 interface Profile {
   id: string;
@@ -266,7 +268,7 @@ export default function CompliancePage() {
     setAttachingId(docId);
     try {
       const ext = f.name.includes(".") ? "." + f.name.split(".").pop() : "";
-      const blob = await vercelBlobUpload(`tax-documents/${crypto.randomUUID()}${ext}`, f, {
+      const blob = await vercelBlobUpload(`tax-documents/${safeUuid()}${ext}`, f, {
         access: "public",
         handleUploadUrl: "/api/compliance/documents/upload-blob",
       });
@@ -283,7 +285,7 @@ export default function CompliancePage() {
         toast(json?.error || "Failed to attach file", "error");
       }
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Upload failed", "error");
+      toast(friendlyError(err, "Upload failed. Please try again."), "error");
     } finally {
       setAttachingId("");
     }
