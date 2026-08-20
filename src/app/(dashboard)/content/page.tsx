@@ -21,6 +21,8 @@ import ContentPostModal from "@/components/content/ContentPostModal";
 import BulkImportModal from "@/components/content/BulkImportModal";
 import BestTimes from "@/components/content/BestTimes";
 import { cn } from "@/lib/utils";
+import { readJson, friendlyError } from "@/lib/fetch-json";
+import { useToast } from "@/components/shared/Toast";
 import {
   startOfMonth,
   endOfMonth,
@@ -64,6 +66,7 @@ const statusBadge: Record<string, "gray" | "blue" | "yellow" | "green" | "red"> 
 const PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "THREADS", "LINKEDIN", "YOUTUBE", "FACEBOOK"];
 
 export default function ContentPage() {
+  const { toast } = useToast();
   const [posts, setPosts] = useState<ContentPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -80,10 +83,15 @@ export default function ContentPage() {
     setLoading(true);
     const params = new URLSearchParams();
     if (platformFilter) params.set("platform", platformFilter);
-    const res = await fetch(`/api/content-posts?${params}`);
-    const data = await res.json();
-    if (data.success) setPosts(data.data);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/content-posts?${params}`);
+      const result = await readJson<{ data: ContentPost[] }>(res, "Couldn't load posts.");
+      if (result.ok) setPosts(result.data!.data);
+    } catch {
+      // Keep whatever is already on screen rather than blanking the calendar
+    } finally {
+      setLoading(false);
+    }
   }, [platformFilter]);
 
   useEffect(() => {
@@ -140,27 +148,48 @@ export default function ContentPage() {
   }) => {
     const url = data.id ? `/api/content-posts/${data.id}` : "/api/content-posts";
     const method = data.id ? "PATCH" : "POST";
-    await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: data.clientId,
-        platform: data.platform,
-        status: data.status,
-        title: data.title,
-        body: data.body,
-        hashtags: data.hashtags,
-        mediaUrls: data.mediaUrls,
-        scheduledAt: data.scheduledAt || null,
-      }),
-    });
-    setEditPost(null);
-    fetchPosts();
+    // The response used to be ignored entirely, so a failed save closed the
+    // modal as though the post had been scheduled.
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: data.clientId,
+          platform: data.platform,
+          status: data.status,
+          title: data.title,
+          body: data.body,
+          hashtags: data.hashtags,
+          mediaUrls: data.mediaUrls,
+          scheduledAt: data.scheduledAt || null,
+        }),
+      });
+      const result = await readJson(res, "Couldn't save that post. Please try again.");
+      if (!result.ok) {
+        toast(result.error!, "error");
+        return false;
+      }
+      setEditPost(null);
+      return true;
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't save that post. Please try again."), "error");
+      return false;
+    } finally {
+      fetchPosts();
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/content-posts/${id}`, { method: "DELETE" });
-    fetchPosts();
+    try {
+      const res = await fetch(`/api/content-posts/${id}`, { method: "DELETE" });
+      const result = await readJson(res, "Couldn't delete that post. Please try again.");
+      if (!result.ok) toast(result.error!, "error");
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't delete that post. Please try again."), "error");
+    } finally {
+      fetchPosts();
+    }
   };
 
   const openEdit = (post: ContentPost) => {

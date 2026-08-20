@@ -22,7 +22,7 @@ import ClientServices from "@/components/clients/ClientServices";
 import ClientLifecycle from "@/components/clients/ClientLifecycle";
 import DeliverablesPanel, { type DeliverableItem } from "@/components/clients/DeliverablesPanel";
 import ClientFilesPanel, { type ClientFileItem } from "@/components/clients/ClientFilesPanel";
-import { friendlyError } from "@/lib/fetch-json";
+import { friendlyError, readJson } from "@/lib/fetch-json";
 import { safeUuid } from "@/lib/safe-uuid";
 
 interface ClientDetail {
@@ -172,10 +172,14 @@ export default function ClientDetailPage() {
     setRegenerating(true);
     try {
       const res = await fetch(`/api/clients/${id}/regenerate-token`, { method: "POST" });
-      const data = await res.json();
-      if (data.success && client) {
-        setClient({ ...client, onboardToken: data.data.onboardToken });
+      const result = await readJson<{ data: { onboardToken: string } }>(res, "Couldn't create a new link. Please try again.");
+      if (!result.ok) {
+        toast(result.error!, "error");
+      } else if (client) {
+        setClient({ ...client, onboardToken: result.data!.data.onboardToken });
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't create a new link. Please try again."), "error");
     } finally {
       setRegenerating(false);
     }
@@ -185,10 +189,14 @@ export default function ClientDetailPage() {
     setRegenerating(true);
     try {
       const res = await fetch(`/api/clients/${id}/upload-token`, { method: "POST" });
-      const data = await res.json();
-      if (data.success && client) {
-        setClient({ ...client, uploadToken: data.data.uploadToken });
+      const result = await readJson<{ data: { uploadToken: string } }>(res, "Couldn't create an upload link. Please try again.");
+      if (!result.ok) {
+        toast(result.error!, "error");
+      } else if (client) {
+        setClient({ ...client, uploadToken: result.data!.data.uploadToken });
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't create an upload link. Please try again."), "error");
     } finally {
       setRegenerating(false);
     }

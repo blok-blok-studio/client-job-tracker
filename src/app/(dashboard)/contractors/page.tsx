@@ -34,7 +34,7 @@ import Badge from "@/components/shared/Badge";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
-import { readJson } from "@/lib/fetch-json";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 interface InvoiceNote {
   id: string;
@@ -470,12 +470,18 @@ export default function ContractorsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{
+        success?: boolean;
+        emailed?: boolean;
+        emailError?: string;
+        data?: { email?: string };
+      }>(res, "Failed to add contractor");
+      const json = result.data;
+      if (result.ok && json?.success) {
         setShowAdd(false);
         setForm({ name: "", email: "", company: "", phone: "", notes: "", country: "", sendWelcomeEmail: true });
         if (json.emailed) {
-          toast(`Contractor added — portal link emailed to ${json.data.email}`, "success");
+          toast(`Contractor added — portal link emailed to ${json.data?.email}`, "success");
         } else if (json.emailError) {
           toast(`Contractor added, but the email didn't send: ${json.emailError}`, "error");
         } else {
@@ -483,8 +489,10 @@ export default function ContractorsPage() {
         }
         fetchContractors();
       } else {
-        toast(json?.error || "Failed to add contractor", "error");
+        toast(result.error || "Failed to add contractor", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't add that contractor. Please try again."), "error");
     } finally {
       setSaving(false);
     }
@@ -499,13 +507,15 @@ export default function ContractorsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{ success?: boolean }>(res, "Update failed");
+      if (result.ok && result.data?.success) {
         toast(okMessage, "success");
         await fetchContractors();
       } else {
-        toast(json?.error || "Update failed", "error");
+        toast(result.error || "Update failed", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Update failed. Please try again."), "error");
     } finally {
       setBusy(false);
     }
@@ -538,13 +548,15 @@ export default function ContractorsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: noteDraft }),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{ success?: boolean }>(res, "Failed to add note");
+      if (result.ok && result.data?.success) {
         setNoteDraft("");
         await fetchContractors();
       } else {
-        toast(json?.error || "Failed to add note", "error");
+        toast(result.error || "Failed to add note", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't add that note. Please try again."), "error");
     } finally {
       setBusy(false);
     }
@@ -559,15 +571,17 @@ export default function ContractorsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{ success?: boolean }>(res, "Update failed");
+      if (result.ok && result.data?.success) {
         toast(okMessage, "success");
         setDisputeDraft(null);
         setRetagId(null);
         await fetchContractors();
       } else {
-        toast(json?.error || "Update failed", "error");
+        toast(result.error || "Update failed", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Update failed. Please try again."), "error");
     } finally {
       setBusy(false);
     }
@@ -582,13 +596,15 @@ export default function ContractorsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: hoursNoteDraft }),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{ success?: boolean }>(res, "Failed to add note");
+      if (result.ok && result.data?.success) {
         setHoursNoteDraft("");
         await fetchContractors();
       } else {
-        toast(json?.error || "Failed to add note", "error");
+        toast(result.error || "Failed to add note", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't add that note. Please try again."), "error");
     } finally {
       setBusy(false);
     }
@@ -603,16 +619,19 @@ export default function ContractorsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{ success?: boolean; emailError?: string; data?: ContractorRow }>(res, "Update failed");
+      const json = result.data;
+      if (result.ok && json?.success) {
         // An email that silently failed must not report success
         if (json.emailError) toast(json.emailError, "error");
         else toast(okMessage, "success");
-        setManaging(json.data);
+        setManaging(json.data ?? null);
         await fetchContractors();
       } else {
-        toast(json?.error || "Update failed", "error");
+        toast(result.error || "Update failed", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Update failed. Please try again."), "error");
     } finally {
       setBusy(false);
     }
@@ -623,13 +642,15 @@ export default function ContractorsPage() {
     setBusy(true);
     try {
       const res = await fetch(`/api/contractors/${managing.id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{ success?: boolean }>(res, "Failed to remove contractor");
+      if (result.ok && result.data?.success) {
         toast("Contractor removed", "success");
         setManaging(null);
       } else {
-        toast(json?.error || "Failed to remove contractor", "error");
+        toast(result.error || "Failed to remove contractor", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't remove that contractor. Please try again."), "error");
     } finally {
       setBusy(false);
       setConfirmDelete(false);

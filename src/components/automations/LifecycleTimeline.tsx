@@ -6,6 +6,7 @@ import Badge from "@/components/shared/Badge";
 import Modal from "@/components/shared/Modal";
 import { useToast } from "@/components/shared/Toast";
 import { cn } from "@/lib/utils";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 import { fmtDateTime, STEP_STATUS_VARIANT, KIND_VARIANT, KIND_LABEL } from "./helpers";
 
 interface StepRow {
@@ -53,11 +54,15 @@ export default function LifecycleTimeline({
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/lifecycle/steps?${query}`);
-      const data = await res.json();
-      if (data.success) {
-        setSteps(data.data.steps);
-        setPaused(data.data.automationsPaused);
+      const result = await readJson<{
+        data: { steps: StepRow[]; automationsPaused: boolean };
+      }>(res, "Couldn't load the timeline.");
+      if (result.ok) {
+        setSteps(result.data!.data.steps);
+        setPaused(result.data!.data.automationsPaused);
       }
+    } catch {
+      // Background load. Leave whatever is already on screen and stop the spinner.
     } finally {
       setLoading(false);
     }
@@ -69,34 +74,42 @@ export default function LifecycleTimeline({
 
   const togglePause = async () => {
     const url = clientId ? `/api/clients/${clientId}` : `/api/contractors/${contractorId}`;
-    const res = await fetch(url, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ automationsPaused: !paused }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      toast(!paused ? "Automations paused for this record" : "Automations resumed", "success");
-      setPaused(!paused);
-    } else {
-      toast(data.error || "Failed", "error");
+    try {
+      const res = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ automationsPaused: !paused }),
+      });
+      const result = await readJson(res, "Couldn't change that setting. Please try again.");
+      if (result.ok) {
+        toast(!paused ? "Automations paused for this record" : "Automations resumed", "success");
+        setPaused(!paused);
+      } else {
+        toast(result.error!, "error");
+      }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't change that setting. Please try again."), "error");
     }
   };
 
   const skip = async (step: StepRow) => {
     const reason = prompt(`Skip "${step.label}"? Optional reason:`);
     if (reason === null) return;
-    const res = await fetch(`/api/lifecycle/steps/${step.id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "skip", reason: reason || undefined }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      toast("Step skipped", "success");
-      load();
-    } else {
-      toast(data.error || "Failed", "error");
+    try {
+      const res = await fetch(`/api/lifecycle/steps/${step.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "skip", reason: reason || undefined }),
+      });
+      const result = await readJson(res, "Couldn't skip that step. Please try again.");
+      if (result.ok) {
+        toast("Step skipped", "success");
+        load();
+      } else {
+        toast(result.error!, "error");
+      }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't skip that step. Please try again."), "error");
     }
   };
 
@@ -109,17 +122,20 @@ export default function LifecycleTimeline({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "send-draft", subject: draftSubject, body: draftBody }),
       });
-      const data = await res.json();
-      if (data.success) {
-        toast(
-          data.data.note || `Sent (${data.data.delivered} delivered)`,
-          data.data.delivered > 0 ? "success" : "info"
-        );
+      const result = await readJson<{ data: { note?: string; delivered: number } }>(
+        res,
+        "Couldn't send that draft. Please try again."
+      );
+      if (result.ok) {
+        const payload = result.data!.data;
+        toast(payload.note || `Sent (${payload.delivered} delivered)`, payload.delivered > 0 ? "success" : "info");
         setSendingDraft(null);
         load();
       } else {
-        toast(data.error || "Failed", "error");
+        toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't send that draft. Please try again."), "error");
     } finally {
       setBusy(false);
     }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Smartphone, AlertTriangle, Copy, Check, Loader2, ExternalLink } from "lucide-react";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 // Full-screen, blocking two-factor enrollment. The dashboard layout renders this
 // instead of the app for any team member who hasn't set up an authenticator, so
@@ -32,13 +33,18 @@ export default function MandatoryMfaEnroll({ email }: { email: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "setup", password }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json?.error || "Couldn't start setup");
+      const result = await readJson<{
+        data: { qrDataUrl: string; secret: string; uri: string };
+      }>(res, "Couldn't start setup. Please try again.");
+      if (!result.ok) {
+        setError(result.error!);
         return;
       }
+      const json = result.data!;
       setQr({ qrDataUrl: json.data.qrDataUrl, secret: json.data.secret, uri: json.data.uri });
       setStep("scan");
+    } catch (err) {
+      setError(friendlyError(err, "Couldn't start setup. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -54,13 +60,18 @@ export default function MandatoryMfaEnroll({ email }: { email: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "enable", password, code }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json?.error || "That code didn't match");
+      const result = await readJson<{ data: { backupCodes: string[] } }>(
+        res,
+        "That code didn't match. Please try again."
+      );
+      if (!result.ok) {
+        setError(result.error!);
         return;
       }
-      setBackupCodes(json.data.backupCodes);
+      setBackupCodes(result.data!.data.backupCodes);
       setStep("backup");
+    } catch (err) {
+      setError(friendlyError(err, "Couldn't turn on two-factor. Please try again."));
     } finally {
       setBusy(false);
     }

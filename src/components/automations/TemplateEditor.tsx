@@ -6,6 +6,7 @@ import Modal from "@/components/shared/Modal";
 import Badge from "@/components/shared/Badge";
 import { useToast } from "@/components/shared/Toast";
 import { cn } from "@/lib/utils";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 import { COPY_RULES, fmtDateTime } from "./helpers";
 
 interface Version {
@@ -52,15 +53,22 @@ export default function TemplateEditor({
   const { toast } = useToast();
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/lifecycle/templates/${templateKey}`);
-    const data = await res.json();
-    if (data.success) {
-      setDetail(data.data);
-      setSubject(data.data.subject);
-      setBody(data.data.body);
-      setPreview({ ...data.data.preview, missing: [] });
+    try {
+      const res = await fetch(`/api/lifecycle/templates/${templateKey}`);
+      const result = await readJson<{ data: TemplateDetail }>(res, "Couldn't load that template.");
+      if (result.ok) {
+        const loaded = result.data!.data;
+        setDetail(loaded);
+        setSubject(loaded.subject);
+        setBody(loaded.body);
+        setPreview({ ...loaded.preview, missing: [] });
+      } else {
+        toast(result.error!, "error");
+      }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't load that template."), "error");
     }
-  }, [templateKey]);
+  }, [templateKey, toast]);
 
   useEffect(() => {
     load();
@@ -76,15 +84,19 @@ export default function TemplateEditor({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "validate", subject, body }),
-        }).then((r) => r.json()),
+        })
+          .then((r) => r.json())
+          .catch(() => null),
         fetch(`/api/lifecycle/templates/${templateKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "preview", subject, body }),
-        }).then((r) => r.json()),
+        })
+          .then((r) => r.json())
+          .catch(() => null),
       ]);
-      if (v.success) setErrors(v.data.errors);
-      if (p.success) setPreview(p.data);
+      if (v?.success) setErrors(v.data.errors);
+      if (p?.success) setPreview(p.data);
     }, 500);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -99,34 +111,41 @@ export default function TemplateEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject, body }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const result = await readJson(res, "Couldn't save that template. Please try again.");
+      if (result.ok) {
         toast("Template saved", "success");
         onSaved();
         load();
       } else {
-        toast(data.error || "Save blocked", "error");
+        toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't save that template. Please try again."), "error");
     } finally {
       setSaving(false);
     }
   };
 
   const action = async (payload: Record<string, unknown>, successMsg: string) => {
-    const res = await fetch(`/api/lifecycle/templates/${templateKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (data.success) {
-      toast(successMsg, "success");
-      onSaved();
-      load();
-    } else {
-      toast(data.error || "Action failed", "error");
+    try {
+      const res = await fetch(`/api/lifecycle/templates/${templateKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await readJson(res, "That didn't work. Please try again.");
+      if (result.ok) {
+        toast(successMsg, "success");
+        onSaved();
+        load();
+      } else {
+        toast(result.error!, "error");
+      }
+      return result.ok;
+    } catch (err) {
+      toast(friendlyError(err, "That didn't work. Please try again."), "error");
+      return false;
     }
-    return data.success;
   };
 
   if (!detail) {

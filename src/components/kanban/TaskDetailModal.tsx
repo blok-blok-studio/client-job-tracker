@@ -142,9 +142,10 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
 
   const fetchTime = useCallback(async () => {
     if (!taskId) return;
-    const res = await fetch(`/api/tasks/${taskId}/time`);
-    const data = await res.json();
-    if (data.success) setTotalMinutes(data.data.totalMinutes);
+    const data = await fetch(`/api/tasks/${taskId}/time`)
+      .then((r) => r.json())
+      .catch(() => null);
+    if (data?.success) setTotalMinutes(data.data.totalMinutes);
   }, [taskId]);
 
   useEffect(() => {
@@ -233,9 +234,10 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
 
   const fetchTask = useCallback(async () => {
     if (!taskId) return;
-    const res = await fetch(`/api/tasks/${taskId}`);
-    const data = await res.json();
-    if (data.success) setTask(data.data);
+    const data = await fetch(`/api/tasks/${taskId}`)
+      .then((r) => r.json())
+      .catch(() => null);
+    if (data?.success) setTask(data.data);
   }, [taskId]);
 
   useEffect(() => {

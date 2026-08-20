@@ -6,6 +6,8 @@ import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
 import TaskDetailModal from "@/components/kanban/TaskDetailModal";
 import { STATUS_COLUMNS, type TaskStatus, type Priority } from "@/types";
+import { readJson, friendlyError } from "@/lib/fetch-json";
+import { useToast } from "@/components/shared/Toast";
 
 interface MyTask {
   id: string;
@@ -45,6 +47,7 @@ const GROUPS: Array<{ key: GroupKey; label: string; icon: React.ReactNode; accen
 ];
 
 export default function MyTasksPage() {
+  const { toast } = useToast();
   const [me, setMe] = useState<string | null>(null);
   const [tasks, setTasks] = useState<MyTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,10 +56,10 @@ export default function MyTasksPage() {
   const fetchTasks = useCallback(async () => {
     try {
       const res = await fetch("/api/tasks");
-      const data = await res.json();
-      if (data.success) {
+      const result = await readJson<{ data: Array<Record<string, unknown>> }>(res, "Couldn't load your tasks.");
+      if (result.ok && result.data?.data) {
         setTasks(
-          data.data.map((t: Record<string, unknown>) => ({
+          result.data.data.map((t: Record<string, unknown>) => ({
             id: t.id,
             title: t.title,
             status: t.status,
@@ -66,9 +69,11 @@ export default function MyTasksPage() {
             checklistTotal: (t._count as Record<string, number>)?.checklistItems || 0,
             checklistDone: ((t.checklistItems as Array<{ checked: boolean }>) || []).filter((i) => i.checked).length,
             assignedTo: t.assignedTo,
-          }))
+          })) as MyTask[]
         );
       }
+    } catch {
+      // Keep whatever is already on screen
     } finally {
       setLoading(false);
     }
@@ -115,9 +120,19 @@ export default function MyTasksPage() {
   }, [mine]);
 
   async function deleteTask(taskId: string) {
-    await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-    setDetailTaskId(null);
-    fetchTasks();
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      const result = await readJson(res, "Couldn't delete that task. Please try again.");
+      if (!result.ok) {
+        toast(result.error!, "error");
+        return;
+      }
+      setDetailTaskId(null);
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't delete that task. Please try again."), "error");
+    } finally {
+      fetchTasks();
+    }
   }
 
   return (

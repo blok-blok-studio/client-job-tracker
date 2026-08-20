@@ -7,6 +7,7 @@ import Badge from "@/components/shared/Badge";
 import ServiceForm, { type ServiceFormValues } from "@/components/services/ServiceForm";
 import { serviceCategoryLabel } from "@/lib/service-catalog";
 import { useToast } from "@/components/shared/Toast";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 interface ServiceItem {
   id: string;
@@ -48,35 +49,43 @@ export default function ClientServices({ clientId }: { clientId: string }) {
   }, [fetchServices]);
 
   async function handleAdd(values: ServiceFormValues) {
-    const res = await fetch("/api/services", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...values, clientId }),
-    });
-    const json = await res.json();
-    if (res.ok && json.success) {
-      setShowAdd(false);
-      toast("Service added", "success");
-      fetchServices();
-    } else {
-      toast(json?.error || "Failed to add service", "error");
+    try {
+      const res = await fetch("/api/services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...values, clientId }),
+      });
+      const result = await readJson(res, "Couldn't add that service. Please try again.");
+      if (result.ok) {
+        setShowAdd(false);
+        toast("Service added", "success");
+        fetchServices();
+      } else {
+        toast(result.error!, "error");
+      }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't add that service. Please try again."), "error");
     }
   }
 
   async function handleEdit(values: ServiceFormValues) {
     if (!editing) return;
-    const res = await fetch(`/api/services/${editing.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
-    });
-    const json = await res.json();
-    if (res.ok && json.success) {
-      setEditing(null);
-      toast("Service updated", "success");
-      fetchServices();
-    } else {
-      toast(json?.error || "Failed to update service", "error");
+    try {
+      const res = await fetch(`/api/services/${editing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const result = await readJson(res, "Couldn't update that service. Please try again.");
+      if (result.ok) {
+        setEditing(null);
+        toast("Service updated", "success");
+        fetchServices();
+      } else {
+        toast(result.error!, "error");
+      }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't update that service. Please try again."), "error");
     }
   }
 

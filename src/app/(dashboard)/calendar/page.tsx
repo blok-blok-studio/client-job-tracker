@@ -15,6 +15,7 @@ import {
 import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
 import { cn, formatRelativeDate } from "@/lib/utils";
+import { readJson } from "@/lib/fetch-json";
 import {
   startOfMonth,
   endOfMonth,
@@ -87,23 +88,30 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchTasks = useCallback(async () => {
-    const res = await fetch("/api/tasks");
-    const data = await res.json();
-    if (data.success) {
-      setTasks(
-        data.data
-          .filter((t: Record<string, unknown>) => t.dueDate && t.status !== "DONE")
-          .map((t: Record<string, unknown>) => ({
-            id: t.id,
-            title: t.title,
-            dueDate: t.dueDate as string,
-            priority: t.priority as string,
-            status: t.status as string,
-            assignedTo: t.assignedTo as string | null,
-            clientName: (t.client as Record<string, string> | null)?.name || null,
-            type: "task" as const,
-          }))
+    try {
+      const res = await fetch("/api/tasks");
+      const result = await readJson<{ data: Array<Record<string, unknown>> }>(
+        res,
+        "Couldn't load tasks."
       );
+      if (result.ok) {
+        setTasks(
+          result.data!.data
+            .filter((t: Record<string, unknown>) => t.dueDate && t.status !== "DONE")
+            .map((t: Record<string, unknown>) => ({
+              id: t.id as string,
+              title: t.title as string,
+              dueDate: t.dueDate as string,
+              priority: t.priority as string,
+              status: t.status as string,
+              assignedTo: t.assignedTo as string | null,
+              clientName: (t.client as Record<string, string> | null)?.name || null,
+              type: "task" as const,
+            }))
+        );
+      }
+    } catch {
+      // Tasks unavailable — the calendar still shows bookings and posts
     }
   }, []);
 

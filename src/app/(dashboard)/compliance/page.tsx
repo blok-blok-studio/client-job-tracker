@@ -24,7 +24,7 @@ import Badge from "@/components/shared/Badge";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
 import { isSelfHeldDocType } from "@/lib/tax/obligations-source";
-import { friendlyError } from "@/lib/fetch-json";
+import { friendlyError, readJson } from "@/lib/fetch-json";
 import { safeUuid } from "@/lib/safe-uuid";
 
 interface Profile {
@@ -230,13 +230,15 @@ export default function CompliancePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{ success?: boolean }>(res, "Update failed");
+      if (result.ok && result.data?.success) {
         toast(okMessage, "success");
         await fetchAll();
       } else {
-        toast(json?.error || "Update failed", "error");
+        toast(result.error || "Update failed", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Update failed. Please try again."), "error");
     } finally {
       setBusy(false);
     }
@@ -251,13 +253,15 @@ export default function CompliancePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{ success?: boolean }>(res, "Update failed");
+      if (result.ok && result.data?.success) {
         toast(okMessage, "success");
         await fetchAll();
       } else {
-        toast(json?.error || "Update failed", "error");
+        toast(result.error || "Update failed", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Update failed. Please try again."), "error");
     } finally {
       setBusy(false);
     }
@@ -300,18 +304,21 @@ export default function CompliancePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, id, country }),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{ success?: boolean; data?: { docsCreated?: number } }>(res, "Failed to set country");
+      const docsCreated = result.data?.data?.docsCreated;
+      if (result.ok && result.data?.success) {
         toast(
-          json.data.docsCreated
-            ? `Country set — ${json.data.docsCreated} document requirement${json.data.docsCreated === 1 ? "" : "s"} created`
+          docsCreated
+            ? `Country set — ${docsCreated} document requirement${docsCreated === 1 ? "" : "s"} created`
             : "Country set",
           "success"
         );
         await fetchAll();
       } else {
-        toast(json?.error || "Failed to set country", "error");
+        toast(result.error || "Failed to set country", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't set the country. Please try again."), "error");
     } finally {
       setBusy(false);
     }
@@ -326,13 +333,16 @@ export default function CompliancePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ remindersEnabled: !remindersEnabled }),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setRemindersEnabled(json.data.remindersEnabled);
-        toast(json.data.remindersEnabled ? "Slack reminders ON" : "Slack reminders off", "success");
+      const result = await readJson<{ success?: boolean; data?: { remindersEnabled?: boolean } }>(res, "Failed to toggle");
+      const nextEnabled = !!result.data?.data?.remindersEnabled;
+      if (result.ok && result.data?.success) {
+        setRemindersEnabled(nextEnabled);
+        toast(nextEnabled ? "Slack reminders ON" : "Slack reminders off", "success");
       } else {
-        toast(json?.error || "Failed to toggle", "error");
+        toast(result.error || "Failed to toggle", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't change that setting. Please try again."), "error");
     } finally {
       setBusy(false);
     }
@@ -343,13 +353,15 @@ export default function CompliancePage() {
     setBusy(true);
     try {
       const res = await fetch("/api/compliance/obligations/reset", { method: "POST" });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{ success?: boolean }>(res, "Reset failed");
+      if (result.ok && result.data?.success) {
         toast("Catalog reset to source", "success");
         await fetchAll();
       } else {
-        toast(json?.error || "Reset failed", "error");
+        toast(result.error || "Reset failed", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Reset failed. Please try again."), "error");
     } finally {
       setBusy(false);
     }
@@ -369,15 +381,17 @@ export default function CompliancePage() {
           direction: addDoc.direction,
         }),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson<{ success?: boolean }>(res, "Failed to add");
+      if (result.ok && result.data?.success) {
         toast("Document requirement added", "success");
         setShowAddDoc(false);
         setAddDoc({ person: "", type: "", direction: "INBOUND" });
         await fetchAll();
       } else {
-        toast(json?.error || "Failed to add", "error");
+        toast(result.error || "Failed to add", "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't add that. Please try again."), "error");
     } finally {
       setBusy(false);
     }

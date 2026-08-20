@@ -7,6 +7,8 @@ import TopBar from "@/components/layout/TopBar";
 import Badge from "@/components/shared/Badge";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { readJson, friendlyError } from "@/lib/fetch-json";
+import { useToast } from "@/components/shared/Toast";
 
 interface Message {
   id: string;
@@ -35,15 +37,20 @@ const statusVariant: Record<string, "green" | "orange" | "blue" | "gray"> = {
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { toast } = useToast();
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fetchTicket = useCallback(async () => {
-    const res = await fetch(`/api/support/${id}`);
-    const data = await res.json();
-    if (data.success) setTicket(data.data);
+    try {
+      const res = await fetch(`/api/support/${id}`);
+      const result = await readJson<{ data: TicketDetail }>(res, "Couldn't load this ticket.");
+      if (result.ok && result.data?.data) setTicket(result.data.data);
+    } catch {
+      // Keep the ticket we already have and try again on the next poll
+    }
   }, [id]);
 
   useEffect(() => {
@@ -62,23 +69,41 @@ export default function TicketDetailPage() {
     if (!reply.trim() || sending) return;
 
     setSending(true);
-    await fetch(`/api/support/${id}/reply`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: reply, sender: "chase" }),
-    });
-    setReply("");
-    setSending(false);
-    fetchTicket();
+    try {
+      const res = await fetch(`/api/support/${id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: reply, sender: "chase" }),
+      });
+      const result = await readJson(res, "Couldn't send that reply. Please try again.");
+      if (!result.ok) {
+        // Keep what they typed; clearing it used to lose the reply entirely
+        toast(result.error!, "error");
+        return;
+      }
+      setReply("");
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't send that reply. Please try again."), "error");
+    } finally {
+      setSending(false);
+      fetchTicket();
+    }
   }
 
   async function handleStatusChange(status: string) {
-    await fetch(`/api/support/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    fetchTicket();
+    try {
+      const res = await fetch(`/api/support/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const result = await readJson(res, "Couldn't update the ticket. Please try again.");
+      if (!result.ok) toast(result.error!, "error");
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't update the ticket. Please try again."), "error");
+    } finally {
+      fetchTicket();
+    }
   }
 
   if (!ticket) return <div className="p-6 text-bb-dim">Loading...</div>;

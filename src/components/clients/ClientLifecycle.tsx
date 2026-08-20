@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Zap } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 import LifecycleTimeline from "@/components/automations/LifecycleTimeline";
 
 /**
@@ -52,11 +53,15 @@ export default function ClientLifecycle({ clientId, isOwner = false }: { clientI
   const { toast } = useToast();
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/clients/${clientId}`);
-    const data = await res.json();
-    if (data.success) {
-      setFields(data.data);
-      setDraft({});
+    try {
+      const res = await fetch(`/api/clients/${clientId}`);
+      const result = await readJson<{ data: LifecycleFields }>(res, "Couldn't load lifecycle details.");
+      if (result.ok) {
+        setFields(result.data!.data);
+        setDraft({});
+      }
+    } catch {
+      // Background load. Keep whatever is already on screen.
     }
   }, [clientId]);
 
@@ -83,14 +88,16 @@ export default function ClientLifecycle({ clientId, isOwner = false }: { clientI
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (data.success) {
+      const result = await readJson(res, "Couldn't save those changes. Please try again.");
+      if (result.ok) {
         toast("Lifecycle updated — sequences adjusted", "success");
         await load();
         setTimelineKey((k) => k + 1);
       } else {
-        toast(data.error || "Failed to save", "error");
+        toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't save those changes. Please try again."), "error");
     } finally {
       setSaving(false);
     }

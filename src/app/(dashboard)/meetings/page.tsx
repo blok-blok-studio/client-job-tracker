@@ -9,6 +9,7 @@ import Badge from "@/components/shared/Badge";
 import MeetingForm, { type MeetingFormValues } from "@/components/meetings/MeetingForm";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
+import { readJson } from "@/lib/fetch-json";
 
 interface MeetingRow {
   id: string;
@@ -122,13 +123,13 @@ export default function MeetingsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values),
     });
-    const json = await res.json();
-    if (res.ok && json.success) {
+    const result = await readJson<{ data: { id: string } }>(res, "Failed to post meeting. Please try again.");
+    if (result.ok) {
       setShowAdd(false);
       toast("Handoff posted — assignees notified", "success");
-      router.push(`/meetings/${json.data.id}`);
+      router.push(`/meetings/${result.data!.data.id}`);
     } else {
-      toast(json?.error || "Failed to post meeting", "error");
+      toast(result.error!, "error");
     }
   }
 

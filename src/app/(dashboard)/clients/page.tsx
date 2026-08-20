@@ -9,6 +9,7 @@ import Modal from "@/components/shared/Modal";
 import { cn } from "@/lib/utils";
 import { CardSkeleton } from "@/components/shared/Skeleton";
 import { useToast } from "@/components/shared/Toast";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 const TABS = [
   { key: "ACTIVE", label: "Active" },
@@ -93,23 +94,46 @@ export default function ClientsPage() {
     }
   }
 
+  // These reported success unconditionally, so a failed request still told the
+  // user the client was archived or permanently deleted.
+  async function runClientAction(url: string, method: string, done: string, failed: string) {
+    try {
+      const res = await fetch(url, { method });
+      const result = await readJson(res, failed);
+      toast(result.ok ? done : result.error!, result.ok ? "success" : "error");
+    } catch (err) {
+      toast(friendlyError(err, failed), "error");
+    } finally {
+      fetchClients();
+    }
+  }
+
   async function handleArchive(id: string) {
-    await fetch(`/api/clients/${id}`, { method: "DELETE" });
-    toast("Client archived", "success");
-    fetchClients();
+    await runClientAction(
+      `/api/clients/${id}`,
+      "DELETE",
+      "Client archived",
+      "Couldn't archive that client. Please try again."
+    );
   }
 
   async function handleUnarchive(id: string) {
-    await fetch(`/api/clients/${id}/unarchive`, { method: "POST" });
-    toast("Client restored", "success");
-    fetchClients();
+    await runClientAction(
+      `/api/clients/${id}/unarchive`,
+      "POST",
+      "Client restored",
+      "Couldn't restore that client. Please try again."
+    );
   }
 
   async function handlePermanentDelete(id: string) {
     if (!window.confirm("Permanently delete this client and ALL their data? This cannot be undone.")) return;
-    await fetch(`/api/clients/${id}?permanent=true`, { method: "DELETE" });
-    toast("Client permanently deleted", "success");
-    fetchClients();
+    await runClientAction(
+      `/api/clients/${id}?permanent=true`,
+      "DELETE",
+      "Client permanently deleted",
+      "Couldn't delete that client. Nothing was removed. Please try again."
+    );
   }
 
   function handleCopyLink() {

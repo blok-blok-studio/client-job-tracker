@@ -27,11 +27,12 @@ export default function BestTimes({ platform }: { platform: string | null }) {
     fetch(`/api/content-posts/best-times?platform=${platform}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.success) {
+        if (data?.success) {
           setTimes(data.data);
           setSource(data.source);
         }
       })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [platform]);
 

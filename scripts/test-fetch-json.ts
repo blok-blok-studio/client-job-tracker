@@ -6,6 +6,7 @@
 import { readJson, friendlyError } from "../src/lib/fetch-json";
 import { safeUuid } from "../src/lib/safe-uuid";
 import { checkDocumentFile, guessContentType } from "../src/lib/file-type";
+import { sanitizePublishError } from "../src/lib/social/publisher";
 
 let passed = 0;
 let failed = 0;
@@ -115,6 +116,23 @@ async function run() {
 
   const okFile = { name: "invoice.pdf", size: 500 * 1024, type: "application/pdf" } as File;
   check("a normal invoice passes", checkDocumentFile(okFile), null);
+
+  console.log("\nsanitizePublishError — social publishing failures");
+  check(
+    "an unreadable platform response is explained",
+    sanitizePublishError(`Unexpected token '<', "<!DOCTYPE "... is not valid JSON`),
+    "The platform returned a response we couldn't read. It may be having an outage. The post was not published."
+  );
+  check(
+    "a real platform error still comes through",
+    sanitizePublishError("Instagram media create error (400): Invalid media type"),
+    "Instagram media create error (400): Invalid media type"
+  );
+  check(
+    "credentials are still redacted",
+    sanitizePublishError("Failed: Bearer abc123def456ghi789jkl0"),
+    "Failed: Bearer [REDACTED]"
+  );
 
   console.log(`\n${passed} passed, ${failed} failed\n`);
   if (failed) process.exit(1);

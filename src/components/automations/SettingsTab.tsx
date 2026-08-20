@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
 import { cn } from "@/lib/utils";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 interface TierRow {
   label: string;
@@ -44,13 +45,15 @@ export default function SettingsTab({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (data.success) {
+      const result = await readJson(res, "Couldn't save those settings. Please try again.");
+      if (result.ok) {
         toast(msg, "success");
         onChanged();
       } else {
-        toast(data.error || "Failed", "error");
+        toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't save those settings. Please try again."), "error");
     } finally {
       setSaving(false);
     }

@@ -7,7 +7,7 @@ import {
 import TopBar from "@/components/layout/TopBar";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { useToast } from "@/components/shared/Toast";
-import { readJson } from "@/lib/fetch-json";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 interface ReportMetric { label: string; value: string; change?: string | null }
 interface TrajectoryItem {
@@ -61,9 +61,13 @@ export default function MonthlyReportsPage() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/client-reports");
-    const data = await res.json();
-    if (data.success) setReports(data.data);
+    try {
+      const res = await fetch("/api/client-reports");
+      const result = await readJson<{ data: ClientReport[] }>(res, "Couldn't load past reports.");
+      if (result.ok && result.data?.data) setReports(result.data.data);
+    } catch {
+      // Keep whatever is already on screen
+    }
   }, []);
 
   useEffect(() => {
@@ -131,9 +135,24 @@ export default function MonthlyReportsPage() {
   }
 
   async function removeReport(id: string) {
+    // Optimistic, but put the report back if the delete didn't actually land
+    const previous = reports;
+    const previousSelected = selected;
     setReports((prev) => prev.filter((r) => r.id !== id));
     if (selected?.id === id) setSelected(null);
-    await fetch(`/api/client-reports/${id}`, { method: "DELETE" });
+    try {
+      const res = await fetch(`/api/client-reports/${id}`, { method: "DELETE" });
+      const result = await readJson(res, "Couldn't delete that report. Please try again.");
+      if (!result.ok) {
+        setReports(previous);
+        setSelected(previousSelected);
+        toast(result.error!, "error");
+      }
+    } catch (err) {
+      setReports(previous);
+      setSelected(previousSelected);
+      toast(friendlyError(err, "Couldn't delete that report. Please try again."), "error");
+    }
   }
 
   const body = selected?.report;

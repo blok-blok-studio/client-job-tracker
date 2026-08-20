@@ -19,7 +19,7 @@ import {
 import { upload as vercelBlobUpload } from "@vercel/blob/client";
 import TopBar from "@/components/layout/TopBar";
 import { useToast } from "@/components/shared/Toast";
-import { friendlyError } from "@/lib/fetch-json";
+import { friendlyError, readJson } from "@/lib/fetch-json";
 import { safeUuid } from "@/lib/safe-uuid";
 
 interface SecurityStatus {
@@ -37,6 +37,13 @@ interface Profile {
   color: string | null;
   avatarUrl: string | null;
   jobRole: string | null;
+}
+
+interface TotpData {
+  qrDataUrl: string;
+  secret: string;
+  uri: string;
+  backupCodes: string[];
 }
 
 const inputClass =
@@ -110,14 +117,17 @@ export default function SecurityPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        toast(json?.error || "Failed", "error");
+      const result = await readJson(res, "That didn't save. Please try again.");
+      if (!result.ok) {
+        toast(result.error!, "error");
         return false;
       }
       if (ok) toast(ok, "success");
       await loadProfile();
       return true;
+    } catch (err) {
+      toast(friendlyError(err, "That didn't save. Please try again."), "error");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -208,13 +218,16 @@ export default function SecurityPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...extra }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        toast(json?.error || "Failed", "error");
+      const result = await readJson<{ data?: TotpData }>(res, "That didn't work. Please try again.");
+      if (!result.ok) {
+        toast(result.error!, "error");
         return null;
       }
       if (ok) toast(ok, "success");
-      return json.data ?? {};
+      return result.data?.data ?? ({} as TotpData);
+    } catch (err) {
+      toast(friendlyError(err, "That didn't work. Please try again."), "error");
+      return null;
     } finally {
       setBusy(false);
     }
@@ -262,13 +275,16 @@ export default function SecurityPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...extra }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        toast(json?.error || "Failed", "error");
+      const result = await readJson(res, "That didn't work. Please try again.");
+      if (!result.ok) {
+        toast(result.error!, "error");
         return false;
       }
       toast(ok, "success");
       return true;
+    } catch (err) {
+      toast(friendlyError(err, "That didn't work. Please try again."), "error");
+      return false;
     } finally {
       setBusy(false);
     }

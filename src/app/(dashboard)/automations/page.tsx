@@ -43,14 +43,16 @@ export default function AutomationsPage() {
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
+    // A gateway error answers with HTML, not JSON, so each parse can fail on its
+    // own. Drop the bad one and keep loading the rest instead of hanging the page.
     const [t, s, cfg] = await Promise.all([
-      fetch("/api/lifecycle/templates").then((r) => r.json()),
-      fetch("/api/lifecycle/sequences").then((r) => r.json()),
-      fetch("/api/lifecycle/settings").then((r) => r.json()),
+      fetch("/api/lifecycle/templates").then((r) => r.json()).catch(() => null),
+      fetch("/api/lifecycle/sequences").then((r) => r.json()).catch(() => null),
+      fetch("/api/lifecycle/settings").then((r) => r.json()).catch(() => null),
     ]);
-    if (t.success) setTemplates(t.data);
-    if (s.success) setSequences(s.data);
-    if (cfg.success) setSettings(cfg.data);
+    if (t?.success) setTemplates(t.data);
+    if (s?.success) setSequences(s.data);
+    if (cfg?.success) setSettings(cfg.data);
     setLoading(false);
   }, []);
 

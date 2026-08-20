@@ -9,6 +9,7 @@ import { useToast } from "@/components/shared/Toast";
 import { ListSkeleton } from "@/components/shared/Skeleton";
 import { PAGE_OPTIONS } from "@/lib/page-access";
 import { TEAM_ROLES, teamRoleLabel } from "@/lib/team-roles";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 interface TeamUser {
   id: string;
@@ -101,19 +102,24 @@ export default function TeamPage() {
   }
 
   async function patchUser(user: TeamUser, body: Record<string, unknown>, successMsg: string) {
-    const res = await fetch(`/api/users/${user.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast(data.error || "Update failed", "error");
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const result = await readJson(res, "Update failed. Please try again.");
+      if (!result.ok) {
+        toast(result.error!, "error");
+        return false;
+      }
+      toast(successMsg, "success");
+      load();
+      return true;
+    } catch (err) {
+      toast(friendlyError(err, "Update failed. Please try again."), "error");
       return false;
     }
-    toast(successMsg, "success");
-    load();
-    return true;
   }
 
   async function handleResetPassword(e: React.FormEvent) {

@@ -5,6 +5,7 @@ import { Ban, Clock } from "lucide-react";
 import Badge from "@/components/shared/Badge";
 import { useToast } from "@/components/shared/Toast";
 import { cn } from "@/lib/utils";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 import { humanOffset, KIND_LABEL, KIND_VARIANT } from "./helpers";
 
 export interface SequenceStepRow {
@@ -57,16 +58,22 @@ function OffsetEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: sequenceKey, stepKey: step.key, offsetMinutes }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const result = await readJson<{ data?: { rescheduled?: number } }>(
+        res,
+        "Couldn't save that timing. Please try again."
+      );
+      if (result.ok) {
+        const rescheduled = result.data!.data?.rescheduled;
         toast(
-          `Timing saved${data.data?.rescheduled ? ` — ${data.data.rescheduled} pending step(s) rescheduled` : ""}`,
+          `Timing saved${rescheduled ? ` — ${rescheduled} pending step(s) rescheduled` : ""}`,
           "success"
         );
         onSaved();
       } else {
-        toast(data.error || "Failed", "error");
+        toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't save that timing. Please try again."), "error");
     } finally {
       setSaving(false);
     }
@@ -110,17 +117,21 @@ export default function SequencesTab({
   const { toast } = useToast();
 
   const toggle = async (seq: SequenceRow) => {
-    const res = await fetch("/api/lifecycle/sequences", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: seq.key, enabled: !seq.enabled }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      toast(`Sequence ${seq.key} ${seq.enabled ? "disabled" : "enabled"}`, "success");
-      onChanged();
-    } else {
-      toast(data.error || "Failed", "error");
+    try {
+      const res = await fetch("/api/lifecycle/sequences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: seq.key, enabled: !seq.enabled }),
+      });
+      const result = await readJson(res, "Couldn't change that sequence. Please try again.");
+      if (result.ok) {
+        toast(`Sequence ${seq.key} ${seq.enabled ? "disabled" : "enabled"}`, "success");
+        onChanged();
+      } else {
+        toast(result.error!, "error");
+      }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't change that sequence. Please try again."), "error");
     }
   };
 

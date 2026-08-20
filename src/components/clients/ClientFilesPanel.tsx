@@ -7,7 +7,7 @@ import {
   FileText, FileImage, FileVideo, FileAudio, FileArchive, File as FileIcon, HardDrive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { friendlyError } from "@/lib/fetch-json";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 import { safeUuid } from "@/lib/safe-uuid";
 
 export interface ClientFileItem {
@@ -178,16 +178,18 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
           folder: uploadFolder.trim() || null,
         }),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson(res, "Couldn't save that link. Please try again.");
+      if (result.ok) {
         setLinkLabel("");
         setLinkUrl("");
         setShowLinkForm(false);
         toast("Link saved", "success");
         onRefresh();
       } else {
-        toast(json?.error || "Failed to save link", "error");
+        toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't save that link. Please try again."), "error");
     } finally {
       setLinkSaving(false);
     }
@@ -196,13 +198,17 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
   async function handleDelete(file: ClientFileItem) {
     const what = file.kind === "LINK" ? "link" : "file";
     if (!window.confirm(`Remove ${what} "${file.filename}"?`)) return;
-    const res = await fetch(`/api/client-files/${file.id}`, { method: "DELETE" });
-    const json = await res.json();
-    if (res.ok && json.success) {
-      toast(`${file.kind === "LINK" ? "Link" : "File"} removed`, "success");
-      onRefresh();
-    } else {
-      toast(json?.error || "Failed to remove", "error");
+    try {
+      const res = await fetch(`/api/client-files/${file.id}`, { method: "DELETE" });
+      const result = await readJson(res, `Couldn't remove that ${what}. Please try again.`);
+      if (result.ok) {
+        toast(`${file.kind === "LINK" ? "Link" : "File"} removed`, "success");
+        onRefresh();
+      } else {
+        toast(result.error!, "error");
+      }
+    } catch (err) {
+      toast(friendlyError(err, `Couldn't remove that ${what}. Please try again.`), "error");
     }
   }
 
@@ -216,17 +222,21 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
   async function handleEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!editing) return;
-    const res = await fetch(`/api/client-files/${editing.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: editName.trim() || editing.filename, folder: editFolder.trim() || null, notes: editNotes.trim() || null }),
-    });
-    const json = await res.json();
-    if (res.ok && json.success) {
-      setEditing(null);
-      onRefresh();
-    } else {
-      toast(json?.error || "Failed to update", "error");
+    try {
+      const res = await fetch(`/api/client-files/${editing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: editName.trim() || editing.filename, folder: editFolder.trim() || null, notes: editNotes.trim() || null }),
+      });
+      const result = await readJson(res, "Couldn't save those changes. Please try again.");
+      if (result.ok) {
+        setEditing(null);
+        onRefresh();
+      } else {
+        toast(result.error!, "error");
+      }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't save those changes. Please try again."), "error");
     }
   }
 

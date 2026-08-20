@@ -24,7 +24,7 @@ import SignatureCanvas from "@/components/shared/SignatureCanvas";
 import ContractorAvatar from "@/components/contractors/ContractorAvatar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
-import { friendlyError } from "@/lib/fetch-json";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 export interface ContractorOption {
   id: string;
@@ -176,11 +176,16 @@ export default function ContractsView({
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/contractors/contracts");
-      const json = await res.json();
-      if (json.success) {
-        setContracts(json.data);
-        if (json.provider) setProvider(json.provider);
+      const result = await readJson<{
+        data: ContractRow[];
+        provider?: { legalName: string; address: string };
+      }>(res, "Couldn't load agreements.");
+      if (result.ok) {
+        setContracts(result.data!.data);
+        if (result.data!.provider) setProvider(result.data!.provider);
       }
+    } catch {
+      // Background load. Leave the list as it is and stop the spinner.
     } finally {
       setLoading(false);
     }
@@ -234,9 +239,11 @@ export default function ContractsView({
     setDetailLoading(true);
     try {
       const res = await fetch(`/api/contractors/contracts/${id}`);
-      const json = await res.json();
-      if (json.success) setDetail(json.data);
-      else toast(json.error || "Couldn't open that agreement", "error");
+      const result = await readJson<{ data: ContractDetail }>(res, "Couldn't open that agreement.");
+      if (result.ok) setDetail(result.data!.data);
+      else toast(result.error!, "error");
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't open that agreement."), "error");
     } finally {
       setDetailLoading(false);
     }

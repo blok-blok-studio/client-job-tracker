@@ -5,6 +5,8 @@ import { Plus, Calendar, User, ClipboardList, Loader2, Rocket } from "lucide-rea
 import TaskDetailModal from "@/components/kanban/TaskDetailModal";
 import { STATUS_COLUMNS, type TaskStatus, type Priority } from "@/types";
 import { PROJECT_TEMPLATES } from "@/lib/project-templates";
+import { useToast } from "@/components/shared/Toast";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 interface ClientTask {
   id: string;
@@ -46,6 +48,7 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
   const [newAssignee, setNewAssignee] = useState("");
   const [templateOpen, setTemplateOpen] = useState(false);
   const [applyingTemplate, setApplyingTemplate] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetch("/api/users/assignable")
@@ -101,12 +104,19 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newTitle.trim(), clientId, status: "TODO", assignedTo: newAssignee || null }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const result = await readJson<{ data?: { id?: string } }>(
+        res,
+        "Couldn't add that task. Please try again."
+      );
+      if (result.ok) {
         setNewTitle("");
         await fetchTasks();
-        if (data.data?.id) setDetailTaskId(data.data.id);
+        if (result.data!.data?.id) setDetailTaskId(result.data!.data.id!);
+      } else {
+        toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't add that task. Please try again."), "error");
     } finally { setAdding(false); }
   }
 

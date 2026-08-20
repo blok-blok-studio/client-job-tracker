@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FlaskConical, Trash2, CheckCircle2, XCircle } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
 import LifecycleTimeline from "./LifecycleTimeline";
-import { readJson } from "@/lib/fetch-json";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 interface DryRunReport {
   clientId: string;
@@ -32,15 +32,27 @@ export default function DryRunTab() {
       } else {
         toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Dry run failed. Please try again."), "error");
     } finally {
       setRunning(false);
     }
   };
 
   const cleanup = async () => {
-    await fetch("/api/lifecycle/dry-run", { method: "DELETE" });
-    setReport(null);
-    toast("Dry-run records removed", "success");
+    // Reported success unconditionally, so a 500 still said the records were gone
+    try {
+      const res = await fetch("/api/lifecycle/dry-run", { method: "DELETE" });
+      const result = await readJson(res, "Couldn't remove the dry-run records. Please try again.");
+      if (!result.ok) {
+        toast(result.error!, "error");
+        return;
+      }
+      setReport(null);
+      toast("Dry-run records removed", "success");
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't remove the dry-run records. Please try again."), "error");
+    }
   };
 
   return (

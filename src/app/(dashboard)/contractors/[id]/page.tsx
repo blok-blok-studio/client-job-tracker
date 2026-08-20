@@ -31,7 +31,7 @@ import ContractsView, { type ContractorOption } from "@/components/contractors/C
 import ContractorAvatar, { avatarGradient } from "@/components/contractors/ContractorAvatar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
-import { friendlyError } from "@/lib/fetch-json";
+import { friendlyError, readJson } from "@/lib/fetch-json";
 import { safeUuid } from "@/lib/safe-uuid";
 
 interface InvoiceRow {
@@ -174,13 +174,13 @@ export default function ContractorProfilePage() {
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/contractors/${id}`);
-      const json = await res.json();
-      if (!json.success) {
-        toast(json.error || "Contractor not found", "error");
+      const result = await readJson<{ data: Contractor }>(res, "Couldn't load this contractor. Please try again.");
+      if (!result.ok) {
+        toast(result.error!, "error");
         router.replace("/contractors");
         return;
       }
-      const c: Contractor = json.data;
+      const c: Contractor = result.data!.data;
       setContractor(c);
       setEdit({
         role: c.role || "",
@@ -193,6 +193,8 @@ export default function ContractorProfilePage() {
         skills: c.skills || [],
       });
       setDirty(false);
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't load this contractor. Please try again."), "error");
     } finally {
       setLoading(false);
     }

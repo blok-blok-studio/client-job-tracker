@@ -10,6 +10,7 @@ import ServiceForm, { type ServiceFormValues } from "@/components/services/Servi
 import { SERVICE_CATEGORIES, serviceCategoryLabel } from "@/lib/service-catalog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
+import { readJson } from "@/lib/fetch-json";
 
 interface ServiceRow {
   id: string;
@@ -143,13 +144,13 @@ export default function ServicesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values),
     });
-    const json = await res.json();
-    if (res.ok && json.success) {
+    const result = await readJson(res, "Failed to add service. Please try again.");
+    if (result.ok) {
       setShowAdd(false);
       toast("Service added", "success");
       fetchServices();
     } else {
-      toast(json?.error || "Failed to add service", "error");
+      toast(result.error!, "error");
     }
   }
 
@@ -160,13 +161,13 @@ export default function ServicesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values),
     });
-    const json = await res.json();
-    if (res.ok && json.success) {
+    const result = await readJson(res, "Failed to update service. Please try again.");
+    if (result.ok) {
       setEditing(null);
       toast("Service updated", "success");
       fetchServices();
     } else {
-      toast(json?.error || "Failed to update service", "error");
+      toast(result.error!, "error");
     }
   }
 

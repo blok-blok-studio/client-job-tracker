@@ -11,6 +11,22 @@ import { publishToThreads } from "./platforms/threads";
 
 /** Strip tokens/keys from error messages to prevent credential leakage in logs */
 export function sanitizePublishError(message: string): string {
+  // A platform that answers 200 with a truncated or HTML body makes .json()
+  // throw, and the raw wording ("The string did not match the expected
+  // pattern." on Safari-flavoured runtimes, "Unexpected token '<'" elsewhere)
+  // tells whoever reads the failed post nothing about what happened.
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("did not match the expected pattern") ||
+    lower.includes("is not valid json") ||
+    lower.includes("json.parse") ||
+    lower.includes("json parse error") ||
+    lower.includes("unexpected token") ||
+    lower.includes("unexpected end of")
+  ) {
+    return "The platform returned a response we couldn't read. It may be having an outage. The post was not published.";
+  }
+
   return message
     .replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, "Bearer [REDACTED]")
     .replace(/access_token[=:]\s*[^\s,}&]*/gi, "access_token=[REDACTED]")

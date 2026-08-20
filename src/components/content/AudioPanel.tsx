@@ -15,7 +15,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { uploadFile } from "@/lib/client-upload";
-import { friendlyError } from "@/lib/fetch-json";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 interface AudioTrack {
   id: string;
@@ -171,15 +171,15 @@ export default function AudioPanel({ videoUrl, onAudioSelected, onMixComplete }:
         }),
       });
 
-      const data = await res.json();
+      const result = await readJson<{ data: { url: string } }>(res, "Mix failed. Please try again.");
 
-      if (data.success) {
-        onMixComplete(data.data.url);
+      if (result.ok) {
+        onMixComplete(result.data!.data.url);
       } else {
-        setMixError(data.error || "Mix failed");
+        setMixError(result.error!);
       }
-    } catch {
-      setMixError("Mix failed. Please try again.");
+    } catch (err) {
+      setMixError(friendlyError(err, "Mix failed. Please try again."));
     } finally {
       setMixing(false);
     }

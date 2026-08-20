@@ -382,7 +382,8 @@ export default function ContentPostModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSave: (data: ContentPostData) => Promise<void>;
+  /** Resolves false when the save failed, so the draft stays open. */
+  onSave: (data: ContentPostData) => Promise<boolean | void>;
   initialData?: ContentPostData | null;
   defaultScheduledAt?: string;
 }) {
@@ -434,8 +435,9 @@ export default function ContentPostModal({
     fetch("/api/clients")
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) setClients(d.data);
-      });
+        if (d?.success) setClients(d.data);
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch credentials when client + platform change
@@ -676,7 +678,7 @@ export default function ContentPostModal({
     if (!clientId || !platform) return;
     setSaving(true);
     try {
-      await onSave({
+      const saved = await onSave({
         id: initialData?.id,
         clientId,
         credentialId,
@@ -698,7 +700,8 @@ export default function ContentPostModal({
         visibility,
         enableComments,
       });
-      onClose();
+      // Closing regardless used to throw the post away when the save failed
+      if (saved !== false) onClose();
     } finally {
       setSaving(false);
     }

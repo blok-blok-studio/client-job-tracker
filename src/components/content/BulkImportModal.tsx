@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import Modal from "@/components/shared/Modal";
 import { Upload, FileText, CheckCircle, AlertCircle } from "lucide-react";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 interface BulkResult {
   row: number;
@@ -44,17 +45,22 @@ export default function BulkImportModal({
         body: formData,
       });
 
-      const data = await res.json();
+      const result = await readJson<{
+        imported: number;
+        errors: number;
+        total: number;
+        results: BulkResult[];
+      }>(res, "Import failed. Please try again.");
 
-      if (!data.success) {
-        setError(data.error || "Import failed");
+      if (!result.ok) {
+        setError(result.error!);
         return;
       }
 
-      setResults(data);
+      setResults(result.data!);
       onComplete();
-    } catch {
-      setError("Import failed. Please try again.");
+    } catch (err) {
+      setError(friendlyError(err, "Import failed. Please try again."));
     } finally {
       setImporting(false);
     }

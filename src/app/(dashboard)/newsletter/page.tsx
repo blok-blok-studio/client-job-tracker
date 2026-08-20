@@ -5,6 +5,7 @@ import { Mail, Plus, Trash2, Download, Send, Loader2, Users } from "lucide-react
 import TopBar from "@/components/layout/TopBar";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { useToast } from "@/components/shared/Toast";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 interface Subscriber {
   id: string;
@@ -39,11 +40,16 @@ export default function NewsletterPage() {
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/newsletter");
-      const data = await res.json();
-      if (data.success) {
-        setSubscribers(data.data.subscribers);
-        setCampaigns(data.data.campaigns);
+      const result = await readJson<{ data: { subscribers: Subscriber[]; campaigns: Campaign[] } }>(
+        res,
+        "Couldn't load the newsletter list."
+      );
+      if (result.ok && result.data?.data) {
+        setSubscribers(result.data.data.subscribers);
+        setCampaigns(result.data.data.campaigns);
       }
+    } catch {
+      // Keep whatever is already on screen
     } finally {
       setLoading(false);
     }
@@ -72,22 +78,36 @@ export default function NewsletterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: newEmail.trim() }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const result = await readJson(res, "Couldn't add that subscriber. Please try again.");
+      if (result.ok) {
         setNewEmail("");
         toast("Subscriber added", "success");
         load();
       } else {
-        toast(data.error || "Failed", "error");
+        toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Couldn't add that subscriber. Please try again."), "error");
     } finally {
       setAdding(false);
     }
   }
 
   async function removeSubscriber(id: string) {
+    // Optimistic, but put the row back if the delete didn't actually land
+    const previous = subscribers;
     setSubscribers((prev) => prev.filter((s) => s.id !== id));
-    await fetch(`/api/newsletter/${id}`, { method: "DELETE" });
+    try {
+      const res = await fetch(`/api/newsletter/${id}`, { method: "DELETE" });
+      const result = await readJson(res, "Couldn't remove that subscriber. Please try again.");
+      if (!result.ok) {
+        setSubscribers(previous);
+        toast(result.error!, "error");
+      }
+    } catch (err) {
+      setSubscribers(previous);
+      toast(friendlyError(err, "Couldn't remove that subscriber. Please try again."), "error");
+    }
   }
 
   function exportCsv() {
@@ -111,15 +131,18 @@ export default function NewsletterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject: subject.trim(), message: message.trim() }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const result = await readJson<{ sent: number; failed?: number }>(res, "Send failed. Please try again.");
+      if (result.ok) {
+        const data = result.data!;
         toast(`Sent to ${data.sent} subscriber${data.sent !== 1 ? "s" : ""}${data.failed ? ` (${data.failed} failed)` : ""}`, "success");
         setSubject("");
         setMessage("");
         load();
       } else {
-        toast(data.error || "Send failed", "error");
+        toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Send failed. Please try again."), "error");
     } finally {
       setSending(false);
       setConfirmSend(false);

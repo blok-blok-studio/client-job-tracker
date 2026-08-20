@@ -13,6 +13,7 @@ import Badge from "@/components/shared/Badge";
 import MeetingForm, { type MeetingFormValues } from "@/components/meetings/MeetingForm";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/Toast";
+import { readJson, friendlyError } from "@/lib/fetch-json";
 
 interface MeetingDetail {
   id: string;
@@ -115,13 +116,13 @@ export default function MeetingDetailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const json = await res.json();
-    if (res.ok && json.success) {
+    const result = await readJson(res, "Failed to update meeting. Please try again.");
+    if (result.ok) {
       if (successMsg) toast(successMsg, "success");
       fetchMeeting();
       return true;
     }
-    toast(json?.error || "Failed to update meeting", "error");
+    toast(result.error!, "error");
     return false;
   }
 
@@ -134,12 +135,12 @@ export default function MeetingDetailPage() {
     if (!meeting) return;
     if (!window.confirm(`Delete "${meeting.title}"? Tasks created from it stay on the board.`)) return;
     const res = await fetch(`/api/meetings/${id}`, { method: "DELETE" });
-    const json = await res.json();
-    if (res.ok && json.success) {
+    const result = await readJson(res, "Failed to delete meeting. Please try again.");
+    if (result.ok) {
       toast("Meeting deleted", "success");
       router.push("/meetings");
     } else {
-      toast(json?.error || "Failed to delete meeting", "error");
+      toast(result.error!, "error");
     }
   }
 
@@ -157,8 +158,8 @@ export default function MeetingDetailPage() {
           dueDate: taskDue || null,
         }),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson(res, "Failed to add task. Please try again.");
+      if (result.ok) {
         setTaskTitle("");
         setTaskAssignee("");
         setTaskDue("");
@@ -166,8 +167,10 @@ export default function MeetingDetailPage() {
         toast("Task added to the board", "success");
         fetchMeeting();
       } else {
-        toast(json?.error || "Failed to add task", "error");
+        toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Failed to add task. Please try again."), "error");
     } finally {
       setTaskSaving(false);
     }
@@ -183,13 +186,15 @@ export default function MeetingDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: comment.trim() }),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const result = await readJson(res, "Failed to add comment. Please try again.");
+      if (result.ok) {
         setComment("");
         fetchMeeting();
       } else {
-        toast(json?.error || "Failed to add comment", "error");
+        toast(result.error!, "error");
       }
+    } catch (err) {
+      toast(friendlyError(err, "Failed to add comment. Please try again."), "error");
     } finally {
       setCommentSaving(false);
     }

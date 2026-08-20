@@ -85,13 +85,14 @@ export default function KanbanBoard() {
   const dragStatusRef = useRef<TaskStatus | null>(null);
 
   const fetchTasks = useCallback(async () => {
-    const res = await fetch("/api/tasks");
-    const data = await res.json();
+    const data = await fetch("/api/tasks")
+      .then((r) => r.json())
+      .catch(() => null);
     // A fetch that was already in flight when a drag started must not land
     // mid-drag — replacing the tasks array unmounts the card dnd-kit is
     // actively measuring and crashes the board.
     if (dragStatusRef.current !== null) return;
-    if (data.success) {
+    if (data?.success) {
       setTasks(
         data.data.map((t: Record<string, unknown>) => ({
           id: t.id,
@@ -144,8 +145,8 @@ export default function KanbanBoard() {
   useEffect(() => {
     fetchTasks();
     fetch("/api/clients?type=ACTIVE").then((r) => r.json()).then((d) => {
-      if (d.success) setClients(d.data.map((c: Record<string, string>) => ({ id: c.id, name: c.name })));
-    });
+      if (d?.success) setClients(d.data.map((c: Record<string, string>) => ({ id: c.id, name: c.name })));
+    }).catch(() => {});
     fetch("/api/users/assignable").then((r) => r.json()).then((d) => {
       if (d.success) setTeam(d.data);
     }).catch(() => {});

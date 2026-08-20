@@ -144,6 +144,8 @@ export default function ContractorPortal({
   const [missingDocs, setMissingDocs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [invalid, setInvalid] = useState(false);
+  // Distinct from `invalid`: the link is fine, we just couldn't reach the server
+  const [unreachable, setUnreachable] = useState(false);
   const [tab, setTab] = useState<"invoices" | "work" | "hours" | "documents" | "contracts">("invoices");
 
   // Agreements to read and sign
@@ -207,20 +209,38 @@ export default function ContractorPortal({
   const [hoursSuccess, setHoursSuccess] = useState(false);
   const hoursFormRef = useRef<HTMLDivElement>(null);
 
-  const loadPortal = useCallback((t: string) => {
-    fetch(`/api/contractor/${t}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success) {
-          setContractor(d.data.contractor);
-          setInvoices(d.data.invoices);
-          setMissingDocs(d.data.missingDocs || []);
-        } else {
-          setInvalid(true);
-        }
-      })
-      .catch(() => setInvalid(true))
-      .finally(() => setLoading(false));
+  const loadPortal = useCallback(async (t: string) => {
+    try {
+      const res = await fetch(`/api/contractor/${t}`);
+      const result = await readJson<{
+        data: {
+          contractor: ContractorInfo;
+          invoices: InvoiceRow[];
+          missingDocs?: string[];
+        };
+      }>(res);
+
+      if (result.ok) {
+        setContractor(result.data!.data.contractor);
+        setInvoices(result.data!.data.invoices);
+        setMissingDocs(result.data!.data.missingDocs || []);
+        setUnreachable(false);
+        return;
+      }
+
+      // Only the server actually rejecting the token means the link is dead.
+      // A timeout or an unreadable response used to land here too, telling a
+      // contractor their working link was invalid.
+      if (result.status === 404 || result.status === 400 || result.status === 410) {
+        setInvalid(true);
+      } else {
+        setUnreachable(true);
+      }
+    } catch {
+      setUnreachable(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const loadHours = useCallback((t: string) => {
@@ -611,6 +631,31 @@ export default function ContractorPortal({
     return (
       <div className="min-h-screen bg-[#0A0A0C] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-white/30 animate-spin" />
+      </div>
+    );
+  }
+
+  if (unreachable && !contractor) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0C] flex items-center justify-center p-4">
+        <div className="text-center">
+          <AlertCircle size={48} className="text-amber-400 mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-white mb-2">Can&apos;t connect right now</h1>
+          <p className="text-sm text-gray-400 mb-4">
+            Your link is fine. We just couldn&apos;t reach the server. Check your connection and try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setUnreachable(false);
+              setLoading(true);
+              loadPortal(token);
+            }}
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Try again
+          </button>
+        </div>
       </div>
     );
   }
