@@ -26,11 +26,11 @@ model User {
   jobRole      String? // What they do here (see src/lib/team-roles.ts); drives the tab preset
 
   // --- Second-factor auth (all opt-in, default off; login is unchanged until enabled) ---
-  totpSecret     String? // base32 TOTP secret, AES-256-GCM encrypted at rest ("iv:ciphertext")
-  totpEnabled    Boolean  @default(false)
-  pinHash        String? // bcrypt hash of a numeric quick-PIN (optional second factor)
-  backupCodes    String[] @default([]) // bcrypt hashes of one-time recovery codes
-  mfaUpdatedAt   DateTime?
+  totpSecret   String? // base32 TOTP secret, AES-256-GCM encrypted at rest ("iv:ciphertext")
+  totpEnabled  Boolean   @default(false)
+  pinHash      String? // bcrypt hash of a numeric quick-PIN (optional second factor)
+  backupCodes  String[]  @default([]) // bcrypt hashes of one-time recovery codes
+  mfaUpdatedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -127,8 +127,9 @@ model Client {
   contractorWorkFiles   ContractorWorkFile[]
   taxDocuments          TaxDocument[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  siteLeads SiteLead[]
 
   @@index([type])
   @@index([tier])
@@ -328,17 +329,17 @@ model Notification {
 // is the image/video content gallery. A row is either an uploaded FILE (Vercel
 // Blob) or an external LINK (their shared Drive folder, kept for reference).
 model ClientFile {
-  id       String         @id @default(cuid())
-  clientId String
-  client   Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  kind     ClientFileKind @default(FILE)
-  filename String // display name (link label for kind LINK)
-  url      String // Blob URL, or the external link itself
-  fileSize Int? // bytes (null for links)
-  mimeType String? // null for links
-  folder   String? // grouping, e.g. "Brand assets", "Website copy"
-  notes    String?
-  uploadedBy String @default("team")
+  id         String         @id @default(cuid())
+  clientId   String
+  client     Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  kind       ClientFileKind @default(FILE)
+  filename   String // display name (link label for kind LINK)
+  url        String // Blob URL, or the external link itself
+  fileSize   Int? // bytes (null for links)
+  mimeType   String? // null for links
+  folder     String? // grouping, e.g. "Brand assets", "Website copy"
+  notes      String?
+  uploadedBy String         @default("team")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1027,10 +1028,10 @@ model Contractor {
   avatarUrl       String? // selfie / profile photo (public Vercel Blob, unguessable path)
   avatarUpdatedAt DateTime?
   role            String? // free-form: "Video Editor", "Frontend Dev"
-  skills          String[] @default([])
+  skills          String[]  @default([])
   accentColor     String? // hex, drives their profile chrome
   emoji           String? // one emoji they pick — shows next to their name
-  bio             String?  @db.Text
+  bio             String?   @db.Text
   funFact         String?
   location        String?
   timezone        String? // IANA, remembered from their hours logs
@@ -1350,7 +1351,7 @@ model ContractorWorkFile {
   clientFileId String?
 
   submitIp        String?
-  submitUserAgent String? @db.Text
+  submitUserAgent String?  @db.Text
   createdAt       DateTime @default(now())
 
   @@index([contractorId, createdAt])
@@ -1501,20 +1502,20 @@ model TaxProfile {
 // Editable deadline catalog. Shipped rows live in src/lib/tax/obligations-source.ts
 // ("reset to source" restores them); the DB row is what the reminder engine reads.
 model TaxObligation {
-  id        String        @id @default(cuid())
-  key       String        @unique // stable id from obligations-source.ts, e.g. "us-1099-nec"
+  id        String       @id @default(cuid())
+  key       String       @unique // stable id from obligations-source.ts, e.g. "us-1099-nec"
   country   String // ISO 3166-1 alpha-2
   appliesTo TaxAppliesTo
   profileId String?
-  profile   TaxProfile?   @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  profile   TaxProfile?  @relation(fields: [profileId], references: [id], onDelete: SetNull)
 
-  name        String
-  formName    String?
-  description String       @db.Text
-  frequency   TaxFrequency
+  name         String
+  formName     String?
+  description  String       @db.Text
+  frequency    TaxFrequency
   // Due-date rules: ANNUAL/ONE_TIME = [{month, day}], QUARTERLY = 4 of those,
   // MONTHLY = [{dayOfMonth}], WATCH = [] (threshold checks, no fixed date).
-  dueRules    Json
+  dueRules     Json
   // When submission opens (e.g. IRS e-file opening late January); reminder stage 0.
   earliestOpen Json?
 
@@ -1565,8 +1566,8 @@ model TaxDocument {
   encrypted    Boolean @default(false)
   encryptionIv String?
 
-  validUntil DateTime? // e.g. W-8BEN = 3 years from signing
-  requestedAt DateTime @default(now())
+  validUntil  DateTime? // e.g. W-8BEN = 3 years from signing
+  requestedAt DateTime  @default(now())
   receivedAt  DateTime?
 
   // Self-attestation (for SSN/TIN forms we deliberately DON'T store — the
@@ -1600,4 +1601,34 @@ enum TaxDocStatus {
   EXPIRED
   NA
   ATTESTED // contractor confirmed they hold the form (SSN/TIN) — no copy stored here
+}
+
+// --- SITE LEADS (form + quiz submissions from the client sites we build) ---
+// One row per submission. Sites POST to /api/site-leads with a shared token,
+// so a lead lands here instead of only in an inbox.
+model SiteLead {
+  id      String   @id @default(cuid())
+  /**
+   * Which site and form it came from, e.g. "mindandbodyretreats.com waitlist quiz"
+   */
+  source  String
+  name    String
+  email   String
+  /**
+   * One readable line per quiz question
+   */
+  answers String[] @default([])
+  /**
+   * What the quiz pointed them at
+   */
+  matched String[] @default([])
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([source])
+  @@index([email])
+  @@index([createdAt])
 }
