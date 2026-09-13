@@ -15,6 +15,8 @@ import { imageThumb } from "@/lib/media-thumb";
 import TopBar from "@/components/layout/TopBar";
 import VideoThumbnail from "@/components/shared/VideoThumbnail";
 import { useToast } from "@/components/shared/Toast";
+import { useZipDownload } from "@/components/shared/useZipDownload";
+import { downloadMediaFile } from "@/lib/client-download";
 import { friendlyError } from "@/lib/fetch-json";
 import { safeUuid } from "@/lib/safe-uuid";
 
@@ -49,6 +51,7 @@ function formatDate(dateStr: string) {
 
 export default function FilesPage() {
   const { toast } = useToast();
+  const { startZip, zipBar } = useZipDownload();
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(() =>
@@ -277,19 +280,11 @@ export default function FilesPage() {
 
   const totalSize = files.reduce((acc, f) => acc + f.fileSize, 0);
 
-  // Download via the download endpoint. We navigate an anchor straight at the
-  // endpoint (which streams from / redirects to the Blob CDN) instead of
-  // fetch()->blob()->objectURL — buffering a multi-hundred-MB file in the tab's
-  // memory can crash the page. The browser streams directly to disk.
+  // Streams straight to disk (never fetch()->blob(), which crashes the tab on
+  // big videos). On iPhone/iPad it opens in Safari so the app isn't replaced.
   const handleDownload = (media: MediaFile) => {
     setDownloading(media.id);
-    const a = document.createElement("a");
-    a.href = `/api/client-media/${media.id}/download`;
-    a.download = media.filename;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    downloadMediaFile(media);
     // No completion event for a native download; clear the spinner shortly after.
     setTimeout(() => setDownloading((cur) => (cur === media.id ? null : cur)), 1500);
   };
@@ -311,36 +306,18 @@ export default function FilesPage() {
       });
   };
 
-  // Bulk download as one zip. Submit a hidden form so the browser streams the
-  // download natively (no fetch()->blob() buffering).
+  // Bulk download as one zip, streamed natively (no fetch()->blob() buffering)
   const downloadZip = (zipFiles: MediaFile[], nameHint: string) => {
     if (zipFiles.length === 0) return;
     if (zipFiles.length === 1) { handleDownload(zipFiles[0]); return; }
     // Server zips are capped at ~4GB (no zip64) — catch it here with a toast
-    // instead of letting the form POST land on a JSON error page.
+    // instead of letting the request land on a JSON error page.
     const totalBytes = zipFiles.reduce((acc, f) => acc + (f.fileSize || 0), 0);
     if (totalBytes > 3.9 * 1024 * 1024 * 1024) {
       toast("Selection is over the 4GB zip limit — download in smaller batches", "error");
       return;
     }
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "/api/client-media/download-zip";
-    form.style.display = "none";
-    const idsInput = document.createElement("input");
-    idsInput.type = "hidden";
-    idsInput.name = "ids";
-    idsInput.value = JSON.stringify(zipFiles.map((f) => f.id));
-    form.appendChild(idsInput);
-    const nameInput = document.createElement("input");
-    nameInput.type = "hidden";
-    nameInput.name = "name";
-    nameInput.value = nameHint;
-    form.appendChild(nameInput);
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-    toast(`Zipping ${zipFiles.length} files — download starts shortly`, "success");
+    startZip(zipFiles.map((f) => f.id), nameHint);
   };
 
   const zipNameHint = [
@@ -1202,7 +1179,7 @@ export default function FilesPage() {
 
         {/* Selection toolbar */}
         {selectMode && selectedIds.size > 0 && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-xl bg-bb-surface border border-bb-border shadow-modal">
+          <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-xl bg-bb-surface border border-bb-border shadow-modal">
             <span className="text-sm text-white font-medium whitespace-nowrap">
               {selectedIds.size} file{selectedIds.size !== 1 ? "s" : ""} selected
             </span>
@@ -1228,36 +1205,37 @@ export default function FilesPage() {
           const total = filtered.length;
           return (
             <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col" onClick={() => setViewerIndex(null)}>
-              <div className="flex items-center justify-between px-4 py-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+              {/* Safe-area padding keeps the buttons below the notch / status bar in the home-screen app */}
+              <div className="flex items-center justify-between gap-2 px-3 sm:px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shrink-0" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="text-sm text-white font-medium truncate max-w-[300px]">{media.filename}</span>
-                  <span className="text-xs text-bb-dim shrink-0">
+                  <span className="hidden sm:inline text-xs text-bb-dim shrink-0">
                     {formatSize(media.fileSize)} · {media.client.name} · {media.uploadedBy === "client" ? "Client" : "You"} · {viewerIndex + 1} of {total}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   <button onClick={() => toggleFavorite(media)} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors" title={media.favorite ? "Remove favorite" : "Favorite"}>
                     <Heart size={16} className={media.favorite ? "text-red-500 fill-red-500" : ""} />
                   </button>
                   <button onClick={() => handleDownload(media)} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors" title="Download">
                     <Download size={16} />
                   </button>
-                  <button onClick={() => copyUrl(media.url)} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors" title="Copy link">
+                  <button onClick={() => copyUrl(media.url)} className="hidden sm:block p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors" title="Copy link">
                     <Copy size={16} />
                   </button>
-                  <button onClick={() => window.open(media.url, "_blank")} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors" title="Open">
+                  <button onClick={() => window.open(media.url, "_blank")} className="hidden sm:block p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors" title="Open">
                     <ExternalLink size={16} />
                   </button>
                   <button onClick={() => handleDelete(media.id)} className="p-2 rounded-lg bg-white/10 text-white hover:bg-red-500 transition-colors" title="Delete">
                     <Trash2 size={16} />
                   </button>
-                  <button onClick={() => setViewerIndex(null)} className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors">
+                  <button onClick={() => setViewerIndex(null)} aria-label="Close" className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors">
                     <X size={16} />
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 flex items-center justify-center relative min-h-0 px-16" onClick={(e) => e.stopPropagation()}>
+              <div className="flex-1 flex items-center justify-center relative min-h-0 px-2 sm:px-16" onClick={(e) => e.stopPropagation()}>
                 {viewerIndex > 0 && (
                   <button onClick={() => setViewerIndex(viewerIndex - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors z-10">
                     <ChevronLeft size={24} />
@@ -1300,7 +1278,7 @@ export default function FilesPage() {
               </div>
 
               {total > 1 && (
-                <div className="shrink-0 px-4 py-3 flex gap-2 justify-center overflow-x-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="shrink-0 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex gap-2 justify-start sm:justify-center overflow-x-auto" onClick={(e) => e.stopPropagation()}>
                   {filtered.map((thumb, i) => (
                     <button
                       key={thumb.id}
@@ -1326,6 +1304,7 @@ export default function FilesPage() {
             </div>
           );
         })()}
+        {zipBar}
       </div>
     </div>
   );

@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import VideoThumbnail from "@/components/shared/VideoThumbnail";
+import { useZipDownload } from "@/components/shared/useZipDownload";
+import { downloadMediaFile } from "@/lib/client-download";
 import { imageThumb } from "@/lib/media-thumb";
 
 interface MediaFile {
@@ -69,6 +71,7 @@ export default function MediaManager({
   mediaFiles, clientName, uploadingMedia, onUpload, onDelete, onBatchDelete, onBatchAssignFolder, onRefresh, toast,
 }: MediaManagerProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const { startZip, zipBar } = useZipDownload();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -263,52 +266,27 @@ export default function MediaManager({
     }
   };
 
-  // Force download via the download endpoint. Navigate an anchor straight at it
-  // (it streams from / redirects to the Blob CDN) rather than buffering the file
-  // in the tab with fetch()->blob(), which can crash on large client videos.
+  // Streams straight to disk (never fetch()->blob(), which crashes the tab on
+  // big client videos). On iPhone/iPad it opens in Safari so the app isn't replaced.
   const handleDownload = useCallback((media: MediaFile) => {
     setDownloading(media.id);
-    const a = document.createElement("a");
-    a.href = `/api/client-media/${media.id}/download`;
-    a.download = media.filename;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    downloadMediaFile(media);
     setTimeout(() => setDownloading((cur) => (cur === media.id ? null : cur)), 1500);
   }, []);
 
-  // Bulk download as one zip. Submit a hidden form so the browser streams the
-  // download natively (no fetch()->blob() buffering — same reason as above).
+  // Bulk download as one zip, streamed natively (no fetch()->blob() buffering)
   const downloadZip = useCallback((files: MediaFile[], nameHint: string) => {
     if (files.length === 0) return;
     if (files.length === 1) { handleDownload(files[0]); return; }
     // Server zips are capped at ~4GB (no zip64) — catch it here with a toast
-    // instead of letting the form POST land on a JSON error page.
+    // instead of letting the request land on a JSON error page.
     const totalBytes = files.reduce((acc, f) => acc + (f.fileSize || 0), 0);
     if (totalBytes > 3.9 * 1024 * 1024 * 1024) {
       toast("Selection is over the 4GB zip limit — download in smaller batches", "error");
       return;
     }
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "/api/client-media/download-zip";
-    form.style.display = "none";
-    const idsInput = document.createElement("input");
-    idsInput.type = "hidden";
-    idsInput.name = "ids";
-    idsInput.value = JSON.stringify(files.map((f) => f.id));
-    form.appendChild(idsInput);
-    const nameInput = document.createElement("input");
-    nameInput.type = "hidden";
-    nameInput.name = "name";
-    nameInput.value = nameHint;
-    form.appendChild(nameInput);
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-    toast(`Zipping ${files.length} files — download starts shortly`, "success");
-  }, [handleDownload, toast]);
+    startZip(files.map((f) => f.id), nameHint);
+  }, [handleDownload, startZip, toast]);
 
   const zipNameHint = [
     clientName || "media",
@@ -1187,16 +1165,17 @@ export default function MediaManager({
             onClick={() => setViewerIndex(null)}
           >
             {/* Top bar */}
-            <div className="flex items-center justify-between px-4 py-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+            {/* Safe-area padding keeps the buttons below the notch / status bar in the home-screen app */}
+            <div className="flex items-center justify-between gap-2 px-3 sm:px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shrink-0" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-sm text-white font-medium truncate max-w-[300px]">{media.filename}</span>
-                <span className="text-xs text-bb-dim shrink-0">
+                <span className="hidden sm:inline text-xs text-bb-dim shrink-0">
                   {formatSize(media.fileSize)}
                   {" · "}{media.uploadedBy === "client" ? "Client" : "You"}
                   {" · "}{viewerIndex + 1} of {total}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <button
                   onClick={() => toggleFavorite(media)}
                   className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
@@ -1214,14 +1193,14 @@ export default function MediaManager({
                 </button>
                 <button
                   onClick={() => copyUrl(media.url)}
-                  className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+                  className="hidden sm:block p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
                   title="Copy link"
                 >
                   <Copy size={16} />
                 </button>
                 <button
                   onClick={() => window.open(media.url, "_blank")}
-                  className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+                  className="hidden sm:block p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
                   title="Open in new tab"
                 >
                   <ExternalLink size={16} />
@@ -1235,6 +1214,7 @@ export default function MediaManager({
                 </button>
                 <button
                   onClick={() => setViewerIndex(null)}
+                  aria-label="Close"
                   className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
                 >
                   <X size={16} />
@@ -1243,7 +1223,7 @@ export default function MediaManager({
             </div>
 
             {/* Main content */}
-            <div className="flex-1 flex items-center justify-center relative min-h-0 px-16" onClick={(e) => e.stopPropagation()}>
+            <div className="flex-1 flex items-center justify-center relative min-h-0 px-2 sm:px-16" onClick={(e) => e.stopPropagation()}>
               {viewerIndex > 0 && (
                 <button
                   onClick={() => setViewerIndex(viewerIndex - 1)}
@@ -1301,7 +1281,7 @@ export default function MediaManager({
 
             {/* Thumbnail strip */}
             {total > 1 && (
-              <div className="shrink-0 px-4 py-3 flex gap-2 justify-center overflow-x-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="shrink-0 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex gap-2 justify-start sm:justify-center overflow-x-auto" onClick={(e) => e.stopPropagation()}>
                 {filtered.map((thumb, i) => (
                   <button
                     key={thumb.id}
@@ -1331,6 +1311,7 @@ export default function MediaManager({
           </div>
         );
       })()}
+      {zipBar}
     </div>
   );
 }

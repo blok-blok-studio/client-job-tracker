@@ -29,6 +29,7 @@ const PUBLIC_PATHS = [
   "/api/agreement/",
   "/api/post-review/",
   "/api/client-media/upload-portal",
+  "/api/client-media/zip-link/", // random 15-minute links made by the team (iPhone zip downloads open in Safari)
   "/api/client-media/upload-blob",
   "/api/client-media/upload-stream",
   "/api/telegram/webhook",
