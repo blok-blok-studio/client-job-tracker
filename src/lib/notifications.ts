@@ -15,7 +15,11 @@ export type NotificationType =
   | "mention"
   | "task_comment"
   | "meeting_assigned"
-  | "meeting_comment";
+  | "meeting_comment"
+  | "post_action_needed"
+  | "post_failed"
+  | "connection_problem"
+  | "approval_response";
 
 export interface NotifyInput {
   userId: string;

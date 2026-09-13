@@ -828,6 +828,8 @@ export default function OnboardPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   { key: "meta", label: "Instagram & Facebook", color: "from-pink-500 to-purple-500" },
+                  { key: "instagram", label: "Instagram only", color: "from-pink-500 to-orange-400" },
+                  { key: "tiktok", label: "TikTok", color: "from-gray-800 to-black" },
                   { key: "threads", label: "Threads", color: "from-gray-400 to-gray-600" },
                   { key: "twitter", label: "X (Twitter)", color: "from-gray-700 to-black" },
                   { key: "linkedin", label: "LinkedIn", color: "from-blue-600 to-blue-800" },
@@ -835,7 +837,7 @@ export default function OnboardPage() {
                 ].map((provider) => (
                   <a
                     key={provider.key}
-                    href={`/api/oauth/${provider.key}/authorize?clientId=${clientId}&returnTo=${encodeURIComponent(window.location.href.split("?")[0])}`}
+                    href={`/api/oauth/${provider.key}/authorize?clientId=${clientId}&onboardToken=${encodeURIComponent(token)}&returnTo=${encodeURIComponent(window.location.href.split("?")[0])}`}
                     className={`flex items-center justify-center gap-2 px-3 py-3 bg-gradient-to-r ${provider.color} text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity`}
                   >
                     <Link2 size={14} />

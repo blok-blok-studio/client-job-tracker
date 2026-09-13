@@ -103,8 +103,11 @@ export const credentialSchema = z.object({
   notes: z.string().optional().or(z.literal("")),
 });
 
-export const SOCIAL_PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "THREADS", "LINKEDIN", "YOUTUBE", "FACEBOOK"] as const;
-export const CONTENT_POST_STATUSES = ["DRAFT", "SCHEDULED", "PUBLISHING", "PUBLISHED", "FAILED"] as const;
+export const SOCIAL_PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "THREADS", "LINKEDIN", "YOUTUBE", "FACEBOOK", "REDNOTE"] as const;
+export const CONTENT_POST_STATUSES = ["DRAFT", "SCHEDULED", "PUBLISHING", "PUBLISHED", "FAILED", "ACTION_NEEDED"] as const;
+/** Statuses a person may set directly; the rest belong to the publish runner. */
+export const USER_SETTABLE_POST_STATUSES = ["DRAFT", "SCHEDULED"] as const;
+export const PUBLISH_MODES = ["AUTO", "ASSISTED"] as const;
 
 export const contentPostSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
@@ -140,6 +143,14 @@ export const contentPostSchema = z.object({
   // Content management
   visibility: z.string().nullable().optional(),
   enableComments: z.boolean().optional().default(true),
+
+  // Composer grouping, manual posting, assignment
+  groupId: z.string().nullable().optional(),
+  publishMode: z.enum(PUBLISH_MODES).optional(),
+  assignedToId: z.string().nullable().optional(),
+  // Set by "Send for approval": the post is held (approvalStatus PENDING) in
+  // the same write, so the publisher can't pick it up before the link exists
+  holdForApproval: z.boolean().optional(),
 });
 
 export const contentPostBulkSchema = z.object({
@@ -166,6 +177,8 @@ export const contentPostBulkSchema = z.object({
   platformSettings: z.record(z.string(), z.unknown()).nullable().optional(),
   visibility: z.string().nullable().optional(),
   enableComments: z.boolean().optional().default(true),
+  publishMode: z.enum(PUBLISH_MODES).optional(),
+  assignedToId: z.string().nullable().optional(),
 });
 
 export const reorderSchema = z.object({

@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { encrypt } from "@/lib/encryption";
 import prisma from "@/lib/prisma";
 import { getProviderConfig, getRedirectUri, getClientCredentials } from "./config";
+import type { CredentialMeta } from "@/lib/social/types";
 
 // ─── State & PKCE ─────────────────────────────────────────────────────────
 
@@ -14,16 +15,25 @@ export interface OAuthState {
   provider: string;
   codeVerifier?: string;
   returnTo?: string;
+  /** Started from a client's onboarding link (no team session) */
+  viaOnboard?: boolean;
   nonce: string;
 }
 
 /** Generate a cryptographic state parameter that embeds clientId */
-export function generateState(clientId: string, provider: string, codeVerifier?: string, returnTo?: string): string {
+export function generateState(
+  clientId: string,
+  provider: string,
+  codeVerifier?: string,
+  returnTo?: string,
+  viaOnboard?: boolean
+): string {
   const state: OAuthState = {
     clientId,
     provider,
     codeVerifier,
     returnTo,
+    viaOnboard: viaOnboard || undefined,
     nonce: crypto.randomBytes(16).toString("hex"),
   };
   return Buffer.from(JSON.stringify(state)).toString("base64url");
@@ -56,6 +66,26 @@ export interface TokenResponse {
   refresh_token?: string;
   expires_in?: number;
   token_type?: string;
+  /** TikTok */
+  open_id?: string;
+  refresh_expires_in?: number;
+  scope?: string;
+  /** Instagram Login */
+  user_id?: string | number;
+}
+
+/**
+ * TikTok returns HTTP 200 with an error body, and Instagram's short-lived
+ * exchange wraps the token in data[]. Normalize both to TokenResponse.
+ */
+function normalizeTokenBody(provider: string, body: Record<string, unknown>): TokenResponse {
+  if (provider === "tiktok" && (body.error || !body.access_token)) {
+    throw new Error(`Token request failed: ${String(body.error_description || body.error || "no access_token")}`);
+  }
+  if (provider === "instagram" && Array.isArray(body.data) && body.data[0]) {
+    return body.data[0] as TokenResponse;
+  }
+  return body as unknown as TokenResponse;
 }
 
 /** Exchange authorization code for tokens */
@@ -74,7 +104,7 @@ export async function exchangeCode(
     grant_type: "authorization_code",
     code,
     redirect_uri: redirectUri,
-    client_id: clientId,
+    [config.clientIdParam || "client_id"]: clientId,
     client_secret: clientSecret,
   });
 
@@ -103,6 +133,32 @@ export async function exchangeCode(
     throw new Error(`Token exchange failed (${res.status}): ${error}`);
   }
 
+  return normalizeTokenBody(provider, await res.json());
+}
+
+/** Instagram Login: swap the 1-hour token for a 60-day one. */
+export async function exchangeInstagramLongLivedToken(shortToken: string): Promise<TokenResponse> {
+  const config = getProviderConfig("instagram")!;
+  const { clientSecret } = getClientCredentials(config);
+  const params = new URLSearchParams({
+    grant_type: "ig_exchange_token",
+    client_secret: clientSecret,
+    access_token: shortToken,
+  });
+  const res = await fetch(`https://graph.instagram.com/access_token?${params}`);
+  if (!res.ok) {
+    throw new Error(`Instagram long-lived token exchange failed: ${await res.text()}`);
+  }
+  return res.json();
+}
+
+/** Instagram Login: extend a still-valid long-lived token by another 60 days. */
+export async function refreshInstagramToken(longLivedToken: string): Promise<TokenResponse> {
+  const params = new URLSearchParams({ grant_type: "ig_refresh_token", access_token: longLivedToken });
+  const res = await fetch(`https://graph.instagram.com/refresh_access_token?${params}`);
+  if (!res.ok) {
+    throw new Error(`Instagram token refresh failed: ${await res.text()}`);
+  }
   return res.json();
 }
 
@@ -140,7 +196,7 @@ export async function refreshToken(
   const params = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: currentRefreshToken,
-    client_id: clientId,
+    [config.clientIdParam || "client_id"]: clientId,
     client_secret: clientSecret,
   });
 
@@ -164,7 +220,7 @@ export async function refreshToken(
     throw new Error(`Token refresh failed (${res.status}): ${error}`);
   }
 
-  return res.json();
+  return normalizeTokenBody(provider, await res.json());
 }
 
 // ─── Credential Storage ───────────────────────────────────────────────────
@@ -177,6 +233,8 @@ interface StoreCredentialParams {
   accessToken: string;
   refreshToken?: string;
   expiresAt?: Date;
+  /** Non-secret connection details (see CredentialMeta) */
+  meta?: CredentialMeta;
 }
 
 /** Normalize platform names for consistent display */
@@ -188,6 +246,8 @@ function normalizePlatform(platform: string): string {
     twitter: "X (Twitter)",
     linkedin: "LinkedIn",
     youtube: "YouTube",
+    tiktok: "TikTok",
+    TIKTOK: "TikTok",
     INSTAGRAM: "Instagram",
     FACEBOOK: "Facebook",
     THREADS: "Threads",
@@ -207,13 +267,18 @@ export async function storeOAuthCredential(params: StoreCredentialParams): Promi
   const encryptedPassword = encrypt(accessToken);
   const encryptedNotes = refreshTok ? encrypt(refreshTok) : null;
 
-  // Check for existing credential for this platform + client combo
-  // Match by label too so different accounts (e.g. two IG accounts) don't overwrite each other
-  const existing = await prisma.credential.findFirst({
-    where: { clientId, platform, label },
-  }) || await prisma.credential.findFirst({
-    where: { clientId, platform },
-  });
+  // Reconnecting the same account updates its row; a different account on the
+  // same platform gets its own row. Match on the platform account id when we
+  // have it (labels can change), else on the label. The old "any row for this
+  // platform" fallback overwrote a client's second account.
+  const meta: CredentialMeta = { ...params.meta, accountId: params.meta?.accountId || userId };
+  const existing =
+    (await prisma.credential.findFirst({
+      where: { clientId, platform, meta: { path: ["accountId"], equals: meta.accountId } },
+    })) ||
+    (await prisma.credential.findFirst({
+      where: { clientId, platform, label },
+    }));
 
   if (existing) {
     // Update existing credential
@@ -233,6 +298,7 @@ export async function storeOAuthCredential(params: StoreCredentialParams): Promi
         label,
         url: expiresAt?.toISOString() || null,
         lastRotated: new Date(),
+        meta: meta as object,
       },
     });
 
@@ -264,6 +330,7 @@ export async function storeOAuthCredential(params: StoreCredentialParams): Promi
         notes: encryptedNotes?.iv || null,
       }),
       lastRotated: new Date(),
+      meta: meta as object,
     },
   });
 
@@ -285,15 +352,21 @@ interface MetaAccount {
   platform: string;
   userId: string;
   label: string;
+  avatarUrl?: string;
 }
 
-/** Fetch Instagram, Facebook Page, and Threads accounts from Meta token */
+/**
+ * Fetch the Facebook Pages and their linked Instagram accounts a Meta
+ * (Facebook Login) token can manage. Threads isn't discovered here: it has its
+ * own OAuth provider. Page tokens aren't put in the pending cookie (size limit);
+ * select-accounts fetches them for the Pages that get picked.
+ */
 export async function discoverMetaAccounts(accessToken: string): Promise<MetaAccount[]> {
   const accounts: MetaAccount[] = [];
 
   // Fetch Facebook Pages
   const pagesRes = await fetch(
-    `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=${accessToken}`
+    `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,picture{url},instagram_business_account{id,username,profile_picture_url}&limit=100&access_token=${accessToken}`
   );
 
   if (pagesRes.ok) {
@@ -304,6 +377,7 @@ export async function discoverMetaAccounts(accessToken: string): Promise<MetaAcc
         platform: "Facebook",
         userId: page.id,
         label: page.name,
+        avatarUrl: page.picture?.data?.url,
       });
 
       // Instagram Business Account (linked to page)
@@ -314,23 +388,9 @@ export async function discoverMetaAccounts(accessToken: string): Promise<MetaAcc
           platform: "Instagram",
           userId: igId,
           label: `@${igUsername}`,
+          avatarUrl: page.instagram_business_account.profile_picture_url,
         });
       }
-    }
-  }
-
-  // Fetch Threads user ID
-  const threadsRes = await fetch(
-    `https://graph.threads.net/v1.0/me?fields=id,username&access_token=${accessToken}`
-  );
-  if (threadsRes.ok) {
-    const threadsData = await threadsRes.json();
-    if (threadsData.id) {
-      accounts.push({
-        platform: "Threads",
-        userId: threadsData.id,
-        label: `@${threadsData.username || "threads"}`,
-      });
     }
   }
 

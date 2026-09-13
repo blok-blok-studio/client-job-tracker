@@ -17,6 +17,8 @@ export interface OAuthProviderConfig {
   userinfoUrl?: string;
   /** Platforms this provider covers (for credential creation) */
   platforms: string[];
+  /** Name of the app-id query/body param (TikTok calls it client_key) */
+  clientIdParam?: string;
 }
 
 export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
@@ -27,16 +29,53 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     scopes: [
       "instagram_basic",
       "instagram_content_publish",
-      "instagram_manage_messages",
+      "instagram_manage_comments", // first comment
+      "instagram_manage_insights", // post analytics
       "pages_show_list",
       "pages_read_engagement",
-      "business_management",
+      "pages_manage_posts", // publish to Pages (text, photos, video)
+      "business_management", // Pages owned through a Business portfolio
     ],
     scopeSeparator: ",",
     clientIdEnv: "META_APP_ID",
     clientSecretEnv: "META_APP_SECRET",
     usePKCE: false,
-    platforms: ["INSTAGRAM", "FACEBOOK", "THREADS"],
+    // Threads needs its own OAuth (the "threads" provider): a Facebook Login
+    // token can't call graph.threads.net.
+    platforms: ["INSTAGRAM", "FACEBOOK"],
+  },
+  // Instagram API with Instagram Login: Business/Creator accounts sign in with
+  // Instagram directly, no Facebook Page needed. Separate app id/secret from the
+  // Meta (Facebook Login) app — find them under the app's Instagram product.
+  instagram: {
+    name: "Instagram",
+    authUrl: "https://www.instagram.com/oauth/authorize",
+    tokenUrl: "https://api.instagram.com/oauth/access_token",
+    scopes: [
+      "instagram_business_basic",
+      "instagram_business_content_publish",
+      "instagram_business_manage_comments",
+      "instagram_business_manage_insights",
+    ],
+    scopeSeparator: ",",
+    clientIdEnv: "INSTAGRAM_APP_ID",
+    clientSecretEnv: "INSTAGRAM_APP_SECRET",
+    usePKCE: false,
+    userinfoUrl: "https://graph.instagram.com/v23.0/me?fields=user_id,username,name,profile_picture_url,account_type",
+    platforms: ["INSTAGRAM"],
+  },
+  tiktok: {
+    name: "TikTok",
+    authUrl: "https://www.tiktok.com/v2/auth/authorize/",
+    tokenUrl: "https://open.tiktokapis.com/v2/oauth/token/",
+    scopes: ["user.info.basic", "user.info.profile", "video.publish", "video.upload", "video.list"],
+    scopeSeparator: ",",
+    clientIdEnv: "TIKTOK_CLIENT_KEY",
+    clientSecretEnv: "TIKTOK_CLIENT_SECRET",
+    usePKCE: false,
+    userinfoUrl: "https://open.tiktokapis.com/v2/user/info/?fields=open_id,avatar_url,display_name,username",
+    platforms: ["TIKTOK"],
+    clientIdParam: "client_key",
   },
   threads: {
     name: "Threads",
@@ -52,19 +91,19 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     clientIdEnv: "THREADS_APP_ID",
     clientSecretEnv: "THREADS_APP_SECRET",
     usePKCE: false,
-    userinfoUrl: "https://graph.threads.net/v1.0/me?fields=id,username",
+    userinfoUrl: "https://graph.threads.net/v1.0/me?fields=id,username,threads_profile_picture_url",
     platforms: ["THREADS"],
   },
   twitter: {
     name: "X (Twitter)",
-    authUrl: "https://twitter.com/i/oauth2/authorize",
-    tokenUrl: "https://api.twitter.com/2/oauth2/token",
+    authUrl: "https://x.com/i/oauth2/authorize",
+    tokenUrl: "https://api.x.com/2/oauth2/token",
     scopes: ["tweet.read", "tweet.write", "users.read", "media.write", "offline.access"],
     scopeSeparator: " ",
     clientIdEnv: "TWITTER_CLIENT_ID",
     clientSecretEnv: "TWITTER_CLIENT_SECRET",
     usePKCE: true,
-    userinfoUrl: "https://api.twitter.com/2/users/me",
+    userinfoUrl: "https://api.x.com/2/users/me",
     platforms: ["TWITTER"],
   },
   linkedin: {
@@ -86,6 +125,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     scopes: [
       "https://www.googleapis.com/auth/youtube.upload",
       "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/youtube.force-ssl", // playlists + thumbnails
     ],
     scopeSeparator: " ",
     clientIdEnv: "GOOGLE_CLIENT_ID",

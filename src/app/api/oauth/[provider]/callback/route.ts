@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getProviderConfig } from "@/lib/oauth/config";
+import type { CredentialMeta } from "@/lib/social/types";
 import {
   parseState,
   exchangeCode,
   exchangeMetaLongLivedToken,
+  exchangeInstagramLongLivedToken,
   storeOAuthCredential,
   discoverMetaAccounts,
 } from "@/lib/oauth/utils";
+import { exchangeThreadsLongLivedToken } from "@/lib/social/platforms/threads";
+import { getSession } from "@/lib/auth";
+import { safeReturnTo, withParam } from "@/lib/oauth/access";
+import { saveDiscoveredMetaAccounts } from "@/lib/oauth/meta-accounts";
 
 export async function GET(
   request: NextRequest,
@@ -20,9 +26,12 @@ export async function GET(
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  // Handle user denial
+  // Handle user denial: send them back where they started (a client lands on
+  // their onboarding page, not the team login)
   if (error) {
-    return NextResponse.redirect(`${baseUrl}/content?oauth_error=${encodeURIComponent(error)}`);
+    const deniedState = stateParam ? parseState(stateParam) : null;
+    const back = safeReturnTo(deniedState?.returnTo, `${baseUrl}/content`);
+    return NextResponse.redirect(withParam(back, "oauth_error", error));
   }
 
   if (!code || !stateParam) {
@@ -50,18 +59,38 @@ export async function GET(
     return NextResponse.redirect(`${baseUrl}/content?oauth_error=unknown_provider`);
   }
 
+  // The state matched the httpOnly cookie our authorize route set, and that
+  // route only sets it for a team session or a valid client onboarding token.
+  // Still require one of the two here.
+  const session = await getSession();
+  if (!session && !state.viaOnboard) {
+    return NextResponse.redirect(`${baseUrl}/login`);
+  }
+
   try {
     // Exchange code for tokens
-    const tokenData = await exchangeCode(provider, code, state.codeVerifier);
+    let tokenData = await exchangeCode(provider, code, state.codeVerifier);
+
+    // Instagram Login hands back a 1-hour token; trade it for the 60-day one
+    if (provider === "instagram") {
+      const longLived = await exchangeInstagramLongLivedToken(tokenData.access_token);
+      tokenData = { ...longLived, user_id: tokenData.user_id };
+    }
+
+    // Threads also starts with a 1-hour token; the 60-day one is refreshable
+    if (provider === "threads") {
+      const longLived = await exchangeThreadsLongLivedToken(tokenData.access_token);
+      tokenData = { ...longLived, user_id: tokenData.user_id };
+    }
 
     const expiresAt = tokenData.expires_in
       ? new Date(Date.now() + tokenData.expires_in * 1000)
       : undefined;
 
-    const redirectBase = state.returnTo || `${baseUrl}/clients/${state.clientId}`;
+    const redirectBase = safeReturnTo(state.returnTo, `${baseUrl}/clients/${state.clientId}`);
 
     if (provider === "meta") {
-      return await handleMetaCallback(state.clientId, tokenData.access_token, expiresAt, redirectBase);
+      return await handleMetaCallback(state.clientId, tokenData.access_token, expiresAt, redirectBase, !!state.viaOnboard);
     }
 
     // For other providers, fetch user info and store credential
@@ -76,10 +105,8 @@ export async function GET(
   } catch (err) {
     const message = err instanceof Error ? err.message : "OAuth failed";
     console.error(`[OAuth ${provider}] Callback error:`, message);
-    const errorRedirect = state.returnTo || `${baseUrl}/clients/${state.clientId}`;
-    return NextResponse.redirect(
-      `${errorRedirect}?oauth_error=${encodeURIComponent("Connection failed. Please try again.")}`
-    );
+    const errorRedirect = safeReturnTo(state.returnTo, `${baseUrl}/clients/${state.clientId}`);
+    return NextResponse.redirect(withParam(errorRedirect, "oauth_error", "Connection failed. Please try again."));
   }
 }
 
@@ -87,7 +114,8 @@ async function handleMetaCallback(
   clientId: string,
   shortLivedToken: string,
   _expiresAt: Date | undefined,
-  redirectBase: string
+  redirectBase: string,
+  viaOnboard: boolean
 ): Promise<NextResponse> {
   // Exchange for long-lived token (60 days)
   const longLived = await exchangeMetaLongLivedToken(shortLivedToken);
@@ -101,8 +129,20 @@ async function handleMetaCallback(
 
   if (accounts.length === 0) {
     return NextResponse.redirect(
-      `${redirectBase}?oauth_error=${encodeURIComponent("No business accounts found. Make sure you have an Instagram Business/Creator account linked to a Facebook Page.")}`
+      withParam(
+        redirectBase,
+        "oauth_error",
+        "No business accounts found. Make sure you have an Instagram Business/Creator account linked to a Facebook Page."
+      )
     );
+  }
+
+  // A client connecting from their onboarding link has no team session, so
+  // the in-app account picker isn't available to them. They just approved
+  // these exact accounts on Facebook's own consent screen: save them all.
+  if (viaOnboard) {
+    const saved = await saveDiscoveredMetaAccounts(clientId, accessToken, expiresAt, accounts);
+    return NextResponse.redirect(withParam(redirectBase, "oauth_success", `Connected ${saved.join(", ")}`));
   }
 
   // Store discovered accounts in an encrypted cookie and redirect to account picker
@@ -129,18 +169,40 @@ async function handleStandardCallback(
   provider: string,
   config: { userinfoUrl?: string; platforms: string[] },
   clientId: string,
-  tokenData: { access_token: string; refresh_token?: string; expires_in?: number },
+  tokenData: {
+    access_token: string;
+    refresh_token?: string;
+    expires_in?: number;
+    open_id?: string;
+    refresh_expires_in?: number;
+    scope?: string;
+    user_id?: string | number;
+  },
   expiresAt: Date | undefined,
   redirectBase: string
 ): Promise<NextResponse> {
   const platform = config.platforms[0];
   let userId = "unknown";
   let label = platform;
+  const meta: CredentialMeta = {
+    provider,
+    scopes: tokenData.scope ? tokenData.scope.split(/[ ,]+/).filter(Boolean) : undefined,
+  };
 
   // Fetch user info
+  if (provider === "tiktok" && tokenData.open_id) userId = tokenData.open_id;
+  if (provider === "tiktok" && tokenData.refresh_expires_in) {
+    meta.refreshExpiresAt = new Date(Date.now() + tokenData.refresh_expires_in * 1000).toISOString();
+  }
+
   if (config.userinfoUrl) {
     try {
-      const userinfoRes = await fetch(config.userinfoUrl, {
+      // Instagram's and Threads' graph APIs take the token as a query param
+      const userinfoUrl =
+        provider === "instagram" || provider === "threads"
+          ? `${config.userinfoUrl}&access_token=${encodeURIComponent(tokenData.access_token)}`
+          : config.userinfoUrl;
+      const userinfoRes = await fetch(userinfoUrl, {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
 
@@ -152,11 +214,15 @@ async function handleStandardCallback(
             const data = userinfo.data || userinfo;
             userId = data.id || userId;
             label = data.username ? `@${data.username}` : data.name || label;
+            meta.username = data.username;
+            meta.displayName = data.name;
             break;
           }
           case "linkedin": {
             userId = userinfo.sub || userId;
             label = userinfo.name || userinfo.given_name || label;
+            meta.displayName = userinfo.name;
+            meta.avatarUrl = userinfo.picture;
             break;
           }
           case "google": {
@@ -164,12 +230,37 @@ async function handleStandardCallback(
             if (channel) {
               userId = channel.id || userId;
               label = channel.snippet?.title || label;
+              meta.username = channel.snippet?.customUrl;
+              meta.avatarUrl = channel.snippet?.thumbnails?.default?.url;
             }
             break;
           }
-          case "threads": {
-            userId = userinfo.id || userId;
+          case "tiktok": {
+            // TikTok wraps the profile in data.user and reports errors in-body
+            const user = userinfo.data?.user;
+            if (user) {
+              userId = user.open_id || tokenData.open_id || userId;
+              label = user.username ? `@${user.username}` : user.display_name || label;
+              meta.username = user.username;
+              meta.displayName = user.display_name;
+              meta.avatarUrl = user.avatar_url;
+            }
+            break;
+          }
+          case "instagram": {
+            userId = String(userinfo.user_id || tokenData.user_id || userId);
             label = userinfo.username ? `@${userinfo.username}` : label;
+            meta.username = userinfo.username;
+            meta.displayName = userinfo.name;
+            meta.avatarUrl = userinfo.profile_picture_url;
+            meta.apiHost = "graph.instagram.com";
+            break;
+          }
+          case "threads": {
+            userId = String(userinfo.id || tokenData.user_id || userId);
+            label = userinfo.username ? `@${userinfo.username}` : label;
+            meta.username = userinfo.username;
+            meta.avatarUrl = userinfo.threads_profile_picture_url;
             break;
           }
         }
@@ -187,9 +278,8 @@ async function handleStandardCallback(
     accessToken: tokenData.access_token,
     refreshToken: tokenData.refresh_token,
     expiresAt,
+    meta: { ...meta, accountId: userId },
   });
 
-  return NextResponse.redirect(
-    `${redirectBase}?oauth_success=${encodeURIComponent(`Connected ${platform}: ${label}`)}`
-  );
+  return NextResponse.redirect(withParam(redirectBase, "oauth_success", `Connected ${platform}: ${label}`));
 }

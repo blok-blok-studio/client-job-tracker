@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/publish-posts",
-      "schedule": "*/15 * * * *"
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/cron",
@@ -11,6 +11,14 @@
     {
       "path": "/api/cron/lifecycle",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/social-metrics",
+      "schedule": "7 * * * *"
+    },
+    {
+      "path": "/api/cron/render-media",
+      "schedule": "* * * * *"
     }
   ],
   "functions": {
@@ -61,6 +69,12 @@
     },
     "src/app/api/cron/lifecycle/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/social-metrics/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/cron/render-media/route.ts": {
+      "maxDuration": 800
     }
   }
 }

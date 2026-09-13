@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Link2, Instagram, Twitter, Linkedin, Youtube, AtSign, ChevronDown } from "lucide-react";
+import { Link2, Instagram, Twitter, Linkedin, Youtube, AtSign, ChevronDown, Music2 } from "lucide-react";
 
 const PROVIDERS = [
   {
@@ -10,6 +10,20 @@ const PROVIDERS = [
     icon: Instagram,
     color: "text-pink-400",
     description: "Connects Instagram Business and Facebook Pages",
+  },
+  {
+    key: "instagram",
+    label: "Instagram (direct)",
+    icon: Instagram,
+    color: "text-pink-400",
+    description: "Business or Creator account, no Facebook Page needed",
+  },
+  {
+    key: "tiktok",
+    label: "TikTok",
+    icon: Music2,
+    color: "text-white",
+    description: "Post videos and photo carousels to TikTok",
   },
   {
     key: "threads",

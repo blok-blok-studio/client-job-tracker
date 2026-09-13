@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getSession } from "@/lib/auth";
 
 /**
  * GET — Read pending Meta accounts from httpOnly cookie.
  * Returns the discovered accounts (without the access token) for the picker UI.
  */
 export async function GET() {
+  // Team-only picker (clients connecting from onboarding never reach it)
+  if (!(await getSession())) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   const cookieStore = await cookies();
   const pendingCookie = cookieStore.get("oauth_pending_accounts")?.value;
 

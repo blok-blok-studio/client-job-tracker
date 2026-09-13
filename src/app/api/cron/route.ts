@@ -4,8 +4,7 @@ import prisma from "@/lib/prisma";
 import { sendPaymentReminderEmail, sendDeliverableReviewReminderEmail } from "@/lib/email";
 import crypto from "crypto";
 import { refreshExpiringCredentials } from "@/lib/oauth/refresh";
-import { publishPost, sanitizePublishError } from "@/lib/social/publisher";
-import { humanDelay } from "@/lib/social/http";
+import { publishDuePosts, warnPostsWithBrokenConnections } from "@/lib/social/publish-runner";
 import { backfillMissingThumbnails, backfillMissingPlayback } from "@/lib/server-video-thumbnail";
 
 function verifyBearerToken(authHeader: string | null): boolean {
@@ -261,66 +260,19 @@ export async function GET(request: NextRequest) {
       console.error("[Cron] OAuth token refresh error:", err);
     }
 
-    // Publish any scheduled posts that are due
+    // Publish any scheduled posts that are due (the per-minute publish cron
+    // normally gets there first; the shared runner's claim makes this safe)
     let postsPublished = 0;
     let postsFailed = 0;
+    let postConnectionWarnings = 0;
     try {
-      const duePosts = await prisma.contentPost.findMany({
-        where: {
-          status: "SCHEDULED",
-          scheduledAt: { lte: new Date() },
-          NOT: {
-            platform: { in: ["TWITTER", "THREADS"] },
-            client: { name: { contains: "Chase Haynes" } },
-          },
-        },
-        orderBy: { scheduledAt: "asc" },
-      });
-
-      for (const post of duePosts) {
-        await prisma.contentPost.update({ where: { id: post.id }, data: { status: "PUBLISHING" } });
-
-        const credentials = post.credentialId
-          ? await prisma.credential.findMany({ where: { id: post.credentialId } })
-          : await prisma.credential.findMany({ where: { clientId: post.clientId } });
-
-        let published = false;
-        let lastError = "";
-
-        for (let attempt = 0; attempt <= 2; attempt++) {
-          try {
-            if (attempt > 0) await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 2000 + Math.random() * 2000));
-            const result = await publishPost(post, credentials);
-            await prisma.contentPost.update({
-              where: { id: post.id },
-              data: { status: "PUBLISHED", publishedAt: new Date(), externalId: result.externalId || null, externalUrl: result.externalUrl || null, publishError: null },
-            });
-            await prisma.activityLog.create({
-              data: { clientId: post.clientId, actor: "cron", action: "content_published", details: `Published ${post.platform} post: ${post.title || "(untitled)"}` },
-            });
-            postsPublished++;
-            published = true;
-            break;
-          } catch (err) {
-            lastError = sanitizePublishError(err instanceof Error ? err.message : "Unknown error");
-            if (lastError.includes("credentials") || lastError.includes("Unauthorized") || lastError.includes("401")) break;
-          }
-        }
-
-        if (!published) {
-          await prisma.contentPost.update({ where: { id: post.id }, data: { status: "FAILED", publishError: lastError } });
-          await prisma.activityLog.create({
-            data: { clientId: post.clientId, actor: "cron", action: "content_publish_failed", details: `Failed: ${post.platform} post: ${lastError}` },
-          });
-          postsFailed++;
-        }
-
-        if (duePosts.indexOf(post) < duePosts.length - 1) await humanDelay(2000, 5000);
-      }
-
+      const run = await publishDuePosts({ actor: "cron", budgetMs: 60_000 });
+      postsPublished = run.published;
+      postsFailed = run.failed + run.interrupted;
       if (postsPublished + postsFailed > 0) {
         console.log(`[Cron] Posts: ${postsPublished} published, ${postsFailed} failed`);
       }
+      postConnectionWarnings = await warnPostsWithBrokenConnections();
     } catch (err) {
       console.error("[Cron] Post publishing error:", err);
     }
@@ -460,7 +412,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, reviewRemindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, thumbnailsGenerated, playbacksGenerated, digestSent, taxRemindersSent: taxReminders.sent.length, taxRemindersPending: taxReminders.wouldSend.length },
+      data: { recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, reviewRemindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, postConnectionWarnings, thumbnailsGenerated, playbacksGenerated, digestSent, taxRemindersSent: taxReminders.sent.length, taxRemindersPending: taxReminders.wouldSend.length },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";
