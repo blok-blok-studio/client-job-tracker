@@ -7,6 +7,7 @@
  * loss on stored media); the derivative only exists so Instagram can fetch it.
  */
 
+import { fetchWithRetry } from "./http";
 import { put } from "@vercel/blob";
 import { fetchBlobBounded } from "@/lib/blob-fetch";
 import { PublishValidationError } from "./types";
@@ -19,7 +20,7 @@ const JPEG_EXT = /\.jpe?g(\?|#|$)/i;
 const HEIC_EXT = /\.(heic|heif)(\?|#|$)/i;
 
 async function headInfo(url: string): Promise<{ type: string; size: number }> {
-  const res = await fetch(url, { method: "HEAD" });
+  const res = await fetchWithRetry(url, { method: "HEAD" });
   return {
     type: (res.headers.get("content-type") || "").toLowerCase(),
     size: Number(res.headers.get("content-length")) || 0,

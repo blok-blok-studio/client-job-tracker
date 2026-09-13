@@ -43,6 +43,9 @@ function settingsForSave(draft: AccountDraft, shared: SharedContent, meta: Recor
     mediaFormatManual: !!mediaFormatManual,
   };
   if (Object.keys(altTexts).length) settings.altTexts = altTexts;
+  // Total upload size lets YouTube start its early upload only as far ahead as needed
+  const mediaBytes = content.mediaUrls.reduce((sum, url) => sum + (meta[url]?.size || 0), 0);
+  if (mediaBytes > 0) settings.mediaBytes = mediaBytes;
   for (const k of Object.keys(settings)) if (settings[k] === undefined) delete settings[k];
   return settings;
 }
