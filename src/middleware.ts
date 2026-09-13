@@ -16,6 +16,7 @@ const PUBLIC_PATHS = [
   "/agreement/",
   "/post-review/",
   "/legal/", // privacy policy, terms, data deletion (platform reviewers and clients)
+  "/about", // public app home page for platform consent screens
   "/api/auth/login",
   "/api/auth/mfa",
   "/api/newsletter/subscribe",
