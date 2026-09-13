@@ -14,6 +14,7 @@ import { exchangeThreadsLongLivedToken } from "@/lib/social/platforms/threads";
 import { getSession } from "@/lib/auth";
 import { safeReturnTo, withParam } from "@/lib/oauth/access";
 import { saveDiscoveredMetaAccounts } from "@/lib/oauth/meta-accounts";
+import { PENDING_COOKIE, savePendingAccounts } from "@/lib/oauth/pending";
 
 export async function GET(
   request: NextRequest,
@@ -145,16 +146,15 @@ async function handleMetaCallback(
     return NextResponse.redirect(withParam(redirectBase, "oauth_success", `Connected ${saved.join(", ")}`));
   }
 
-  // Store discovered accounts in an encrypted cookie and redirect to account picker
-  const pendingData = Buffer.from(
-    JSON.stringify({ clientId, accessToken, expiresAt: expiresAt.toISOString(), accounts })
-  ).toString("base64url");
+  // Hold the discovered accounts server-side (only an id goes in the cookie)
+  // and send the team member to the account picker
+  const pendingId = await savePendingAccounts({ clientId, accessToken, expiresAt: expiresAt.toISOString(), accounts });
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const pickerUrl = `${baseUrl}/oauth/select-accounts?clientId=${clientId}&returnTo=${encodeURIComponent(redirectBase)}`;
 
   const cookieStore = await cookies();
-  cookieStore.set("oauth_pending_accounts", pendingData, {
+  cookieStore.set(PENDING_COOKIE, pendingId, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

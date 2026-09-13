@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSession } from "@/lib/auth";
 import { saveDiscoveredMetaAccounts } from "@/lib/oauth/meta-accounts";
+import { PENDING_COOKIE, deletePendingAccounts, loadPendingAccounts } from "@/lib/oauth/pending";
 
 /**
  * POST — Finalize Meta OAuth account selection.
- * The OAuth callback stores discovered accounts in a short-lived httpOnly cookie.
- * This route reads that cookie, saves only the selected accounts, and clears it.
+ * The OAuth callback holds the discovered accounts server-side (id in a cookie).
+ * This route saves only the selected accounts, then clears the pending entry.
  */
 export async function POST(request: NextRequest) {
   // The picker is a team page; clients connecting from onboarding skip it
@@ -15,9 +16,10 @@ export async function POST(request: NextRequest) {
   }
 
   const cookieStore = await cookies();
-  const pendingCookie = cookieStore.get("oauth_pending_accounts")?.value;
+  const pendingId = cookieStore.get(PENDING_COOKIE)?.value;
+  const pending = await loadPendingAccounts(pendingId).catch(() => null);
 
-  if (!pendingCookie) {
+  if (!pending) {
     return NextResponse.json(
       { success: false, error: "No pending accounts. Please reconnect via OAuth." },
       { status: 400 }
@@ -25,13 +27,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const pending = JSON.parse(Buffer.from(pendingCookie, "base64url").toString("utf-8")) as {
-      clientId: string;
-      accessToken: string;
-      expiresAt: string;
-      accounts: { platform: string; userId: string; label: string; avatarUrl?: string }[];
-    };
-
     const { selectedIds } = await request.json() as { selectedIds: string[] };
 
     if (!selectedIds || selectedIds.length === 0) {
@@ -50,7 +45,8 @@ export async function POST(request: NextRequest) {
     );
 
     // Clear the pending cookie
-    cookieStore.delete("oauth_pending_accounts");
+    cookieStore.delete(PENDING_COOKIE);
+    await deletePendingAccounts(pendingId);
 
     return NextResponse.json({
       success: true,
