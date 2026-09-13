@@ -141,7 +141,10 @@ export async function middleware(request: NextRequest) {
     pathname.endsWith(".mov") ||
     pathname.endsWith(".webm") ||
     pathname.endsWith(".woff") ||
-    pathname.endsWith(".woff2")
+    pathname.endsWith(".woff2") ||
+    // Site ownership files for platform app reviews (TikTok URL prefix, Google)
+    /^\/tiktok\w+\.txt$/.test(pathname) ||
+    /^\/google\w+\.html$/.test(pathname)
   ) {
     return NextResponse.next();
   }
