@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { contentPostBulkSchema } from "@/lib/validations";
+import { randomUUID } from "crypto";
+import { contentPostBulkSchema, USER_SETTABLE_POST_STATUSES } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const parsed = contentPostBulkSchema.parse(body);
 
+    if (parsed.status && !(USER_SETTABLE_POST_STATUSES as readonly string[]).includes(parsed.status)) {
+      return NextResponse.json({ success: false, error: "New posts can only be drafts or scheduled" }, { status: 400 });
+    }
     const status = parsed.status || (parsed.scheduledAt ? "SCHEDULED" : "DRAFT");
+    const groupId = randomUUID();
     const sharedData = {
       clientId: parsed.clientId,
       status,
@@ -37,6 +42,9 @@ export async function POST(request: NextRequest) {
             ...sharedData,
             platform,
             credentialId: credentialId || null,
+            groupId,
+            publishMode: parsed.publishMode || (platform === "REDNOTE" ? "ASSISTED" : "AUTO"),
+            assignedToId: parsed.assignedToId || null,
           },
           include: {
             client: { select: { id: true, name: true } },

@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   "/upload",
   "/contractor/",
   "/agreement/",
+  "/post-review/",
   "/api/auth/login",
   "/api/auth/mfa",
   "/api/newsletter/subscribe",
@@ -24,6 +25,7 @@ const PUBLIC_PATHS = [
   "/api/review/",
   "/api/contractor/",
   "/api/agreement/",
+  "/api/post-review/",
   "/api/client-media/upload-portal",
   "/api/client-media/upload-blob",
   "/api/client-media/upload-stream",
@@ -32,8 +34,12 @@ const PUBLIC_PATHS = [
   "/api/cron",
   "/api/client-media/generate-thumbnails",
   "/api/exchange-rate",
-  "/api/oauth",
+  // Account connections: public at the edge so clients can connect from their
+  // onboarding link, but every route checks for a team session or a valid
+  // onboarding token itself (src/lib/oauth/access.ts). Never trust this entry alone.
+  "/api/oauth/",
   "/api/portal-manifest",
+  "/api/social/media/", // signed, expiring media links platforms pull from (TikTok photos)
 ];
 
 // In-memory rate limiter (Edge runtime compatible)
@@ -105,6 +111,7 @@ const SHORT_LINKS: Record<string, string> = {
   u: "upload",
   i: "contractor",
   a: "agreement",
+  p: "post-review",
 };
 
 export async function middleware(request: NextRequest) {
@@ -112,7 +119,7 @@ export async function middleware(request: NextRequest) {
 
   cleanupRateLimits();
 
-  const shortMatch = pathname.match(/^\/(c|r|o|u|i|a)\/([\w-]+)$/);
+  const shortMatch = pathname.match(/^\/(c|r|o|u|i|a|p)\/([\w-]+)$/);
   if (shortMatch) {
     const url = request.nextUrl.clone();
     url.pathname = `/${SHORT_LINKS[shortMatch[1]]}/${shortMatch[2]}`;

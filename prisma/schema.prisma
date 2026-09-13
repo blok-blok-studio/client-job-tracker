@@ -26,11 +26,11 @@ model User {
   jobRole      String? // What they do here (see src/lib/team-roles.ts); drives the tab preset
 
   // --- Second-factor auth (all opt-in, default off; login is unchanged until enabled) ---
-  totpSecret     String? // base32 TOTP secret, AES-256-GCM encrypted at rest ("iv:ciphertext")
-  totpEnabled    Boolean  @default(false)
-  pinHash        String? // bcrypt hash of a numeric quick-PIN (optional second factor)
-  backupCodes    String[] @default([]) // bcrypt hashes of one-time recovery codes
-  mfaUpdatedAt   DateTime?
+  totpSecret   String? // base32 TOTP secret, AES-256-GCM encrypted at rest ("iv:ciphertext")
+  totpEnabled  Boolean   @default(false)
+  pinHash      String? // bcrypt hash of a numeric quick-PIN (optional second factor)
+  backupCodes  String[]  @default([]) // bcrypt hashes of one-time recovery codes
+  mfaUpdatedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -97,26 +97,27 @@ model Client {
   automationsPaused  Boolean      @default(false) // pause all lifecycle automations for this client
   lastPartnerTouchAt DateTime? // partners: last quarterly touch logged
 
-  credentials     Credential[]
-  tasks           Task[]
-  invoices        Invoice[]
-  contacts        Contact[]
-  activityLogs    ActivityLog[]
-  checklistItems  ChecklistItem[]
-  supportTickets  SupportTicket[]
-  socialLinks     SocialLink[]
-  contracts       ContractSignature[]
-  paymentLinks    PaymentLink[]
-  contentPosts    ContentPost[]
-  mediaFiles      ClientMedia[]
-  automationFlows AutomationFlow[]
-  timeEntries     TimeEntry[]
-  reports         ClientReport[]
-  deliverables    Deliverable[]
-  services        ClientService[]
-  scheduledSteps  ScheduledStep[]
-  meetings        Meeting[]
-  clientFiles     ClientFile[]
+  credentials      Credential[]
+  tasks            Task[]
+  invoices         Invoice[]
+  contacts         Contact[]
+  activityLogs     ActivityLog[]
+  checklistItems   ChecklistItem[]
+  supportTickets   SupportTicket[]
+  socialLinks      SocialLink[]
+  contracts        ContractSignature[]
+  paymentLinks     PaymentLink[]
+  contentPosts     ContentPost[]
+  contentApprovals ContentApproval[]
+  mediaFiles       ClientMedia[]
+  automationFlows  AutomationFlow[]
+  timeEntries      TimeEntry[]
+  reports          ClientReport[]
+  deliverables     Deliverable[]
+  services         ClientService[]
+  scheduledSteps   ScheduledStep[]
+  meetings         Meeting[]
+  clientFiles      ClientFile[]
 
   // Tax residency (ISO 3166-1 alpha-2, distinct from free-text companyCountry);
   // drives required tax documents
@@ -234,6 +235,9 @@ model Credential {
   url         String?
   iv          String
   lastRotated DateTime?
+  // Non-secret connection details written by the OAuth flow:
+  // { provider, accountId, username, avatarUrl, apiHost, scopes, refreshExpiresAt }
+  meta        Json?
 
   posts ContentPost[]
 
@@ -328,17 +332,17 @@ model Notification {
 // is the image/video content gallery. A row is either an uploaded FILE (Vercel
 // Blob) or an external LINK (their shared Drive folder, kept for reference).
 model ClientFile {
-  id       String         @id @default(cuid())
-  clientId String
-  client   Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  kind     ClientFileKind @default(FILE)
-  filename String // display name (link label for kind LINK)
-  url      String // Blob URL, or the external link itself
-  fileSize Int? // bytes (null for links)
-  mimeType String? // null for links
-  folder   String? // grouping, e.g. "Brand assets", "Website copy"
-  notes    String?
-  uploadedBy String @default("team")
+  id         String         @id @default(cuid())
+  clientId   String
+  client     Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  kind       ClientFileKind @default(FILE)
+  filename   String // display name (link label for kind LINK)
+  url        String // Blob URL, or the external link itself
+  fileSize   Int? // bytes (null for links)
+  mimeType   String? // null for links
+  folder     String? // grouping, e.g. "Brand assets", "Website copy"
+  notes      String?
+  uploadedBy String         @default("team")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -754,11 +758,44 @@ model ContentPost {
   visibility     String? @default("PUBLIC") // PUBLIC, PRIVATE, UNLISTED
   enableComments Boolean @default(true)
 
-  scheduledAt  DateTime?
-  publishedAt  DateTime?
-  publishError String?   @db.Text
-  externalId   String?
-  externalUrl  String?
+  scheduledAt      DateTime?
+  publishedAt      DateTime?
+  publishError     String?   @db.Text
+  externalId       String?
+  // Set when a runner claims the post (SCHEDULED → PUBLISHING). A post left in
+  // PUBLISHING past the stuck window is failed, never re-sent, so an upload that
+  // may have landed can't go out twice.
+  publishStartedAt DateTime?
+  publishAttempts  Int       @default(0)
+  // Multi-step publishes (chunked uploads, platform-side processing) run across
+  // cron invocations: the adapter's resume state lives in publishState, the step
+  // it's on in publishPhase, and pollLockedUntil is a short lease so two runs
+  // never advance the same post at once. publishPhase is null during a
+  // single-shot send.
+  publishPhase     String?
+  publishState     Json?
+  pollLockedUntil  DateTime?
+
+  // Posts made together in the composer share a groupId (one row per account).
+  groupId      String?
+  // AUTO = published through the platform API. ASSISTED = a teammate posts it
+  // by hand from the handoff page (RedNote, or anything the API can't do);
+  // at the scheduled time it moves to ACTION_NEEDED and assignedToId is notified.
+  publishMode  String  @default("AUTO")
+  assignedToId String?
+
+  // Client approval (public /p/<token> link). null = approval not requested.
+  approvalId     String?
+  approval       ContentApproval? @relation(fields: [approvalId], references: [id], onDelete: SetNull)
+  approvalStatus String? // PENDING | APPROVED | CHANGES_REQUESTED
+  approvalNote   String?          @db.Text
+
+  // Latest normalized stats ({ views, likes, comments, shares, saves, reach });
+  // history lives in ContentPostMetricSnapshot.
+  metrics          Json?
+  metricsUpdatedAt DateTime?
+  metricSnapshots  ContentPostMetricSnapshot[]
+  externalUrl      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -767,6 +804,9 @@ model ContentPost {
   @@index([status])
   @@index([scheduledAt])
   @@index([platform])
+  @@index([groupId])
+  @@index([status, publishPhase])
+  @@index([approvalId])
 }
 
 enum SocialPlatform {
@@ -777,6 +817,7 @@ enum SocialPlatform {
   LINKEDIN
   YOUTUBE
   FACEBOOK
+  REDNOTE
 }
 
 enum ContentPostStatus {
@@ -785,6 +826,75 @@ enum ContentPostStatus {
   PUBLISHING
   PUBLISHED
   FAILED
+  ACTION_NEEDED
+}
+
+// A batch of posts sent to the client for sign-off via a public token link.
+model ContentApproval {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title       String?
+  message     String?   @db.Text
+  status      String    @default("PENDING") // PENDING | RESPONDED
+  createdBy   String?
+  respondedAt DateTime?
+
+  posts ContentPost[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+// A formatted copy of a stored image/video for posting: reframed to an aspect
+// ratio either with black bars ("pad") or filled and cropped ("crop"). The
+// original file is never modified; renditions are separate Blob files, reused
+// across posts that ask for the same source + format.
+model MediaRendition {
+  id            String    @id @default(cuid())
+  sourceUrl     String
+  sourceMediaId String? // ClientMedia.id when the source came from the library
+  clientId      String?
+  kind          String // image | video
+  aspect        String // "9:16" | "16:9" | "1:1" | "4:5" | "3:4" | "1.91:1" ...
+  fit           String // pad (black bars) | crop (fill, no bars)
+  focusX        Float     @default(0.5) // crop focus, 0..1 from left
+  focusY        Float     @default(0.5) // crop focus, 0..1 from top
+  width         Int
+  height        Int
+  status        String    @default("PENDING") // PENDING | PROCESSING | READY | FAILED
+  url           String?
+  size          Int?
+  error         String?   @db.Text
+  attempts      Int       @default(0)
+  lockedUntil   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sourceUrl, aspect, fit, focusX, focusY])
+  @@index([status, lockedUntil])
+  @@index([sourceMediaId])
+}
+
+// Point-in-time stats pulled from the platform for a published post.
+model ContentPostMetricSnapshot {
+  id        String      @id @default(cuid())
+  postId    String
+  post      ContentPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  views     Int?
+  likes     Int?
+  comments  Int?
+  shares    Int?
+  saves     Int?
+  reach     Int?
+  raw       Json?
+  fetchedAt DateTime    @default(now())
+
+  @@index([postId, fetchedAt])
 }
 
 // --- CLIENT MEDIA LIBRARY ---
@@ -1027,10 +1137,10 @@ model Contractor {
   avatarUrl       String? // selfie / profile photo (public Vercel Blob, unguessable path)
   avatarUpdatedAt DateTime?
   role            String? // free-form: "Video Editor", "Frontend Dev"
-  skills          String[] @default([])
+  skills          String[]  @default([])
   accentColor     String? // hex, drives their profile chrome
   emoji           String? // one emoji they pick — shows next to their name
-  bio             String?  @db.Text
+  bio             String?   @db.Text
   funFact         String?
   location        String?
   timezone        String? // IANA, remembered from their hours logs
@@ -1350,7 +1460,7 @@ model ContractorWorkFile {
   clientFileId String?
 
   submitIp        String?
-  submitUserAgent String? @db.Text
+  submitUserAgent String?  @db.Text
   createdAt       DateTime @default(now())
 
   @@index([contractorId, createdAt])
@@ -1501,20 +1611,20 @@ model TaxProfile {
 // Editable deadline catalog. Shipped rows live in src/lib/tax/obligations-source.ts
 // ("reset to source" restores them); the DB row is what the reminder engine reads.
 model TaxObligation {
-  id        String        @id @default(cuid())
-  key       String        @unique // stable id from obligations-source.ts, e.g. "us-1099-nec"
+  id        String       @id @default(cuid())
+  key       String       @unique // stable id from obligations-source.ts, e.g. "us-1099-nec"
   country   String // ISO 3166-1 alpha-2
   appliesTo TaxAppliesTo
   profileId String?
-  profile   TaxProfile?   @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  profile   TaxProfile?  @relation(fields: [profileId], references: [id], onDelete: SetNull)
 
-  name        String
-  formName    String?
-  description String       @db.Text
-  frequency   TaxFrequency
+  name         String
+  formName     String?
+  description  String       @db.Text
+  frequency    TaxFrequency
   // Due-date rules: ANNUAL/ONE_TIME = [{month, day}], QUARTERLY = 4 of those,
   // MONTHLY = [{dayOfMonth}], WATCH = [] (threshold checks, no fixed date).
-  dueRules    Json
+  dueRules     Json
   // When submission opens (e.g. IRS e-file opening late January); reminder stage 0.
   earliestOpen Json?
 
@@ -1565,8 +1675,8 @@ model TaxDocument {
   encrypted    Boolean @default(false)
   encryptionIv String?
 
-  validUntil DateTime? // e.g. W-8BEN = 3 years from signing
-  requestedAt DateTime @default(now())
+  validUntil  DateTime? // e.g. W-8BEN = 3 years from signing
+  requestedAt DateTime  @default(now())
   receivedAt  DateTime?
 
   // Self-attestation (for SSN/TIN forms we deliberately DON'T store — the

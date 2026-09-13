@@ -1,115 +1,57 @@
 /**
- * Shared HTTP utilities for social platform API calls.
+ * Retry helper for platform API calls.
  *
- * Handles realistic request headers, request delays, and retry logic
- * to avoid automated-request detection by platform APIs.
+ * Only for requests that are safe to send twice: reads (GET/HEAD), status and
+ * offset queries, and chunk uploads that carry an explicit Content-Range. Never
+ * wrap a call that creates or publishes something (media_publish, createPost,
+ * upload init, comments): a retry after a lost response would do it twice.
  */
 
-// Realistic browser-like User-Agent strings (rotated per request)
-const USER_AGENTS = [
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
-];
-
-function getRandomUserAgent(): string {
-  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+export interface RetryOptions {
+  /** Extra attempts after the first (default 3) */
+  retries?: number;
+  /**
+   * Set for a non-GET/HEAD request that is still safe to repeat (offset
+   * queries, Content-Range chunk PUTs). Other methods are sent once.
+   */
+  idempotent?: boolean;
 }
 
-/**
- * Add a small random delay between API calls (200-800ms)
- * to avoid burst-pattern detection.
- */
-export async function humanDelay(minMs = 200, maxMs = 800): Promise<void> {
-  const delay = minMs + Math.random() * (maxMs - minMs);
-  return new Promise((resolve) => setTimeout(resolve, delay));
+const MAX_RETRY_AFTER_MS = 30_000;
+
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
 }
 
-/**
- * Retry-capable fetch with exponential backoff + jitter.
- * Only retries on 429 (rate limited) and 5xx server errors.
- */
-export async function resilientFetch(
-  url: string,
-  init: RequestInit & { retries?: number } = {}
-): Promise<Response> {
-  const { retries = 3, ...fetchInit } = init;
+function backoffMs(attempt: number, retryAfter: string | null): number {
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, MAX_RETRY_AFTER_MS);
+    const at = Date.parse(retryAfter);
+    if (Number.isFinite(at)) return Math.min(Math.max(at - Date.now(), 0), MAX_RETRY_AFTER_MS);
+  }
+  return Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 500;
+}
 
-  // Inject realistic headers (these complement, not replace, existing headers)
-  const headers = new Headers(fetchInit.headers);
-  if (!headers.has("User-Agent")) {
-    headers.set("User-Agent", getRandomUserAgent());
-  }
-  if (!headers.has("Accept")) {
-    headers.set("Accept", "application/json, text/plain, */*");
-  }
-  if (!headers.has("Accept-Language")) {
-    headers.set("Accept-Language", "en-US,en;q=0.9");
-  }
-  // Signal we accept compressed responses
-  if (!headers.has("Accept-Encoding")) {
-    headers.set("Accept-Encoding", "gzip, deflate, br");
-  }
+export async function fetchWithRetry(url: string, init: RequestInit = {}, opts: RetryOptions = {}): Promise<Response> {
+  const method = (init.method || "GET").toUpperCase();
+  const safe = method === "GET" || method === "HEAD" || opts.idempotent === true;
+  const retries = safe ? (opts.retries ?? 3) : 0;
 
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
+  for (let attempt = 0; ; attempt++) {
+    let res: Response;
     try {
-      const res = await fetch(url, { ...fetchInit, headers });
-
-      // Don't retry client errors (except 429)
-      if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) {
-        return res;
-      }
-
-      // Rate limited — respect Retry-After header if present
-      if (res.status === 429) {
-        const retryAfter = res.headers.get("Retry-After");
-        const waitSec = retryAfter ? parseInt(retryAfter) : 0;
-        if (waitSec > 0 && waitSec < 120) {
-          await new Promise((resolve) => setTimeout(resolve, waitSec * 1000));
-          continue;
-        }
-      }
-
-      // 5xx — retry with backoff
-      if (attempt < retries) {
-        const backoff = Math.pow(2, attempt) * 1000;
-        const jitter = Math.random() * 1000;
-        await new Promise((resolve) => setTimeout(resolve, backoff + jitter));
-        continue;
-      }
-
-      return res; // final attempt, return whatever we got
+      res = await fetch(url, init);
     } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      if (attempt < retries) {
-        const backoff = Math.pow(2, attempt) * 1000;
-        const jitter = Math.random() * 1000;
-        await new Promise((resolve) => setTimeout(resolve, backoff + jitter));
-      }
+      if (attempt >= retries) throw err;
+      await new Promise((r) => setTimeout(r, backoffMs(attempt, null)));
+      continue;
     }
+
+    if (!isRetryableStatus(res.status) || attempt >= retries) return res;
+
+    const wait = backoffMs(attempt, res.headers.get("retry-after"));
+    await res.body?.cancel().catch(() => {});
+    await new Promise((r) => setTimeout(r, wait));
   }
-
-  throw lastError || new Error(`Failed to fetch ${url} after ${retries + 1} attempts`);
-}
-
-/**
- * Build platform-specific headers for OAuth-based APIs.
- * Includes anti-bot measures.
- */
-export function buildApiHeaders(
-  accessToken: string,
-  extra: Record<string, string> = {}
-): Record<string, string> {
-  return {
-    Authorization: `Bearer ${accessToken}`,
-    "Content-Type": "application/json",
-    "User-Agent": getRandomUserAgent(),
-    Accept: "application/json",
-    "Accept-Language": "en-US,en;q=0.9",
-    ...extra,
-  };
 }

@@ -1,733 +1,368 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Calendar as CalendarIcon,
-  List,
-  Plus,
-  Clock,
-  Trash2,
-  Edit3,
-  X,
-  Film,
-  Upload,
-} from "lucide-react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { addDays, endOfMonth, startOfMonth, subDays } from "date-fns";
+import { BarChart3, CalendarDays, List, Loader2, PlugZap, Plus, Upload } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
-import Badge from "@/components/shared/Badge";
-import PlatformIcon, { getPlatformLabel, PLATFORM_COLORS } from "@/components/content/PlatformIcon";
-import ContentPostModal from "@/components/content/ContentPostModal";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import { useToast } from "@/components/shared/Toast";
 import BulkImportModal from "@/components/content/BulkImportModal";
 import BestTimes from "@/components/content/BestTimes";
-import { cn } from "@/lib/utils";
+import { getPlatformLabel } from "@/components/content/PlatformIcon";
+import PostComposer from "@/components/content/composer/PostComposer";
+import CalendarTab, { type CalendarMode } from "@/components/content/planner/CalendarTab";
+import ListTab from "@/components/content/planner/ListTab";
+import ConnectionsTab from "@/components/content/planner/ConnectionsTab";
+import AttentionStrip from "@/components/content/planner/AttentionStrip";
+import PlannerFilters, { EMPTY_FILTERS, type PlannerFilterState } from "@/components/content/planner/PlannerFilters";
+import AnalyticsTab from "@/components/content/analytics/AnalyticsTab";
+import { deletePost, rescheduleGroup, retryPost } from "@/components/content/planner/planner-actions";
 import {
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  format,
-  isSameMonth,
-  isSameDay,
-  isToday,
-  addMonths,
-  subMonths,
-  parseISO,
-} from "date-fns";
+  displayStatus,
+  groupPosts,
+  isReschedulable,
+  wasInterrupted,
+  type PlannerPost,
+  type PostGroup,
+} from "@/components/content/planner/planner-utils";
+import { readJson } from "@/lib/fetch-json";
+import { cn } from "@/lib/utils";
 
-interface ContentPost {
-  id: string;
-  clientId: string;
-  client: { id: string; name: string };
-  platform: string;
-  status: string;
-  title: string | null;
-  body: string | null;
-  hashtags: string[];
-  mediaUrls: string[];
-  scheduledAt: string | null;
-  publishedAt: string | null;
-  publishError: string | null;
-  externalUrl: string | null;
-  createdAt: string;
-}
+type Tab = "calendar" | "list" | "analytics" | "connections";
 
-const statusBadge: Record<string, "gray" | "blue" | "yellow" | "green" | "red"> = {
-  DRAFT: "gray",
-  SCHEDULED: "blue",
-  PUBLISHING: "yellow",
-  PUBLISHED: "green",
-  FAILED: "red",
-};
-
-const PLATFORMS = ["INSTAGRAM", "TIKTOK", "TWITTER", "THREADS", "LINKEDIN", "YOUTUBE", "FACEBOOK"];
+const TABS: { key: Tab; label: string; icon: typeof CalendarDays }[] = [
+  { key: "calendar", label: "Calendar", icon: CalendarDays },
+  { key: "list", label: "List", icon: List },
+  { key: "analytics", label: "Analytics", icon: BarChart3 },
+  { key: "connections", label: "Connections", icon: PlugZap },
+];
 
 export default function ContentPage() {
-  const [posts, setPosts] = useState<ContentPost[]>([]);
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-6 h-6 text-bb-dim animate-spin" />
+        </div>
+      }
+    >
+      <ContentPlanner />
+    </Suspense>
+  );
+}
+
+function ContentPlanner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
+
+  // The OAuth callback appends "?oauth_success=…" to a returnTo that already
+  // has "?tab=connections", so the tab value can carry a second query string.
+  const [tabRaw, tabExtra] = (searchParams.get("tab") || "").split("?");
+  const tab: Tab = TABS.some((t) => t.key === tabRaw) ? (tabRaw as Tab) : "calendar";
+  const oauthParams = new URLSearchParams(tabExtra || "");
+  const oauthSuccess = searchParams.get("oauth_success") || oauthParams.get("oauth_success");
+  const oauthError = searchParams.get("oauth_error") || oauthParams.get("oauth_error");
+  const calendarMode: CalendarMode = searchParams.get("view") === "week" ? "week" : "month";
+  const deepLinkPostId = searchParams.get("post");
+
+  const setParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      const next = new URLSearchParams(searchParams.toString());
+      for (const [k, v] of Object.entries(updates)) {
+        if (v === null) next.delete(k);
+        else next.set(k, v);
+      }
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
+  const [posts, setPosts] = useState<PlannerPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [mode, setMode] = useState<"calendar" | "list">("calendar");
-  const [platformFilter, setPlatformFilter] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editPost, setEditPost] = useState<ContentPost | null>(null);
-  const [defaultScheduledAt, setDefaultScheduledAt] = useState<string>("");
-  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
-  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [anchor, setAnchor] = useState(() => new Date());
+  const [filters, setFilters] = useState<PlannerFilterState>(EMPTY_FILTERS);
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+  const [meId, setMeId] = useState<string | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [retryConfirm, setRetryConfirm] = useState<PlannerPost | null>(null);
+
+  const [composer, setComposer] = useState<{ open: boolean; postId?: string; defaultScheduledAt?: string }>({ open: false });
+
+  // A poll landing mid-drag would replace the array dnd-kit is measuring
+  const draggingRef = useRef(false);
+
+  // Window: the visible month plus a wide band around today, so the list and
+  // attention strip see recent failures and upcoming posts wherever the calendar is.
+  const range = useMemo(() => {
+    const now = new Date();
+    const from = new Date(Math.min(subDays(startOfMonth(anchor), 7).getTime(), subDays(now, 60).getTime()));
+    const to = new Date(Math.max(addDays(endOfMonth(anchor), 7).getTime(), addDays(now, 180).getTime()));
+    return { from: from.toISOString(), to: to.toISOString() };
+  }, [anchor]);
 
   const fetchPosts = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (platformFilter) params.set("platform", platformFilter);
-    const res = await fetch(`/api/content-posts?${params}`);
-    const data = await res.json();
-    if (data.success) setPosts(data.data);
-    setLoading(false);
-  }, [platformFilter]);
-
-  useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
-
-  // Auto-publish polling — checks every 60s for due posts and publishes them
-  const publishingRef = useRef(false);
-  useEffect(() => {
-    const checkAndPublish = async () => {
-      if (publishingRef.current) return;
-      publishingRef.current = true;
-      try {
-        const res = await fetch("/api/content-posts/auto-publish", { method: "POST" });
-        const data = await res.json();
-        if (data.success && (data.published > 0 || data.failed > 0)) {
-          fetchPosts(); // Refresh the list to show updated statuses
-        }
-      } catch {
-        // Silently ignore — will retry next interval
-      } finally {
-        publishingRef.current = false;
-      }
-    };
-
-    // Run immediately on mount, then every 60 seconds
-    checkAndPublish();
-    const interval = setInterval(checkAndPublish, 60_000);
-    return () => clearInterval(interval);
-  }, [fetchPosts]);
-
-  // Calendar grid
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-
-  const getPostsForDay = (day: Date) =>
-    posts.filter((p) => p.scheduledAt && isSameDay(parseISO(p.scheduledAt), day));
-
-  const selectedDayPosts = selectedDay ? getPostsForDay(selectedDay) : [];
-
-  const handleSave = async (data: {
-    id?: string;
-    clientId: string;
-    platform: string;
-    status?: string;
-    title: string;
-    body: string;
-    hashtags: string[];
-    mediaUrls: string[];
-    scheduledAt: string;
-  }) => {
-    const url = data.id ? `/api/content-posts/${data.id}` : "/api/content-posts";
-    const method = data.id ? "PATCH" : "POST";
-    await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: data.clientId,
-        platform: data.platform,
-        status: data.status,
-        title: data.title,
-        body: data.body,
-        hashtags: data.hashtags,
-        mediaUrls: data.mediaUrls,
-        scheduledAt: data.scheduledAt || null,
-      }),
-    });
-    setEditPost(null);
-    fetchPosts();
-  };
-
-  const handleDelete = async (id: string) => {
-    await fetch(`/api/content-posts/${id}`, { method: "DELETE" });
-    fetchPosts();
-  };
-
-  const openEdit = (post: ContentPost) => {
-    setEditPost(post);
-    setModalOpen(true);
-  };
-
-  const openNew = () => {
-    setEditPost(null);
-    setDefaultScheduledAt("");
-    setModalOpen(true);
-  };
-
-  const openNewForDay = (day: Date) => {
-    setEditPost(null);
-    // Set to 9am on the selected day for the datetime-local input
-    const d = new Date(day);
-    d.setHours(9, 0, 0, 0);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const dtLocal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    setDefaultScheduledAt(dtLocal);
-    setModalOpen(true);
-  };
-
-
-  const selectDay = (day: Date) => {
-    setSelectedDay(day);
-    // Open mobile panel when a day is tapped on mobile
-    if (window.innerWidth < 1024) {
-      setMobilePanelOpen(true);
+    const params = new URLSearchParams({ from: range.from, to: range.to, includeUnscheduled: "1" });
+    try {
+      const res = await fetch(`/api/content-posts?${params}`);
+      const result = await readJson<{ data: PlannerPost[] }>(res, "Couldn't load posts.");
+      if (draggingRef.current) return;
+      if (result.ok && result.data) setPosts(result.data.data);
+      else toast(result.error || "Couldn't load posts.", "error");
+    } catch {
+      // Transient network error; the next poll retries
+    } finally {
+      setLoading(false);
     }
+  }, [range, toast]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
+
+  // Statuses change server-side (per-minute publish cron); refresh while open
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!draggingRef.current && document.visibilityState === "visible") fetchPosts();
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [fetchPosts]);
+
+  useEffect(() => {
+    fetch("/api/clients")
+      .then((r) => readJson<{ data: { id: string; name: string }[] }>(r))
+      .then((r) => r.ok && r.data && setClients(r.data.data.map((c) => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name))))
+      .catch(() => {});
+    fetch("/api/users/assignable")
+      .then((r) => readJson<{ data: { id: string; name: string }[] }>(r))
+      .then((r) => r.ok && r.data && setUsers(r.data.data))
+      .catch(() => {});
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => d?.user?.id && setMeId(d.user.id))
+      .catch(() => {});
+  }, []);
+
+  // Result of a Connect / Reconnect round trip
+  useEffect(() => {
+    if (!oauthSuccess && !oauthError) return;
+    toast(oauthSuccess || `Connection failed: ${oauthError}`, oauthSuccess ? "success" : "error");
+    setParams({ tab: tab === "calendar" ? null : tab, oauth_success: null, oauth_error: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oauthSuccess, oauthError]);
+
+  // Deep link from notifications: /content?post=<id>
+  useEffect(() => {
+    if (deepLinkPostId) setComposer({ open: true, postId: deepLinkPostId });
+  }, [deepLinkPostId]);
+
+  const filtered = useMemo(() => {
+    return posts.filter((p) => {
+      if (filters.clientId && p.clientId !== filters.clientId) return false;
+      if (filters.platforms.length && !filters.platforms.includes(p.platform)) return false;
+      if (filters.statuses.length && !filters.statuses.includes(displayStatus(p))) return false;
+      if (filters.mine && (!meId || p.assignedToId !== meId)) return false;
+      if (!filters.mine && filters.assigneeId && p.assignedToId !== filters.assigneeId) return false;
+      return true;
+    });
+  }, [posts, filters, meId]);
+
+  const groups = useMemo(() => groupPosts(filtered), [filtered]);
+
+  const openPost = useCallback((post: PlannerPost) => setComposer({ open: true, postId: post.id }), []);
+
+  const openNew = useCallback((when?: Date) => {
+    setComposer({ open: true, defaultScheduledAt: when?.toISOString() });
+  }, []);
+
+  const closeComposer = () => {
+    setComposer({ open: false });
+    if (deepLinkPostId) setParams({ post: null });
   };
 
-  // Sort posts for list view
-  const sortedPosts = [...posts].sort((a, b) => {
-    if (a.scheduledAt && b.scheduledAt) return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
-    if (a.scheduledAt) return -1;
-    if (b.scheduledAt) return 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  const handleReschedule = useCallback(
+    async (group: PostGroup, when: Date) => {
+      const hasScheduled = group.posts.some((p) => p.status === "SCHEDULED");
+      if (hasScheduled && when.getTime() < Date.now() - 60_000) {
+        toast("Scheduled posts need a time in the future.", "error");
+        return;
+      }
+      const movableIds = new Set(group.posts.filter(isReschedulable).map((p) => p.id));
+      if (movableIds.size === 0) return;
 
-  const isVideo = (url: string) => /\.(mp4|mov|webm)$/i.test(url);
-
-  // Render a post card (reused in calendar panel and list view on mobile)
-  const renderPostCard = (post: ContentPost) => (
-    <div
-      key={post.id}
-      className="bg-bb-elevated border border-bb-border rounded-lg p-3"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <PlatformIcon platform={post.platform} size={14} />
-          <span className="text-sm text-white truncate">
-            {post.title || post.body?.slice(0, 40) || "(untitled)"}
-          </span>
-        </div>
-        <Badge variant={statusBadge[post.status] || "gray"} size="sm">
-          {post.status}
-        </Badge>
-      </div>
-      {post.mediaUrls.length > 0 && (
-        <div className="mt-2 flex gap-1.5 overflow-x-auto">
-          {post.mediaUrls.slice(0, 4).map((url) => (
-            <div
-              key={url}
-              className="w-14 h-14 rounded-md overflow-hidden border border-bb-border bg-bb-surface shrink-0"
-            >
-              {isVideo(url) ? (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Film size={16} className="text-bb-muted" />
-                </div>
-              ) : (
-                <img src={url} alt="" className="w-full h-full object-cover" />
-              )}
-            </div>
-          ))}
-          {post.mediaUrls.length > 4 && (
-            <div className="w-14 h-14 rounded-md border border-bb-border bg-bb-surface shrink-0 flex items-center justify-center text-xs text-bb-dim">
-              +{post.mediaUrls.length - 4}
-            </div>
-          )}
-        </div>
-      )}
-      <div className="mt-2 flex items-center gap-2 text-xs text-bb-dim">
-        <span>{post.client.name}</span>
-        {post.scheduledAt && (
-          <>
-            <span>&middot;</span>
-            <Clock size={10} />
-            <span>{format(parseISO(post.scheduledAt), "h:mm a")}</span>
-          </>
-        )}
-      </div>
-      <div className="mt-2 flex gap-2">
-        <button
-          onClick={() => openEdit(post)}
-          className="p-1.5 rounded text-bb-dim hover:text-white transition-colors"
-        >
-          <Edit3 size={14} />
-        </button>
-        <button
-          onClick={() => handleDelete(post.id)}
-          className="p-1.5 rounded text-bb-dim hover:text-red-400 transition-colors"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
-    </div>
+      const before = posts;
+      setPosts((prev) => prev.map((p) => (movableIds.has(p.id) ? { ...p, scheduledAt: when.toISOString() } : p)));
+      try {
+        const updated = await rescheduleGroup(group, when);
+        const byId = new Map(updated.map((u) => [u.id, u]));
+        setPosts((prev) =>
+          prev.map((p) => {
+            const u = byId.get(p.id);
+            return u ? { ...p, scheduledAt: u.scheduledAt, status: u.status, updatedAt: u.updatedAt } : p;
+          })
+        );
+        const skipped = group.posts.length - movableIds.size;
+        toast(skipped ? `Moved. ${skipped} post${skipped === 1 ? " was" : "s were"} already out and stayed put.` : "Moved.", "success");
+      } catch (err) {
+        setPosts(before);
+        toast(err instanceof Error ? err.message : "Couldn't move the post.", "error");
+      }
+    },
+    [posts, toast]
   );
+
+  const doRetry = useCallback(
+    async (post: PlannerPost) => {
+      try {
+        const updated = await retryPost(post);
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === post.id
+              ? { ...p, status: updated.status, scheduledAt: updated.scheduledAt, publishError: null, publishPhase: null, publishState: null }
+              : p
+          )
+        );
+        toast("Queued again. It goes out within a couple of minutes.", "success");
+      } catch (err) {
+        toast(err instanceof Error ? err.message : "Couldn't retry.", "error");
+      }
+    },
+    [toast]
+  );
+
+  const handleRetry = useCallback(
+    (post: PlannerPost) => {
+      if (wasInterrupted(post)) setRetryConfirm(post);
+      else doRetry(post);
+    },
+    [doRetry]
+  );
+
+  const handleBulkReschedule = async (selected: PostGroup[], when: Date) => {
+    if (Number.isNaN(when.getTime())) return;
+    for (const g of selected) await handleReschedule(g, when);
+  };
+
+  const handleBulkDelete = async (selected: PostGroup[]) => {
+    const ids = selected.flatMap((g) => g.posts.filter((p) => p.status === "DRAFT").map((p) => p.id));
+    const results = await Promise.allSettled(ids.map(deletePost));
+    const failed = results.filter((r) => r.status === "rejected").length;
+    toast(failed ? `Deleted ${ids.length - failed}, ${failed} couldn't be deleted.` : `Deleted ${ids.length} draft${ids.length === 1 ? "" : "s"}.`, failed ? "error" : "success");
+    fetchPosts();
+  };
+
+  const showPlannerChrome = tab === "calendar" || tab === "list";
+  const platformForBestTimes = filters.platforms.length === 1 ? filters.platforms[0] : null;
 
   return (
     <>
-      <TopBar title="Content Calendar" subtitle="Schedule and manage social media posts" />
+      <TopBar title="Content" subtitle="Plan, publish, and measure social posts" />
 
-      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
-        {/* Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            {/* View toggle */}
-            <div className="flex bg-bb-elevated rounded-lg p-0.5 border border-bb-border">
+      <div className="p-4 lg:p-6 space-y-4">
+        {/* Tabs + actions */}
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
+          <nav className="flex gap-1 overflow-x-auto scrollbar-hide -mb-1 pb-1" aria-label="Content sections">
+            {TABS.map(({ key, label, icon: Icon }) => (
               <button
-                onClick={() => setMode("calendar")}
+                key={key}
+                type="button"
+                onClick={() => setParams({ tab: key === "calendar" ? null : key })}
+                aria-current={tab === key ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex-1 justify-center sm:flex-initial",
-                  mode === "calendar" ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white"
+                  "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors cursor-pointer",
+                  tab === key ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white hover:bg-bb-elevated"
                 )}
               >
-                <CalendarIcon size={14} /> Calendar
+                <Icon size={15} /> {label}
               </button>
-              <button
-                onClick={() => setMode("list")}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex-1 justify-center sm:flex-initial",
-                  mode === "list" ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white"
-                )}
-              >
-                <List size={14} /> List
-              </button>
-            </div>
-
-            {/* Platform filters - horizontal scroll on mobile */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 -mb-1 sm:ml-2 scrollbar-hide">
-              <button
-                onClick={() => setPlatformFilter(null)}
-                className={cn(
-                  "px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0",
-                  !platformFilter ? "bg-bb-orange/10 text-bb-orange border border-bb-orange/30" : "text-bb-muted hover:text-white bg-bb-elevated border border-bb-border"
-                )}
-              >
-                All
-              </button>
-              {PLATFORMS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPlatformFilter(platformFilter === p ? null : p)}
-                  className={cn(
-                    "flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors border whitespace-nowrap shrink-0",
-                    platformFilter === p
-                      ? "bg-bb-orange/10 text-bb-orange border-bb-orange/30"
-                      : "text-bb-muted hover:text-white bg-bb-elevated border-bb-border"
-                  )}
-                >
-                  <PlatformIcon platform={p} size={12} />
-                  <span className="hidden sm:inline">{getPlatformLabel(p)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex gap-2 w-full sm:w-auto">
+            ))}
+          </nav>
+          <div className="flex gap-2">
             <button
-              onClick={() => setBulkModalOpen(true)}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 bg-bb-elevated border border-bb-border text-bb-muted rounded-lg text-sm font-medium hover:text-white transition-colors flex-1 sm:flex-initial"
+              type="button"
+              onClick={() => setBulkOpen(true)}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-bb-elevated border border-bb-border text-bb-muted rounded-lg text-sm font-medium hover:text-white transition-colors flex-1 sm:flex-initial cursor-pointer"
             >
-              <Upload size={14} /> CSV Import
+              <Upload size={14} /> CSV import
             </button>
             <button
-              onClick={openNew}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange/90 transition-colors flex-1 sm:flex-initial"
+              type="button"
+              onClick={() => openNew()}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange-light transition-colors flex-1 sm:flex-initial cursor-pointer"
             >
-              <Plus size={16} /> New Post
+              <Plus size={16} /> New post
             </button>
           </div>
         </div>
 
-        {loading ? (
-          <div className="text-center text-bb-muted py-20">Loading...</div>
-        ) : mode === "calendar" ? (
-          /* ========== CALENDAR VIEW ========== */
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-            <div className="flex-1 min-w-0">
-              {/* Month nav */}
-              <div className="flex items-center justify-between mb-4">
-                <button
-                  onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                  className="p-2 rounded-lg hover:bg-bb-elevated text-bb-muted hover:text-white transition-colors"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-base lg:text-lg font-semibold text-white">
-                    {format(currentMonth, "MMMM yyyy")}
-                  </h2>
-                  <button
-                    onClick={() => {
-                      setCurrentMonth(new Date());
-                      setSelectedDay(new Date());
-                    }}
-                    className="px-2.5 py-1 rounded-md text-xs bg-bb-elevated text-bb-muted hover:text-white border border-bb-border"
-                  >
-                    Today
-                  </button>
-                </div>
-                <button
-                  onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                  className="p-2 rounded-lg hover:bg-bb-elevated text-bb-muted hover:text-white transition-colors"
-                >
-                  <ChevronRight size={20} />
-                </button>
-              </div>
-
-              {/* Day headers */}
-              <div className="grid grid-cols-7 mb-1">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
-                  <div key={d} className="text-center text-xs font-medium text-bb-dim py-2">
-                    <span className="hidden sm:inline">{d}</span>
-                    <span className="sm:hidden">{["M", "T", "W", "T", "F", "S", "S"][i]}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar grid */}
-              <div className="grid grid-cols-7 gap-px bg-bb-border rounded-lg overflow-hidden">
-                {calendarDays.map((day) => {
-                  const dayPosts = getPostsForDay(day);
-                  const isSelected = selectedDay && isSameDay(day, selectedDay);
-                  return (
-                    <div
-                      key={day.toISOString()}
-                      onClick={() => selectDay(day)}
-                      className={cn(
-                        "bg-bb-surface min-h-[48px] sm:min-h-[64px] lg:min-h-[80px] p-1 sm:p-1.5 text-left transition-colors hover:bg-bb-elevated cursor-pointer group/day relative",
-                        !isSameMonth(day, currentMonth) && "opacity-40",
-                        isSelected && "ring-1 ring-bb-orange bg-bb-elevated"
-                      )}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={cn(
-                            "inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-xs",
-                            isToday(day) ? "bg-bb-orange text-white font-bold" : "text-bb-muted"
-                          )}
-                        >
-                          {format(day, "d")}
-                        </span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openNewForDay(day); }}
-                          className="w-5 h-5 rounded-full flex items-center justify-center text-bb-dim hover:text-bb-orange hover:bg-bb-orange/10 opacity-0 group-hover/day:opacity-100 transition-opacity"
-                        >
-                          <Plus size={12} />
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap gap-0.5 mt-0.5 sm:mt-1">
-                        {dayPosts.slice(0, 3).map((p) => (
-                          <span
-                            key={p.id}
-                            className={cn("w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full", PLATFORM_COLORS[p.platform] || "bg-bb-dim")}
-                          />
-                        ))}
-                        {dayPosts.length > 3 && (
-                          <span className="text-[8px] sm:text-[9px] text-bb-dim">+{dayPosts.length - 3}</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Side panel - hidden on mobile, shown as overlay */}
-            <div className="hidden lg:block w-80 shrink-0">
-              <div className="bg-bb-surface border border-bb-border rounded-xl p-4 sticky top-4">
-                <h3 className="text-sm font-semibold text-white mb-3">
-                  {selectedDay ? format(selectedDay, "EEEE, MMM d") : "Select a day"}
-                </h3>
-                {selectedDay && selectedDayPosts.length === 0 && (
-                  <p className="text-sm text-bb-dim">No posts scheduled</p>
-                )}
-                <div className="space-y-3">
-                  {selectedDayPosts.map(renderPostCard)}
-                </div>
-                {selectedDay && (
-                  <button
-                    onClick={() => openNewForDay(selectedDay)}
-                    className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-bb-orange/10 border border-bb-orange/30 rounded-lg text-sm text-bb-orange hover:bg-bb-orange/20 transition-colors"
-                  >
-                    <Plus size={14} /> New Post
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Mobile bottom sheet for selected day */}
-            {mobilePanelOpen && selectedDay && (
-              <div className="lg:hidden fixed inset-0 z-50">
-                {/* Backdrop */}
-                <div
-                  className="absolute inset-0 bg-black/60"
-                  onClick={() => setMobilePanelOpen(false)}
-                />
-                {/* Sheet */}
-                <div className="absolute bottom-0 left-0 right-0 bg-bb-surface border-t border-bb-border rounded-t-2xl max-h-[70vh] overflow-y-auto">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-base font-semibold text-white">
-                        {format(selectedDay, "EEEE, MMM d")}
-                      </h3>
-                      <button
-                        onClick={() => setMobilePanelOpen(false)}
-                        className="p-1.5 rounded-lg bg-bb-elevated text-bb-muted"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                    {selectedDayPosts.length === 0 ? (
-                      <p className="text-sm text-bb-dim py-4 text-center">No posts scheduled</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {selectedDayPosts.map(renderPostCard)}
-                      </div>
-                    )}
-                    <button
-                      onClick={() => {
-                        setMobilePanelOpen(false);
-                        openNew();
-                      }}
-                      className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2.5 bg-bb-orange text-white rounded-lg text-sm font-medium"
-                    >
-                      <Plus size={16} /> Add Post for This Day
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          /* ========== LIST VIEW ========== */
+        {showPlannerChrome && (
           <>
-            {/* Mobile: Card layout */}
-            <div className="lg:hidden space-y-3">
-              {sortedPosts.length === 0 ? (
-                <div className="text-center text-bb-muted py-20 bg-bb-surface border border-bb-border rounded-xl">
-                  No content posts yet. Tap &quot;New Post&quot; to get started.
-                </div>
-              ) : (
-                sortedPosts.map((post) => (
-                  <div
-                    key={post.id}
-                    className="bg-bb-surface border border-bb-border rounded-xl p-4"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <PlatformIcon platform={post.platform} size={18} />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-white truncate">
-                            {post.title || post.body?.slice(0, 50) || "(untitled)"}
-                          </p>
-                          <p className="text-xs text-bb-dim mt-0.5">{post.client.name}</p>
-                        </div>
-                      </div>
-                      <Badge variant={statusBadge[post.status] || "gray"} size="sm">
-                        {post.status}
-                      </Badge>
-                    </div>
-                    {post.mediaUrls.length > 0 && (
-                      <div className="mt-2 flex gap-1.5 overflow-x-auto">
-                        {post.mediaUrls.slice(0, 4).map((url) => (
-                          <div
-                            key={url}
-                            className="w-16 h-16 rounded-md overflow-hidden border border-bb-border bg-bb-surface shrink-0"
-                          >
-                            {isVideo(url) ? (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Film size={18} className="text-bb-muted" />
-                              </div>
-                            ) : (
-                              <img src={url} alt="" className="w-full h-full object-cover" />
-                            )}
-                          </div>
-                        ))}
-                        {post.mediaUrls.length > 4 && (
-                          <div className="w-16 h-16 rounded-md border border-bb-border bg-bb-surface shrink-0 flex items-center justify-center text-xs text-bb-dim">
-                            +{post.mediaUrls.length - 4}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {post.body && (
-                      <p className="text-xs text-bb-muted mt-2 line-clamp-2">{post.body}</p>
-                    )}
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-bb-border/50">
-                      <div className="flex items-center gap-1.5 text-xs text-bb-dim">
-                        <Clock size={11} />
-                        <span>
-                          {post.scheduledAt
-                            ? format(parseISO(post.scheduledAt), "MMM d, h:mm a")
-                            : "Not scheduled"}
-                        </span>
-                      </div>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => openEdit(post)}
-                          className="p-2 rounded-lg text-bb-dim hover:text-white hover:bg-bb-elevated transition-colors"
-                        >
-                          <Edit3 size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(post.id)}
-                          className="p-2 rounded-lg text-bb-dim hover:text-red-400 hover:bg-bb-elevated transition-colors"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Desktop: Table layout */}
-            <div className="hidden lg:block bg-bb-surface border border-bb-border rounded-xl overflow-hidden">
-              {sortedPosts.length === 0 ? (
-                <div className="text-center text-bb-muted py-20">
-                  No content posts yet. Click &quot;New Post&quot; to get started.
-                </div>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-bb-border text-left">
-                      <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Platform</th>
-                      <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Title</th>
-                      <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Media</th>
-                      <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Client</th>
-                      <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Scheduled</th>
-                      <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Status</th>
-                      <th className="px-4 py-3 text-xs font-medium text-bb-dim uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedPosts.map((post) => (
-                      <tr
-                        key={post.id}
-                        className="border-b border-bb-border/50 hover:bg-bb-elevated/50 transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <PlatformIcon platform={post.platform} size={16} />
-                            <span className="text-sm text-bb-muted">{getPlatformLabel(post.platform)}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-white">
-                            {post.title || post.body?.slice(0, 50) || "(untitled)"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {post.mediaUrls.length > 0 ? (
-                            <div className="flex items-center gap-1.5">
-                              {post.mediaUrls.slice(0, 3).map((url) => (
-                                <div
-                                  key={url}
-                                  className="w-8 h-8 rounded overflow-hidden border border-bb-border bg-bb-surface shrink-0"
-                                >
-                                  {isVideo(url) ? (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                      <Film size={12} className="text-bb-muted" />
-                                    </div>
-                                  ) : (
-                                    <img src={url} alt="" className="w-full h-full object-cover" />
-                                  )}
-                                </div>
-                              ))}
-                              {post.mediaUrls.length > 3 && (
-                                <span className="text-xs text-bb-dim">+{post.mediaUrls.length - 3}</span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-sm text-bb-dim">&mdash;</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-bb-muted">{post.client.name}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-bb-muted">
-                            {post.scheduledAt
-                              ? format(parseISO(post.scheduledAt), "MMM d, h:mm a")
-                              : "\u2014"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant={statusBadge[post.status] || "gray"} size="sm">
-                            {post.status}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => openEdit(post)}
-                              className="p-1.5 rounded text-bb-dim hover:text-white transition-colors"
-                            >
-                              <Edit3 size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(post.id)}
-                              className="p-1.5 rounded text-bb-dim hover:text-red-400 transition-colors"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+            <PlannerFilters value={filters} onChange={setFilters} clients={clients} users={users} />
+            {!loading && <AttentionStrip groups={groups} onOpen={openPost} onRetry={handleRetry} />}
           </>
         )}
 
-        {/* Best Times to Post */}
-        {!loading && (
-          <BestTimes platform={platformFilter} />
+        {loading && showPlannerChrome ? (
+          <div className="flex items-center justify-center py-24 text-bb-dim">
+            <Loader2 className="animate-spin" size={20} />
+          </div>
+        ) : tab === "calendar" ? (
+          <CalendarTab
+            groups={groups}
+            anchor={anchor}
+            onAnchorChange={setAnchor}
+            mode={calendarMode}
+            onModeChange={(m) => setParams({ view: m === "month" ? null : m })}
+            onOpen={openPost}
+            onCreate={openNew}
+            onRetry={handleRetry}
+            onReschedule={handleReschedule}
+            onDragStateChange={(d) => {
+              draggingRef.current = d;
+            }}
+          />
+        ) : tab === "list" ? (
+          <ListTab
+            groups={groups}
+            onOpen={openPost}
+            onRetry={handleRetry}
+            onBulkReschedule={handleBulkReschedule}
+            onBulkDelete={handleBulkDelete}
+          />
+        ) : tab === "analytics" ? (
+          <AnalyticsTab clients={clients} />
+        ) : (
+          <ConnectionsTab clients={clients} />
         )}
+
+        {tab === "calendar" && !loading && platformForBestTimes && <BestTimes platform={platformForBestTimes} />}
       </div>
 
-      <ContentPostModal
-        open={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setEditPost(null);
+      <PostComposer
+        open={composer.open}
+        onClose={closeComposer}
+        onSaved={() => {
+          fetchPosts();
         }}
-        onSave={handleSave}
-        defaultScheduledAt={defaultScheduledAt}
-        initialData={
-          editPost
-            ? {
-                id: editPost.id,
-                clientId: editPost.clientId,
-                platform: editPost.platform,
-                status: editPost.status,
-                title: editPost.title || "",
-                body: editPost.body || "",
-                hashtags: editPost.hashtags,
-                mediaUrls: editPost.mediaUrls || [],
-                scheduledAt: editPost.scheduledAt
-                  ? format(parseISO(editPost.scheduledAt), "yyyy-MM-dd'T'HH:mm")
-                  : "",
-              }
-            : null
-        }
+        postId={composer.postId}
+        defaultScheduledAt={composer.defaultScheduledAt}
+        defaultClientId={filters.clientId || undefined}
       />
 
-      <BulkImportModal
-        open={bulkModalOpen}
-        onClose={() => setBulkModalOpen(false)}
-        onComplete={fetchPosts}
+      <BulkImportModal open={bulkOpen} onClose={() => setBulkOpen(false)} onComplete={fetchPosts} />
+
+      <ConfirmDialog
+        open={!!retryConfirm}
+        onClose={() => setRetryConfirm(null)}
+        onConfirm={() => retryConfirm && doRetry(retryConfirm)}
+        title="Check the account first"
+        message={`This ${retryConfirm ? getPlatformLabel(retryConfirm.platform) : ""} post was cut off before the platform confirmed it, so it may already be live. Look at the account first. Retry only if it isn't there, or it will post twice.`}
+        confirmLabel="It's not there, retry"
+        confirmVariant="warning"
       />
     </>
   );

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProviderConfig, getRedirectUri, getClientCredentials } from "@/lib/oauth/config";
 import { generateState, generatePKCE } from "@/lib/oauth/utils";
 import { cookies } from "next/headers";
+import { resolveOAuthActor, safeReturnTo } from "@/lib/oauth/access";
 
 export async function GET(
   request: NextRequest,
@@ -12,6 +13,12 @@ export async function GET(
 
   if (!clientId) {
     return NextResponse.json({ error: "clientId is required" }, { status: 400 });
+  }
+
+  // Team session, or the client's own onboarding link; nobody else
+  const actor = await resolveOAuthActor(clientId, request.nextUrl.searchParams.get("onboardToken"));
+  if (!actor) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const config = getProviderConfig(provider);
@@ -40,8 +47,9 @@ export async function GET(
   }
 
   // Generate state with embedded clientId and optional returnTo
-  const returnTo = request.nextUrl.searchParams.get("returnTo") || undefined;
-  const state = generateState(clientId, provider, codeVerifier, returnTo);
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const returnTo = safeReturnTo(request.nextUrl.searchParams.get("returnTo"), `${baseUrl}/clients/${clientId}`);
+  const state = generateState(clientId, provider, codeVerifier, returnTo, actor.kind === "client");
 
   // Store state in httpOnly cookie for CSRF validation on callback
   const cookieStore = await cookies();
@@ -56,7 +64,7 @@ export async function GET(
   // Build authorization URL
   const redirectUri = getRedirectUri(provider);
   const authParams = new URLSearchParams({
-    client_id: oauthClientId,
+    [config.clientIdParam || "client_id"]: oauthClientId,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scopes.join(config.scopeSeparator),

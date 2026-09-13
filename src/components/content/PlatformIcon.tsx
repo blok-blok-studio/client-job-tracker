@@ -1,6 +1,6 @@
 "use client";
 
-import { Instagram, Twitter, Linkedin, Facebook, Youtube, Music2, AtSign } from "lucide-react";
+import { Instagram, Twitter, Linkedin, Facebook, Youtube, Music2, AtSign, BookHeart } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const platformConfig: Record<string, { icon: typeof Instagram; color: string; label: string }> = {
@@ -11,6 +11,7 @@ const platformConfig: Record<string, { icon: typeof Instagram; color: string; la
   FACEBOOK: { icon: Facebook, color: "text-blue-400", label: "Facebook" },
   YOUTUBE: { icon: Youtube, color: "text-red-500", label: "YouTube" },
   TIKTOK: { icon: Music2, color: "text-cyan-400", label: "TikTok" },
+  REDNOTE: { icon: BookHeart, color: "text-rose-500", label: "RedNote" },
 };
 
 export const PLATFORM_COLORS: Record<string, string> = {
@@ -21,6 +22,7 @@ export const PLATFORM_COLORS: Record<string, string> = {
   FACEBOOK: "bg-blue-400",
   YOUTUBE: "bg-red-500",
   TIKTOK: "bg-cyan-400",
+  REDNOTE: "bg-rose-500",
 };
 
 export default function PlatformIcon({

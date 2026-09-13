@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { storeOAuthCredential } from "@/lib/oauth/utils";
+import { getSession } from "@/lib/auth";
+import { saveDiscoveredMetaAccounts } from "@/lib/oauth/meta-accounts";
 
 /**
  * POST — Finalize Meta OAuth account selection.
- * The OAuth callback stores discovered accounts in an encrypted cookie.
+ * The OAuth callback stores discovered accounts in a short-lived httpOnly cookie.
  * This route reads that cookie, saves only the selected accounts, and clears it.
  */
 export async function POST(request: NextRequest) {
+  // The picker is a team page; clients connecting from onboarding skip it
+  if (!(await getSession())) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   const cookieStore = await cookies();
   const pendingCookie = cookieStore.get("oauth_pending_accounts")?.value;
 
@@ -23,7 +29,7 @@ export async function POST(request: NextRequest) {
       clientId: string;
       accessToken: string;
       expiresAt: string;
-      accounts: { platform: string; userId: string; label: string }[];
+      accounts: { platform: string; userId: string; label: string; avatarUrl?: string }[];
     };
 
     const { selectedIds } = await request.json() as { selectedIds: string[] };
@@ -36,21 +42,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Only save accounts that were selected (matched by `platform:userId`)
-    const savedPlatforms: string[] = [];
-    for (const account of pending.accounts) {
-      const accountKey = `${account.platform}:${account.userId}`;
-      if (selectedIds.includes(accountKey)) {
-        await storeOAuthCredential({
-          clientId: pending.clientId,
-          platform: account.platform,
-          label: account.label,
-          userId: account.userId,
-          accessToken: pending.accessToken,
-          expiresAt: new Date(pending.expiresAt),
-        });
-        savedPlatforms.push(`${account.platform} (${account.label})`);
-      }
-    }
+    const savedPlatforms = await saveDiscoveredMetaAccounts(
+      pending.clientId,
+      pending.accessToken,
+      new Date(pending.expiresAt),
+      pending.accounts.filter((account) => selectedIds.includes(`${account.platform}:${account.userId}`))
+    );
 
     // Clear the pending cookie
     cookieStore.delete("oauth_pending_accounts");
