@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSession } from "@/lib/auth";
 import { PENDING_COOKIE, loadPendingAccounts } from "@/lib/oauth/pending";
+import { findExistingOwners } from "@/lib/oauth/meta-accounts";
 
 /**
  * GET — Read the pending Meta accounts this browser is choosing from.
@@ -23,10 +24,22 @@ export async function GET() {
     );
   }
 
+  // Flag accounts already connected somewhere, so the picker can stop a
+  // business's Page or Instagram landing on the wrong client
+  const owners = await findExistingOwners(pending.accounts);
+  const accounts = pending.accounts.map((account) => {
+    const owner = owners.get(`${account.platform}:${account.userId}`);
+    return {
+      ...account,
+      connectedTo: owner && owner.clientId !== pending.clientId ? owner.clientName : null,
+      connectedHere: owner?.clientId === pending.clientId,
+    };
+  });
+
   // Return accounts WITHOUT the access token (security)
   return NextResponse.json({
     success: true,
     clientId: pending.clientId,
-    accounts: pending.accounts,
+    accounts,
   });
 }

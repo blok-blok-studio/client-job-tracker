@@ -11,6 +11,10 @@ interface DiscoveredAccount {
   platform: string;
   userId: string;
   label: string;
+  /** Name of the other client this account is already connected to */
+  connectedTo?: string | null;
+  /** Already connected to this client (selecting it refreshes the connection) */
+  connectedHere?: boolean;
 }
 
 const PLATFORM_ICONS: Record<string, { icon: typeof Instagram; color: string }> = {
@@ -68,6 +72,14 @@ function SelectAccountsContent() {
         }
 
         setAccounts(data.accounts);
+        // Start with what this client already has, so a reconnect is one click
+        setSelectedKeys(
+          new Set(
+            (data.accounts as DiscoveredAccount[])
+              .filter((a) => a.connectedHere)
+              .map((a) => `${a.platform}:${a.userId}`)
+          )
+        );
       } catch {
         setError("Failed to load accounts. Please try connecting again.");
       } finally {
@@ -99,8 +111,9 @@ function SelectAccountsContent() {
       const data = await res.json();
 
       if (data.success) {
-        const names = data.connected.join(", ");
-        router.push(`${returnTo}?oauth_success=${encodeURIComponent(`Connected: ${names}`)}`);
+        const url = new URL(returnTo, window.location.origin);
+        url.searchParams.set("oauth_success", `Connected: ${data.connected.join(", ")}`);
+        router.push(url.pathname + url.search);
       } else {
         setError(data.error || "Failed to save. Please try again.");
       }
@@ -151,7 +164,7 @@ function SelectAccountsContent() {
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">Select Accounts</h1>
         <p className="text-sm text-bb-dim">
-          Choose which accounts to connect{clientName ? ` for ${clientName}` : ""}. You manage multiple accounts — pick the ones for this client.
+          Choose which accounts to connect{clientName ? ` for ${clientName}` : ""}. Your login manages more than one business, so only pick the ones that belong to this client. Accounts already connected to another client can&apos;t be picked here.
         </p>
       </div>
 
@@ -241,17 +254,21 @@ function AccountGroup({
         {accounts.map((account) => {
           const key = `${account.platform}:${account.userId}`;
           const isSelected = selectedKeys.has(key);
+          const takenElsewhere = !!account.connectedTo;
           const platformInfo = PLATFORM_ICONS[account.platform] || PLATFORM_ICONS.Instagram;
           const Icon = platformInfo.icon;
 
           return (
             <button
               key={key}
-              onClick={() => onToggle(key)}
+              onClick={() => !takenElsewhere && onToggle(key)}
+              disabled={takenElsewhere}
               className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl border transition-all text-left ${
-                isSelected
-                  ? "border-bb-orange bg-bb-orange/5 ring-1 ring-bb-orange/20"
-                  : "border-bb-border bg-bb-surface hover:border-bb-muted"
+                takenElsewhere
+                  ? "border-bb-border bg-bb-surface opacity-50 cursor-not-allowed"
+                  : isSelected
+                    ? "border-bb-orange bg-bb-orange/5 ring-1 ring-bb-orange/20"
+                    : "border-bb-border bg-bb-surface hover:border-bb-muted"
               }`}
             >
               {/* Checkbox */}
@@ -273,6 +290,16 @@ function AccountGroup({
                 <p className="text-sm font-medium text-white">{account.label}</p>
                 <p className="text-xs text-bb-dim">{account.platform} &middot; ID: {account.userId}</p>
               </div>
+
+              {takenElsewhere ? (
+                <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full border border-bb-border text-bb-dim">
+                  Connected to {account.connectedTo}
+                </span>
+              ) : account.connectedHere ? (
+                <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full border border-green-500/20 bg-green-500/10 text-green-400">
+                  Already connected
+                </span>
+              ) : null}
             </button>
           );
         })}

@@ -3,6 +3,8 @@
  * shared by the team account picker and the client onboarding flow.
  */
 
+import { Prisma } from "@prisma/client";
+import prisma from "@/lib/prisma";
 import { storeOAuthCredential } from "@/lib/oauth/utils";
 
 export interface DiscoveredMetaAccount {
@@ -55,4 +57,27 @@ export async function saveDiscoveredMetaAccounts(
     saved.push(`${account.platform} (${account.label})`);
   }
   return saved;
+}
+
+/**
+ * For each discovered account, which client (if any) it's already connected
+ * to. Used to stop one Facebook login from attaching a business's Page or
+ * Instagram to the wrong client.
+ */
+export async function findExistingOwners(
+  accounts: DiscoveredMetaAccount[]
+): Promise<Map<string, { clientId: string; clientName: string }>> {
+  const ids = new Set(accounts.map((a) => a.userId));
+  const rows = (await prisma.credential.findMany({
+    where: { meta: { not: Prisma.DbNull } },
+    select: { platform: true, meta: true, clientId: true, client: { select: { name: true } } },
+  })) as unknown as { platform: string; meta: { accountId?: string } | null; clientId: string; client: { name: string } }[];
+
+  const owners = new Map<string, { clientId: string; clientName: string }>();
+  for (const row of rows) {
+    const accountId = row.meta?.accountId;
+    if (!accountId || !ids.has(accountId)) continue;
+    owners.set(`${row.platform}:${accountId}`, { clientId: row.clientId, clientName: row.client.name });
+  }
+  return owners;
 }

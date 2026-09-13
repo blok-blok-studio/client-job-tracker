@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSession } from "@/lib/auth";
-import { saveDiscoveredMetaAccounts } from "@/lib/oauth/meta-accounts";
+import { findExistingOwners, saveDiscoveredMetaAccounts } from "@/lib/oauth/meta-accounts";
 import { PENDING_COOKIE, deletePendingAccounts, loadPendingAccounts } from "@/lib/oauth/pending";
 
 /**
@@ -36,12 +36,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Only save accounts that were selected (matched by `platform:userId`)
+    // Only save accounts that were selected (matched by `platform:userId`),
+    // never one that's already connected to a different client
+    const selected = pending.accounts.filter((account) => selectedIds.includes(`${account.platform}:${account.userId}`));
+    const owners = await findExistingOwners(selected);
+    const skipped: string[] = [];
+    const allowed = selected.filter((account) => {
+      const owner = owners.get(`${account.platform}:${account.userId}`);
+      if (owner && owner.clientId !== pending.clientId) {
+        skipped.push(`${account.label} (already connected to ${owner.clientName})`);
+        return false;
+      }
+      return true;
+    });
     const savedPlatforms = await saveDiscoveredMetaAccounts(
       pending.clientId,
       pending.accessToken,
       new Date(pending.expiresAt),
-      pending.accounts.filter((account) => selectedIds.includes(`${account.platform}:${account.userId}`))
+      allowed
     );
 
     // Clear the pending cookie
@@ -51,6 +63,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       connected: savedPlatforms,
+      skipped,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to save accounts";

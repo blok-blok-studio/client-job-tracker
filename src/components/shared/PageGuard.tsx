@@ -24,8 +24,11 @@ export default function PageGuard() {
     const segment = pathname.split("/")[1];
     // Dashboard home, clients detail under /clients, and team (owner-gated
     // separately) are handled by their own keys. /security is everyone's own
-    // account page (password, photo, 2FA) — never gated.
+    // account page (password, photo, 2FA) — never gated. /oauth is the account
+    // picker mid-way through connecting a client's social accounts; anyone who
+    // can reach Content or Clients has to be able to finish that flow.
     if (!segment || segment === "team" || segment === "security") return;
+    if (segment === "oauth" && (me.allowedPages.includes("content") || me.allowedPages.includes("clients"))) return;
     if (!me.allowedPages.includes(segment)) {
       router.replace("/");
     }
