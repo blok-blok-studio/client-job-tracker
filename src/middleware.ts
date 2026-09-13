@@ -44,6 +44,9 @@ const PUBLIC_PATHS = [
   "/api/social/media/", // signed, expiring media links platforms pull from (TikTok photos)
 ];
 
+const LEGACY_HOST = "blokblokstudio-clients.vercel.app";
+const CANONICAL_HOST = "app.blokblokstudio.com";
+
 // In-memory rate limiter (Edge runtime compatible)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_MAX = 120; // standard API requests per minute
@@ -148,6 +151,13 @@ export async function middleware(request: NextRequest) {
     /^\/google\w+\.html$/.test(pathname)
   ) {
     return NextResponse.next();
+  }
+
+  // The app lives at app.blokblokstudio.com. Old vercel.app page links forward
+  // there; /api stays reachable on both hosts (webhooks, crons, TikTok media links).
+  if (request.nextUrl.hostname === LEGACY_HOST && !pathname.startsWith("/api/")) {
+    const url = new URL(`${pathname}${request.nextUrl.search}`, `https://${CANONICAL_HOST}`);
+    return NextResponse.redirect(url, 308);
   }
 
   const ip = getClientIp(request);
