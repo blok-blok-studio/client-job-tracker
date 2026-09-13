@@ -57,7 +57,7 @@ export default function AboutPage() {
         <p className="pt-2">
           <Link
             href="/login"
-            className="inline-block rounded-lg bg-bb-orange px-4 py-2 text-sm font-medium text-white !no-underline hover:opacity-90"
+            className="inline-block rounded-lg bg-bb-orange px-4 py-2 text-sm font-medium !text-white !no-underline hover:opacity-90"
           >
             Team sign in
           </Link>
