@@ -15,6 +15,7 @@ const PUBLIC_PATHS = [
   "/contractor/",
   "/agreement/",
   "/post-review/",
+  "/legal/", // privacy policy, terms, data deletion (platform reviewers and clients)
   "/api/auth/login",
   "/api/auth/mfa",
   "/api/newsletter/subscribe",
