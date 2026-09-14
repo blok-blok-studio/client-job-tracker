@@ -12,7 +12,8 @@ export default function LoginPage() {
   const router = useRouter();
 
   // Second-factor step
-  const [stage, setStage] = useState<"password" | "mfa">("password");
+  const [stage, setStage] = useState<"password" | "mfa" | "forgot">("password");
+  const [resetSent, setResetSent] = useState(false);
   const [mfaToken, setMfaToken] = useState("");
   const [methods, setMethods] = useState<{ totp: boolean; pin: boolean }>({ totp: false, pin: false });
   const [code, setCode] = useState("");
@@ -49,6 +50,35 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Something went wrong. Try again.");
+        return;
+      }
+      setResetSent(true);
+    } catch {
+      setError("Connection error. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function backToSignIn() {
+    setStage("password");
+    setError("");
+    setResetSent(false);
   }
 
   async function handleMfa(e: React.FormEvent) {
@@ -124,7 +154,61 @@ export default function LoginPage() {
             >
               {loading ? "Authenticating..." : "Enter Command Center"}
             </button>
+            <button
+              type="button"
+              onClick={() => { setStage("forgot"); setError(""); setPassword(""); }}
+              className="w-full text-bb-dim text-xs hover:text-white transition-colors"
+            >
+              Forgot password?
+            </button>
           </form>
+        ) : stage === "forgot" ? (
+          resetSent ? (
+            <div className="space-y-4 text-center">
+              <p className="text-white text-sm">Check your email</p>
+              <p className="text-bb-muted text-sm">
+                If {email} has a login, we sent a link to reset your password. It works for 30 minutes.
+              </p>
+              <button
+                type="button"
+                onClick={backToSignIn}
+                className="w-full text-bb-dim text-xs hover:text-white transition-colors"
+              >
+                Back to sign in
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleForgot} className="space-y-4">
+              <p className="text-center text-bb-muted text-sm">
+                Enter your login email and we&apos;ll send you a reset link.
+              </p>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                autoComplete="username"
+                className={inputClass}
+                autoFocus
+                required
+              />
+              {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading || !email}
+                className="w-full py-3 bg-bb-orange hover:bg-bb-orange-light text-white font-display font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? "Sending..." : "Send reset link"}
+              </button>
+              <button
+                type="button"
+                onClick={backToSignIn}
+                className="w-full text-bb-dim text-xs hover:text-white transition-colors"
+              >
+                Back to sign in
+              </button>
+            </form>
+          )
         ) : (
           <form onSubmit={handleMfa} className="space-y-4">
             <p className="text-center text-bb-muted text-sm">

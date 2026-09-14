@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { createHash } from "crypto";
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import type { UserRole } from "@prisma/client";
@@ -53,6 +54,41 @@ export function verifyMfaToken(token: string): string | null {
   try {
     const payload = jwt.verify(token, getAuthSecret()) as { sub?: string; stage?: string };
     if (payload?.stage !== "mfa" || !payload.sub) return null;
+    return payload.sub;
+  } catch {
+    return null;
+  }
+}
+
+// --- Password reset tokens ---
+
+const RESET_EXPIRY = 30 * 60; // reset links live 30 minutes
+
+// Fingerprint of the current password hash. Baked into the reset token so the
+// link dies the moment the password changes (single use, and any older links
+// sent before the change stop working too). No DB table needed.
+function passwordFingerprint(passwordHash: string): string {
+  return createHash("sha256").update(passwordHash).digest("hex").slice(0, 32);
+}
+
+export function createPasswordResetToken(user: { id: string; passwordHash: string }): string {
+  return jwt.sign(
+    { sub: user.id, stage: "pwreset", fp: passwordFingerprint(user.passwordHash) },
+    getAuthSecret(),
+    { expiresIn: RESET_EXPIRY }
+  );
+}
+
+/** Returns the user id if the token is valid AND still matches the current password. */
+export async function verifyPasswordResetToken(
+  token: string,
+  currentPasswordHash: (userId: string) => Promise<string | null>
+): Promise<string | null> {
+  try {
+    const payload = jwt.verify(token, getAuthSecret()) as { sub?: string; stage?: string; fp?: string };
+    if (payload?.stage !== "pwreset" || !payload.sub || !payload.fp) return null;
+    const hash = await currentPasswordHash(payload.sub);
+    if (!hash || passwordFingerprint(hash) !== payload.fp) return null;
     return payload.sub;
   } catch {
     return null;

@@ -1195,6 +1195,51 @@ export async function sendContractorAgreementSignedEmail(params: {
  * transactional send triggered by an explicit action — it is deliberately not
  * routed through the lifecycle engine or its master switch, which stays off.
  */
+export async function sendPasswordResetEmail(params: {
+  to: string;
+  name: string;
+  resetUrl: string;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    throw new Error("RESEND_API_KEY not set");
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: "Reset your Command Center password",
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">Hi ${params.name.split(" ")[0]},</p>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Someone asked to reset the password for your Command Center login. Use the button below to pick a new one.
+        </p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.resetUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            Reset password
+          </a>
+        </div>
+        <p style="color: #666; font-size: 14px; line-height: 1.6;">
+          The link works for 30 minutes and only once. If you didn't ask for this, you can ignore this email. Your password stays the same.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">Blok Blok Studio · chase@blokblokstudio.com</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send password reset email:", error);
+    throw new Error(`Resend error: ${error.message}`);
+  }
+  return data;
+}
+
 export async function sendContractorPortalEmail(params: {
   to: string;
   contractorName: string;
