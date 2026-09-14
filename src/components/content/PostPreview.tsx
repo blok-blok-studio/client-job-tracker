@@ -303,13 +303,13 @@ function InstagramPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
 
       {/* Caption */}
       <div className="px-3 py-1.5 pb-3">
-        <p className="text-xs text-white leading-relaxed">
+        {/* Same text Instagram receives: body, blank line, hashtags, breaks kept */}
+        <p className="text-xs text-white leading-relaxed whitespace-pre-wrap break-words">
           <span className="font-semibold">your_account</span>{" "}
-          {body && <span>{body.slice(0, 125)}{body.length > 125 ? "..." : ""}</span>}
+          {body}
+          {body && hashtagStr ? "\n\n" : ""}
+          {hashtagStr && <span className="text-[#E0F1FF]">{hashtagStr}</span>}
         </p>
-        {hashtagStr && (
-          <p className="text-xs text-[#E0F1FF] mt-0.5">{hashtagStr}</p>
-        )}
       </div>
     </div>
   );
@@ -431,8 +431,13 @@ function FacebookPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
             <p className="text-[11px] text-[#B0B3B8]">Just now · 🌎</p>
           </div>
         </div>
-        <p className="text-[14px] text-[#E4E6EB] mt-2.5 leading-5">{body}</p>
-        {hashtagStr && <p className="text-xs text-[#4599FF] mt-1">{hashtagStr}</p>}
+        {(body || hashtagStr) && (
+          <p className="text-[14px] text-[#E4E6EB] mt-2.5 leading-5 whitespace-pre-wrap break-words">
+            {body}
+            {body && hashtagStr ? "\n\n" : ""}
+            {hashtagStr && <span className="text-[#4599FF]">{hashtagStr}</span>}
+          </p>
+        )}
       </div>
 
       {/* Facebook: single or carousel */}
@@ -519,14 +524,12 @@ function TikTokPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
         {/* Bottom overlay */}
         <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
           <p className="text-xs text-white font-semibold">@yourhandle</p>
-          <p className="text-[11px] text-white/90 mt-1 leading-4">
-            {(body || "").slice(0, 100)}
+          {/* TikTok's caption is the body with the hashtags right after it (see tiktokCaption) */}
+          <p className="text-[11px] text-white/90 mt-1 leading-4 whitespace-pre-wrap break-words max-h-[140px] overflow-y-auto">
+            {body}
+            {body && hashtagStr ? " " : ""}
+            {hashtagStr}
           </p>
-          {hashtagStr && (
-            <p className="text-[11px] text-white/90 mt-0.5">
-              {hashtagStr}
-            </p>
-          )}
           {/* Sound bar */}
           <div className="flex items-center gap-1.5 mt-2">
             <Music size={10} className="text-white/70" />
@@ -578,7 +581,7 @@ function YouTubePreview({ title, body, hashtags, mediaUrls }: PostPreviewProps) 
         <div className="flex-1 min-w-0">
           <p className="text-[14px] font-medium text-[#F1F1F1] leading-5 line-clamp-2">{title || "Untitled"}</p>
           <p className="text-xs text-[#AAAAAA] mt-1">Your Channel · 0 views · Just now</p>
-          {body && <p className="text-xs text-[#AAAAAA] mt-1.5 line-clamp-2">{body}</p>}
+          {body && <p className="text-xs text-[#AAAAAA] mt-1.5 line-clamp-2 whitespace-pre-wrap">{body}</p>}
           {hashtags.length > 0 && (
             <p className="text-xs text-[#3EA6FF] mt-1">{hashtags.map((t) => `#${t}`).join(" ")}</p>
           )}
