@@ -24,7 +24,9 @@ interface Props {
  * with object-position at the focus point.
  */
 export default function FormattedMediaPreview({ url, kind, thumbnailUrl, width, height, format, focus, onFocusChange, className = "" }: Props) {
-  const [naturalRatio, setNaturalRatio] = useState<number | null>(width && height ? width / height : null);
+  const [loadedRatio, setNaturalRatio] = useState<number | null>(null);
+  // Known size may arrive after mount; the loaded file's own size wins once it's in
+  const naturalRatio = loadedRatio ?? (width && height ? width / height : null);
   const preset = format.aspect !== ORIGINAL_ASPECT ? ASPECT_PRESETS[format.aspect] : undefined;
   const ratio = preset ? preset.width / preset.height : naturalRatio ?? 1;
   const crop = !!preset && format.fit === "crop";
