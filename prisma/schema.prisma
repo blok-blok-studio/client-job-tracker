@@ -849,6 +849,20 @@ model ContentApproval {
   @@index([clientId])
 }
 
+// People the team tags or invites as collaborators on social posts, so the
+// composer can suggest them by name. Shared across clients.
+model SocialPerson {
+  id        String   @id @default(cuid())
+  platform  String // INSTAGRAM
+  handle    String // stored without the @, lowercase
+  name      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([platform, handle])
+}
+
 // A formatted copy of a stored image/video for posting: reframed to an aspect
 // ratio either with black bars ("pad") or filled and cropped ("crop"). The
 // original file is never modified; renditions are separate Blob files, reused

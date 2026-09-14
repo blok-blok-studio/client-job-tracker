@@ -1,6 +1,7 @@
 "use client";
 
-import { ChipInput, FieldLabel, SegmentedControl, Toggle, inputClass, CharCounter } from "../ui";
+import PeopleInput from "../PeopleInput";
+import { FieldLabel, SegmentedControl, Toggle, inputClass, CharCounter } from "../ui";
 import { ImageChoice, imagesOf, setting, type PanelProps } from "./shared";
 import { getSpec } from "@/lib/social/specs";
 import { cn } from "@/lib/utils";
@@ -92,7 +93,7 @@ export default function InstagramPanel({ draft, postType, mediaUrls, meta, disab
         <>
           <div>
             <FieldLabel hint="Up to 3, they accept the invite">Collaborators</FieldLabel>
-            <ChipInput values={draft.collaborators} onChange={(collaborators) => onDraft({ collaborators })} placeholder="username" prefix="@" max={3} disabled={disabled} />
+            <PeopleInput values={draft.collaborators} onChange={(collaborators) => onDraft({ collaborators })} max={3} disabled={disabled} />
           </div>
 
           <div>
@@ -113,7 +114,7 @@ export default function InstagramPanel({ draft, postType, mediaUrls, meta, disab
           {hasImages && !isReel && (
             <div>
               <FieldLabel hint="On photos">Tag people</FieldLabel>
-              <ChipInput values={draft.taggedUsers} onChange={(taggedUsers) => onDraft({ taggedUsers })} placeholder="username" prefix="@" disabled={disabled} />
+              <PeopleInput values={draft.taggedUsers} onChange={(taggedUsers) => onDraft({ taggedUsers })} disabled={disabled} />
             </div>
           )}
 

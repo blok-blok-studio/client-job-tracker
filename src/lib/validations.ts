@@ -63,6 +63,16 @@ export const clientServiceSchema = z.object({
   notes: z.string().optional().or(z.literal("")),
 });
 
+export const socialPersonSchema = z.object({
+  platform: z.enum(["INSTAGRAM"]),
+  // Instagram usernames: letters, numbers, periods, underscores, up to 30
+  handle: z
+    .string()
+    .transform((h) => h.trim().replace(/^@+/, "").toLowerCase())
+    .pipe(z.string().regex(/^[a-z0-9._]{1,30}$/, "That isn't a valid Instagram username")),
+  name: z.string().trim().max(100).optional().or(z.literal("")),
+});
+
 export const contactSchema = z.object({
   name: z.string().min(1, "Name is required"),
   role: z.string().optional().or(z.literal("")),
