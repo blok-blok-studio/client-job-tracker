@@ -8,6 +8,9 @@ interface Props {
   url: string;
   kind: "image" | "video";
   thumbnailUrl?: string | null;
+  /** Known source size, so an "Original" frame has the right shape before the file loads */
+  width?: number | null;
+  height?: number | null;
   format: MediaFormat;
   focus?: FocusPoint | null;
   /** When set (crop mode), the frame becomes a focus point picker */
@@ -20,8 +23,8 @@ interface Props {
  * as the renderer: black bars = object-contain on black, fill = object-cover
  * with object-position at the focus point.
  */
-export default function FormattedMediaPreview({ url, kind, thumbnailUrl, format, focus, onFocusChange, className = "" }: Props) {
-  const [naturalRatio, setNaturalRatio] = useState<number | null>(null);
+export default function FormattedMediaPreview({ url, kind, thumbnailUrl, width, height, format, focus, onFocusChange, className = "" }: Props) {
+  const [naturalRatio, setNaturalRatio] = useState<number | null>(width && height ? width / height : null);
   const preset = format.aspect !== ORIGINAL_ASPECT ? ASPECT_PRESETS[format.aspect] : undefined;
   const ratio = preset ? preset.width / preset.height : naturalRatio ?? 1;
   const crop = !!preset && format.fit === "crop";

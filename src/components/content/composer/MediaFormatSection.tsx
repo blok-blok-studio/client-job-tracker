@@ -73,6 +73,8 @@ export default function MediaFormatSection({ draft, postType, mediaUrls, meta, d
               url={url}
               kind={m?.kind === "video" ? "video" : "image"}
               thumbnailUrl={m?.thumbnailUrl ?? undefined}
+              width={m?.width}
+              height={m?.height}
               format={format}
               focus={focus[url]}
               onFocusChange={
