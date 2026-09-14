@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ArrowDown, ArrowUp, CalendarClock, CheckSquare, Square, Trash2, X } from "lucide-react";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import AccountStack from "./AccountStack";
 import { PostStatusRow } from "./GroupCard";
@@ -57,7 +58,10 @@ export default function ListTab({
 
   const selectedGroups = sorted.filter((g) => selected.has(g.key));
   const canMove = selectedGroups.length > 0 && selectedGroups.every((g) => g.posts.every((p) => isReschedulable(p)));
-  const canDelete = selectedGroups.length > 0 && selectedGroups.every((g) => g.posts.every((p) => p.status === "DRAFT"));
+  // Anything that hasn't gone out yet; published posts stay as records
+  const deletableCount = selectedGroups.reduce((n, g) => n + g.posts.filter((p) => p.status !== "PUBLISHING" && p.status !== "PUBLISHED").length, 0);
+  const canDelete = deletableCount > 0;
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const toggle = (key: string) =>
     setSelected((prev) => {
@@ -122,16 +126,11 @@ export default function ListTab({
           <button
             type="button"
             disabled={!canDelete || busy}
-            title={canDelete ? "" : "Only drafts can be deleted in bulk"}
-            onClick={async () => {
-              setBusy(true);
-              await onBulkDelete(selectedGroups);
-              setBusy(false);
-              setSelected(new Set());
-            }}
+            title={canDelete ? "" : "Published posts can't be deleted here"}
+            onClick={() => setConfirmDelete(true)}
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs text-red-300 border border-red-500/30 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
-            <Trash2 size={12} /> Delete drafts
+            <Trash2 size={12} /> Delete
           </button>
           <button
             type="button"
@@ -143,6 +142,22 @@ export default function ListTab({
           </button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => !busy && setConfirmDelete(false)}
+        onConfirm={async () => {
+          setBusy(true);
+          await onBulkDelete(selectedGroups);
+          setBusy(false);
+          setConfirmDelete(false);
+          setSelected(new Set());
+        }}
+        loading={busy}
+        title={`Delete ${deletableCount} post${deletableCount === 1 ? "" : "s"}?`}
+        message="Drafts, scheduled and failed posts are deleted, and scheduled ones won't go out. Published posts stay. This can't be undone."
+        confirmLabel="Delete"
+      />
 
       <div className="hidden md:flex items-center gap-6 px-3">
         <span className="w-5" />

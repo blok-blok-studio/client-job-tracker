@@ -22,6 +22,7 @@ import {
   Loader2,
   Save,
   Send,
+  Trash2,
   X,
 } from "lucide-react";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
@@ -169,6 +170,8 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
   const [copied, setCopied] = useState(false);
   const [confirmRemoval, setConfirmRemoval] = useState<{ intent: SaveIntent | "approval"; ids: string[] } | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   const groupIdRef = useRef<string>("");
@@ -470,6 +473,33 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
 
   // ─── Save ─────────────────────────────────────────────────────────────────
 
+  // Every saved post in this group that hasn't gone out yet (published ones stay as records)
+  const deletableDrafts = Object.values(drafts).filter((d) => d.postId && !isLocked(d));
+  const publishedCount = Object.values(drafts).filter((d) => d.postId && isLocked(d)).length;
+
+  const deleteGroup = async () => {
+    setDeleting(true);
+    setSaveErrors([]);
+    const errors: { label: string; message: string }[] = [];
+    for (const d of deletableDrafts) {
+      try {
+        const res = await fetch(`/api/content-posts/${d.postId}`, { method: "DELETE" });
+        const json = await readJson(res, "Couldn't delete the post.");
+        if (!json.ok) errors.push({ label: labelFor(d), message: json.error || "Couldn't delete the post." });
+      } catch {
+        errors.push({ label: labelFor(d), message: "Couldn't delete the post." });
+      }
+    }
+    setDeleting(false);
+    setConfirmDelete(false);
+    onSaved?.([]);
+    if (errors.length) {
+      setSaveErrors(errors);
+      return;
+    }
+    onClose();
+  };
+
   const labelFor = (d: AccountDraft) => {
     const a = accountByKey[d.key];
     return `${platformName(d.platform)}${a && !a.manualOnly ? ` ${a.label}` : ""}`;
@@ -582,7 +612,7 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !confirmRemoval && !confirmDiscard) requestClose();
+      if (e.key === "Escape" && !confirmRemoval && !confirmDiscard && !confirmDelete) requestClose();
     };
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -883,6 +913,17 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
                   </>
                 )}
               </button>
+              {editing && deletableDrafts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={!!saving || deleting}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm text-red-300 hover:bg-red-500/10 cursor-pointer transition-colors disabled:opacity-40"
+                >
+                  {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
+              )}
               <div className="flex-1" />
               <button
                 type="button"
@@ -948,6 +989,17 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
         title="Remove posts?"
         message={`${confirmRemoval?.ids.length ?? 0} account${confirmRemoval?.ids.length === 1 ? " was" : "s were"} deselected. Their posts will be deleted when you save.`}
         confirmLabel="Remove and save"
+      />
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => !deleting && setConfirmDelete(false)}
+        onConfirm={deleteGroup}
+        loading={deleting}
+        title={deletableDrafts.length > 1 ? `Delete ${deletableDrafts.length} posts?` : "Delete this post?"}
+        message={`${deletableDrafts.map((d) => labelFor(d)).join(", ")}. ${
+          deletableDrafts.some((d) => d.status === "SCHEDULED") ? "Scheduled posts won't go out. " : ""
+        }This can't be undone.${publishedCount ? ` ${publishedCount} already published post${publishedCount === 1 ? " stays" : "s stay"} on the calendar.` : ""}`}
+        confirmLabel="Delete"
       />
       <ConfirmDialog
         open={confirmDiscard}

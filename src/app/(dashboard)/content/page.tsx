@@ -248,10 +248,10 @@ function ContentPlanner() {
   };
 
   const handleBulkDelete = async (selected: PostGroup[]) => {
-    const ids = selected.flatMap((g) => g.posts.filter((p) => p.status === "DRAFT").map((p) => p.id));
+    const ids = selected.flatMap((g) => g.posts.filter((p) => p.status !== "PUBLISHING" && p.status !== "PUBLISHED").map((p) => p.id));
     const results = await Promise.allSettled(ids.map(deletePost));
     const failed = results.filter((r) => r.status === "rejected").length;
-    toast(failed ? `Deleted ${ids.length - failed}, ${failed} couldn't be deleted.` : `Deleted ${ids.length} draft${ids.length === 1 ? "" : "s"}.`, failed ? "error" : "success");
+    toast(failed ? `Deleted ${ids.length - failed}, ${failed} couldn't be deleted.` : `Deleted ${ids.length} post${ids.length === 1 ? "" : "s"}.`, failed ? "error" : "success");
     fetchPosts();
   };
 
