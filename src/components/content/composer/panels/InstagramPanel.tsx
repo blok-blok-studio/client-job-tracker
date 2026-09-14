@@ -111,9 +111,9 @@ export default function InstagramPanel({ draft, postType, mediaUrls, meta, disab
             />
           </div>
 
-          {hasImages && !isReel && (
+          {(hasImages || isReel) && (
             <div>
-              <FieldLabel hint="On photos">Tag people</FieldLabel>
+              <FieldLabel hint={isReel ? "On the reel" : "On photos"}>Tag people</FieldLabel>
               <PeopleInput values={draft.taggedUsers} onChange={(taggedUsers) => onDraft({ taggedUsers })} disabled={disabled} />
             </div>
           )}
