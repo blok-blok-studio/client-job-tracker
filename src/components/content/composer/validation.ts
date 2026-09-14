@@ -108,7 +108,7 @@ export function issuesForDraft(opts: {
 
   // Judge media by what will be posted: dimensions after the chosen format
   const rawInput = buildSpecInput(draft, shared, meta, scheduledAtIso, extra);
-  const format = effectiveFormat(draft, rawInput.postType ?? null);
+  const format = effectiveFormat(draft, rawInput.postType ?? null, rawInput.media);
   const input = buildSpecInput(
     { ...draft, postType: rawInput.postType ?? null },
     shared,

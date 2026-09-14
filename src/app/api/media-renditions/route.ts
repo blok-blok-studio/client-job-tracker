@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
       format: toFormat(parsed),
       clientId: parsed.clientId,
       resetFailedBefore: new Date(),
+      refreshStale: true,
     });
     return NextResponse.json({ success: true, data: { items } });
   } catch (err) {

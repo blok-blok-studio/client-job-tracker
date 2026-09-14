@@ -21,6 +21,7 @@ import prisma from "@/lib/prisma";
 import { fetchBlobBounded, isAllowedBlobUrl } from "@/lib/blob-fetch";
 import { isImageUrl, isVideoUrl } from "@/lib/social/media";
 import {
+  aspectRatioValue,
   focusFor,
   isPresetAspect,
   readMediaFormat,
@@ -39,8 +40,22 @@ const VIDEO_FIXED_OVERHEAD_MS = 90_000;
 const MAX_IMAGE_SOURCE_BYTES = 100 * 1024 * 1024;
 /** Vercel's /tmp holds ~500 MB; the output file lives there until uploaded. */
 const MAX_VIDEO_OUTPUT_BYTES = 450 * 1024 * 1024;
-/** Peak video bitrate; with the cap above that's about 7 minutes of 1080p. */
-const VIDEO_MAXRATE_MBPS = 8;
+/**
+ * Formatted copies keep the source's own resolution (never shrunk to a 1080
+ * frame). Videos stop at 4K, the most any of the platforms plays back.
+ */
+const MAX_VIDEO_LONG_EDGE = 3840;
+const MAX_IMAGE_LONG_EDGE = 8192;
+/** Peak bitrate for a 1080p copy; scales with pixel count, up to 4K. */
+const VIDEO_MAXRATE_MBPS_1080P = 20;
+const VIDEO_MAXRATE_MBPS_MAX = 60;
+/** Never squeeze a long video below the old ceiling to fit the tmp file cap. */
+const VIDEO_MAXRATE_MBPS_FLOOR = 8;
+/**
+ * Copies made before full-quality rendering (1080 frame, 8 Mbps cap) are
+ * rebuilt when a post that hasn't started publishing asks for them.
+ */
+const FULL_QUALITY_SINCE = new Date("2026-09-14T11:00:00Z");
 
 export type RenditionStatus = "PENDING" | "PROCESSING" | "READY" | "FAILED";
 
@@ -80,8 +95,10 @@ export async function ensureRenditions(opts: {
   format: MediaFormat;
   clientId?: string | null;
   resetFailedBefore?: Date | null;
+  /** Rebuild copies rendered at the old reduced quality (skip mid-publish, the file must not change) */
+  refreshStale?: boolean;
 }): Promise<RenditionItem[]> {
-  const { urls, format, clientId, resetFailedBefore } = opts;
+  const { urls, format, clientId, resetFailedBefore, refreshStale } = opts;
   if (!isPresetAspect(format.aspect)) {
     return urls.map((url) => ({ sourceUrl: url, status: "READY", url, original: true }));
   }
@@ -152,6 +169,14 @@ export async function ensureRenditions(opts: {
       if (count === 1) row = { ...row, status: "PENDING", attempts: 0, error: null };
     }
 
+    if (refreshStale && row.status === "READY" && row.url && row.url !== row.sourceUrl && row.updatedAt < FULL_QUALITY_SINCE) {
+      const { count } = await prisma.mediaRendition.updateMany({
+        where: { id: row.id, status: "READY", updatedAt: row.updatedAt },
+        data: { status: "PENDING", attempts: 0, error: null, lockedUntil: null },
+      });
+      if (count === 1) row = { ...row, status: "PENDING", attempts: 0, error: null };
+    }
+
     items.push({
       sourceUrl: url,
       status: row.status as RenditionStatus,
@@ -164,7 +189,7 @@ export async function ensureRenditions(opts: {
 
 /** Media URLs to publish for a post: originals, or its formatted copies once they're all ready. */
 export async function resolvePostMedia(
-  post: Pick<ContentPost, "mediaUrls" | "platformSettings" | "clientId" | "publishStartedAt">
+  post: Pick<ContentPost, "mediaUrls" | "platformSettings" | "clientId" | "publishStartedAt" | "publishPhase" | "publishState">
 ): Promise<ResolvedMedia> {
   // PDFs are LinkedIn documents, handled separately by the publisher
   const urls = post.mediaUrls.filter((u) => !/\.pdf$/i.test(u));
@@ -178,6 +203,8 @@ export async function resolvePostMedia(
     format,
     clientId: post.clientId,
     resetFailedBefore: post.publishStartedAt,
+    // Only before anything was sent: a resumed upload must keep reading the same file
+    refreshStale: !post.publishPhase || !!(post.publishState as Record<string, unknown> | null)?.__waitingForMedia,
   });
 
   const failed = items.find((i) => i.status === "FAILED");
@@ -245,6 +272,8 @@ export interface ProbeResult {
   height: number;
   /** seconds, videos only */
   duration: number | null;
+  /** First audio stream's codec (e.g. "aac"), videos only */
+  audioCodec?: string | null;
 }
 
 /** Parse `ffmpeg -i` stderr for the first video stream's upright size, and the duration. */
@@ -262,7 +291,8 @@ export function parseFfmpegProbe(stderr: string): ProbeResult | null {
 
   const d = stderr.match(/Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/);
   const duration = d ? Number(d[1]) * 3600 + Number(d[2]) * 60 + Number(d[3]) : null;
-  return { width, height, duration };
+  const audio = stderr.match(/Stream #\d+:\d+[^\n]*?: Audio: (\w+)/);
+  return { width, height, duration, audioCodec: audio ? audio[1].toLowerCase() : null };
 }
 
 /** Read a video's container headers over HTTPS (no full download) for size + duration. */
@@ -324,6 +354,35 @@ export interface RenderSpec {
 }
 
 /**
+ * Frame for a formatted copy at the source's own resolution: black bars add
+ * canvas around the full picture, crop keeps the largest box that fits inside
+ * it. Only shrunk when the long edge passes maxLongEdge; never upscaled.
+ */
+export function fullQualitySize(
+  src: { width: number; height: number },
+  aspect: string,
+  fit: FitMode,
+  maxLongEdge: number
+): { width: number; height: number } | null {
+  const ratio = aspectRatioValue(aspect);
+  if (!ratio || !src.width || !src.height) return null;
+  const wider = src.width / src.height > ratio;
+  let width: number;
+  let height: number;
+  if (fit === "pad") {
+    width = wider ? src.width : src.height * ratio;
+    height = wider ? src.width / ratio : src.height;
+  } else {
+    width = wider ? src.height * ratio : src.width;
+    height = wider ? src.height : src.width / ratio;
+  }
+  const scale = Math.min(1, maxLongEdge / Math.max(width, height));
+  // Even dimensions for H.264
+  const even = (n: number) => Math.max(2, Math.round(n / 2) * 2);
+  return { width: even(width * scale), height: even(height * scale) };
+}
+
+/**
  * Crop box for filling a width×height frame from a source scaled to cover it.
  * Same math as CSS object-fit: cover + object-position: x% y%, so the
  * composer's live preview matches the rendered file.
@@ -340,8 +399,15 @@ export function coverCropBox(srcW: number, srcH: number, spec: RenderSpec) {
   };
 }
 
-/** Render an image buffer into a JPEG frame. */
-export async function renderImage(source: Buffer, spec: RenderSpec, opts: { heic?: boolean } = {}): Promise<Buffer> {
+/**
+ * Render an image buffer into a JPEG frame. With `aspect`, the frame is sized
+ * from the source (full resolution) instead of spec.width × spec.height.
+ */
+export async function renderImage(
+  source: Buffer,
+  baseSpec: RenderSpec,
+  opts: { heic?: boolean; aspect?: string } = {}
+): Promise<{ buffer: Buffer; width: number; height: number }> {
   let input = source;
   if (opts.heic) {
     // sharp's prebuilt libvips can't decode HEIC; decode losslessly to PNG first
@@ -360,6 +426,9 @@ export async function renderImage(source: Buffer, spec: RenderSpec, opts: { heic
     .png({ compressionLevel: 0 })
     .toBuffer({ resolveWithObject: true });
 
+  const size = opts.aspect ? fullQualitySize(upright.info, opts.aspect, baseSpec.fit, MAX_IMAGE_LONG_EDGE) : null;
+  const spec: RenderSpec = size ? { ...baseSpec, ...size } : baseSpec;
+
   let pipeline = sharp(upright.data);
   if (spec.fit === "pad") {
     pipeline = pipeline.resize(spec.width, spec.height, { fit: "contain", background: black, kernel: "lanczos3" });
@@ -370,7 +439,8 @@ export async function renderImage(source: Buffer, spec: RenderSpec, opts: { heic
       .extract({ left: box.left, top: box.top, width: spec.width, height: spec.height });
   }
 
-  return pipeline.jpeg({ quality: 95, chromaSubsampling: "4:4:4" }).toBuffer();
+  const buffer = await pipeline.jpeg({ quality: 95, chromaSubsampling: "4:4:4" }).toBuffer();
+  return { buffer, width: spec.width, height: spec.height };
 }
 
 let cachedFfmpegPath: string | null = null;
@@ -405,9 +475,33 @@ export function videoFilter(spec: RenderSpec): string {
  * MP4 file in tmp. Resolves with the file path; rejects on failure or when the
  * deadline passes (ffmpeg is killed, the caller leaves the row retryable).
  */
-export async function renderVideo(inputUrl: string, spec: RenderSpec, deadline: number, workDir: string): Promise<string> {
+/**
+ * Peak bitrate for a copy: 20 Mbps at 1080p, scaled by pixel count up to
+ * 60 Mbps, lowered (never under the old 8 Mbps) only when a long clip would
+ * otherwise outgrow the tmp file cap.
+ */
+export function videoMaxrateMbps(spec: { width: number; height: number }, durationSec: number | null | undefined): number {
+  const pixels = (spec.width * spec.height) / (1920 * 1080);
+  let rate = Math.min(VIDEO_MAXRATE_MBPS_MAX, Math.max(VIDEO_MAXRATE_MBPS_1080P, Math.round(VIDEO_MAXRATE_MBPS_1080P * pixels)));
+  if (durationSec && durationSec > 0) {
+    const fitsCap = Math.floor((MAX_VIDEO_OUTPUT_BYTES * 0.85 * 8) / (durationSec * 1_000_000)) - 1;
+    rate = Math.min(rate, Math.max(VIDEO_MAXRATE_MBPS_FLOOR, fitsCap));
+  }
+  return rate;
+}
+
+export async function renderVideo(
+  inputUrl: string,
+  spec: RenderSpec,
+  deadline: number,
+  workDir: string,
+  source: { duration?: number | null; audioCodec?: string | null } = {}
+): Promise<string> {
   const ffmpegPath = await getFfmpegPath();
   const outputPath = join(workDir, "out.mp4");
+  const maxrate = videoMaxrateMbps(spec, source.duration);
+  // AAC audio is copied bit for bit; anything else (PCM, Opus...) becomes high-bitrate AAC for MP4
+  const audio = source.audioCodec === "aac" ? ["-c:a", "copy"] : ["-c:a", "aac", "-b:a", "320k"];
   const args = [
     "-hide_banner",
     "-nostdin",
@@ -419,12 +513,11 @@ export async function renderVideo(inputUrl: string, spec: RenderSpec, deadline: 
     "-c:v", "libx264",
     "-preset", "veryfast",
     "-profile:v", "high",
-    "-crf", "18",
-    "-maxrate", `${VIDEO_MAXRATE_MBPS}M`,
-    "-bufsize", `${VIDEO_MAXRATE_MBPS * 2}M`,
+    "-crf", "16",
+    "-maxrate", `${maxrate}M`,
+    "-bufsize", `${maxrate * 2}M`,
     "-pix_fmt", "yuv420p",
-    "-c:a", "aac",
-    "-b:a", "192k",
+    ...audio,
     "-movflags", "+faststart",
     "-fs", String(MAX_VIDEO_OUTPUT_BYTES),
     outputPath,
@@ -470,9 +563,10 @@ export async function renderVideo(inputUrl: string, spec: RenderSpec, deadline: 
   return outputPath;
 }
 
-function estimateVideoWorkMs(durationSec: number | null | undefined): number {
+/** pixelScale: output pixels relative to 1080p (a 4K copy takes about 4× the work) */
+function estimateVideoWorkMs(durationSec: number | null | undefined, pixelScale = 1): number {
   if (durationSec == null) return MIN_VIDEO_BUDGET_MS;
-  return Math.max(MIN_VIDEO_BUDGET_MS, durationSec * VIDEO_SECONDS_PER_SECOND * 1000 + VIDEO_FIXED_OVERHEAD_MS);
+  return Math.max(MIN_VIDEO_BUDGET_MS, durationSec * VIDEO_SECONDS_PER_SECOND * Math.max(1, pixelScale) * 1000 + VIDEO_FIXED_OVERHEAD_MS);
 }
 
 class RenderTimeout extends Error {
@@ -484,7 +578,13 @@ class RenderTimeout extends Error {
 /** A failure that retrying can't fix. */
 class PermanentRenderError extends Error {}
 
-async function renderRow(row: MediaRendition, deadline: number): Promise<{ url: string; size: number | null }> {
+/** Long edges tried for a video copy, largest first, until the encode fits the run. */
+const VIDEO_LONG_EDGE_STEPS = [MAX_VIDEO_LONG_EDGE, 2560, 1920];
+
+async function renderRow(
+  row: MediaRendition,
+  deadline: number
+): Promise<{ url: string; size: number | null; width?: number; height?: number }> {
   const spec: RenderSpec = { width: row.width, height: row.height, fit: row.fit as FitMode, focusX: row.focusX, focusY: row.focusY };
   const matchesTarget = (probe: ProbeResult | null) => !!probe && sourceMatchesAspect(probe, row.aspect);
 
@@ -503,13 +603,13 @@ async function renderRow(row: MediaRendition, deadline: number): Promise<{ url: 
       if (probe) await rememberProbe(row.sourceMediaId, probe);
       if (matchesTarget(probe)) return { url: row.sourceUrl, size: source.length };
     }
-    const jpeg = await renderImage(source, spec, { heic });
-    const blob = await put(`social/renditions/${row.id}.jpg`, jpeg, {
+    const jpeg = await renderImage(source, spec, { heic, aspect: row.aspect });
+    const blob = await put(`social/renditions/${row.id}.jpg`, jpeg.buffer, {
       access: "public",
       addRandomSuffix: true,
       contentType: "image/jpeg",
     });
-    return { url: blob.url, size: jpeg.length };
+    return { url: blob.url, size: jpeg.buffer.length, width: jpeg.width, height: jpeg.height };
   }
 
   // Read the headers first: a video already in the target shape is posted as
@@ -517,7 +617,21 @@ async function renderRow(row: MediaRendition, deadline: number): Promise<{ url: 
   const probe = await probeVideo(row.sourceUrl);
   if (probe) await rememberProbe(row.sourceMediaId, probe);
   if (matchesTarget(probe)) return { url: row.sourceUrl, size: null };
-  if (probe?.duration != null && Date.now() + estimateVideoWorkMs(probe.duration) > deadline) {
+
+  // Keep the source's resolution; step down only if the encode can't finish in a run
+  let videoSpec = spec;
+  if (probe) {
+    const runMs = deadline - 60_000 - Date.now();
+    for (const longEdge of VIDEO_LONG_EDGE_STEPS) {
+      const size = fullQualitySize(probe, row.aspect, spec.fit, longEdge);
+      if (!size) break;
+      videoSpec = { ...spec, ...size };
+      const pixelScale = (size.width * size.height) / (1920 * 1080);
+      if (probe.duration == null || estimateVideoWorkMs(probe.duration, pixelScale) <= runMs) break;
+    }
+  }
+  const pixelScale = (videoSpec.width * videoSpec.height) / (1920 * 1080);
+  if (probe?.duration != null && Date.now() + estimateVideoWorkMs(probe.duration, pixelScale) > deadline) {
     // Not enough of this run left; hand it back untouched for a fresh run
     throw new RenderTimeout();
   }
@@ -526,7 +640,10 @@ async function renderRow(row: MediaRendition, deadline: number): Promise<{ url: 
   await mkdir(workDir, { recursive: true });
   try {
     // Leave time to upload the result before the function is cut off
-    const outputPath = await renderVideo(row.sourceUrl, spec, deadline - 60_000, workDir);
+    const outputPath = await renderVideo(row.sourceUrl, videoSpec, deadline - 60_000, workDir, {
+      duration: probe?.duration,
+      audioCodec: probe?.audioCodec,
+    });
     const { size } = await stat(outputPath);
     const blob = await put(`social/renditions/${row.id}.mp4`, createReadStream(outputPath), {
       access: "public",
@@ -534,7 +651,7 @@ async function renderRow(row: MediaRendition, deadline: number): Promise<{ url: 
       contentType: "video/mp4",
       multipart: true,
     });
-    return { url: blob.url, size };
+    return { url: blob.url, size, width: videoSpec.width, height: videoSpec.height };
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -618,10 +735,10 @@ export async function renderPendingRenditions(opts: { budgetMs?: number } = {}):
     const leasedWithMs = deadline - Date.now();
 
     try {
-      const { url, size } = await renderRow(candidate, deadline);
+      const { url, size, width, height } = await renderRow(candidate, deadline);
       await prisma.mediaRendition.update({
         where: { id: candidate.id },
-        data: { status: "READY", url, size, error: null, lockedUntil: null },
+        data: { status: "READY", url, size, error: null, lockedUntil: null, ...(width && height ? { width, height } : {}) },
       });
       result.rendered++;
     } catch (err) {

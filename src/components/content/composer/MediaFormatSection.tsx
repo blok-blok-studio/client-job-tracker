@@ -7,6 +7,7 @@ import type { MediaFormat } from "@/lib/social/formats";
 import { Card } from "./ui";
 import type { AccountDraft, MediaMeta } from "./types";
 import { effectiveFormat } from "./format-utils";
+import { toSpecMedia } from "./validation";
 
 interface Props {
   draft: AccountDraft;
@@ -27,7 +28,7 @@ export default function MediaFormatSection({ draft, postType, mediaUrls, meta, d
   });
   if (visual.length === 0) return null;
 
-  const format = effectiveFormat(draft, postType);
+  const format = effectiveFormat(draft, postType, toSpecMedia(mediaUrls, meta));
   const focus = (format.focus || {}) as Record<string, { x: number; y: number }>;
 
   const setFormat = (next: MediaFormat) => {
@@ -56,7 +57,13 @@ export default function MediaFormatSection({ draft, postType, mediaUrls, meta, d
       }
     >
       <MediaFormatPicker platform={draft.platform} postType={postType} value={format} disabled={disabled} onChange={setFormat} />
-      {!draft.settings.mediaFormatManual && <p className="text-[11px] text-bb-dim">Suggested for this post type. Originals stay untouched; a formatted copy is made when it publishes.</p>}
+      {!draft.settings.mediaFormatManual && (
+        <p className="text-[11px] text-bb-dim">
+          {format.aspect === "original"
+            ? "Posts your original files at full quality. Pick a shape only if you want one."
+            : "This post type needs this shape, so a full-resolution copy is made when it publishes. Your original stays untouched."}
+        </p>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {visual.slice(0, 6).map((url) => {
           const m = meta[url];

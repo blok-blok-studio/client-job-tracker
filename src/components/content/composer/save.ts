@@ -39,7 +39,7 @@ function settingsForSave(draft: AccountDraft, shared: SharedContent, meta: Recor
     postType,
     // Remember whether the type was chosen or inferred, so editing keeps inferring
     postTypeAuto: draft.postType === null,
-    mediaFormat: effectiveFormat(draft, postType),
+    mediaFormat: effectiveFormat(draft, postType, input.media),
     mediaFormatManual: !!mediaFormatManual,
   };
   if (Object.keys(altTexts).length) settings.altTexts = altTexts;
@@ -155,8 +155,8 @@ export function prewarmRenditions(clientId: string, drafts: AccountDraft[], shar
     const content = effectiveContent(draft, shared);
     const urls = content.mediaUrls.filter((u) => meta[u]?.kind === "image" || meta[u]?.kind === "video");
     if (!urls.length) continue;
-    const postType = buildSpecInput(draft, shared, meta, "").postType ?? null;
-    const format = effectiveFormat(draft, postType) as { aspect: string; fit: string; focus?: unknown };
+    const input = buildSpecInput(draft, shared, meta, "");
+    const format = effectiveFormat(draft, input.postType ?? null, input.media) as { aspect: string; fit: string; focus?: unknown };
     if (!format || format.aspect === "original") continue;
     const key = `${format.aspect}|${format.fit}|${JSON.stringify(format.focus || {})}`;
     const entry = byFormat.get(key) || { aspect: format.aspect, fit: format.fit, focus: format.focus, urls: new Set<string>() };
