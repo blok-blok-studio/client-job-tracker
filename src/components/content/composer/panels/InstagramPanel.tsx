@@ -16,7 +16,7 @@ export default function InstagramPanel({ draft, postType, mediaUrls, meta, disab
     <div className="space-y-3">
       {isStory && (
         <p className="rounded-lg border border-bb-border bg-bb-elevated px-3 py-2 text-[11px] text-bb-muted">
-          Stories post without stickers, links or mentions. For those, switch this account to Post manually.
+          Stories post without stickers or links. For those, switch this account to Post manually.
         </p>
       )}
 
@@ -89,6 +89,13 @@ export default function InstagramPanel({ draft, postType, mediaUrls, meta, disab
         </>
       )}
 
+      {(hasImages || isReel || isStory) && (
+        <div>
+          <FieldLabel hint={isStory ? "On the story" : isReel ? "On the reel" : "On photos"}>Tag people</FieldLabel>
+          <PeopleInput values={draft.taggedUsers} onChange={(taggedUsers) => onDraft({ taggedUsers })} disabled={disabled} />
+        </div>
+      )}
+
       {!isStory && (
         <>
           <div>
@@ -111,13 +118,6 @@ export default function InstagramPanel({ draft, postType, mediaUrls, meta, disab
             />
           </div>
 
-          {(hasImages || isReel) && (
-            <div>
-              <FieldLabel hint={isReel ? "On the reel" : "On photos"}>Tag people</FieldLabel>
-              <PeopleInput values={draft.taggedUsers} onChange={(taggedUsers) => onDraft({ taggedUsers })} disabled={disabled} />
-            </div>
-          )}
-
           <div>
             <FieldLabel htmlFor={`ig-loc-${draft.key}`} hint="Optional Facebook place ID">
               Location ID
@@ -135,6 +135,35 @@ export default function InstagramPanel({ draft, postType, mediaUrls, meta, disab
                 Instagram only takes the number ID of a place, not its name. This location will be left off the post.
               </p>
             )}
+          </div>
+
+          <div className="space-y-1 border-t border-bb-border pt-2">
+            <Toggle
+              label="Paid partnership"
+              description={'Adds the "Paid partnership" label for sponsored content.'}
+              checked={setting(draft, "paidPartnership", false)}
+              disabled={disabled}
+              onChange={(paidPartnership) => onSettings({ paidPartnership, ...(paidPartnership ? {} : { brandPartners: undefined }) })}
+            />
+            {setting(draft, "paidPartnership", false) && (
+              <div className="pb-1">
+                <FieldLabel hint="Optional, up to 2 brand accounts">Brand partners</FieldLabel>
+                <PeopleInput
+                  values={setting<string[]>(draft, "brandPartners", [])}
+                  onChange={(brandPartners) => onSettings({ brandPartners: brandPartners.length ? brandPartners : undefined })}
+                  max={2}
+                  placeholder="Brand username"
+                  disabled={disabled}
+                />
+              </div>
+            )}
+            <Toggle
+              label="Made with AI"
+              description="Adds Instagram's AI info label."
+              checked={setting(draft, "aiGenerated", false)}
+              disabled={disabled}
+              onChange={(aiGenerated) => onSettings({ aiGenerated: aiGenerated || undefined })}
+            />
           </div>
         </>
       )}

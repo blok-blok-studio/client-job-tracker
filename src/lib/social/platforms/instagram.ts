@@ -164,6 +164,76 @@ async function createContainer(ctx: PublishContext, params: Record<string, strin
   return res.id;
 }
 
+async function logWarning(ctx: PublishContext, details: string) {
+  await prisma.activityLog
+    .create({ data: { clientId: ctx.post.clientId, actor: "publisher", action: "content_publish_warning", details } })
+    .catch(() => {});
+}
+
+/**
+ * Reel and story tags are newer on the API. If Instagram refuses the container
+ * with tags, make it again without them so the post still goes out. Safe to
+ * repeat: a refused request created nothing, and containers aren't posts.
+ */
+async function createContainerKeepingPost(
+  ctx: PublishContext,
+  params: Record<string, string | undefined>,
+  postType: IgPostType
+): Promise<string> {
+  try {
+    return await createContainer(ctx, params);
+  } catch (err) {
+    const tagsOptional = postType === "reel" || postType === "trial_reel" || postType === "story";
+    if (!(err instanceof GraphError) || !params.user_tags || !tagsOptional) throw err;
+    const id = await createContainer(ctx, { ...params, user_tags: undefined });
+    await logWarning(ctx, `Instagram wouldn't take the tagged people on this ${postType === "story" ? "story" : "reel"}, so it was posted without them: ${err.message.slice(0, 200)}`);
+    return id;
+  }
+}
+
+/**
+ * Paid partnership and AI labels. Never sent on stories or carousel items.
+ * Brand partners are looked up by username; a label that can't be applied
+ * stops the post instead of publishing sponsored content without it.
+ */
+async function labelParams(ctx: PublishContext): Promise<Record<string, string | undefined>> {
+  const out: Record<string, string | undefined> = {};
+  if (ctx.settings.aiGenerated === true) out.is_ai_generated = "true";
+
+  const partners = handles(Array.isArray(ctx.settings.brandPartners) ? (ctx.settings.brandPartners as string[]) : [])
+    .map((h) => h.toLowerCase())
+    .filter((h) => /^[a-z0-9._]{1,30}$/.test(h))
+    .slice(0, 2);
+  if (ctx.settings.paidPartnership !== true && partners.length === 0) return out;
+
+  if ((ctx.credential.meta?.apiHost || "graph.facebook.com") !== "graph.facebook.com") {
+    throw new PublishValidationError(
+      "Paid partnership labels only work when Instagram is connected through Facebook. Reconnect the account through Facebook, or turn the label off."
+    );
+  }
+  out.is_paid_partnership = "true";
+  if (partners.length) {
+    const ids: string[] = [];
+    for (const username of partners) {
+      let id: string | undefined;
+      try {
+        const res = await graph<{ business_discovery?: { id?: string } }>(ctx.credential, "GET", ctx.credential.username, {
+          fields: `business_discovery.username(${username}){id}`,
+        });
+        id = res.business_discovery?.id;
+      } catch {
+        id = undefined;
+      }
+      if (!id) {
+        throw new PublishValidationError(`Couldn't find the brand @${username} on Instagram. Brand partners must be business or creator accounts.`);
+      }
+      ids.push(id);
+    }
+    out.branded_content_sponsor_ids = JSON.stringify(ids);
+  }
+  return out;
+}
+
 async function containerStatus(ctx: PublishContext, id: string): Promise<{ code: string; message?: string }> {
   const res = await graph<{ status_code?: string; status?: string }>(ctx.credential, "GET", id, {
     fields: "status_code,status",
@@ -226,6 +296,9 @@ async function start(ctx: PublishContext): Promise<PublishStep> {
   const locationId = locationIdOf(ctx);
   const urls = ctx.content.mediaUrls;
 
+  // Resolve labels first so a bad brand partner stops the post before anything is uploaded
+  const labels = postType === "story" ? {} : await labelParams(ctx);
+
   if (postType === "carousel") {
     const childIds: string[] = [];
     for (let i = 0; i < urls.length; i++) {
@@ -278,7 +351,7 @@ async function start(ctx: PublishContext): Promise<PublishStep> {
     params.user_tags = userTagsJson(tagged, true);
   }
 
-  const containerId = await createContainer(ctx, params);
+  const containerId = await createContainerKeepingPost(ctx, { ...params, ...labels }, postType);
   // Save the container id before polling or publishing
   return { kind: "continue", phase: "processing", state: { step: "container", postType, containerId }, retryAfterMs: 0 };
 }
@@ -305,6 +378,7 @@ async function advance(ctx: PublishContext, state: IgState): Promise<PublishStep
       caption: captionOf(ctx),
       location_id: locationIdOf(ctx),
       collaborators: collaborators.length ? JSON.stringify(collaborators) : undefined,
+      ...(await labelParams(ctx)),
     });
     // Save the parent id before polling or publishing it
     return { kind: "continue", phase: "processing", state: { ...state, step: "container", containerId }, retryAfterMs: 0 };

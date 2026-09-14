@@ -166,6 +166,13 @@ function validate(input: SpecInput): SpecIssue[] {
   } else if (collaborators.length > L.collaborators) {
     issues.push({ level: "error", field: "collaborators", message: `Instagram allows up to ${L.collaborators} collaborators.` });
   }
+  const brandPartners = Array.isArray(input.settings?.brandPartners) ? (input.settings!.brandPartners as string[]) : [];
+  if (brandPartners.length > 2) {
+    issues.push({ level: "error", field: "settings.brandPartners", message: "Instagram allows up to 2 brand partners." });
+  }
+  if (type === "story" && (input.settings?.paidPartnership || input.settings?.aiGenerated)) {
+    issues.push({ level: "warning", field: "settings", message: "Paid partnership and AI labels are left off stories." });
+  }
   if (input.altText && input.altText.length > L.altText) {
     issues.push({ level: "error", field: "altText", message: `Alt text can be up to ${L.altText} characters.` });
   }
