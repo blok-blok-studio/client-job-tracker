@@ -55,7 +55,7 @@ const VIDEO_MAXRATE_MBPS_FLOOR = 8;
  * Copies made before full-quality rendering (1080 frame, 8 Mbps cap) are
  * rebuilt when a post that hasn't started publishing asks for them.
  */
-const FULL_QUALITY_SINCE = new Date("2026-09-14T11:00:00Z");
+const FULL_QUALITY_SINCE = new Date("2026-09-14T10:00:00Z");
 
 export type RenditionStatus = "PENDING" | "PROCESSING" | "READY" | "FAILED";
 
