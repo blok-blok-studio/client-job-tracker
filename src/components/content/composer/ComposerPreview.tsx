@@ -4,6 +4,7 @@ import { Film, Heart, MessageCircle, Star } from "lucide-react";
 import PostPreview from "../PostPreview";
 import { Avatar } from "./ui";
 import RedNoteIcon from "./RedNoteIcon";
+import type { MediaFormat } from "@/lib/social/formats";
 import type { MediaMeta } from "./types";
 
 function RedNotePreview({ title, body, hashtags, mediaUrls, meta, name }: { title: string; body: string; hashtags: string[]; mediaUrls: string[]; meta: Record<string, MediaMeta>; name: string }) {
@@ -55,6 +56,10 @@ export default function ComposerPreview({
   mediaUrls,
   meta,
   accountName,
+  accountHandle,
+  avatarUrl,
+  postType,
+  format,
 }: {
   platform: string;
   title: string;
@@ -63,9 +68,27 @@ export default function ComposerPreview({
   mediaUrls: string[];
   meta: Record<string, MediaMeta>;
   accountName: string;
+  accountHandle?: string | null;
+  avatarUrl?: string | null;
+  postType?: string | null;
+  format?: MediaFormat | null;
 }) {
   if (platform === "REDNOTE") {
     return <RedNotePreview title={title} body={body} hashtags={hashtags} mediaUrls={mediaUrls} meta={meta} name={accountName} />;
   }
-  return <PostPreview platform={platform} title={title} body={body} hashtags={hashtags} mediaUrls={mediaUrls} />;
+  return (
+    <PostPreview
+      platform={platform}
+      title={title}
+      body={body}
+      hashtags={hashtags}
+      mediaUrls={mediaUrls}
+      meta={meta}
+      postType={postType}
+      format={format}
+      accountName={accountName}
+      accountHandle={accountHandle}
+      avatarUrl={avatarUrl}
+    />
+  );
 }

@@ -1,8 +1,16 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { createContext, useState, useRef, useCallback, useContext, useEffect } from "react";
 import { Film, ChevronLeft, ChevronRight, Heart, MessageCircle, Send, Bookmark, Share2, ThumbsUp, Repeat2, MoreHorizontal, Music } from "lucide-react";
+import { aspectRatioValue, isPresetAspect, type MediaFormat } from "@/lib/social/formats";
 import PlatformIcon, { getPlatformLabel } from "./PlatformIcon";
+
+interface PreviewMediaMeta {
+  kind?: string;
+  width?: number | null;
+  height?: number | null;
+  thumbnailUrl?: string | null;
+}
 
 interface PostPreviewProps {
   platform: string;
@@ -10,17 +18,78 @@ interface PostPreviewProps {
   body: string;
   hashtags: string[];
   mediaUrls: string[];
+  /** Resolved post type (reel, story, short...), for the frame shape */
+  postType?: string | null;
+  /** Format the post will publish with; black bars vs fill and preset shapes */
+  format?: MediaFormat | null;
+  /** Known kind/size/thumbnail per media URL */
+  meta?: Record<string, PreviewMediaMeta>;
+  /** Display name (Facebook page, LinkedIn, YouTube channel) */
+  accountName?: string | null;
+  /** Username without @ (Instagram, TikTok, X); falls back to accountName */
+  accountHandle?: string | null;
+  avatarUrl?: string | null;
 }
 
-function isVideo(url: string) {
-  return /\.(mp4|mov|webm)$/i.test(url);
+interface MediaContextValue {
+  meta: Record<string, PreviewMediaMeta>;
+  /** "cover" only when the post is set to fill (crop); otherwise the whole picture shows */
+  fit: "contain" | "cover";
+  focus: Record<string, { x: number; y: number }>;
+}
+
+const MediaContext = createContext<MediaContextValue>({ meta: {}, fit: "contain", focus: {} });
+
+function isVideo(url: string, meta?: PreviewMediaMeta) {
+  if (meta?.kind) return meta.kind === "video";
+  return /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(url);
 }
 
 function isPdf(url: string) {
-  return /\.pdf$/i.test(url);
+  return /\.pdf(\?|#|$)/i.test(url);
 }
 
-function MediaItem({ url, iconSize = 32 }: { url: string; iconSize?: number }) {
+const VERTICAL_TYPES: Record<string, string[]> = {
+  INSTAGRAM: ["reel", "trial_reel", "story"],
+  FACEBOOK: ["reel", "story"],
+  YOUTUBE: ["short"],
+};
+
+/**
+ * width / height of the frame the platform shows this post in: vertical for
+ * reels, stories, Shorts and TikTok; the chosen shape; otherwise the first
+ * file's own shape, kept inside what feeds display (4:5 to 1.91:1).
+ */
+function frameRatio(platform: string, postType: string | null | undefined, format: MediaFormat | null | undefined, first?: PreviewMediaMeta): number {
+  if (platform === "TIKTOK" || (postType && VERTICAL_TYPES[platform]?.includes(postType))) return 9 / 16;
+  if (platform === "YOUTUBE") return 16 / 9;
+  if (format && isPresetAspect(format.aspect)) return aspectRatioValue(format.aspect) ?? 1;
+  if (first?.width && first?.height) return Math.min(1.91, Math.max(0.8, first.width / first.height));
+  return 1;
+}
+
+function Avatar({ src, name, className }: { src?: string | null; name?: string | null; className: string }) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} alt="" onError={() => setFailed(true)} className={`${className} object-cover`} />;
+  }
+  return (
+    <div className={`${className} flex items-center justify-center text-[11px] font-semibold text-white/70`}>
+      {(name || "?").replace(/^@/, "").charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+/** The actual photo or video, filling its frame the way it will post. */
+function MediaFill({ url, iconSize = 32, fit: fitOverride }: { url: string; iconSize?: number; fit?: "contain" | "cover" }) {
+  const { meta, fit, focus } = useContext(MediaContext);
+  const m = meta[url];
+  const objectFit = fitOverride ?? fit;
+  const point = focus[url];
+  const objectPosition = objectFit === "cover" && point ? `${point.x * 100}% ${point.y * 100}%` : "50% 50%";
+  const className = "w-full h-full pointer-events-none select-none bg-black";
+
   if (isPdf(url)) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-gray-800 to-gray-900 gap-2">
@@ -31,26 +100,43 @@ function MediaItem({ url, iconSize = 32 }: { url: string; iconSize?: number }) {
       </div>
     );
   }
-  if (isVideo(url)) {
+  if (isVideo(url, m)) {
+    return (
+      <video
+        src={url}
+        poster={m?.thumbnailUrl || undefined}
+        muted
+        loop
+        autoPlay
+        playsInline
+        preload="metadata"
+        className={className}
+        style={{ objectFit, objectPosition }}
+      />
+    );
+  }
+  if (!url) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-black/40">
         <Film size={iconSize} className="text-white/40" />
       </div>
     );
   }
-  return <img src={url} alt="" className="w-full h-full object-cover" />;
+  // HEIC originals only display in Safari, so use the JPEG preview when there is one
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={m?.thumbnailUrl || url} alt="" draggable={false} className={className} style={{ objectFit, objectPosition }} />;
 }
 
 // ─── Swipeable Carousel ─────────────────────────────────────────────────────
 
 function SwipeCarousel({
   urls,
-  aspectClass = "aspect-square",
+  ratio,
   showArrows = true,
   dotStyle = "default",
 }: {
   urls: string[];
-  aspectClass?: string;
+  ratio: number;
   showArrows?: boolean;
   dotStyle?: "default" | "instagram" | "linkedin";
 }) {
@@ -119,15 +205,15 @@ function SwipeCarousel({
     <div className="relative select-none">
       <div
         ref={containerRef}
-        className={`${aspectClass} overflow-hidden touch-pan-y`}
+        className="overflow-hidden touch-pan-y bg-black"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        style={{ cursor: dragging.current ? "grabbing" : "grab" }}
+        style={{ aspectRatio: String(ratio), cursor: dragging.current ? "grabbing" : "grab" }}
       >
         <div
-          className="flex h-full transition-transform duration-300 ease-out"
+          className="flex h-full"
           style={{
             width: `${count * 100}%`,
             transform: `translateX(calc(-${(current * 100) / count}% + ${translate}px))`,
@@ -136,20 +222,7 @@ function SwipeCarousel({
         >
           {urls.map((url, i) => (
             <div key={url + i} className="h-full" style={{ width: `${100 / count}%` }}>
-              {isPdf(url) ? (
-                <MediaItem url={url} iconSize={36} />
-              ) : isVideo(url) ? (
-                <div className="w-full h-full flex items-center justify-center bg-black/60">
-                  <Film size={36} className="text-white/50" />
-                </div>
-              ) : (
-                <img
-                  src={url}
-                  alt=""
-                  className="w-full h-full object-cover pointer-events-none"
-                  draggable={false}
-                />
-              )}
+              <MediaFill url={url} iconSize={36} />
             </div>
           ))}
         </div>
@@ -204,15 +277,13 @@ function SwipeCarousel({
 
 // ─── Twitter/X Image Grid ────────────────────────────────────────────────────
 
-function TwitterMediaGrid({ urls }: { urls: string[] }) {
+function TwitterMediaGrid({ urls, ratio }: { urls: string[]; ratio: number }) {
   if (urls.length === 0) return null;
 
   if (urls.length === 1) {
     return (
-      <div className="rounded-2xl overflow-hidden border border-[#2F3336]">
-        <div className="max-h-[280px]">
-          <MediaItem url={urls[0]} />
-        </div>
+      <div className="rounded-2xl overflow-hidden border border-[#2F3336] max-h-[420px]" style={{ aspectRatio: String(ratio) }}>
+        <MediaFill url={urls[0]} />
       </div>
     );
   }
@@ -222,7 +293,7 @@ function TwitterMediaGrid({ urls }: { urls: string[] }) {
       <div className="grid grid-cols-2 gap-0.5 rounded-2xl overflow-hidden border border-[#2F3336]">
         {urls.map((url) => (
           <div key={url} className="aspect-[4/5] overflow-hidden">
-            <MediaItem url={url} iconSize={20} />
+            <MediaFill url={url} iconSize={20} fit="cover" />
           </div>
         ))}
       </div>
@@ -233,11 +304,11 @@ function TwitterMediaGrid({ urls }: { urls: string[] }) {
     return (
       <div className="grid grid-cols-2 gap-0.5 rounded-2xl overflow-hidden border border-[#2F3336] h-[200px]">
         <div className="row-span-2 overflow-hidden">
-          <MediaItem url={urls[0]} iconSize={24} />
+          <MediaFill url={urls[0]} iconSize={24} fit="cover" />
         </div>
         {urls.slice(1, 3).map((url) => (
           <div key={url} className="overflow-hidden">
-            <MediaItem url={url} iconSize={20} />
+            <MediaFill url={url} iconSize={20} fit="cover" />
           </div>
         ))}
       </div>
@@ -249,16 +320,18 @@ function TwitterMediaGrid({ urls }: { urls: string[] }) {
     <div className="grid grid-cols-2 gap-0.5 rounded-2xl overflow-hidden border border-[#2F3336]">
       {urls.slice(0, 4).map((url) => (
         <div key={url} className="aspect-video overflow-hidden">
-          <MediaItem url={url} iconSize={20} />
+          <MediaFill url={url} iconSize={20} fit="cover" />
         </div>
       ))}
     </div>
   );
 }
 
+type InnerProps = PostPreviewProps & { ratio: number; name: string; handle: string };
+
 // ─── INSTAGRAM ───────────────────────────────────────────────────────────────
 
-function InstagramPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
+function InstagramPreview({ body, hashtags, mediaUrls, ratio, handle, avatarUrl }: InnerProps) {
   const hashtagStr = hashtags.map((t) => `#${t}`).join(" ");
   return (
     <div className="bg-black rounded-xl overflow-hidden border border-[#262626]">
@@ -266,22 +339,18 @@ function InstagramPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
       <div className="flex items-center justify-between px-3 py-2.5">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF] p-[2px]">
-            <div className="w-full h-full rounded-full bg-black" />
+            <Avatar src={avatarUrl} name={handle} className="w-full h-full rounded-full bg-black" />
           </div>
-          <span className="text-xs font-semibold text-white">your_account</span>
+          <span className="text-xs font-semibold text-white">{handle}</span>
         </div>
         <MoreHorizontal size={16} className="text-white/70" />
       </div>
 
       {/* Media carousel */}
       {mediaUrls.length > 0 ? (
-        <SwipeCarousel
-          urls={mediaUrls}
-          aspectClass="aspect-square"
-          dotStyle="instagram"
-        />
+        <SwipeCarousel urls={mediaUrls} ratio={ratio} dotStyle="instagram" />
       ) : (
-        <div className="w-full aspect-square bg-[#1a1a1a] flex items-center justify-center text-[#555] text-sm">
+        <div className="w-full bg-[#1a1a1a] flex items-center justify-center text-[#555] text-sm" style={{ aspectRatio: String(ratio) }}>
           No media attached
         </div>
       )}
@@ -305,7 +374,7 @@ function InstagramPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
       <div className="px-3 py-1.5 pb-3">
         {/* Same text Instagram receives: body, blank line, hashtags, breaks kept */}
         <p className="text-xs text-white leading-relaxed whitespace-pre-wrap break-words">
-          <span className="font-semibold">your_account</span>{" "}
+          <span className="font-semibold">{handle}</span>{" "}
           {body}
           {body && hashtagStr ? "\n\n" : ""}
           {hashtagStr && <span className="text-[#E0F1FF]">{hashtagStr}</span>}
@@ -317,23 +386,22 @@ function InstagramPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
 
 // ─── TWITTER / X ─────────────────────────────────────────────────────────────
 
-function TwitterPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
+function TwitterPreview({ body, hashtags, mediaUrls, ratio, name, handle, avatarUrl }: InnerProps) {
   const hashtagStr = hashtags.map((t) => `#${t}`).join(" ");
   const fullText = [body, hashtagStr].filter(Boolean).join("\n\n").slice(0, 280);
   return (
     <div className="bg-black rounded-xl border border-[#2F3336] p-3">
       <div className="flex gap-2.5">
-        <div className="w-10 h-10 rounded-full bg-[#1D1D1D] shrink-0" />
+        <Avatar src={avatarUrl} name={name} className="w-10 h-10 rounded-full bg-[#1D1D1D] shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-bold text-white">Your Name</span>
-            <svg viewBox="0 0 22 22" className="w-3.5 h-3.5 text-blue-400 fill-current"><path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.855-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.69-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.636.433 1.221.878 1.69.47.446 1.055.752 1.69.883.635.13 1.294.083 1.902-.143.271.586.702 1.084 1.24 1.438.54.354 1.167.551 1.813.568.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.225 1.261.272 1.893.143.636-.13 1.22-.436 1.69-.882.445-.47.75-1.055.88-1.69.131-.636.084-1.294-.139-1.9.588-.275 1.087-.706 1.443-1.246.355-.54.553-1.17.57-1.817zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" /></svg>
-            <span className="text-xs text-[#71767B]">@yourhandle · now</span>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-sm font-bold text-white truncate">{name}</span>
+            <span className="text-xs text-[#71767B] truncate">@{handle} · now</span>
           </div>
           <p className="text-[13px] text-[#E7E9EA] mt-1 whitespace-pre-wrap break-words leading-5">{fullText}</p>
           {mediaUrls.length > 0 && (
             <div className="mt-2.5">
-              <TwitterMediaGrid urls={mediaUrls} />
+              <TwitterMediaGrid urls={mediaUrls} ratio={ratio} />
             </div>
           )}
           {/* Action bar */}
@@ -351,35 +419,23 @@ function TwitterPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
 
 // ─── LINKEDIN ────────────────────────────────────────────────────────────────
 
-function LinkedInPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
+function LinkedInPreview({ body, hashtags, mediaUrls, ratio, name, avatarUrl }: InnerProps) {
   const hashtagStr = hashtags.map((t) => `#${t}`).join(" ");
   return (
     <div className="bg-[#1B1F23] rounded-xl border border-[#38434F] overflow-hidden">
       <div className="p-3">
         <div className="flex items-center gap-2">
-          <div className="w-12 h-12 rounded-full bg-[#2C3338]" />
-          <div>
-            <p className="text-sm font-semibold text-white">Your Name</p>
-            <p className="text-[10px] text-[#FFFFFFA6]">Your headline</p>
+          <Avatar src={avatarUrl} name={name} className="w-12 h-12 rounded-full bg-[#2C3338]" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{name}</p>
             <p className="text-[10px] text-[#FFFFFF8C]">Just now · <span className="inline-block">🌐</span></p>
           </div>
         </div>
-        <p className="text-[13px] text-[#FFFFFFE6] mt-3 whitespace-pre-wrap leading-5">{body}</p>
+        <p className="text-[13px] text-[#FFFFFFE6] mt-3 whitespace-pre-wrap break-words leading-5">{body}</p>
         {hashtagStr && <p className="text-xs text-[#71B7FB] mt-1.5">{hashtagStr}</p>}
       </div>
 
-      {/* LinkedIn shows carousel for multiple, single for one */}
-      {mediaUrls.length > 1 ? (
-        <SwipeCarousel
-          urls={mediaUrls}
-          aspectClass="aspect-[4/3]"
-          dotStyle="linkedin"
-        />
-      ) : mediaUrls.length === 1 ? (
-        <div className="aspect-[4/3] overflow-hidden">
-          <MediaItem url={mediaUrls[0]} />
-        </div>
-      ) : null}
+      {mediaUrls.length > 0 && <SwipeCarousel urls={mediaUrls} ratio={ratio} dotStyle="linkedin" showArrows={mediaUrls.length > 1} />}
 
       {/* Engagement counts */}
       <div className="px-3 py-1.5 flex items-center gap-1">
@@ -419,15 +475,15 @@ function LinkedInPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
 
 // ─── FACEBOOK ────────────────────────────────────────────────────────────────
 
-function FacebookPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
+function FacebookPreview({ body, hashtags, mediaUrls, ratio, name, avatarUrl }: InnerProps) {
   const hashtagStr = hashtags.map((t) => `#${t}`).join(" ");
   return (
     <div className="bg-[#242526] rounded-xl border border-[#3E4042] overflow-hidden">
       <div className="p-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-full bg-[#3A3B3C]" />
-          <div>
-            <p className="text-sm font-semibold text-[#E4E6EB]">Your Page</p>
+          <Avatar src={avatarUrl} name={name} className="w-10 h-10 rounded-full bg-[#3A3B3C]" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[#E4E6EB] truncate">{name}</p>
             <p className="text-[11px] text-[#B0B3B8]">Just now · 🌎</p>
           </div>
         </div>
@@ -440,18 +496,7 @@ function FacebookPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
         )}
       </div>
 
-      {/* Facebook: single or carousel */}
-      {mediaUrls.length > 1 ? (
-        <SwipeCarousel
-          urls={mediaUrls}
-          aspectClass="aspect-[16/10]"
-          dotStyle="default"
-        />
-      ) : mediaUrls.length === 1 ? (
-        <div className="aspect-[16/10] overflow-hidden">
-          <MediaItem url={mediaUrls[0]} />
-        </div>
-      ) : null}
+      {mediaUrls.length > 0 && <SwipeCarousel urls={mediaUrls} ratio={ratio} dotStyle="default" showArrows={mediaUrls.length > 1} />}
 
       {/* Engagement */}
       <div className="px-3 py-1.5 flex items-center justify-between text-[11px] text-[#B0B3B8]">
@@ -490,13 +535,15 @@ function FacebookPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
 
 // ─── TIKTOK ──────────────────────────────────────────────────────────────────
 
-function TikTokPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
+function TikTokPreview({ body, hashtags, mediaUrls, handle }: InnerProps) {
   const hashtagStr = hashtags.map((t) => `#${t}`).join(" ");
   return (
     <div className="bg-black rounded-xl border border-[#2F2F2F] overflow-hidden">
-      <div className="relative aspect-[9/16] max-h-[320px] bg-[#121212] flex items-center justify-center">
+      <div className="relative aspect-[9/16] bg-[#121212] flex items-center justify-center">
         {mediaUrls.length > 0 ? (
-          <MediaItem url={mediaUrls[0]} iconSize={40} />
+          <div className="absolute inset-0">
+            <MediaFill url={mediaUrls[0]} iconSize={40} />
+          </div>
         ) : (
           <span className="text-[#555] text-sm">No video attached</span>
         )}
@@ -522,8 +569,8 @@ function TikTokPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
         </div>
 
         {/* Bottom overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-          <p className="text-xs text-white font-semibold">@yourhandle</p>
+        <div className="absolute bottom-0 left-0 right-12 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+          <p className="text-xs text-white font-semibold">@{handle}</p>
           {/* TikTok's caption is the body with the hashtags right after it (see tiktokCaption) */}
           <p className="text-[11px] text-white/90 mt-1 leading-4 whitespace-pre-wrap break-words max-h-[140px] overflow-y-auto">
             {body}
@@ -545,43 +592,31 @@ function TikTokPreview({ body, hashtags, mediaUrls }: PostPreviewProps) {
 
 // ─── YOUTUBE ─────────────────────────────────────────────────────────────────
 
-function YouTubePreview({ title, body, hashtags, mediaUrls }: PostPreviewProps) {
+function YouTubePreview({ title, body, hashtags, mediaUrls, ratio, name, avatarUrl }: InnerProps) {
+  const short = ratio < 1;
   return (
     <div className="bg-[#0F0F0F] rounded-xl border border-[#272727] overflow-hidden">
-      {/* Video thumbnail */}
-      <div className="relative aspect-video bg-[#1a1a1a] flex items-center justify-center">
+      {/* Video */}
+      <div className="relative bg-[#1a1a1a] flex items-center justify-center" style={{ aspectRatio: String(ratio) }}>
         {mediaUrls.length > 0 ? (
-          isVideo(mediaUrls[0]) ? (
-            <div className="w-full h-full flex items-center justify-center">
-              <div className="w-16 h-11 bg-red-600 rounded-2xl flex items-center justify-center">
-                <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-white border-b-[8px] border-b-transparent ml-1" />
-              </div>
-            </div>
-          ) : isPdf(mediaUrls[0]) ? (
-            <MediaItem url={mediaUrls[0]} />
-          ) : (
-            <img src={mediaUrls[0]} alt="" className="w-full h-full object-cover" />
-          )
+          <div className="absolute inset-0">
+            <MediaFill url={mediaUrls[0]} />
+          </div>
         ) : (
           <span className="text-[#555] text-sm">No video attached</span>
         )}
-        {/* Duration */}
-        <div className="absolute bottom-1.5 right-1.5 bg-black/80 px-1.5 py-0.5 rounded text-[11px] text-white font-medium">
-          0:00
-        </div>
-        {/* Progress bar */}
-        <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/20">
-          <div className="h-full w-0 bg-red-600" />
-        </div>
+        {short && (
+          <div className="absolute top-2 left-2 bg-black/70 px-1.5 py-0.5 rounded text-[10px] text-white font-medium">Short</div>
+        )}
       </div>
 
       {/* Info */}
       <div className="p-3 flex gap-3">
-        <div className="w-9 h-9 rounded-full bg-[#272727] shrink-0" />
+        <Avatar src={avatarUrl} name={name} className="w-9 h-9 rounded-full bg-[#272727] shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-[14px] font-medium text-[#F1F1F1] leading-5 line-clamp-2">{title || "Untitled"}</p>
-          <p className="text-xs text-[#AAAAAA] mt-1">Your Channel · 0 views · Just now</p>
-          {body && <p className="text-xs text-[#AAAAAA] mt-1.5 line-clamp-2 whitespace-pre-wrap">{body}</p>}
+          <p className="text-xs text-[#AAAAAA] mt-1 truncate">{name} · 0 views · Just now</p>
+          {body && <p className="text-xs text-[#AAAAAA] mt-1.5 line-clamp-3 whitespace-pre-wrap">{body}</p>}
           {hashtags.length > 0 && (
             <p className="text-xs text-[#3EA6FF] mt-1">{hashtags.map((t) => `#${t}`).join(" ")}</p>
           )}
@@ -593,7 +628,7 @@ function YouTubePreview({ title, body, hashtags, mediaUrls }: PostPreviewProps) 
 
 // ─── EXPORT ──────────────────────────────────────────────────────────────────
 
-const previewMap: Record<string, React.ComponentType<PostPreviewProps>> = {
+const previewMap: Record<string, React.ComponentType<InnerProps>> = {
   INSTAGRAM: InstagramPreview,
   TWITTER: TwitterPreview,
   LINKEDIN: LinkedInPreview,
@@ -602,8 +637,19 @@ const previewMap: Record<string, React.ComponentType<PostPreviewProps>> = {
   YOUTUBE: YouTubePreview,
 };
 
+/** Vertical frames stay phone-sized; wide ones get a little more room. */
+function maxWidthFor(ratio: number): string {
+  return ratio < 1 ? "340px" : "480px";
+}
+
 export default function PostPreview(props: PostPreviewProps) {
   const PreviewComponent = previewMap[props.platform] || TwitterPreview;
+  const meta = props.meta || {};
+  const ratio = frameRatio(props.platform, props.postType, props.format, meta[props.mediaUrls[0]]);
+  const crop = !!props.format && isPresetAspect(props.format.aspect) && props.format.fit === "crop";
+  const name = props.accountName?.replace(/^@/, "") || "Your account";
+  const handle = (props.accountHandle || props.accountName || "your_account").replace(/^@/, "");
+  const focus = (crop && (props.format?.focus as Record<string, { x: number; y: number }> | undefined)) || {};
 
   return (
     <div>
@@ -613,7 +659,11 @@ export default function PostPreview(props: PostPreviewProps) {
           {getPlatformLabel(props.platform)} Preview
         </span>
       </div>
-      <PreviewComponent {...props} />
+      <MediaContext.Provider value={{ meta, fit: crop ? "cover" : "contain", focus }}>
+        <div className="mx-auto w-full" style={{ maxWidth: maxWidthFor(ratio) }}>
+          <PreviewComponent {...props} ratio={ratio} name={name} handle={handle} />
+        </div>
+      </MediaContext.Provider>
     </div>
   );
 }

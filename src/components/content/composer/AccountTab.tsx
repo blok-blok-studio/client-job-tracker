@@ -8,7 +8,8 @@ import { AccountIcon } from "./AccountPicker";
 import ComposerPreview from "./ComposerPreview";
 import IssueList from "./IssueList";
 import { Avatar, Card, ChipInput, CharCounter, FieldLabel, SegmentedControl, inputClass } from "./ui";
-import { effectiveContent } from "./validation";
+import { effectiveContent, toSpecMedia } from "./validation";
+import { effectiveFormat } from "./format-utils";
 import { isLocked, platformName, type AccountDraft, type ComposerAccount, type MediaMeta, type SharedContent, type TeamMember } from "./types";
 import YouTubePanel from "./panels/YouTubePanel";
 import InstagramPanel from "./panels/InstagramPanel";
@@ -333,6 +334,10 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
             mediaUrls={content.mediaUrls}
             meta={meta}
             accountName={account.manualOnly ? "RedNote" : account.displayName || account.label}
+            accountHandle={account.username || account.label}
+            avatarUrl={account.avatarUrl}
+            postType={postType}
+            format={effectiveFormat(draft, postType, toSpecMedia(content.mediaUrls, meta))}
           />
         )}
       </Card>
