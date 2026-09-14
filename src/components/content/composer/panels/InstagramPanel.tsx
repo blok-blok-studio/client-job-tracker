@@ -129,6 +129,11 @@ export default function InstagramPanel({ draft, postType, mediaUrls, meta, disab
               placeholder="e.g. 110843418940484"
               className={inputClass}
             />
+            {/[^\d\s]/.test(setting(draft, "locationId", "")) && (
+              <p className="text-[11px] text-amber-400 mt-1">
+                Instagram only takes the number ID of a place, not its name. This location will be left off the post.
+              </p>
+            )}
           </div>
         </>
       )}

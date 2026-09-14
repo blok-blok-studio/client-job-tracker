@@ -95,6 +95,15 @@ function handles(list: string[] | null | undefined): string[] {
   return (list || []).map((h) => h.trim().replace(/^@/, "")).filter(Boolean);
 }
 
+/**
+ * location_id must be a Facebook place (Page) ID. Anything else, like a typed
+ * city name, makes Instagram reject the whole post, so it's left off instead.
+ */
+function locationIdOf(ctx: PublishContext): string | undefined {
+  const raw = ctx.settings.locationId != null ? String(ctx.settings.locationId).trim() : "";
+  return /^\d+$/.test(raw) ? raw : undefined;
+}
+
 function specMediaFor(urls: string[]): SpecMedia[] {
   return urls.map((url) => ({ url, kind: isVideoUrl(url) ? "video" : "image" }));
 }
@@ -214,7 +223,7 @@ async function start(ctx: PublishContext): Promise<PublishStep> {
   const caption = captionOf(ctx);
   const collaborators = handles(ctx.post.collaborators);
   const tagged = handles(ctx.post.taggedUsers);
-  const locationId = ctx.settings.locationId ? String(ctx.settings.locationId) : undefined;
+  const locationId = locationIdOf(ctx);
   const urls = ctx.content.mediaUrls;
 
   if (postType === "carousel") {
@@ -294,7 +303,7 @@ async function advance(ctx: PublishContext, state: IgState): Promise<PublishStep
       media_type: "CAROUSEL",
       children: (state.childIds || []).join(","),
       caption: captionOf(ctx),
-      location_id: ctx.settings.locationId ? String(ctx.settings.locationId) : undefined,
+      location_id: locationIdOf(ctx),
       collaborators: collaborators.length ? JSON.stringify(collaborators) : undefined,
     });
     // Save the parent id before polling or publishing it
