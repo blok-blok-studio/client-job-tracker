@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { cancelInFlightPost } from "@/lib/social/publish-runner";
-import { contentPostSchema, USER_SETTABLE_POST_STATUSES } from "@/lib/validations";
+import { contentPostUpdateSchema, USER_SETTABLE_POST_STATUSES } from "@/lib/validations";
 
 export async function GET(
   _request: NextRequest,
@@ -29,7 +29,7 @@ export async function PATCH(
   const { id } = await params;
   try {
     const body = await request.json();
-    const parsed = contentPostSchema.partial().parse(body);
+    const parsed = contentPostUpdateSchema.parse(body);
 
     let current = await prisma.contentPost.findUnique({ where: { id }, select: { status: true } });
     if (!current) {

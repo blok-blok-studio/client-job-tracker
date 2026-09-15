@@ -163,6 +163,19 @@ export const contentPostSchema = z.object({
   holdForApproval: z.boolean().optional(),
 });
 
+// Zod 4 applies .default() even inside .partial(), so a PATCH carrying only
+// { status } would come back with mediaUrls: [] and wipe the post's media.
+// Updates must only touch the fields the request actually sent.
+export const contentPostUpdateSchema = contentPostSchema
+  .extend({
+    hashtags: z.array(z.string()).optional(),
+    mediaUrls: z.array(z.string()).optional(),
+    taggedUsers: z.array(z.string()).optional(),
+    collaborators: z.array(z.string()).optional(),
+    enableComments: z.boolean().optional(),
+  })
+  .partial();
+
 export const contentPostBulkSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
   platforms: z.array(z.object({
