@@ -21,6 +21,9 @@ interface UploadResult {
   error?: string;
 }
 
+const MAX_FILE_BYTES = 500 * 1024 * 1024;
+const fileKey = (f: File) => `${f.name}:${f.size}:${f.lastModified}`;
+
 export default function ClientUploadPortal({ params }: { params: Promise<{ token: string }> }) {
   const [token, setToken] = useState("");
   const [client, setClient] = useState<ClientInfo | null>(null);
@@ -32,6 +35,16 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
   const [results, setResults] = useState<UploadResult[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Phones kill background tabs; warn before leaving mid-upload
+  useEffect(() => {
+    if (!uploading) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [uploading]);
 
   useEffect(() => {
     params.then(({ token: t }) => {
@@ -48,7 +61,18 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
   }, [params]);
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
-    setFiles((prev) => [...prev, ...Array.from(newFiles)]);
+    // Picking the same photo twice shouldn't upload it twice
+    setFiles((prev) => {
+      const seen = new Set(prev.map(fileKey));
+      const next = [...prev];
+      for (const f of Array.from(newFiles)) {
+        if (!seen.has(fileKey(f))) {
+          seen.add(fileKey(f));
+          next.push(f);
+        }
+      }
+      return next;
+    });
     setResults([]);
   }, []);
 
@@ -62,16 +86,19 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
     if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
   }, [addFiles]);
 
+  const uploadable = files.filter((f) => f.size <= MAX_FILE_BYTES);
+
   const handleUpload = async () => {
-    if (files.length === 0 || !token) return;
+    if (uploadable.length === 0 || !token) return;
+    const queue = uploadable;
     setUploading(true);
     setUploadProgress(0);
     setResults([]);
 
     // A few files upload at once; progress is total bytes sent across all of
     // them. Results keep the original file order.
-    const allResults: (UploadResult | undefined)[] = new Array(files.length);
-    const totalSize = files.reduce((s, f) => s + f.size, 0) || 1;
+    const allResults: (UploadResult | undefined)[] = new Array(queue.length);
+    const totalSize = queue.reduce((s, f) => s + f.size, 0) || 1;
     const sentBytes = new Map<number, number>();
     let cursor = 0;
 
@@ -140,14 +167,16 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
     };
 
     const worker = async () => {
-      while (cursor < files.length) {
+      while (cursor < queue.length) {
         const index = cursor++;
-        await uploadOne(files[index], index);
+        await uploadOne(queue[index], index);
       }
     };
-    await Promise.all(Array.from({ length: Math.min(4, files.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(4, queue.length) }, worker));
 
-    setFiles([]);
+    // Failed files stay in the list so the client can retry with one tap
+    const failedNames = new Set(allResults.filter((r) => r?.error).map((r) => r!.filename));
+    setFiles((prev) => prev.filter((f) => f.size > MAX_FILE_BYTES || failedNames.has(f.name)));
     setUploading(false);
     setUploadProgress(0);
   };
@@ -190,7 +219,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
 
   return (
     <div className="min-h-screen bg-[#0A0A0C]">
-      <div className="max-w-2xl mx-auto p-4 sm:p-8">
+      <div className={`max-w-2xl mx-auto p-4 sm:p-8 ${files.length > 0 ? "pb-32 sm:pb-8" : ""}`}>
         {/* Header */}
         <div className="text-center mb-8 pt-8">
           {client.avatarUrl ? (
@@ -212,7 +241,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`flex flex-col items-center justify-center gap-4 py-16 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
+          className={`flex flex-col items-center justify-center gap-4 py-10 sm:py-16 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
             dragOver
               ? "border-orange-500 bg-orange-500/5 scale-[1.01]"
               : "border-white/10 hover:border-white/20 bg-white/[0.02]"
@@ -222,10 +251,11 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
             <Upload size={32} className={dragOver ? "text-orange-400" : "text-white/40"} />
           </div>
           <div className="text-center">
-            <p className="text-white font-medium">Drag & drop files here</p>
-            <p className="text-xs text-gray-500 mt-1">or</p>
-            <span className="inline-block mt-2 px-5 py-2 bg-white/10 hover:bg-white/15 text-white text-sm font-medium rounded-lg transition-colors">
-              Browse Files
+            <p className="text-white font-medium hidden sm:block">Drag & drop files here</p>
+            <p className="text-xs text-gray-500 mt-1 hidden sm:block">or</p>
+            <span className="inline-block mt-2 px-6 py-3 sm:px-5 sm:py-2 bg-white/10 hover:bg-white/15 text-white text-base sm:text-sm font-medium rounded-lg transition-colors">
+              <span className="sm:hidden">Choose photos &amp; videos</span>
+              <span className="hidden sm:inline">Browse Files</span>
             </span>
             <p className="text-xs text-gray-500 mt-3">
               Photos, videos, audio, and documents &middot; Up to 500MB per file
@@ -266,33 +296,47 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
               </button>
             </div>
             {files.map((file, idx) => (
-              <div key={idx} className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded-xl">
+              <div
+                key={fileKey(file)}
+                className={`flex items-center gap-3 p-3 border rounded-xl ${file.size > MAX_FILE_BYTES ? "bg-red-500/5 border-red-500/20" : "bg-white/[0.03] border-white/5"}`}
+              >
                 {getFileIcon(file)}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white truncate">{file.name}</p>
-                  <p className="text-[10px] text-gray-500">{formatSize(file.size)}</p>
+                  <p className={`text-[11px] ${file.size > MAX_FILE_BYTES ? "text-red-400" : "text-gray-500"}`}>
+                    {formatSize(file.size)}
+                    {file.size > MAX_FILE_BYTES && " · over the 500MB limit, send this one another way"}
+                  </p>
                 </div>
-                <button type="button" onClick={() => removeFile(idx)} className="text-gray-600 hover:text-white">
-                  <X size={14} />
+                <button
+                  type="button"
+                  onClick={() => removeFile(idx)}
+                  disabled={uploading}
+                  aria-label={`Remove ${file.name}`}
+                  className="p-2.5 -m-1.5 rounded-lg text-gray-500 hover:text-white disabled:opacity-40"
+                >
+                  <X size={16} />
                 </button>
               </div>
             ))}
 
             {/* Ready to submit indicator */}
-            {!uploading && (
+            {!uploading && uploadable.length > 0 && (
               <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-orange-500/10 border border-orange-500/20 rounded-lg">
                 <Check size={14} className="text-orange-400 shrink-0" />
                 <p className="text-xs text-orange-300">
-                  {files.length} file{files.length !== 1 ? "s" : ""} ready to upload ({formatSize(files.reduce((s, f) => s + f.size, 0))} total)
+                  {uploadable.length} file{uploadable.length !== 1 ? "s" : ""} ready to upload ({formatSize(uploadable.reduce((s, f) => s + f.size, 0))} total)
                 </p>
               </div>
             )}
 
+            {/* Phones: pinned to the bottom so it's reachable after a long list */}
+            <div className="fixed sm:static inset-x-0 bottom-0 z-20 sm:z-auto p-3 sm:p-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-0 bg-[#0A0A0C]/95 sm:bg-transparent border-t border-white/10 sm:border-0 backdrop-blur sm:backdrop-blur-none">
             <button
               type="button"
               onClick={handleUpload}
-              disabled={uploading}
-              className="w-full mt-3 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2 relative overflow-hidden"
+              disabled={uploading || uploadable.length === 0}
+              className="w-full sm:mt-3 py-3.5 sm:py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2 relative overflow-hidden"
             >
               {uploading ? (
                 <>
@@ -309,22 +353,33 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
               ) : (
                 <>
                   <Upload size={16} />
-                  Upload {files.length} file{files.length !== 1 ? "s" : ""}
+                  Upload {uploadable.length} file{uploadable.length !== 1 ? "s" : ""}
                 </>
               )}
             </button>
+            </div>
           </div>
         )}
 
         {/* Results */}
         {results.length > 0 && (
           <div className="mt-6 space-y-2">
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCircle size={18} className="text-green-400" />
-              <h2 className="text-sm font-medium text-white">
-                {results.filter((r) => !r.error).length} file{results.filter((r) => !r.error).length !== 1 ? "s" : ""} uploaded successfully
-              </h2>
-            </div>
+            {results.some((r) => !r.error) && (
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle size={18} className="text-green-400" />
+                <h2 className="text-sm font-medium text-white">
+                  {results.filter((r) => !r.error).length} file{results.filter((r) => !r.error).length !== 1 ? "s" : ""} uploaded successfully
+                </h2>
+              </div>
+            )}
+            {results.some((r) => r.error) && (
+              <div className="flex items-start gap-2 mb-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-200">
+                  {results.filter((r) => r.error).length} file{results.filter((r) => r.error).length !== 1 ? "s" : ""} didn&apos;t upload. {files.length > 0 ? "They're still in the list above, tap Upload to try again." : ""}
+                </p>
+              </div>
+            )}
 
             {/* Thumbnail grid for successful uploads */}
             {results.some((r) => r.url) && (

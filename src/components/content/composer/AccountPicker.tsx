@@ -39,6 +39,7 @@ export default function AccountPicker({ clientId, accounts, selected, locked, lo
 
   return (
     <Card
+      id="composer-accounts"
       title="Post to"
       icon={<Users size={13} />}
       action={

@@ -22,6 +22,7 @@ import { imageThumb } from "@/lib/media-thumb";
 import type { MediaMeta } from "./types";
 import { aspectLabel, formatBytes, formatDuration, kindFromMime, metaFromClientMedia, probeFile } from "./media";
 import { Card, inputClass } from "./ui";
+import { safeUuid } from "@/lib/safe-uuid";
 
 interface Props {
   clientId: string;
@@ -85,17 +86,17 @@ function SortableTile({
               {...attributes}
               {...listeners}
               aria-label="Drag to reorder"
-              className="absolute top-1 right-7 p-1 rounded bg-black/70 text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 cursor-grab active:cursor-grabbing transition-opacity touch-none"
+              className="absolute top-1 right-9 sm:right-7 p-1.5 sm:p-1 rounded bg-black/70 text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 cursor-grab active:cursor-grabbing transition-opacity touch-none"
             >
-              <GripVertical size={12} />
+              <GripVertical size={14} className="sm:w-3 sm:h-3" />
             </button>
             <button
               type="button"
               onClick={onRemove}
               aria-label="Remove from post"
-              className="absolute top-1 right-1 p-1 rounded bg-black/70 text-white hover:bg-red-600 cursor-pointer transition-colors"
+              className="absolute top-1 right-1 p-1.5 sm:p-1 rounded bg-black/70 text-white hover:bg-red-600 cursor-pointer transition-colors"
             >
-              <X size={12} />
+              <X size={14} className="sm:w-3 sm:h-3" />
             </button>
           </>
         )}
@@ -110,9 +111,9 @@ function SortableTile({
             onClick={() => setShowAlt((v) => !v)}
             aria-label="Alt text"
             title={altText ? "Edit alt text" : "Add alt text"}
-            className={cn("p-0.5 rounded cursor-pointer transition-colors", altText ? "text-emerald-400" : "text-bb-dim hover:text-white")}
+            className={cn("p-1.5 -m-1 sm:p-0.5 sm:m-0 rounded cursor-pointer transition-colors", altText ? "text-emerald-400" : "text-bb-dim hover:text-white")}
           >
-            <Accessibility size={12} />
+            <Accessibility size={14} className="sm:w-3 sm:h-3" />
           </button>
         )}
       </div>
@@ -123,7 +124,7 @@ function SortableTile({
             onChange={(e) => onAlt(e.target.value)}
             rows={2}
             placeholder="Describe this image"
-            className={cn(inputClass, "text-xs px-2 py-1 resize-none")}
+            className={cn(inputClass, "sm:text-xs px-2 py-1 resize-none")}
           />
         </div>
       )}
@@ -133,7 +134,7 @@ function SortableTile({
 
 export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disabled, onChange, onAltTextChange, onMetaAdd }: Props) {
   const [libraryOpen, setLibraryOpen] = useState(false);
-  const [uploads, setUploads] = useState<{ name: string; pct: number }[]>([]);
+  const [uploads, setUploads] = useState<{ id: string; name: string; pct: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -158,20 +159,24 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
         return;
       }
       setError(null);
-      const list = Array.from(files);
-      const added: string[] = [];
-      for (const file of list) {
+      const list = Array.from(files).filter((file) => {
         const kind = kindFromMime(file.type, file.name);
-        if (kind !== "image" && kind !== "video") {
-          setError(`${file.name} isn't an image or video.`);
-          continue;
-        }
-        setUploads((u) => [...u, { name: file.name, pct: 0 }]);
+        if (kind === "image" || kind === "video") return true;
+        setError(`${file.name} isn't an image or video.`);
+        return false;
+      });
+      // Keep the picked order even though files upload a few at a time
+      const added: (string | undefined)[] = new Array(list.length);
+      const failed: string[] = [];
+
+      const uploadOne = async (file: File, index: number) => {
+        const id = safeUuid();
+        const kind = kindFromMime(file.type, file.name);
+        setUploads((u) => [...u, { id, name: file.name, pct: 0 }]);
         try {
           const probed = await probeFile(file);
           const { url } = await uploadFile(file, {
-            onProgress: (loaded, total) =>
-              setUploads((u) => u.map((x) => (x.name === file.name ? { ...x, pct: total ? Math.round((loaded / total) * 100) : 0 } : x))),
+            onProgress: (loaded, total) => setUploads((u) => u.map((x) => (x.id === id ? { ...x, pct: total ? Math.round((loaded / total) * 100) : 0 } : x))),
           });
           // Register in the client's library so the file is reusable and gets a thumbnail
           const res = await fetch("/api/client-media", {
@@ -183,24 +188,39 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
           const record = json.ok ? json.data?.data?.[0] : undefined;
           const base = record ? metaFromClientMedia(record) : { url, kind, filename: file.name, mimeType: file.type, size: file.size };
           onMetaAdd([{ ...base, ...probed, url } as MediaMeta]);
-          added.push(url);
+          added[index] = url;
         } catch (err) {
-          setError(err instanceof Error ? err.message : `Couldn't upload ${file.name}.`);
+          failed.push(file.name);
+          if (list.length === 1) setError(err instanceof Error ? err.message : `Couldn't upload ${file.name}.`);
         } finally {
-          setUploads((u) => u.filter((x) => x.name !== file.name));
+          setUploads((u) => u.filter((x) => x.id !== id));
         }
+      };
+
+      let cursor = 0;
+      const worker = async () => {
+        while (cursor < list.length) {
+          const index = cursor++;
+          await uploadOne(list[index], index);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(3, list.length) }, worker));
+      if (failed.length && list.length > 1) {
+        setError(`${failed.length} of ${list.length} didn't upload (${failed.join(", ")}). Check your connection and add ${failed.length === 1 ? "it" : "them"} again.`);
       }
-      if (added.length) onChange([...mediaUrls, ...added]);
+      const done = added.filter((u): u is string => !!u);
+      if (done.length) onChange([...mediaUrls, ...done]);
     },
     [clientId, mediaUrls, onChange, onMetaAdd]
   );
 
   return (
     <Card
+      id="composer-media"
       title="Media"
       icon={<ImagePlus size={13} />}
       action={
-        <span className="text-[11px] text-bb-dim">{mediaUrls.length ? `${mediaUrls.length} selected · drag to reorder` : "Originals kept as-is"}</span>
+        <span className="text-[11px] text-bb-dim">{mediaUrls.length ? `${mediaUrls.length} selected · hold and drag to reorder` : "Originals kept as-is"}</span>
       }
     >
       <div
@@ -241,10 +261,15 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
         {uploads.length > 0 && (
           <div className="space-y-1.5 mb-3">
             {uploads.map((u) => (
-              <div key={u.name} className="flex items-center gap-2 text-xs text-bb-muted">
-                <Loader2 size={12} className="animate-spin text-bb-orange shrink-0" />
-                <span className="truncate flex-1">{u.name}</span>
-                <span className="font-mono tabular-nums">{u.pct}%</span>
+              <div key={u.id} className="text-xs text-bb-muted">
+                <div className="flex items-center gap-2">
+                  <Loader2 size={12} className="animate-spin text-bb-orange shrink-0" />
+                  <span className="truncate flex-1">{u.name}</span>
+                  <span className="font-mono tabular-nums">{u.pct}%</span>
+                </div>
+                <div className="mt-1 h-1 rounded-full bg-bb-border overflow-hidden">
+                  <div className="h-full bg-bb-orange transition-[width] duration-300" style={{ width: `${u.pct}%` }} />
+                </div>
               </div>
             ))}
           </div>
@@ -255,16 +280,17 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors"
+              className="flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border border-dashed border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors"
             >
-              <Upload size={14} /> Upload
+              <Upload size={14} /> <span className="sm:hidden">Photos &amp; videos</span>
+              <span className="hidden sm:inline">Upload</span>
             </button>
             <button
               type="button"
               disabled={!clientId}
               onClick={() => setLibraryOpen((v) => !v)}
               className={cn(
-                "flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-sm cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+                "flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border text-sm cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
                 libraryOpen ? "border-bb-orange/60 text-white bg-bb-orange/10" : "border-bb-border text-bb-muted hover:text-white"
               )}
             >
@@ -284,7 +310,7 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
           </div>
         )}
         {!mediaUrls.length && !disabled && (
-          <p className="text-[11px] text-bb-dim mt-2 text-center">Or drop files here</p>
+          <p className="hidden sm:block text-[11px] text-bb-dim mt-2 text-center">Or drop files here</p>
         )}
         {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
       </div>

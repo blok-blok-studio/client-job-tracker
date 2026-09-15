@@ -13,8 +13,9 @@ export function FieldLabel({ children, hint, htmlFor }: { children: React.ReactN
   );
 }
 
+// text-base below sm: iOS Safari zooms into any field under 16px
 export const inputClass =
-  "w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange/60 focus:ring-2 focus:ring-bb-orange/20 transition-colors disabled:opacity-50";
+  "w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-base sm:text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange/60 focus:ring-2 focus:ring-bb-orange/20 transition-colors disabled:opacity-50";
 
 export function Toggle({
   checked,
@@ -75,9 +76,9 @@ export function CharCounter({ value, max }: { value: number; max?: number }) {
   );
 }
 
-export function Card({ title, icon, children, action, className }: { title?: React.ReactNode; icon?: React.ReactNode; children: React.ReactNode; action?: React.ReactNode; className?: string }) {
+export function Card({ id, title, icon, children, action, className }: { id?: string; title?: React.ReactNode; icon?: React.ReactNode; children: React.ReactNode; action?: React.ReactNode; className?: string }) {
   return (
-    <section className={cn("rounded-xl border border-bb-border bg-bb-surface", className)}>
+    <section id={id} className={cn("rounded-xl border border-bb-border bg-bb-surface scroll-mt-16", className)}>
       {title && (
         <header className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-bb-border">
           <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bb-muted">
@@ -112,7 +113,7 @@ export function SegmentedControl<T extends string>({
           disabled={disabled || o.disabled}
           onClick={() => onChange(o.value)}
           className={cn(
-            "flex-1 min-w-[72px] px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
+            "flex-1 min-w-[72px] px-2.5 py-2 sm:py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
             value === o.value ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white hover:bg-bb-surface"
           )}
         >
@@ -171,9 +172,9 @@ export function ChipInput({
               type="button"
               aria-label={`Remove ${v}`}
               onClick={() => onChange(values.filter((x) => x !== v))}
-              className="p-0.5 rounded-full text-bb-dim hover:text-white cursor-pointer"
+              className="p-1 sm:p-0.5 rounded-full text-bb-dim hover:text-white cursor-pointer"
             >
-              <X size={10} />
+              <X size={12} className="sm:w-2.5 sm:h-2.5" />
             </button>
           )}
         </span>
@@ -192,7 +193,7 @@ export function ChipInput({
           }}
           onBlur={() => input.trim() && commit()}
           placeholder={values.length ? "" : placeholder}
-          className="flex-1 min-w-[120px] bg-transparent text-sm text-white placeholder:text-bb-dim outline-none py-0.5"
+          className="flex-1 min-w-[120px] bg-transparent text-base sm:text-sm text-white placeholder:text-bb-dim outline-none py-0.5"
         />
       )}
     </div>

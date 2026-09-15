@@ -457,15 +457,17 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
   }, [selectedDrafts, accountByKey, shared, meta, scheduledAtIso, creatorInfo]);
 
   const globalIssues: SpecIssue[] = [];
-  if (!clientId) globalIssues.push({ level: "error", message: "Pick a client." });
-  if (selected.length === 0) globalIssues.push({ level: "error", message: "Pick at least one account to post to." });
+  if (!clientId) globalIssues.push({ level: "error", field: "client", message: "Pick a client." });
+  if (selected.length === 0) globalIssues.push({ level: "error", field: "accounts", message: "Pick at least one account to post to." });
   const scheduleIssues: SpecIssue[] = [];
-  if (!scheduledAtIso) scheduleIssues.push({ level: "error", message: "Pick a date and time to schedule." });
-  else if (new Date(scheduledAtIso).getTime() < Date.now() - 60_000) scheduleIssues.push({ level: "error", message: "The scheduled time has already passed." });
+  if (!scheduledAtIso) scheduleIssues.push({ level: "error", field: "schedule", message: "Pick a date and time to schedule." });
+  else if (new Date(scheduledAtIso).getTime() < Date.now() - 60_000) scheduleIssues.push({ level: "error", field: "schedule", message: "The scheduled time has already passed." });
 
   const accountErrorCount = Object.values(issuesByKey).reduce((n, list) => n + list.filter((i) => i.level === "error").length, 0);
   const warningCount = Object.values(issuesByKey).reduce((n, list) => n + list.filter((i) => i.level === "warning").length, 0);
   const scheduleBlocked = globalIssues.length + scheduleIssues.length + accountErrorCount > 0;
+  // Everything that stops Schedule, so the status never reads "Ready" while it's blocked
+  const blockingCount = globalIssues.length + scheduleIssues.length + accountErrorCount;
   const editableCount = selectedDrafts.filter((d) => !isLocked(d)).length;
   const hasTikTokAuto = selectedDrafts.some((d) => d.platform === "TIKTOK" && d.publishMode === "AUTO" && !isLocked(d));
   const tiktokBranded = selectedDrafts.some((d) => d.platform === "TIKTOK" && d.publishMode === "AUTO" && !!d.settings.brandedContent);
@@ -498,6 +500,34 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
       return;
     }
     onClose();
+  };
+
+  // Take the user to the field an issue is about; on phones the sections stack, so scroll to it
+  const scrollToSection = (id: string) =>
+    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+
+  const jumpToIssue = (issue: SpecIssue, draftKey?: string) => {
+    const field = issue.field || "";
+    if (!draftKey) {
+      if (field === "client") return document.getElementById("composer-client")?.focus();
+      return scrollToSection(field === "accounts" ? "composer-accounts" : "composer-when");
+    }
+    const draft = drafts[draftKey];
+    const captionField = ["title", "body", "hashtags"].includes(field);
+    const mediaField = field === "media" || field === "altText";
+    setActiveKey(draftKey);
+    if (captionField && !draft?.overrideCaption) return scrollToSection("composer-caption");
+    if (mediaField && !draft?.overrideMedia) return scrollToSection("composer-media");
+    scrollToSection("composer-account-settings");
+  };
+
+  const firstBlockingIssue = (): { issue: SpecIssue; draftKey?: string } | null => {
+    if (globalIssues[0]) return { issue: globalIssues[0] };
+    for (const d of selectedDrafts) {
+      const err = (issuesByKey[d.key] || []).find((i) => i.level === "error");
+      if (err) return { issue: err, draftKey: d.key };
+    }
+    return scheduleIssues[0] ? { issue: scheduleIssues[0] } : null;
   };
 
   const labelFor = (d: AccountDraft) => {
@@ -654,8 +684,9 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
                 setActiveKey(null);
                 setShared((s) => ({ ...s, mediaUrls: [] }));
               }}
+              id="composer-client"
               aria-label="Client"
-              className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-1.5 text-sm text-white disabled:opacity-70 cursor-pointer disabled:cursor-default"
+              className="w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-1.5 text-base sm:text-sm text-white disabled:opacity-70 cursor-pointer disabled:cursor-default"
             >
               <option value="">Choose client</option>
               {clients.map((c) => (
@@ -679,7 +710,7 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
             type="button"
             onClick={requestClose}
             aria-label="Close"
-            className="p-1.5 rounded-md text-bb-muted hover:text-white hover:bg-bb-elevated cursor-pointer transition-colors"
+            className="p-2 sm:p-1.5 rounded-md text-bb-muted hover:text-white hover:bg-bb-elevated cursor-pointer transition-colors"
           >
             <X size={18} />
           </button>
@@ -736,7 +767,7 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
             </div>
 
             {/* Right: per-account customization */}
-            <aside className="lg:overflow-y-auto border-t lg:border-t-0 lg:border-l border-bb-border bg-bb-surface/40">
+            <aside id="composer-account-settings" className="scroll-mt-2 lg:overflow-y-auto border-t lg:border-t-0 lg:border-l border-bb-border bg-bb-surface/40">
               {selectedDrafts.length === 0 ? (
                 <div className="p-6 text-center">
                   <p className="text-sm text-bb-muted">Pick accounts on the left.</p>
@@ -760,7 +791,7 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
                             aria-selected={isActive}
                             onClick={() => setActiveKey(d.key)}
                             className={cn(
-                              "flex items-center gap-1.5 shrink-0 rounded-lg px-2.5 py-1.5 text-xs border cursor-pointer transition-colors",
+                              "flex items-center gap-1.5 shrink-0 rounded-lg px-3 py-2 sm:px-2.5 sm:py-1.5 text-xs border cursor-pointer transition-colors",
                               isActive ? "bg-bb-elevated border-bb-orange/60 text-white" : "border-transparent text-bb-muted hover:text-white hover:bg-bb-elevated"
                             )}
                           >
@@ -807,17 +838,24 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
 
         {/* Footer */}
         {!loadingPost && !loadError && (
-          <footer className="border-t border-bb-border bg-bb-surface px-3 sm:px-4 py-2.5 space-y-2">
+          <footer className="border-t border-bb-border bg-bb-surface px-3 sm:px-4 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] space-y-2">
             {showIssues && (
-              <div className="max-h-48 overflow-y-auto space-y-2">
-                <IssueList issues={[...globalIssues, ...scheduleIssues]} />
+              <div className="max-h-[40vh] sm:max-h-48 overflow-y-auto space-y-2">
+                <IssueList issues={[...globalIssues, ...scheduleIssues]} onSelect={(issue) => jumpToIssue(issue)} />
                 {selectedDrafts.map((d) =>
                   (issuesByKey[d.key] || []).length ? (
                     <div key={d.key}>
-                      <button type="button" onClick={() => setActiveKey(d.key)} className="flex items-center gap-1.5 text-xs text-bb-muted hover:text-white mb-1 cursor-pointer">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveKey(d.key);
+                          scrollToSection("composer-account-settings");
+                        }}
+                        className="flex items-center gap-1.5 text-xs text-bb-muted hover:text-white mb-1 cursor-pointer"
+                      >
                         <AccountIcon platform={d.platform} size={11} /> {labelFor(d)}
                       </button>
-                      <IssueList issues={issuesByKey[d.key]} />
+                      <IssueList issues={issuesByKey[d.key]} onSelect={(issue) => jumpToIssue(issue, d.key)} />
                     </div>
                   ) : null
                 )}
@@ -869,7 +907,7 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
                   onChange={(e) => setApprovalMessage(e.target.value)}
                   rows={2}
                   placeholder="Optional note for the client"
-                  className="w-full bg-bb-surface border border-bb-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-bb-dim resize-none"
+                  className="w-full bg-bb-surface border border-bb-border rounded-lg px-3 py-2 text-base sm:text-sm text-white placeholder:text-bb-dim resize-none"
                 />
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={() => setApprovalOpen(false)} className="px-3 py-1.5 text-xs text-bb-muted hover:text-white cursor-pointer">
@@ -889,90 +927,109 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
 
             {hasTikTokAuto && <TikTokConsent branded={tiktokBranded} />}
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowIssues((v) => !v)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 text-xs rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
-                  accountErrorCount + globalIssues.length > 0 ? "text-red-300 hover:bg-red-500/10" : warningCount ? "text-amber-200 hover:bg-amber-500/10" : "text-emerald-300 hover:bg-emerald-500/10"
-                )}
-                aria-expanded={showIssues}
-              >
-                {accountErrorCount + globalIssues.length > 0 ? (
-                  <>
-                    <AlertCircle size={13} /> {accountErrorCount + globalIssues.length} to fix
-                  </>
-                ) : warningCount ? (
-                  <>
-                    <AlertTriangle size={13} /> {warningCount} warning{warningCount === 1 ? "" : "s"}
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 size={13} /> Ready
-                  </>
-                )}
-              </button>
-              {editing && deletableDrafts.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setConfirmDelete(true)}
-                  disabled={!!saving || deleting}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm text-red-300 hover:bg-red-500/10 cursor-pointer transition-colors disabled:opacity-40"
+                  onClick={() => setShowIssues((v) => !v)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 text-xs rounded-lg px-2 py-2 sm:py-1.5 cursor-pointer transition-colors",
+                    blockingCount > 0 ? "text-red-300 hover:bg-red-500/10" : warningCount ? "text-amber-200 hover:bg-amber-500/10" : "text-emerald-300 hover:bg-emerald-500/10"
+                  )}
+                  aria-expanded={showIssues}
                 >
-                  {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                  <span className="hidden sm:inline">Delete</span>
+                  {blockingCount > 0 ? (
+                    <>
+                      <AlertCircle size={13} /> {blockingCount} to fix
+                    </>
+                  ) : warningCount ? (
+                    <>
+                      <AlertTriangle size={13} /> {warningCount} warning{warningCount === 1 ? "" : "s"}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={13} /> Ready
+                    </>
+                  )}
                 </button>
-              )}
-              <div className="flex-1" />
-              <button
-                type="button"
-                onClick={requestClose}
-                disabled={!!saving}
-                className="hidden sm:inline-flex px-3 py-2 rounded-lg text-sm text-bb-muted hover:text-white cursor-pointer transition-colors disabled:opacity-40"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => requestSave("draft")}
-                disabled={!!saving || globalIssues.length > 0 || editableCount === 0}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-bb-elevated border border-bb-border text-sm text-bb-muted hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                {saving === "draft" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save draft
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setApprovalLink(null);
-                  setApprovalOpen((v) => !v);
-                }}
-                disabled={!!saving || globalIssues.length > 0 || editableCount === 0}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-bb-elevated border border-bb-border text-sm text-bb-muted hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <Send size={14} /> <span className="hidden sm:inline">Send for approval</span>
-                <span className="sm:hidden">Approval</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (scheduleBlocked) {
-                    setShowIssues(true);
-                    return;
-                  }
-                  requestSave("schedule");
-                }}
-                disabled={!!saving || editableCount === 0}
-                aria-disabled={scheduleBlocked}
-                title={scheduleBlocked ? "Fix the issues first" : undefined}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                  scheduleBlocked ? "bg-bb-orange/40" : "bg-bb-orange hover:bg-bb-orange-light"
+                {editing && deletableDrafts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    disabled={!!saving || deleting}
+                    aria-label="Delete"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm text-red-300 hover:bg-red-500/10 cursor-pointer transition-colors disabled:opacity-40"
+                  >
+                    {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    <span className="hidden sm:inline">Delete</span>
+                  </button>
                 )}
-              >
-                {saving === "schedule" ? <Loader2 size={14} className="animate-spin" /> : <CalendarCheck2 size={14} />}
-                {selectedDrafts.some((d) => d.status === "FAILED") ? "Reschedule" : "Schedule"}
-              </button>
+                <div className="flex-1 sm:hidden" />
+                <button
+                  type="button"
+                  onClick={requestClose}
+                  disabled={!!saving}
+                  className="sm:hidden px-3 py-2 rounded-lg text-sm text-bb-muted hover:text-white cursor-pointer transition-colors disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className="hidden sm:block flex-1" />
+              {/* Phones: three equal buttons in one row; desktop: inline */}
+              <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
+                <button
+                  type="button"
+                  onClick={requestClose}
+                  disabled={!!saving}
+                  className="hidden sm:inline-flex px-3 py-2 rounded-lg text-sm text-bb-muted hover:text-white cursor-pointer transition-colors disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => requestSave("draft")}
+                  disabled={!!saving || globalIssues.length > 0 || editableCount === 0}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-lg bg-bb-elevated border border-bb-border text-sm text-bb-muted hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {saving === "draft" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  <span className="sm:hidden">Draft</span>
+                  <span className="hidden sm:inline">Save draft</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setApprovalLink(null);
+                    setApprovalOpen((v) => !v);
+                  }}
+                  disabled={!!saving || globalIssues.length > 0 || editableCount === 0}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-lg bg-bb-elevated border border-bb-border text-sm text-bb-muted hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Send size={14} /> <span className="hidden sm:inline">Send for approval</span>
+                  <span className="sm:hidden">Approval</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (scheduleBlocked) {
+                      setShowIssues(true);
+                      const first = firstBlockingIssue();
+                      if (first) jumpToIssue(first.issue, first.draftKey);
+                      return;
+                    }
+                    requestSave("schedule");
+                  }}
+                  disabled={!!saving || editableCount === 0}
+                  aria-disabled={scheduleBlocked}
+                  title={scheduleBlocked ? "Fix the issues first" : undefined}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium text-white cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                    scheduleBlocked ? "bg-bb-orange/40" : "bg-bb-orange hover:bg-bb-orange-light"
+                  )}
+                >
+                  {saving === "schedule" ? <Loader2 size={14} className="animate-spin" /> : <CalendarCheck2 size={14} />}
+                  {selectedDrafts.some((d) => d.status === "FAILED") ? "Reschedule" : "Schedule"}
+                </button>
+              </div>
             </div>
           </footer>
         )}

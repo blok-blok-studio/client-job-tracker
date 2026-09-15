@@ -116,6 +116,7 @@ export default function ClientDetailPage() {
   const [credForm, setCredForm] = useState({ platform: "", username: "", password: "", url: "", notes: "" });
   const [savingCred, setSavingCred] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [mediaUploadCount, setMediaUploadCount] = useState<{ done: number; total: number } | null>(null);
 
   const fetchClient = useCallback(async () => {
     try {
@@ -468,6 +469,8 @@ export default function ClientDetailPage() {
       // A few files at a time — a big photo batch used to crawl one-by-one
       const items = Array.from(files);
       let successCount = 0;
+      let finished = 0;
+      setMediaUploadCount({ done: 0, total: items.length });
       let cursor = 0;
       let firstError: string | null = null;
 
@@ -520,6 +523,9 @@ export default function ClientDetailPage() {
             successCount++;
           } catch (err) {
             if (!firstError) firstError = friendlyError(err, "check your connection");
+          } finally {
+            finished++;
+            setMediaUploadCount({ done: finished, total: items.length });
           }
         }
       };
@@ -534,7 +540,10 @@ export default function ClientDetailPage() {
     } catch (err) {
       toast(`Upload failed: ${friendlyError(err, "check your connection")}`, "error");
     }
-    finally { setUploadingMedia(false); }
+    finally {
+      setUploadingMedia(false);
+      setMediaUploadCount(null);
+    }
   }
 
   async function handleDeleteMedia(mediaId: string) {
@@ -1241,6 +1250,7 @@ export default function ClientDetailPage() {
                     uploadToken={client.uploadToken}
                     clientName={client.name}
                     uploadingMedia={uploadingMedia}
+                    uploadProgress={mediaUploadCount}
                     onUpload={handleUploadMedia}
                     onDelete={handleDeleteMedia}
                     onBatchDelete={handleBatchDeleteMedia}

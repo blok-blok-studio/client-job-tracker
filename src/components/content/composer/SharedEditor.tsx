@@ -59,7 +59,7 @@ export default function SharedEditor({ shared, platforms, disabled, onChange }: 
   };
 
   return (
-    <Card title="Caption" icon={<PenLine size={13} />} action={<span className="text-[11px] text-bb-dim">Shared by every account unless customized</span>}>
+    <Card id="composer-caption" title="Caption" icon={<PenLine size={13} />} action={<span className="text-[11px] text-bb-dim">Shared by every account unless customized</span>}>
       {showTitle && (
         <div>
           <FieldLabel htmlFor="composer-title" hint={titleLimits.length ? titleLimits.map((t) => `${platformName(t.p)} ${t.max}`).join(" · ") : undefined}>

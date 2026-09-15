@@ -203,7 +203,7 @@ export default function PeopleInput({
             autoComplete="off"
             autoCapitalize="none"
             spellCheck={false}
-            className="flex-1 min-w-[120px] bg-transparent text-sm text-white placeholder:text-bb-dim outline-none py-0.5"
+            className="flex-1 min-w-[120px] bg-transparent text-base sm:text-sm text-white placeholder:text-bb-dim outline-none py-0.5"
           />
         )}
       </div>

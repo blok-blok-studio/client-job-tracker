@@ -37,6 +37,7 @@ interface MediaManagerProps {
   clientName?: string;
   uploadingMedia: boolean;
   onUpload: (files: FileList) => void;
+  uploadProgress?: { done: number; total: number } | null;
   onDelete: (id: string) => void;
   onBatchDelete: (ids: string[]) => Promise<void>;
   onBatchAssignFolder?: (ids: string[], folder: string | null) => Promise<void>;
@@ -68,7 +69,7 @@ function getFileIcon(fileType: string, size: number) {
 }
 
 export default function MediaManager({
-  mediaFiles, clientName, uploadingMedia, onUpload, onDelete, onBatchDelete, onBatchAssignFolder, onRefresh, toast,
+  mediaFiles, clientName, uploadingMedia, uploadProgress, onUpload, onDelete, onBatchDelete, onBatchAssignFolder, onRefresh, toast,
 }: MediaManagerProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const { startZip, zipBar } = useZipDownload();
@@ -765,15 +766,19 @@ export default function MediaManager({
               </>
             )
           )}
-          <label className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1 cursor-pointer">
+          <label className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1 cursor-pointer px-2 py-2 -my-2 sm:p-0 sm:m-0">
             <Upload size={14} />
-            {uploadingMedia ? "Uploading..." : "Upload"}
+            {uploadingMedia ? (uploadProgress ? `Uploading ${uploadProgress.done} of ${uploadProgress.total}` : "Uploading...") : "Upload"}
             <input
               type="file"
               multiple
               accept={ACCEPTED_FILES}
               className="hidden"
-              onChange={(e) => e.target.files && onUpload(e.target.files)}
+              onChange={(e) => {
+                if (e.target.files?.length) onUpload(e.target.files);
+                // Reset so choosing the same file again still fires
+                e.target.value = "";
+              }}
               disabled={uploadingMedia}
             />
           </label>

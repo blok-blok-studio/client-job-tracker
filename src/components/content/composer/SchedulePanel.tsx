@@ -59,7 +59,7 @@ export default function SchedulePanel({ clientId, timeZone, timeZoneIsClient, sc
   };
 
   return (
-    <Card title="When" icon={<CalendarClock size={13} />}>
+    <Card id="composer-when" title="When" icon={<CalendarClock size={13} />}>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <FieldLabel htmlFor="composer-date">Date</FieldLabel>
@@ -114,7 +114,7 @@ export default function SchedulePanel({ clientId, timeZone, timeZoneIsClient, sc
                   key={`${t.day}-${t.hour}`}
                   type="button"
                   onClick={() => onChange(slot)}
-                  className="px-2 py-1 rounded-md border border-bb-border bg-bb-elevated text-[11px] text-bb-muted hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors"
+                  className="px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-md border border-bb-border bg-bb-elevated text-[11px] text-bb-muted hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors"
                 >
                   {formatInZone(slot, timeZone, { month: undefined, day: undefined })}
                 </button>

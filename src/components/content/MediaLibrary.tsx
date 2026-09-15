@@ -102,7 +102,7 @@ export default function MediaLibrary({ clientId, onSelect, selectedUrls, allowed
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search files..."
-            className="w-full bg-bb-elevated border border-bb-border rounded-lg pl-8 pr-3 py-1.5 text-white text-sm placeholder:text-bb-dim"
+            className="w-full bg-bb-elevated border border-bb-border rounded-lg pl-8 pr-3 py-1.5 text-white text-base sm:text-sm placeholder:text-bb-dim"
           />
         </div>
         <div className="flex gap-1">
