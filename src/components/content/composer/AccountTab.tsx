@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, ChevronDown, ExternalLink, Eye, Hand, Loader2, Lock, RotateCcw, Settings2, Sparkles } from "lucide-react";
+import { CheckCircle2, ChevronDown, ExternalLink, Eye, Hand, Loader2, Lock, RotateCcw, Settings2, Sparkles, XCircle } from "lucide-react";
+import { readJson } from "@/lib/fetch-json";
 import { getSpec, type SpecIssue } from "@/lib/social/specs";
 import { cn } from "@/lib/utils";
 import { AccountIcon } from "./AccountPicker";
@@ -59,6 +60,28 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
   const manualOnly = !!account.manualOnly || draft.platform === "REDNOTE" || !!spec?.assistedOnly;
   const limits = spec?.limits ?? {};
 
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  // The API pulls the video back from the platform first, then returns the post to a draft
+  const cancelPublishing = async () => {
+    if (!draft.postId) return;
+    setCancelling(true);
+    setCancelError(null);
+    const res = await fetch(`/api/content-posts/${draft.postId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "DRAFT" }),
+    });
+    const result = await readJson(res, "Couldn't cancel the upload.");
+    setCancelling(false);
+    if (!result.ok) {
+      setCancelError(result.error);
+      return;
+    }
+    onDraft({ status: "DRAFT", publishPhase: null, publishError: null, externalUrl: null });
+  };
+
   const panelProps = { draft, postType, mediaUrls: content.mediaUrls, meta, disabled, onDraft, onSettings };
 
   const panel = (() => {
@@ -110,6 +133,20 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
               <a href={draft.externalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-bb-orange hover:text-bb-orange-light">
                 View on {platformName(draft.platform)} <ExternalLink size={11} />
               </a>
+            )}
+            {/* YouTube uploads scheduled videos ahead as private, so they can be pulled back until they go live */}
+            {draft.status === "PUBLISHING" && draft.platform === "YOUTUBE" && draft.postId && (
+              <>
+                <button
+                  type="button"
+                  onClick={cancelPublishing}
+                  disabled={cancelling}
+                  className="inline-flex items-center gap-1 text-red-300 hover:text-red-200 cursor-pointer transition-colors disabled:opacity-50"
+                >
+                  {cancelling ? <Loader2 size={11} className="animate-spin" /> : <XCircle size={11} />} Cancel and remove from YouTube
+                </button>
+                {cancelError && <p className="text-red-300">{cancelError}</p>}
+              </>
             )}
           </div>
         </div>
