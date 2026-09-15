@@ -155,10 +155,10 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
         }
         allResults[index] = registered ?? { filename: file.name, url: blob.url };
       } catch (err) {
-        allResults[index] = {
-          filename: file.name,
-          error: friendlyError(err, "A network hiccup interrupted this upload. Please try again."),
-        };
+        const fallback = "A network hiccup interrupted this upload. Please try again.";
+        const message = friendlyError(err, fallback);
+        // Storage SDK errors ("Vercel Blob: ...") mean nothing to a client
+        allResults[index] = { filename: file.name, error: message.startsWith("Vercel Blob") ? fallback : message };
       }
 
       sentBytes.set(index, file.size);
@@ -424,6 +424,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
               </div>
             ))}
 
+            {files.length === 0 && (
             <button
               type="button"
               onClick={() => { setResults([]); }}
@@ -431,6 +432,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
             >
               Upload More Files
             </button>
+            )}
           </div>
         )}
 
