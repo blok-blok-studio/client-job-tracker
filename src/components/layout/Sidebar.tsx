@@ -27,6 +27,7 @@ import {
   ShieldCheck,
   Video,
   Zap,
+  NotebookPen,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -60,6 +61,14 @@ const navItems = [
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/monthly-reports", label: "Monthly Reports", icon: FileBarChart },
   { href: "/support", label: "Support", icon: MessageCircle },
+  {
+    // Blok Blok OS is a separate app with its own database and its own login.
+    // It lives here as a tab so the two internal tools feel like one product.
+    href: process.env.NEXT_PUBLIC_WORKSPACE_URL || "https://blokblok-os.vercel.app",
+    label: "Workspace",
+    icon: NotebookPen,
+    external: true,
+  },
 ];
 
 interface CurrentUser {
@@ -126,6 +135,7 @@ export default function Sidebar() {
           (n) =>
             n.href === "/" ||
             n.href === "/security" ||
+            "external" in n ||
             currentUser.allowedPages!.includes(n.href.slice(1))
         )
       : baseItems;
@@ -166,13 +176,16 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
         {items.map((item) => {
+          const isExternal = "external" in item && item.external;
           const isActive =
-            pathname === item.href ||
-            (item.href !== "/" && pathname.startsWith(item.href));
+            !isExternal &&
+            (pathname === item.href ||
+              (item.href !== "/" && pathname.startsWith(item.href)));
           return (
             <Link
               key={item.href}
               href={item.href}
+              {...(isExternal ? { target: "_blank", rel: "noreferrer" } : {})}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
