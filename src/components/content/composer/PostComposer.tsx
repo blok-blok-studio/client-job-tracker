@@ -841,6 +841,11 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
                         onDraft={(patch) => updateDraft(active.key, patch)}
                         onSettings={(patch) => updateSettings(active.key, patch)}
                         onApplyFormatToAll={(f) => applyFormatToAll(f as MediaFormat)}
+                        onServerState={(patch) => {
+                          // Already saved on the server: update the view without flagging unsaved edits, and refresh the calendar
+                          setDrafts((d) => ({ ...d, [active.key]: { ...d[active.key], ...patch } }));
+                          onSaved?.([]);
+                        }}
                       />
                     </div>
                   )}

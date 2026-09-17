@@ -49,9 +49,11 @@ interface Props {
   onDraft: (patch: Partial<AccountDraft>) => void;
   onSettings: (patch: Record<string, unknown>) => void;
   onApplyFormatToAll: (format: unknown) => void;
+  /** The server already changed this post (no unsaved edit to track) */
+  onServerState?: (patch: Partial<AccountDraft>) => void;
 }
 
-export default function AccountTab({ account, draft, shared, meta, team, issues, postType, creator, disabled: disabledProp, onDraft, onSettings, onApplyFormatToAll }: Props) {
+export default function AccountTab({ account, draft, shared, meta, team, issues, postType, creator, disabled: disabledProp, onDraft, onSettings, onApplyFormatToAll, onServerState }: Props) {
   const [showPreview, setShowPreview] = useState(true);
   const spec = getSpec(draft.platform);
   const locked = isLocked(draft);
@@ -80,6 +82,33 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
       return;
     }
     onDraft({ status: "DRAFT", publishPhase: null, publishError: null, externalUrl: null });
+  };
+
+  // Posted from a phone outside the scheduler (say, while a platform review is
+  // pending): record it as published so the calendar shows it and nothing posts twice
+  const [handOpen, setHandOpen] = useState(false);
+  const [handUrl, setHandUrl] = useState("");
+  const [handBusy, setHandBusy] = useState(false);
+  const [handError, setHandError] = useState<string | null>(null);
+  const canMarkByHand = !!draft.postId && !disabledProp && ["DRAFT", "SCHEDULED", "FAILED", "ACTION_NEEDED"].includes(draft.status || "");
+
+  const markPostedByHand = async () => {
+    if (!draft.postId) return;
+    setHandBusy(true);
+    setHandError(null);
+    const res = await fetch(`/api/content-posts/${draft.postId}/mark-posted`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ externalUrl: handUrl.trim(), postedByHand: true }),
+    });
+    const result = await readJson(res, "Couldn't mark it as published.");
+    setHandBusy(false);
+    if (!result.ok) {
+      setHandError(result.error);
+      return;
+    }
+    setHandOpen(false);
+    (onServerState || onDraft)({ status: "PUBLISHED", publishMode: "ASSISTED", externalUrl: handUrl.trim() || null, publishError: null, publishPhase: null });
   };
 
   const panelProps = { draft, postType, mediaUrls: content.mediaUrls, meta, disabled, onDraft, onSettings };
@@ -127,6 +156,8 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
             <p>
               {draft.status === "PUBLISHING"
                 ? `Publishing now${draft.publishPhase ? ` (${draft.publishPhase})` : ""}. It can't be edited until it finishes.`
+                : draft.publishMode === "ASSISTED"
+                ? "Posted by hand and marked as published. Changes here won't reach the platform."
                 : "Already published. Changes here won't reach the platform; duplicate the post to publish again."}
             </p>
             {draft.externalUrl && (
@@ -173,6 +204,62 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
           </span>
         </a>
       )}
+
+      {canMarkByHand &&
+        (handOpen ? (
+          <div className="rounded-lg border border-bb-border bg-bb-elevated px-3 py-3 space-y-2">
+            <p className="flex items-center gap-1.5 text-sm text-white">
+              <Hand size={14} className="text-bb-orange" /> Posted this yourself?
+            </p>
+            <p className="text-[11px] text-bb-dim">
+              Marks it as published on {platformName(draft.platform)} for everyone on the calendar. The scheduler won&apos;t post it again.
+            </p>
+            <div>
+              <FieldLabel htmlFor={`hand-url-${draft.key}`} hint="Optional">
+                Link to the post
+              </FieldLabel>
+              <input
+                id={`hand-url-${draft.key}`}
+                type="url"
+                inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={handUrl}
+                disabled={handBusy}
+                onChange={(e) => setHandUrl(e.target.value)}
+                placeholder="https://"
+                className={inputClass}
+              />
+            </div>
+            {handError && <p className="text-xs text-red-400">{handError}</p>}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setHandOpen(false)}
+                disabled={handBusy}
+                className="px-3 py-3 sm:py-2 rounded-lg border border-bb-border text-sm text-bb-muted hover:text-white cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={markPostedByHand}
+                disabled={handBusy}
+                className="inline-flex items-center justify-center gap-2 px-3 py-3 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-medium text-white cursor-pointer transition-colors disabled:opacity-50"
+              >
+                {handBusy ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Mark as published
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setHandOpen(true)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border border-bb-border text-sm text-bb-muted hover:text-white hover:border-emerald-500/50 cursor-pointer transition-colors"
+          >
+            <Hand size={14} /> I posted this myself
+          </button>
+        ))}
 
       <IssueList issues={issues} />
 

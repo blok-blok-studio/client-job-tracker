@@ -12,12 +12,16 @@ const bodySchema = z.object({
     .optional()
     .or(z.literal(""))
     .refine((v) => !v || /^https?:\/\/\S+$/i.test(v), "Paste the full post link, starting with https://"),
+  /** Sent by the composer's "I posted this myself": also allows a post that was set to publish automatically */
+  postedByHand: z.boolean().optional(),
 });
 
 /**
- * POST — a teammate posted an ASSISTED post by hand. Records it as published.
+ * POST — a teammate posted this by hand. Records it as published.
  * Allowed from ACTION_NEEDED (the handoff fired), or early from DRAFT/SCHEDULED
- * when the post is in manual mode.
+ * when the post is in manual mode. With postedByHand, an automatic post that
+ * hasn't started publishing (DRAFT/SCHEDULED/FAILED) can be marked too, which
+ * also stops the scheduler from posting it a second time.
  */
 export async function POST(
   request: NextRequest,
@@ -49,10 +53,14 @@ export async function POST(
       OR: [
         { status: "ACTION_NEEDED" },
         { status: { in: ["DRAFT", "SCHEDULED"] }, publishMode: "ASSISTED" },
+        // Never PUBLISHING: the platform may already have the post
+        ...(parsed.postedByHand ? [{ status: { in: ["DRAFT", "SCHEDULED", "FAILED"] as ("DRAFT" | "SCHEDULED" | "FAILED")[] } }] : []),
       ],
     },
     data: {
       status: "PUBLISHED",
+      // The record of how it went out: by hand, not through the API
+      publishMode: "ASSISTED",
       publishedAt: new Date(),
       externalUrl: parsed.externalUrl || null,
       publishError: null,
@@ -69,6 +77,8 @@ export async function POST(
         error:
           post.status === "PUBLISHED"
             ? "This post is already marked as posted."
+            : post.status === "PUBLISHING"
+            ? "This post is publishing right now, so it can't be marked by hand."
             : "Only manual posts can be marked as posted.",
       },
       { status: 409 }
