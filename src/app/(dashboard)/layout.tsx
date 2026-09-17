@@ -7,6 +7,7 @@ import CommandPalette from "@/components/shared/CommandPalette";
 import PageGuard from "@/components/shared/PageGuard";
 import MandatoryMfaEnroll from "@/components/security/MandatoryMfaEnroll";
 import { getSession } from "@/lib/auth";
+import { isReviewerAccount } from "@/lib/reviewer-accounts";
 import prisma from "@/lib/prisma";
 
 export default async function DashboardLayout({
@@ -21,9 +22,10 @@ export default async function DashboardLayout({
   if (session) {
     const user = await prisma.user.findUnique({
       where: { id: session.id },
-      select: { totpEnabled: true },
+      select: { totpEnabled: true, email: true, role: true, allowedPages: true },
     });
-    if (!user?.totpEnabled) {
+    // Platform review logins (Content tab only) are the one exception
+    if (!user?.totpEnabled && !(user && isReviewerAccount(user))) {
       return (
         <ToastProvider>
           <MandatoryMfaEnroll email={session.email} />

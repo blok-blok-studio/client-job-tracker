@@ -24,8 +24,14 @@ loadEnv({ path: path.join(process.cwd(), ".env") });
 
 const APPLY = process.argv.includes("--apply");
 
-const EMAIL = "appreview@blokblokstudio.com";
-const NAME = "Meta App Review";
+// --youtube creates the separate login for the YouTube API Services audit team
+// (same scope, own password, so one review ending never breaks the other).
+// Both addresses are listed in src/lib/reviewer-accounts.ts, which is what lets
+// them past the mandatory two-factor screen.
+const YOUTUBE = process.argv.includes("--youtube");
+
+const EMAIL = YOUTUBE ? "ytreview@blokblokstudio.com" : "appreview@blokblokstudio.com";
+const NAME = YOUTUBE ? "YouTube API Review" : "Meta App Review";
 const PAGES = ["content"];
 
 /** 24 chars from an unambiguous alphabet - a reviewer may retype this by hand. */
@@ -83,7 +89,7 @@ async function main() {
   });
 
   console.log(`${existing ? "RESET" : "CREATED"} ${user.email}\n`);
-  console.log("  Paste these into the Meta App Review submission:");
+  console.log(YOUTUBE ? "  Send these to the YouTube API Services team:" : "  Paste these into the Meta App Review submission:");
   console.log(`    URL:      https://app.blokblokstudio.com/login`);
   console.log(`    Email:    ${EMAIL}`);
   console.log(`    Password: ${password}`);
