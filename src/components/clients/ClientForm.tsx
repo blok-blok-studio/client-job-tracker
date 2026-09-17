@@ -60,7 +60,11 @@ export default function ClientForm({
   ];
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    // autoComplete="off" alone is not enough: Chrome ignores it on fields it
+    // recognises as contact details and offers saved names instead, so typing a
+    // client's name suggests someone from the browser's address book. An
+    // unrecognised token per field is what actually turns it off.
+    <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
       {/* Who is this client? Person, company, or both */}
       <div className="flex gap-2">
         {chips.map((c) => (
@@ -95,11 +99,11 @@ export default function ClientForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>First Name *</label>
-            <input name="firstName" className={inputClass} placeholder="First name" />
+            <input name="firstName" autoComplete="bb-client-first" className={inputClass} placeholder="First name" />
           </div>
           <div>
             <label className={labelClass}>Last Name</label>
-            <input name="lastName" className={inputClass} placeholder="Last name" />
+            <input name="lastName" autoComplete="bb-client-last" className={inputClass} placeholder="Last name" />
           </div>
         </div>
       )}
@@ -107,13 +111,13 @@ export default function ClientForm({
       {useCompany && (
         <div>
           <label className={labelClass}>Company Name *</label>
-          <input name="company" className={inputClass} placeholder="Acme Inc." />
+          <input name="company" autoComplete="bb-client-company" className={inputClass} placeholder="Acme Inc." />
         </div>
       )}
 
       <div>
         <label className={labelClass}>Email</label>
-        <input name="email" type="email" className={inputClass} placeholder="client@company.com (optional)" />
+        <input name="email" type="email" autoComplete="bb-client-email" className={inputClass} placeholder="client@company.com (optional)" />
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}

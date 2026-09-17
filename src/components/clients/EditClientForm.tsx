@@ -181,15 +181,17 @@ export default function EditClientForm({
   const labelClass = "block text-sm text-bb-muted mb-1";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    // Unrecognised autoComplete tokens, because Chrome ignores "off" on
+    // fields it reads as contact details and offers saved names instead.
+    <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Name *</label>
-          <input name="name" defaultValue={initialData.name} required className={inputClass} placeholder="Client name" />
+          <input name="name" autoComplete="bb-client-name" defaultValue={initialData.name} required className={inputClass} placeholder="Client name" />
         </div>
         <div>
           <label className={labelClass}>Company</label>
-          <input name="company" defaultValue={initialData.company} className={inputClass} placeholder="Company" />
+          <input name="company" autoComplete="bb-client-company" defaultValue={initialData.company} className={inputClass} placeholder="Company" />
         </div>
       </div>
 
@@ -215,11 +217,11 @@ export default function EditClientForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Email *</label>
-          <input name="email" type="email" required defaultValue={initialData.email} className={inputClass} placeholder="email@example.com" />
+          <input name="email" type="email" required autoComplete="bb-client-email" defaultValue={initialData.email} className={inputClass} placeholder="email@example.com" />
         </div>
         <div>
           <label className={labelClass}>Phone</label>
-          <input name="phone" defaultValue={initialData.phone} className={inputClass} placeholder="+1 234 567 8900" />
+          <input name="phone" autoComplete="bb-client-phone" defaultValue={initialData.phone} className={inputClass} placeholder="+1 234 567 8900" />
         </div>
       </div>
 
