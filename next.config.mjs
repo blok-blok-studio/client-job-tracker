@@ -20,6 +20,8 @@ const nextConfig = {
     "/api/client-media/transcode-playback": ["./node_modules/@ffmpeg-installer/**/*"],
     // Formatted copies for posting (9:16 with black bars, etc.)
     "/api/cron/render-media": ["./node_modules/@ffmpeg-installer/**/*"],
+    // Photos + an audio track rendered into one Reel video
+    "/api/client-media/slideshow": ["./node_modules/@ffmpeg-installer/**/*"],
   },
   async headers() {
     return [

@@ -444,7 +444,7 @@ export async function renderImage(
 }
 
 let cachedFfmpegPath: string | null = null;
-async function getFfmpegPath(): Promise<string> {
+export async function getFfmpegPath(): Promise<string> {
   if (cachedFfmpegPath) return cachedFfmpegPath;
   const mod = await import("@ffmpeg-installer/ffmpeg");
   const installer = (mod as { default?: { path: string }; path?: string }).default ?? (mod as unknown as { path: string });

@@ -15,6 +15,7 @@ import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordi
 import { CSS } from "@dnd-kit/utilities";
 import { Download, Film, FolderOpen, GripVertical, ImagePlus, Loader2, Music, Upload, X, FileText, Accessibility } from "lucide-react";
 import MediaLibrary from "../MediaLibrary";
+import ReelAudioMaker from "./ReelAudioMaker";
 import { uploadFile } from "@/lib/client-upload";
 import { readJson } from "@/lib/fetch-json";
 import { cn } from "@/lib/utils";
@@ -159,6 +160,8 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { startZip, zipBar } = useZipDownload();
+  // Photos only (no GIFs): these can be turned into one Reel video with audio
+  const photosOnly = mediaUrls.length > 0 && mediaUrls.every((u) => (meta[u]?.kind || kindFromMime(meta[u]?.mimeType, u)) === "image" && !/\.gif(\?|#|$)/i.test(u));
   const libraryIds = mediaUrls.map((u) => meta[u]?.id).filter((id): id is string => !!id);
 
   const sensors = useSensors(
@@ -341,6 +344,16 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
               }}
             />
           </div>
+        )}
+        {!disabled && clientId && photosOnly && uploads.length === 0 && (
+          <ReelAudioMaker
+            clientId={clientId}
+            imageUrls={mediaUrls}
+            onCreated={(video) => {
+              onMetaAdd([video]);
+              onChange([video.url]);
+            }}
+          />
         )}
         {!mediaUrls.length && !disabled && (
           <p className="hidden sm:block text-[11px] text-bb-dim mt-2 text-center">Or drop files here</p>
