@@ -13,7 +13,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Film, FolderOpen, GripVertical, ImagePlus, Loader2, Music, Upload, X, FileText, Accessibility } from "lucide-react";
+import { Download, Film, FolderOpen, GripVertical, ImagePlus, Loader2, Music, Upload, X, FileText, Accessibility } from "lucide-react";
 import MediaLibrary from "../MediaLibrary";
 import { uploadFile } from "@/lib/client-upload";
 import { readJson } from "@/lib/fetch-json";
@@ -23,6 +23,8 @@ import type { MediaMeta } from "./types";
 import { aspectLabel, formatBytes, formatDuration, kindFromMime, metaFromClientMedia, probeFile } from "./media";
 import { Card, inputClass } from "./ui";
 import { safeUuid } from "@/lib/safe-uuid";
+import { downloadMediaFile } from "@/lib/client-download";
+import { useZipDownload } from "@/components/shared/useZipDownload";
 
 interface Props {
   clientId: string;
@@ -33,6 +35,15 @@ interface Props {
   onChange: (urls: string[]) => void;
   onAltTextChange: (url: string, text: string) => void;
   onMetaAdd: (items: MediaMeta[]) => void;
+}
+
+/** Save the original file. Library files keep their filename; anything else comes straight off the Blob CDN. */
+function downloadOriginal(url: string, meta?: MediaMeta) {
+  if (meta?.id) {
+    downloadMediaFile({ id: meta.id, url, filename: meta.filename || "media" });
+    return;
+  }
+  window.open(`${url}${url.includes("?") ? "&" : "?"}download=1`, "_blank", "noopener,noreferrer");
 }
 
 function SortableTile({
@@ -79,6 +90,15 @@ function SortableTile({
             <Film size={9} /> {formatDuration(meta?.duration) || "Video"}
           </span>
         )}
+        <button
+          type="button"
+          onClick={() => downloadOriginal(url, meta)}
+          aria-label={`Download ${meta?.filename || "file"}`}
+          title="Download original"
+          className="absolute bottom-1 right-1 p-1.5 sm:p-1 rounded bg-black/70 text-white hover:bg-bb-orange cursor-pointer transition-colors"
+        >
+          <Download size={14} className="sm:w-3 sm:h-3" />
+        </button>
         {!disabled && (
           <>
             <button
@@ -138,6 +158,8 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { startZip, zipBar } = useZipDownload();
+  const libraryIds = mediaUrls.map((u) => meta[u]?.id).filter((id): id is string => !!id);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -220,7 +242,18 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
       title="Media"
       icon={<ImagePlus size={13} />}
       action={
-        <span className="text-[11px] text-bb-dim">{mediaUrls.length ? `${mediaUrls.length} selected · hold and drag to reorder` : "Originals kept as-is"}</span>
+        <span className="flex items-center gap-2">
+          <span className="text-[11px] text-bb-dim">{mediaUrls.length ? `${mediaUrls.length} selected · hold and drag to reorder` : "Originals kept as-is"}</span>
+          {mediaUrls.length > 1 && libraryIds.length === mediaUrls.length && (
+            <button
+              type="button"
+              onClick={() => startZip(libraryIds, "post-media")}
+              className="inline-flex items-center gap-1 text-[11px] text-bb-muted hover:text-white cursor-pointer transition-colors"
+            >
+              <Download size={11} /> Download all
+            </button>
+          )}
+        </span>
       }
     >
       <div
@@ -325,6 +358,7 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
           />
         </div>
       )}
+      {zipBar}
     </Card>
   );
 }

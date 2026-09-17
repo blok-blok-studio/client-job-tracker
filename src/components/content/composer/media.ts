@@ -15,6 +15,7 @@ export function kindFromMime(mime: string | null | undefined, url: string): Medi
 }
 
 interface ClientMediaRow {
+  id?: string;
   url: string;
   filename?: string;
   fileType?: string;
@@ -31,6 +32,7 @@ export function metaFromClientMedia(row: ClientMediaRow): MediaMeta {
     row.fileType === "IMAGE" ? "image" : row.fileType === "VIDEO" ? "video" : row.fileType === "AUDIO" ? "audio" : kindFromMime(row.mimeType, row.url);
   return {
     url: row.url,
+    ...(row.id ? { id: row.id } : {}),
     kind,
     filename: row.filename,
     mimeType: row.mimeType ?? null,

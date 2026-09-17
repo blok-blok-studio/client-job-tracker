@@ -24,6 +24,8 @@ export const MANUAL_REDNOTE_KEY = "manual:REDNOTE";
 /** What we know about a piece of media; fed into the platform specs. */
 export interface MediaMeta {
   url: string;
+  /** ClientMedia row id, when the file is in the client's library */
+  id?: string;
   kind: "image" | "video" | "audio" | "document";
   filename?: string;
   mimeType?: string | null;
