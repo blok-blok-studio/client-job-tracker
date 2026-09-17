@@ -43,6 +43,36 @@ export function downloadMediaFile(media: DownloadableMedia) {
   clickLink(`/api/client-media/${media.id}/download`, { download: media.filename });
 }
 
+/** Above this, holding the whole file in the phone's memory risks the tab being killed. */
+export const SHARE_SHEET_MAX_BYTES = 400 * 1024 * 1024;
+
+/**
+ * Fetch a file into memory so the iPhone share sheet can offer Save Video /
+ * Save Image (straight into Photos). A plain link only gets Safari's viewer,
+ * which often has no way to save a video to the camera roll.
+ */
+export async function fetchAsFile(url: string, filename: string, mimeType?: string | null, onProgress?: (pct: number) => void): Promise<File> {
+  const res = await fetch(url);
+  if (!res.ok || !res.body) throw new Error(`Download failed (${res.status})`);
+  const total = Number(res.headers.get("content-length")) || 0;
+  const reader = res.body.getReader();
+  const chunks: BlobPart[] = [];
+  let loaded = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.length;
+    if (total && onProgress) onProgress(Math.min(99, Math.round((loaded / total) * 100)));
+  }
+  const type = res.headers.get("content-type") || mimeType || "application/octet-stream";
+  return new File(chunks, filename, { type });
+}
+
+export function canShareFile(file: File): boolean {
+  return typeof navigator !== "undefined" && !!navigator.canShare && navigator.canShare({ files: [file] });
+}
+
 /** Desktop/Android: submit a hidden form so the browser streams the zip natively. */
 export function submitZipForm(ids: string[], name: string) {
   const form = document.createElement("form");

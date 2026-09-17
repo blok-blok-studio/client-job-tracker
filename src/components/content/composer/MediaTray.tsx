@@ -13,7 +13,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Download, Film, FolderOpen, GripVertical, ImagePlus, Loader2, Music, Upload, X, FileText, Accessibility } from "lucide-react";
+import { Download, Film, Share, FolderOpen, GripVertical, ImagePlus, Loader2, Music, Upload, X, FileText, Accessibility } from "lucide-react";
 import MediaLibrary from "../MediaLibrary";
 import ReelAudioMaker from "./ReelAudioMaker";
 import { uploadFile } from "@/lib/client-upload";
@@ -24,7 +24,7 @@ import type { MediaMeta } from "./types";
 import { aspectLabel, formatBytes, formatDuration, kindFromMime, metaFromClientMedia, probeFile } from "./media";
 import { Card, inputClass } from "./ui";
 import { safeUuid } from "@/lib/safe-uuid";
-import { downloadMediaFile } from "@/lib/client-download";
+import { SHARE_SHEET_MAX_BYTES, canShareFile, downloadMediaFile, fetchAsFile, isIOSDevice } from "@/lib/client-download";
 import { useZipDownload } from "@/components/shared/useZipDownload";
 
 interface Props {
@@ -66,6 +66,42 @@ function SortableTile({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: url, disabled });
   const [showAlt, setShowAlt] = useState(false);
+  // iPhone/iPad: first tap pulls the file in, second tap opens the share sheet
+  // (Save Video / Save Image). iOS only opens it straight from a tap, so the
+  // download can't be chained into it.
+  const [save, setSave] = useState<{ status: "idle" | "preparing" | "ready"; pct?: number; file?: File }>({ status: "idle" });
+
+  const handleDownload = async () => {
+    const tooBig = !!meta?.size && meta.size > SHARE_SHEET_MAX_BYTES;
+    if (!isIOSDevice() || tooBig) {
+      downloadOriginal(url, meta);
+      return;
+    }
+    if (save.status === "preparing") return;
+    if (save.status === "ready" && save.file) {
+      try {
+        await navigator.share({ files: [save.file] });
+        setSave({ status: "idle" });
+      } catch (err) {
+        // Closed the sheet without saving: keep the file ready for another tap
+        if ((err as Error).name !== "AbortError") {
+          setSave({ status: "idle" });
+          downloadOriginal(url, meta);
+        }
+      }
+      return;
+    }
+    setSave({ status: "preparing", pct: 0 });
+    try {
+      const fallbackName = url.split(/[?#]/)[0].split("/").pop() || "media";
+      const file = await fetchAsFile(url, meta?.filename || fallbackName, meta?.mimeType, (pct) => setSave({ status: "preparing", pct }));
+      if (!canShareFile(file)) throw new Error("share unsupported");
+      setSave({ status: "ready", file });
+    } catch {
+      setSave({ status: "idle" });
+      downloadOriginal(url, meta);
+    }
+  };
   const kind = meta?.kind || kindFromMime(null, url);
   const thumb = kind === "image" ? imageThumb({ url, thumbnailUrl: meta?.thumbnailUrl ?? null }) : meta?.thumbnailUrl;
   const details = [aspectLabel(meta?.width, meta?.height), formatDuration(meta?.duration), formatBytes(meta?.size)].filter(Boolean).join(" · ");
@@ -93,12 +129,27 @@ function SortableTile({
         )}
         <button
           type="button"
-          onClick={() => downloadOriginal(url, meta)}
-          aria-label={`Download ${meta?.filename || "file"}`}
+          onClick={handleDownload}
+          aria-label={save.status === "ready" ? `Save ${meta?.filename || "file"} to this device` : `Download ${meta?.filename || "file"}`}
           title="Download original"
-          className="absolute bottom-1 right-1 p-1.5 sm:p-1 rounded bg-black/70 text-white hover:bg-bb-orange cursor-pointer transition-colors"
+          className={cn(
+            "absolute bottom-1 right-1 inline-flex items-center gap-1 p-1.5 sm:p-1 rounded text-white cursor-pointer transition-colors",
+            save.status === "ready" ? "bg-bb-orange" : "bg-black/70 hover:bg-bb-orange"
+          )}
         >
-          <Download size={14} className="sm:w-3 sm:h-3" />
+          {save.status === "preparing" ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              <span className="text-[10px] font-mono tabular-nums">{save.pct ?? 0}%</span>
+            </>
+          ) : save.status === "ready" ? (
+            <>
+              <Share size={14} />
+              <span className="text-[10px] font-medium">Save</span>
+            </>
+          ) : (
+            <Download size={14} className="sm:w-3 sm:h-3" />
+          )}
         </button>
         {!disabled && (
           <>
@@ -245,18 +296,7 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
       title="Media"
       icon={<ImagePlus size={13} />}
       action={
-        <span className="flex items-center gap-2">
-          <span className="text-[11px] text-bb-dim">{mediaUrls.length ? `${mediaUrls.length} selected · hold and drag to reorder` : "Originals kept as-is"}</span>
-          {mediaUrls.length > 1 && libraryIds.length === mediaUrls.length && (
-            <button
-              type="button"
-              onClick={() => startZip(libraryIds, "post-media")}
-              className="inline-flex items-center gap-1 text-[11px] text-bb-muted hover:text-white cursor-pointer transition-colors"
-            >
-              <Download size={11} /> Download all
-            </button>
-          )}
-        </span>
+        <span className="text-[11px] text-bb-dim">{mediaUrls.length ? `${mediaUrls.length} selected · hold and drag to reorder` : "Originals kept as-is"}</span>
       }
     >
       <div
@@ -292,6 +332,16 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
               </div>
             </SortableContext>
           </DndContext>
+        )}
+
+        {mediaUrls.length > 1 && libraryIds.length === mediaUrls.length && (
+          <button
+            type="button"
+            onClick={() => startZip(libraryIds, "post-media")}
+            className="mb-3 w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-2 px-3 py-3 sm:p-0 rounded-lg border border-bb-border sm:border-0 text-sm sm:text-[11px] text-bb-muted hover:text-white cursor-pointer transition-colors"
+          >
+            <Download size={13} /> Download all {mediaUrls.length} as a zip
+          </button>
         )}
 
         {uploads.length > 0 && (

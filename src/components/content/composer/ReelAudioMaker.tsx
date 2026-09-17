@@ -23,6 +23,9 @@ interface Props {
   onCreated: (video: MediaMeta) => void;
 }
 
+/** Must match the label the slideshow route saves on the finished video. */
+const REEL_LABEL = "Reel made from photos + audio";
+
 const SLIDE_LENGTHS = [
   { value: "2", label: "2 seconds per photo" },
   { value: "3", label: "3 seconds per photo" },
@@ -89,26 +92,61 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
     }
   };
 
+  /**
+   * A phone that locks or switches apps mid-render drops the request, but the
+   * server carries on and saves the video. Look for it in the library rather
+   * than showing an error for something that worked.
+   */
+  const findFinishedReel = async (startedAt: number): Promise<Parameters<typeof metaFromClientMedia>[0] | null> => {
+    for (let attempt = 0; attempt < 24; attempt++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      try {
+        const res = await fetch(`/api/client-media?clientId=${encodeURIComponent(clientId)}&fileType=VIDEO`);
+        const d = await res.json();
+        const hit = (d?.data as { url: string; label?: string | null; createdAt: string }[] | undefined)?.find(
+          (m) => m.label === REEL_LABEL && new Date(m.createdAt).getTime() >= startedAt - 5000
+        );
+        if (hit) return hit;
+      } catch {
+        /* still offline, keep waiting */
+      }
+    }
+    return null;
+  };
+
   const create = async () => {
     if (!audio) return;
     setError(null);
     setRendering(true);
+    const startedAt = Date.now();
     try {
-      const res = await fetch("/api/client-media/slideshow", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId,
-          imageUrls,
-          audioUrl: audio.url,
-          secondsPerSlide: slideLength === "match" ? "match" : Number(slideLength),
-          fit,
-          audioStart: Number(audioStart) || 0,
-        }),
-      });
-      const json = await readJson<{ data?: Parameters<typeof metaFromClientMedia>[0] }>(res);
-      const record = json.ok ? json.data?.data : undefined;
-      if (!record) throw new Error((!json.ok && json.error) || "Couldn't make the video. Try again.");
+      let record: Parameters<typeof metaFromClientMedia>[0] | null | undefined;
+      let failure: string | null = null;
+      let dropped = false;
+      try {
+        const res = await fetch("/api/client-media/slideshow", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId,
+            imageUrls,
+            audioUrl: audio.url,
+            secondsPerSlide: slideLength === "match" ? "match" : Number(slideLength),
+            fit,
+            audioStart: Number(audioStart) || 0,
+          }),
+        });
+        const json = await readJson<{ data?: Parameters<typeof metaFromClientMedia>[0] }>(res);
+        record = json.ok ? json.data?.data : undefined;
+        if (!record) {
+          failure = json.error;
+          dropped = res.status === 504;
+        }
+      } catch {
+        dropped = true;
+      }
+      if (!record && dropped) record = await findFinishedReel(startedAt);
+      if (!record) throw new Error(failure || "Couldn't make the video. Check your connection and try again.");
       onCreated(metaFromClientMedia(record));
       setOpen(false);
     } catch (err) {
@@ -142,7 +180,7 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
             vertical video with your track over it. Use audio you have the rights to; Instagram&apos;s in-app music isn&apos;t available here.
           </p>
         </div>
-        <button type="button" onClick={() => setOpen(false)} disabled={rendering} className="text-[11px] text-bb-dim hover:text-white cursor-pointer transition-colors shrink-0">
+        <button type="button" onClick={() => setOpen(false)} disabled={rendering} className="p-2 -m-2 text-xs sm:text-[11px] text-bb-dim hover:text-white cursor-pointer transition-colors shrink-0">
           Cancel
         </button>
       </div>
