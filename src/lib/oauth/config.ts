@@ -81,12 +81,14 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     name: "Threads",
     authUrl: "https://threads.net/oauth/authorize",
     tokenUrl: "https://graph.threads.net/oauth/access_token",
-    scopes: [
-      "threads_basic",
-      "threads_content_publish",
-      "threads_manage_replies",
-      "threads_manage_insights",
-    ],
+    // Only what threads.ts actually calls: identify the profile, and publish.
+    // threads_manage_replies and threads_manage_insights were requested here but
+    // never used - the Threads adapter has no reply and no insights code, and
+    // there is no Threads panel in the composer, so there is no first comment
+    // either. Asking a user to grant scopes the app never calls is a policy
+    // problem on its own, separate from App Review. Add them back the same day
+    // the features land, not before.
+    scopes: ["threads_basic", "threads_content_publish"],
     scopeSeparator: ",",
     clientIdEnv: "THREADS_APP_ID",
     clientSecretEnv: "THREADS_APP_SECRET",
