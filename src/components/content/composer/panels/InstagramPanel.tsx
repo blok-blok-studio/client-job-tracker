@@ -89,18 +89,19 @@ export default function InstagramPanel({ draft, postType, mediaUrls, meta, disab
         </>
       )}
 
-      {(hasImages || isReel || isStory) && (
-        <div>
-          <FieldLabel hint={isStory ? "On the story" : isReel ? "On the reel" : "On photos"}>Tag people</FieldLabel>
-          <PeopleInput values={draft.taggedUsers} onChange={(taggedUsers) => onDraft({ taggedUsers })} disabled={disabled} />
-        </div>
-      )}
+      {/* Two different things on Instagram: a tag credits someone on your post, a collaborator co-owns it */}
+      <div>
+        <FieldLabel hint={isStory ? "On the story" : isReel ? "On the reel" : hasImages ? "On the first photo" : "On the post"}>Tag people</FieldLabel>
+        <PeopleInput values={draft.taggedUsers} onChange={(taggedUsers) => onDraft({ taggedUsers })} disabled={disabled} />
+        <p className="text-[11px] text-bb-dim mt-1">A normal tag. They get notified and it shows under their tagged posts. The post stays yours only.</p>
+      </div>
 
       {!isStory && (
         <>
           <div>
-            <FieldLabel hint="Up to 3, they accept the invite">Collaborators</FieldLabel>
+            <FieldLabel hint="Up to 3">Invite collaborators</FieldLabel>
             <PeopleInput values={draft.collaborators} onChange={(collaborators) => onDraft({ collaborators })} max={3} disabled={disabled} />
+            <p className="text-[11px] text-bb-dim mt-1">Not a tag. Once they accept, their name sits next to yours and the post also appears on their profile.</p>
           </div>
 
           <div>

@@ -183,10 +183,13 @@ async function createContainerKeepingPost(
   try {
     return await createContainer(ctx, params);
   } catch (err) {
-    const tagsOptional = postType === "reel" || postType === "trial_reel" || postType === "story";
+    // Same for a video inside a carousel: tags there are taken without a position
+    const videoItem = postType === "carousel" && !!params.video_url;
+    const tagsOptional = postType === "reel" || postType === "trial_reel" || postType === "story" || videoItem;
     if (!(err instanceof GraphError) || !params.user_tags || !tagsOptional) throw err;
     const id = await createContainer(ctx, { ...params, user_tags: undefined });
-    await logWarning(ctx, `Instagram wouldn't take the tagged people on this ${postType === "story" ? "story" : "reel"}, so it was posted without them: ${err.message.slice(0, 200)}`);
+    const what = postType === "story" ? "story" : videoItem ? "carousel video" : "reel";
+    await logWarning(ctx, `Instagram wouldn't take the tagged people on this ${what}, so it was posted without them: ${err.message.slice(0, 200)}`);
     return id;
   }
 }
@@ -304,7 +307,9 @@ async function start(ctx: PublishContext): Promise<PublishStep> {
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
       if (isVideoUrl(url)) {
-        childIds.push(await createContainer(ctx, { media_type: "VIDEO", video_url: url, is_carousel_item: "true" }));
+        // Tags go on the first item; a video takes them without a position
+        const videoParams = { media_type: "VIDEO", video_url: url, is_carousel_item: "true", user_tags: i === 0 ? userTagsJson(tagged, false) : undefined };
+        childIds.push(await createContainerKeepingPost(ctx, videoParams, postType));
       } else {
         childIds.push(
           await createContainer(ctx, {
