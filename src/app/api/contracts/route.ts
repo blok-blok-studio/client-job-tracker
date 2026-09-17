@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         token: true,
+        kind: true,
+        title: true,
         status: true,
         signedName: true,
         signedAt: true,

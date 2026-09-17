@@ -11,10 +11,16 @@ export async function generateMetadata({
   const contract = await prisma.contractSignature
     .findUnique({
       where: { token },
-      select: { client: { select: { name: true, company: true } } },
+      select: { kind: true, title: true, client: { select: { name: true, company: true } } },
     })
     .catch(() => null);
   const who = contract?.client.company || contract?.client.name;
+  if (contract && contract.kind !== "SERVICE_AGREEMENT") {
+    return shareMeta(
+      who ? `${contract.title} for ${who}` : contract.title,
+      `Review and sign your ${contract.title} with Blok Blok Studio. Secure online signing.`
+    );
+  }
   return shareMeta(
     who ? `Contract for ${who}` : "Your Contract",
     "Review and sign your service agreement with Blok Blok Studio — secure online signing."

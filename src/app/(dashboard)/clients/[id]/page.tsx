@@ -16,6 +16,7 @@ import { useToast } from "@/components/shared/Toast";
 import { PLATFORM_OPTIONS } from "@/types";
 import { getFlagFromPhone, LiveClock } from "@/lib/client-utils";
 import { SERVICE_PACKAGES, ADDON_PACKAGES, PACKAGE_CATEGORIES, type PackageCustomization } from "@/lib/contract-templates";
+import { CLIENT_AGREEMENT_KINDS, SOCIAL_MEDIA_DEFAULTS, type ContractKind, type SocialMediaFields } from "@/lib/client-agreement";
 import MediaManager from "@/components/clients/MediaManager";
 import ClientTasks from "@/components/clients/ClientTasks";
 import ClientServices from "@/components/clients/ClientServices";
@@ -49,7 +50,7 @@ interface ClientDetail {
   invoices: Array<{ id: string; amount: string | number; status: string; createdAt: string }>;
   socialLinks: Array<{ id: string; platform: string; url: string; handle: string | null }>;
   activityLogs: Array<{ id: string; action: string; details: string | null; actor: string; ipAddress?: string | null; createdAt: string }>;
-  contracts: Array<{ id: string; token: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
+  contracts: Array<{ id: string; token: string; kind?: string; title?: string; status: string; signedName: string | null; signedAt: string | null; createdAt: string }>;
   paymentLinks: Array<{ id: string; stripeUrl: string; amount: number; currency: string; description: string; recurring: boolean; interval: string | null; status: string; paidAt: string | null; milestone: string | null; contractId: string | null; createdAt: string }>;
   mediaFiles: Array<{ id: string; url: string; filename: string; fileType: string; fileSize: number; mimeType: string; uploadedBy: string; label: string | null; folder?: string | null; thumbnailUrl?: string | null; playbackUrl?: string | null; notes?: string | null; createdAt: string }>;
   deliverables: DeliverableItem[];
@@ -77,6 +78,10 @@ export default function ClientDetailPage() {
   const [customPlatform, setCustomPlatform] = useState("");
   const [showContractModal, setShowContractModal] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
+  // Which document is being created: the AI-drafted custom contract, or a fill-in standard one
+  const [contractKind, setContractKind] = useState<ContractKind>("SERVICE_AGREEMENT");
+  const [clientDescriptor, setClientDescriptor] = useState("");
+  const [socialFields, setSocialFields] = useState<SocialMediaFields>({ accounts: "", monthlyFee: "", ...SOCIAL_MEDIA_DEFAULTS });
   const [contractDraftMode, setContractDraftMode] = useState(true);
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractCopied, setContractCopied] = useState<string | null>(null);
@@ -260,9 +265,30 @@ export default function ClientDetailPage() {
     return `AI drafting failed and used the plain template (prices typed into the AI prompt were NOT added). Reason: ${raw}`;
   }
 
+  const isStandardDoc = contractKind !== "SERVICE_AGREEMENT";
+  const socialReady =
+    contractKind !== "SOCIAL_MEDIA" ||
+    (Object.values(socialFields) as string[]).every((v) => v.trim());
+  const contractFormReady = isStandardDoc ? socialReady : !!customPrompt.trim();
+
+  // Picking the Social Media agreement lists the client's known accounts as a starting point
+  function pickContractKind(kind: ContractKind) {
+    setContractKind(kind);
+    if (kind === "SOCIAL_MEDIA" && !socialFields.accounts.trim() && client) {
+      const social = /instagram|facebook|tiktok|youtube|linkedin|threads|twitter|^x$/i;
+      const fromLinks = client.socialLinks.map((l) => `${l.platform}: ${l.handle || l.url}`);
+      const fromConnections = client.credentials
+        .filter((c) => social.test(c.platform))
+        .map((c) => `${c.platform}: ${c.label || c.username}`);
+      const lines = fromLinks.length > 0 ? fromLinks : fromConnections;
+      if (lines.length > 0) setSocialFields((f) => ({ ...f, accounts: lines.join("\n") }));
+    }
+  }
+
   async function handleGenerateContract() {
-    // Contracts are drafted entirely from the AI prompt — prices and terms live in the instructions
-    if (!customPrompt.trim()) return;
+    // Custom contracts are drafted entirely from the AI prompt — prices and terms live in the
+    // instructions. Standard documents (NDA, Social Media agreement) are fill-in templates.
+    if (!contractFormReady) return;
     setGeneratingContract(true);
     setAiFallbackNote(null);
     try {
@@ -271,7 +297,15 @@ export default function ClientDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           packages: [],
-          customPrompt: customPrompt.trim(),
+          ...(isStandardDoc
+            ? {
+                template: {
+                  kind: contractKind,
+                  clientDescriptor: clientDescriptor.trim() || undefined,
+                  social: contractKind === "SOCIAL_MEDIA" ? socialFields : undefined,
+                },
+              }
+            : { customPrompt: customPrompt.trim() }),
           providerSignedName,
           providerSignatureData: providerSignatureMode === "draw" ? providerSignatureData : undefined,
           country: "US",
@@ -1295,6 +1329,7 @@ export default function ClientDetailPage() {
                           <div key={contract.id} className="p-3 rounded-lg bg-bb-black border border-bb-border space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-xs text-bb-dim">
+                                <span className="text-white font-medium mr-2">{contract.title || "Service Agreement"}</span>
                                 {new Date(contract.createdAt).toLocaleDateString()}
                               </span>
                               <div className="flex items-center gap-2">
@@ -1309,6 +1344,8 @@ export default function ClientDetailPage() {
                                 }`}>
                                   {contract.status === "SIGNED" ? "Signed" : contract.status === "EXPIRED" ? "Expired" : contract.status === "DRAFT" ? "Draft" : "Pending"}
                                 </span>
+                                {/* Signed contracts are permanent legal records: no delete */}
+                                {contract.status !== "SIGNED" && (
                                 <button
                                   onClick={async () => {
                                     if (!confirm("Delete this contract? This cannot be undone.")) return;
@@ -1322,6 +1359,7 @@ export default function ClientDetailPage() {
                                 >
                                   <Trash2 size={13} />
                                 </button>
+                                )}
                               </div>
                             </div>
                             {contract.status === "SIGNED" && contract.signedName && (
@@ -1493,7 +1531,91 @@ export default function ClientDetailPage() {
       <Modal open={showContractModal} onClose={() => setShowContractModal(false)} title="Generate Contract" className="max-w-2xl">
         <div className="space-y-6">
 
+          {/* Document type */}
+          <div>
+            <label className="block text-sm font-medium text-white mb-1.5">Document</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { key: "SERVICE_AGREEMENT" as ContractKind, label: "Custom contract", blurb: "AI drafts it from your prompt. Websites, software, one-off projects." },
+                ...CLIENT_AGREEMENT_KINDS.map((k) => ({ key: k.key as ContractKind, label: k.label, blurb: k.blurb })),
+              ].map((k) => (
+                <button
+                  key={k.key}
+                  type="button"
+                  onClick={() => pickContractKind(k.key)}
+                  className={`text-left p-3 rounded-lg border transition-colors ${
+                    contractKind === k.key ? "border-bb-orange bg-bb-orange/10" : "border-bb-border bg-bb-black hover:border-bb-muted"
+                  }`}
+                >
+                  <span className="block text-sm font-medium text-white">{k.label}</span>
+                  <span className="block text-[10px] text-bb-dim mt-1 leading-snug">{k.blurb}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {isStandardDoc && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-white mb-1.5">Client is</label>
+                <input
+                  type="text"
+                  value={clientDescriptor}
+                  onChange={(e) => setClientDescriptor(e.target.value)}
+                  maxLength={300}
+                  className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+                  placeholder="an individual residing in Virginia"
+                />
+                <p className="text-[10px] text-bb-dim mt-1">
+                  Written after {client.company ? `${client.name} / ${client.company}` : client.name} in the opening paragraph. Optional.
+                </p>
+              </div>
+
+              {contractKind === "SOCIAL_MEDIA" && (
+                <>
+                  {([
+                    ["accounts", "Accounts managed *", "One per line, e.g. Instagram: @handle", 3],
+                    ["deliverables", "Monthly deliverables *", "", 3],
+                    ["alsoIncluded", "Also included *", "", 3],
+                    ["authorizedPersonnel", "People with account access *", "", 2],
+                  ] as const).map(([field, label, placeholder, rows]) => (
+                    <div key={field}>
+                      <label className="block text-sm font-medium text-white mb-1.5">{label}</label>
+                      <textarea
+                        value={socialFields[field]}
+                        onChange={(e) => setSocialFields((f) => ({ ...f, [field]: e.target.value }))}
+                        rows={rows}
+                        maxLength={2000}
+                        placeholder={placeholder}
+                        className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+                      />
+                    </div>
+                  ))}
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1.5">Monthly fee *</label>
+                    <input
+                      type="text"
+                      value={socialFields.monthlyFee}
+                      onChange={(e) => setSocialFields((f) => ({ ...f, monthlyFee: e.target.value }))}
+                      maxLength={100}
+                      className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+                      placeholder="USD $200.00"
+                    />
+                    <p className="text-[10px] text-bb-dim mt-1">Written into the agreement exactly as typed, followed by &quot;per month&quot;.</p>
+                  </div>
+                  <p className="text-[10px] text-bb-dim">
+                    This agreement relies on the Mutual NDA for confidentiality, credentials and return of client material. Send the client a Mutual NDA as well if they haven&apos;t signed one.
+                  </p>
+                </>
+              )}
+              <p className="text-[10px] text-bb-dim">
+                Standard wording, no AI rewrite and no payment links. The client signs at the same secure link, and every step (created, sent, viewed, signed) is recorded with date, time and IP address.
+              </p>
+            </div>
+          )}
+
           {/* AI Contract Prompt */}
+          {!isStandardDoc && (
           <div>
             <label className="block text-sm font-medium text-white mb-1.5">
               Contract Prompt * <span className="text-[10px] px-1.5 py-0.5 rounded bg-bb-orange/10 text-bb-orange font-medium align-middle">AI</span>
@@ -1513,6 +1635,7 @@ export default function ClientDetailPage() {
               <span className="text-[10px] text-bb-dim shrink-0">{customPrompt.length.toLocaleString()} / 200,000</span>
             </div>
           </div>
+          )}
 
           {/* Draft / review-before-send toggle */}
           <label className="flex items-start gap-3 p-3 rounded-lg border border-bb-border bg-bb-black cursor-pointer">
@@ -1650,13 +1773,13 @@ export default function ClientDetailPage() {
             </button>
             <button
               onClick={handleGenerateContract}
-              disabled={!customPrompt.trim() || generatingContract || !providerSignedName.trim()}
+              disabled={!contractFormReady || generatingContract || !providerSignedName.trim()}
               className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {generatingContract ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  {customPrompt.trim() ? "Drafting with AI..." : "Generating..."}
+                  {!isStandardDoc && customPrompt.trim() ? "Drafting with AI..." : "Generating..."}
                 </>
               ) : (
                 <>

@@ -9,6 +9,8 @@ import SignatureCanvas from "@/components/shared/SignatureCanvas";
 interface ContractData {
   clientName: string;
   company: string | null;
+  kind?: string;
+  title?: string;
   contractBody: string;
   status: string;
   signedName: string | null;
@@ -45,14 +47,16 @@ function ContractRenderer({ body }: { body: string }) {
   }
 
   const lines = body.split("\n");
+  const firstTextLine = lines.findIndex((l) => l.trim());
 
   return (
     <div className="space-y-1">
       {lines.map((line, i) => {
         const trimmed = line.trim();
 
-        // Main title
-        if (trimmed === "SERVICE AGREEMENT") {
+        // Main title: "SERVICE AGREEMENT", or the opening all-caps "... AGREEMENT"
+        // line of a standard document (Mutual NDA, Social Media agreement)
+        if (trimmed === "SERVICE AGREEMENT" || (i === firstTextLine && /^[A-Z][A-Z\s-]{8,60}AGREEMENT$/.test(trimmed))) {
           return (
             <h2 key={i} className="text-2xl font-display font-bold text-white text-center pt-2 pb-4">
               {trimmed}
@@ -145,6 +149,16 @@ function ContractRenderer({ body }: { body: string }) {
           );
         }
 
+        // Bulleted list items
+        if (/^-\s+/.test(trimmed)) {
+          return (
+            <p key={i} className="text-sm text-bb-muted leading-relaxed pl-5 -indent-3">
+              <span className="text-bb-orange mr-1.5">&bull;</span>
+              {trimmed.replace(/^-\s+/, "")}
+            </p>
+          );
+        }
+
         // Empty lines
         if (!trimmed) {
           return <div key={i} className="h-2" />;
@@ -204,6 +218,11 @@ export default function ContractSignPage() {
     fetchContract();
   }, [token]);
 
+  const documentName = contract?.title || "Service Agreement";
+  // Sent to the server with the signature and stored word for word, so the
+  // record shows exactly what the signer agreed to.
+  const consentText = `I have read and agree to the terms of this ${documentName}. I agree to sign it electronically, and I understand that this is a legally binding signature and that my name, IP address, the date and time, and my browser information will be recorded as evidence of it.`;
+
   async function handleSign(e: React.FormEvent) {
     e.preventDefault();
     if (!agreed || !signedName.trim()) return;
@@ -219,6 +238,9 @@ export default function ContractSignPage() {
         body: JSON.stringify({
           signedName: signedName.trim(),
           signatureData: signatureMode === "draw" ? signatureData : undefined,
+          consentText,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          localTime: new Date().toString(),
         }),
       });
       const data = await res.json();
@@ -450,7 +472,7 @@ export default function ContractSignPage() {
             </div>
             <p className="text-xs text-bb-dim">
               By signing below, you acknowledge that you have read, understood, and agree to the
-              terms outlined in this Service Agreement. Your full legal name, IP address, and
+              terms outlined in this {documentName}. Your full legal name, IP address, and
               timestamp will be recorded as part of this legally binding digital signature.
             </p>
 
@@ -520,9 +542,7 @@ export default function ContractSignPage() {
                 className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
               />
               <span className="text-sm text-bb-muted">
-                I have read and agree to the terms of this Service Agreement. I understand
-                that this constitutes a legally binding digital signature and that my name,
-                IP address, timestamp, and browser information will be recorded for verification purposes.
+                {consentText}
               </span>
             </label>
           </div>

@@ -11,6 +11,9 @@ export async function GET(
 
     const contract: {
       id: string;
+      kind: string;
+      title: string;
+      consentText: string | null;
       status: string;
       createdAt: Date;
       contractBody: string;
@@ -53,6 +56,8 @@ export async function GET(
       success: true,
       data: {
         contractId: contract.id,
+        document: contract.title,
+        kind: contract.kind,
         clientName: contract.client.name,
         company: contract.client.company,
         status: contract.status,
@@ -76,8 +81,10 @@ export async function GET(
           signedAt: contract.signedAt,
           ipAddress: contract.ipAddress,
           userAgent: contract.userAgent,
+          consentText: contract.consentText,
         },
 
+        // All timestamps are UTC (ISO 8601), written by the server at the moment of each event
         // Full audit timeline
         auditTrail: contract.auditLogs.map((log) => ({
           event: log.event,

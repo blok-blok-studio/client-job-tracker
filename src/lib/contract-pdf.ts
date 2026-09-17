@@ -34,6 +34,9 @@ export interface ContractPdfInput {
   signedAt: Date | null;
   documentHash: string | null;
   signedDocumentHash: string | null;
+  /** Printed under each signature when given: the address each side signed from */
+  providerIpAddress?: string | null;
+  signerIpAddress?: string | null;
 }
 
 // pdf-lib's standard Helvetica draws the euro sign on top of the character that
@@ -330,7 +333,8 @@ export async function renderContractPdf(input: ContractPdfInput): Promise<Uint8A
     role: string,
     name: string | null,
     sig: { img: Awaited<ReturnType<typeof pdf.embedPng>>; w: number; h: number } | null,
-    signedAt: Date | null
+    signedAt: Date | null,
+    ipAddress?: string | null
   ) {
     let cy = topY;
     page.drawText(role.toUpperCase(), { x, y: cy, size: 7.5, font: fontBold, color: MUTED });
@@ -349,18 +353,23 @@ export async function renderContractPdf(input: ContractPdfInput): Promise<Uint8A
       metaY -= 12;
     }
     if (signedAt) {
+      // Always UTC and labelled: a signing time with no zone is ambiguous evidence
       page.drawText(
-        `Signed ${signedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} at ${signedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`,
+        `Signed ${signedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })} at ${signedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "UTC" })} UTC`,
         { x, y: metaY, size: 7.5, font, color: MUTED }
       );
+      if (ipAddress) {
+        metaY -= 10;
+        page.drawText(`IP address ${ipAddress}`, { x, y: metaY, size: 7.5, font, color: MUTED });
+      }
     } else if (!name) {
       page.drawText("Awaiting signature", { x, y: metaY, size: 7.5, font: fontItalic, color: FAINT });
     }
   }
 
-  drawSignatureColumn(leftX, "Provider — Blok Blok Studio", euroSafe(input.providerSignedName || "") || null, providerSig, input.providerSignedAt);
-  drawSignatureColumn(rightX, `${euroSafe(input.counterpartyRole)} — ${counterpartyLabel}`, euroSafe(input.signedName || "") || null, counterpartySig, input.signedAt);
-  y = topY - sigAreaHeight - 50;
+  drawSignatureColumn(leftX, "Provider — Blok Blok Studio", euroSafe(input.providerSignedName || "") || null, providerSig, input.providerSignedAt, input.providerIpAddress);
+  drawSignatureColumn(rightX, `${euroSafe(input.counterpartyRole)} — ${counterpartyLabel}`, euroSafe(input.signedName || "") || null, counterpartySig, input.signedAt, input.signerIpAddress);
+  y = topY - sigAreaHeight - 60;
 
   // ── Document integrity panel ──────────────────────────────────
   if (input.documentHash || input.signedDocumentHash) {

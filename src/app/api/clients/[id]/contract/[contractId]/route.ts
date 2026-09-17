@@ -20,6 +20,8 @@ export async function GET(
       select: {
         id: true,
         token: true,
+        kind: true,
+        title: true,
         status: true,
         contractBody: true,
         providerSignedName: true,
@@ -64,6 +66,14 @@ export async function DELETE(
       );
     }
 
+    // A signed contract is a permanent legal record, with its audit trail
+    if (contract.status === "SIGNED") {
+      return NextResponse.json(
+        { success: false, error: "Signed contracts are permanent records and can't be deleted." },
+        { status: 409 }
+      );
+    }
+
     await prisma.contractSignature.delete({ where: { id: contractId } });
 
     await prisma.activityLog.create({
@@ -71,7 +81,7 @@ export async function DELETE(
         clientId: id,
         actor: "chase",
         action: "deleted_contract",
-        details: `Deleted contract (${contract.status})`,
+        details: `Deleted ${contract.title} (${contract.status})`,
       },
     });
 

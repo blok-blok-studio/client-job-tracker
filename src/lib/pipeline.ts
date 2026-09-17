@@ -60,7 +60,8 @@ async function maybeSendOnboardingLink(clientId: string) {
   // Idempotency: check if we already sent the onboarding link AFTER the most recent contract was signed
   // This allows new contract cycles to trigger fresh onboarding links
   const latestSignedContract = await prisma.contractSignature.findFirst({
-    where: { clientId, status: "SIGNED" },
+    // NDAs and other standard documents are not part of the onboarding cycle
+    where: { clientId, status: "SIGNED", kind: "SERVICE_AGREEMENT" },
     orderBy: { signedAt: "desc" },
     select: { signedAt: true },
   });
@@ -219,7 +220,7 @@ async function maybeSendContractSigningLink(clientId: string) {
 
   // Find the most recent pending contract for this client
   const pendingContract = await prisma.contractSignature.findFirst({
-    where: { clientId, status: "PENDING" },
+    where: { clientId, status: "PENDING", kind: "SERVICE_AGREEMENT" },
     orderBy: { createdAt: "desc" },
     select: { token: true, createdAt: true },
   });
@@ -404,7 +405,7 @@ export async function onOnboardingCompleted(clientId: string) {
 
     // Send the signed contract copy to the client via email + Telegram
     const signedContract = await prisma.contractSignature.findFirst({
-      where: { clientId, status: "SIGNED" },
+      where: { clientId, status: "SIGNED", kind: "SERVICE_AGREEMENT" },
       orderBy: { signedAt: "desc" },
     });
 

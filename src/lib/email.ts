@@ -187,7 +187,11 @@ export async function sendContractSigningEmail(params: {
   to: string;
   clientName: string;
   contractUrl: string;
+  /** e.g. "Mutual Non-Disclosure Agreement"; defaults to the service agreement wording */
+  documentTitle?: string;
 }) {
+  const docName = params.documentTitle || "service agreement";
+  const subjectName = params.documentTitle || "Agreement";
   const resend = getResend();
   if (!resend) {
     console.warn("[Email] RESEND_API_KEY not set, skipping email");
@@ -197,7 +201,7 @@ export async function sendContractSigningEmail(params: {
   const { data, error } = await resend.emails.send({
     from: FROM_EMAIL,
     to: params.to,
-    subject: "Please Review & Sign Your Agreement — Blok Blok Studio",
+    subject: `Please Review & Sign Your ${subjectName} | Blok Blok Studio`,
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <div style="text-align: center; margin-bottom: 32px;">
@@ -208,7 +212,7 @@ export async function sendContractSigningEmail(params: {
           Hi ${params.clientName.split(" ")[0]},
         </p>
         <p style="color: #333; font-size: 16px; line-height: 1.6;">
-          Your service agreement is ready for review and signature. Please click the button below to review the terms and sign electronically.
+          Your ${docName} is ready for review and signature. Please click the button below to review the terms and sign electronically.
         </p>
         <div style="text-align: center; margin: 32px 0;">
           <a href="${params.contractUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">

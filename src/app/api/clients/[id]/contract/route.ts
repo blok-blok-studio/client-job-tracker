@@ -7,6 +7,8 @@ import { generateAiContractBody } from "@/lib/contract-ai";
 import { sendContract } from "@/lib/contract-send";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { requestMeta } from "@/lib/request-meta";
+import { contractTitle, generateClientAgreementBody } from "@/lib/client-agreement";
 
 // Allow up to 120s for exchange rate fetch + Stripe API calls + email sending
 export const maxDuration = 300;
@@ -40,6 +42,21 @@ const generateSchema = z.object({
   skipPayment: z.boolean().optional().default(false), // true = contract only, no payment links
   // true = create the contract but DON'T send to client yet (review first, send later)
   draft: z.boolean().optional().default(false),
+  // Fill-in standard document (Mutual NDA, Social Media agreement) instead of an
+  // AI-drafted custom contract. No packages, no payment links, no AI rewrite: the
+  // body is the template with these fields, so what gets signed is predictable.
+  template: z.object({
+    kind: z.enum(["NDA", "SOCIAL_MEDIA"]),
+    clientDescriptor: z.string().max(300).optional(),
+    extraTerms: z.string().max(5000).optional(),
+    social: z.object({
+      accounts: z.string().min(1).max(2000),
+      deliverables: z.string().min(1).max(2000),
+      alsoIncluded: z.string().min(1).max(2000),
+      monthlyFee: z.string().min(1).max(100),
+      authorizedPersonnel: z.string().min(1).max(1000),
+    }).optional(),
+  }).optional(),
 });
 
 // POST — Generate a new contract for a client (owner-only: contracts carry pricing)
@@ -93,7 +110,25 @@ export async function POST(
       }
     }
 
-    const baselineBody = generateContractBody(
+    if (parsed.template?.kind === "SOCIAL_MEDIA" && !parsed.template.social) {
+      return NextResponse.json(
+        { success: false, error: "The Social Media agreement needs its accounts, deliverables, fee and people filled in" },
+        { status: 400 }
+      );
+    }
+
+    const kind = parsed.template?.kind || "SERVICE_AGREEMENT";
+    const title = contractTitle(kind);
+
+    const baselineBody = parsed.template
+      ? generateClientAgreementBody(parsed.template.kind, {
+          clientName: client.name,
+          company: client.company,
+          clientDescriptor: parsed.template.clientDescriptor,
+          social: parsed.template.social,
+          extraTerms: parsed.template.extraTerms,
+        })
+      : generateContractBody(
       client.name,
       client.company,
       parsed.packages,
@@ -110,7 +145,7 @@ export async function POST(
     // Falls back to the baseline body on any AI failure.
     let contractBody = baselineBody;
     let aiError: string | null = null;
-    if (parsed.customPrompt && parsed.customPrompt.trim()) {
+    if (!parsed.template && parsed.customPrompt && parsed.customPrompt.trim()) {
       const ai = await generateAiContractBody({
         baselineBody,
         customPrompt: parsed.customPrompt.trim(),
@@ -124,16 +159,18 @@ export async function POST(
     // SHA-256 hash of the contract body for tamper detection
     const documentHash = createHash("sha256").update(contractBody).digest("hex");
 
-    // Capture provider's IP and user agent
-    const providerIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-      || request.headers.get("x-real-ip")
-      || "unknown";
-    const providerUa = request.headers.get("user-agent") || "unknown";
+    // Capture provider's IP and user agent (platform-observed address, not the
+    // spoofable left-most X-Forwarded-For hop: this is signature evidence)
+    const meta = requestMeta(request);
+    const providerIp = meta.ipAddress || "unknown";
+    const providerUa = meta.userAgent || "unknown";
 
     const contract = await prisma.contractSignature.create({
       data: {
         clientId: client.id,
         token,
+        kind,
+        title,
         contractBody,
         documentHash,
         status: parsed.draft ? "DRAFT" : "PENDING",
@@ -151,7 +188,8 @@ export async function POST(
           packageCustomizations: parsed.packageCustomizations || {},
           country: parsed.country,
           paymentSchedule: parsed.paymentSchedule || null,
-          skipPayment: parsed.skipPayment,
+          // Standard documents never create payment links
+          skipPayment: parsed.template ? true : parsed.skipPayment,
           exchangeRate: exchangeRate ?? null,
         },
       },
@@ -166,7 +204,7 @@ export async function POST(
           actor: "system",
           ipAddress: providerIp,
           userAgent: providerUa,
-          metadata: JSON.stringify({ documentHash }),
+          metadata: JSON.stringify({ documentHash, kind, title, createdBy: session.email }),
         },
         {
           contractId: contract.id,
@@ -174,7 +212,7 @@ export async function POST(
           actor: "provider",
           ipAddress: providerIp,
           userAgent: providerUa,
-          metadata: JSON.stringify({ signedName: parsed.providerSignedName }),
+          metadata: JSON.stringify({ signedName: parsed.providerSignedName, signedBy: session.email, documentHash }),
         },
       ],
     });
@@ -185,7 +223,7 @@ export async function POST(
         clientId: client.id,
         actor: "chase",
         action: "contract_generated",
-        details: `Contract generated and counter-signed by ${parsed.providerSignedName} for ${client.name}`,
+        details: `${title} generated and counter-signed by ${parsed.providerSignedName} for ${client.name}`,
       },
     });
 
@@ -195,7 +233,7 @@ export async function POST(
     let paymentLinkError: string | null = null;
 
     if (!parsed.draft) {
-      const sendResult = await sendContract(contract.id);
+      const sendResult = await sendContract(contract.id, { ...meta, sentBy: session.email });
       paymentLinks = sendResult.paymentLinks;
       paymentLinkError = sendResult.paymentLinkError;
     }
@@ -205,6 +243,8 @@ export async function POST(
       data: {
         id: contract.id,
         token: contract.token,
+        kind,
+        title,
         status: parsed.draft ? "DRAFT" : "PENDING",
         createdAt: contract.createdAt,
         contractBody,        // returned so the UI can show a review preview
@@ -248,6 +288,8 @@ export async function GET(
       select: {
         id: true,
         token: true,
+        kind: true,
+        title: true,
         status: true,
         signedName: true,
         signedAt: true,

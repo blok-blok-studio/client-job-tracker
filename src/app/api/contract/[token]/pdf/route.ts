@@ -27,7 +27,7 @@ export async function GET(
     const clientLabel = contract.client.company || contract.client.name;
 
     const pdfBytes = await renderContractPdf({
-      documentLabel: "Service Agreement",
+      documentLabel: contract.title || "Service Agreement",
       counterpartyLabel: clientLabel,
       counterpartyRole: "Client",
       contractBody: contract.contractBody,
@@ -39,10 +39,13 @@ export async function GET(
       signedAt: contract.signedAt,
       documentHash: contract.documentHash,
       signedDocumentHash: contract.signedDocumentHash,
+      providerIpAddress: contract.providerIpAddress,
+      signerIpAddress: contract.ipAddress,
     });
 
     const clientName = contract.client.name.replace(/[^a-zA-Z0-9]/g, "-");
-    const filename = `Blok-Blok-Studio-Agreement-${clientName}.pdf`;
+    const docSlug = contract.kind === "NDA" ? "NDA" : contract.kind === "SOCIAL_MEDIA" ? "Social-Media-Agreement" : "Agreement";
+    const filename = `Blok-Blok-Studio-${docSlug}-${clientName}.pdf`;
 
     return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,

@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sendContract } from "@/lib/contract-send";
 import { getSession } from "@/lib/auth";
+import { requestMeta } from "@/lib/request-meta";
 
 // Allow time for Stripe API calls + email sending
 export const maxDuration = 300;
 
 // POST — Send a previously-created draft contract to the client (payment links + signing/onboarding emails)
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; contractId: string }> }
 ) {
   const session = await getSession();
@@ -21,7 +22,7 @@ export async function POST(
   try {
     const contract = await prisma.contractSignature.findFirst({
       where: { id: contractId, clientId: id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, title: true },
     });
 
     if (!contract) {
@@ -35,14 +36,14 @@ export async function POST(
       );
     }
 
-    const result = await sendContract(contract.id);
+    const result = await sendContract(contract.id, { ...requestMeta(request), sentBy: session.email });
 
     await prisma.activityLog.create({
       data: {
         clientId: id,
         actor: "chase",
         action: "contract_sent",
-        details: `Draft contract reviewed and sent to client`,
+        details: `${contract.title} reviewed and sent to client`,
       },
     });
 

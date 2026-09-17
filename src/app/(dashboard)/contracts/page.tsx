@@ -8,6 +8,7 @@ import { FileText, Eye, Download, Search, ShieldCheck } from "lucide-react";
 interface ContractItem {
   id: string;
   token: string;
+  title?: string;
   status: "DRAFT" | "PENDING" | "SIGNED" | "EXPIRED";
   signedName: string | null;
   signedAt: string | null;
@@ -64,7 +65,7 @@ export default function ContractsPage() {
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
       if (yearFilter !== "all" && new Date(c.createdAt).getFullYear() !== yearFilter) return false;
       if (q) {
-        const haystack = [c.client.name, c.client.company, c.signedName].filter(Boolean).join(" ").toLowerCase();
+        const haystack = [c.client.name, c.client.company, c.signedName, c.title].filter(Boolean).join(" ").toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
@@ -152,7 +153,7 @@ export default function ContractsPage() {
                     </span>
                   </div>
                   <p className="text-xs text-bb-dim mt-1">
-                    Created {new Date(c.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                    <span className="text-bb-muted">{c.title || "Service Agreement"}</span> · Created {new Date(c.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
                     {c.status === "SIGNED" && c.signedName && (
                       <> · Signed by {c.signedName} on {new Date(c.signedAt!).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</>
                     )}

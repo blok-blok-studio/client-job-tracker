@@ -622,7 +622,13 @@ model ContractSignature {
   clientId     String
   client       Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
   token        String @unique
+  // SERVICE_AGREEMENT (AI-drafted custom contract) | NDA | SOCIAL_MEDIA — see src/lib/client-agreement.ts
+  kind         String @default("SERVICE_AGREEMENT")
+  title        String @default("Service Agreement")
   contractBody String @db.Text
+
+  // Exact e-signature consent wording the client ticked when signing
+  consentText String? @db.Text
 
   // Provider (Chase) counter-signature
   providerSignedName    String?

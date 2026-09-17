@@ -53,7 +53,10 @@ export function readGenParams(selectedPackages: unknown): ContractGenParams {
  * Idempotency-lite: callers should only invoke this for DRAFT (or freshly created) contracts.
  * The payment-link math is identical to the original inline implementation in the contract POST route.
  */
-export async function sendContract(contractId: string): Promise<ContractSendResult> {
+export async function sendContract(
+  contractId: string,
+  sender?: { ipAddress: string | null; userAgent: string | null; sentBy?: string | null }
+): Promise<ContractSendResult> {
   const contract = await prisma.contractSignature.findUnique({
     where: { id: contractId },
     include: {
@@ -63,9 +66,15 @@ export async function sendContract(contractId: string): Promise<ContractSendResu
 
   if (!contract) throw new Error("Contract not found");
   const client = contract.client;
+  // Standard documents (NDA, Social Media agreement) are signature-only: no
+  // payment links and no onboarding email ride along with them.
+  const isStandardDoc = contract.kind !== "SERVICE_AGREEMENT";
 
   const params = readGenParams(contract.selectedPackages);
   const { exchangeRate } = params;
+
+  let signingEmailId: string | null = null;
+  let signingEmailDelivered = false;
 
   const paymentLinksCreated: ContractSendResult["paymentLinks"] = [];
   let paymentLinkError: string | null = null;
@@ -75,7 +84,7 @@ export async function sendContract(contractId: string): Promise<ContractSendResu
       ? params.paymentSchedule
       : [{ label: "deposit" as const, percent: 100 }];
 
-  if (!params.skipPayment) {
+  if (!params.skipPayment && !isStandardDoc) {
     try {
       const convertAmount = (usd: number) =>
         exchangeRate ? Math.round(usd * exchangeRate * 100) / 100 : usd;
@@ -244,8 +253,15 @@ export async function sendContract(contractId: string): Promise<ContractSendResu
     const emailTasks: Promise<void>[] = [];
 
     emailTasks.push(
-      sendContractSigningEmail({ to: client.email, clientName: client.name, contractUrl })
-        .then(async () => {
+      sendContractSigningEmail({
+        to: client.email,
+        clientName: client.name,
+        contractUrl,
+        documentTitle: isStandardDoc ? contract.title : undefined,
+      })
+        .then(async (sent) => {
+          signingEmailId = sent?.id || null;
+          signingEmailDelivered = !!sent;
           await prisma.activityLog.create({
             data: {
               clientId: client.id,
@@ -268,7 +284,7 @@ export async function sendContract(contractId: string): Promise<ContractSendResu
         })
     );
 
-    emailTasks.push(
+    if (!isStandardDoc) emailTasks.push(
       (async () => {
         let onboardToken = (await prisma.client.findUnique({ where: { id: client.id }, select: { onboardToken: true } }))?.onboardToken;
         if (!onboardToken) {
@@ -302,6 +318,28 @@ export async function sendContract(contractId: string): Promise<ContractSendResu
 
     await Promise.allSettled(emailTasks);
   }
+
+  // Evidence trail: who released the document, when, from where, and to which
+  // address the signing link went. Written even when no email could be sent
+  // (the link was then shared by hand).
+  await prisma.contractAuditLog
+    .create({
+      data: {
+        contractId: contract.id,
+        event: "sent",
+        actor: "provider",
+        ipAddress: sender?.ipAddress || null,
+        userAgent: sender?.userAgent || null,
+        metadata: JSON.stringify({
+          sentBy: sender?.sentBy || null,
+          sentTo: client.email || null,
+          emailDelivered: signingEmailDelivered,
+          emailId: signingEmailId,
+          documentHash: contract.documentHash,
+        }),
+      },
+    })
+    .catch((err) => console.error("[Contract] sent audit entry failed:", err));
 
   // Move a draft into the active signing state once it has been sent
   if (contract.status === "DRAFT") {
