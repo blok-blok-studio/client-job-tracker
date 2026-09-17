@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, Globe2, Sparkles } from "lucide-react";
 import { Card, FieldLabel, inputClass } from "./ui";
-import { browserTimezone, formatInZone, isoToZonedLocal, nextUtcSlot, zonedLocalToIso, zoneAbbreviation } from "./timezone";
+import { allTimezones, browserTimezone, formatInZone, isoToZonedLocal, nextUtcSlot, zonedLocalToIso, zoneAbbreviation } from "./timezone";
 import { platformName } from "./types";
 
 interface BestTime {
@@ -16,17 +16,27 @@ interface BestTime {
 interface Props {
   clientId: string;
   timeZone: string;
-  timeZoneIsClient: boolean;
+  /** null when the client has no zone saved */
+  clientTimeZone: string | null;
+  onTimeZoneChange: (zone: string) => void;
   scheduledAtIso: string;
   platform?: string;
   disabled?: boolean;
   onChange: (iso: string) => void;
 }
 
-export default function SchedulePanel({ clientId, timeZone, timeZoneIsClient, scheduledAtIso, platform, disabled, onChange }: Props) {
+export default function SchedulePanel({ clientId, timeZone, clientTimeZone, onTimeZoneChange, scheduledAtIso, platform, disabled, onChange }: Props) {
   const [bestTimes, setBestTimes] = useState<BestTime[]>([]);
   const local = isoToZonedLocal(scheduledAtIso, timeZone);
   const myZone = browserTimezone();
+  const zones = useMemo(() => allTimezones(), []);
+  const quickZones = [...new Set([clientTimeZone, myZone, timeZone].filter((z): z is string => !!z))];
+  const zoneLabel = (zone: string) => {
+    const name = zone.replace(/_/g, " ");
+    if (zone === clientTimeZone) return `${name} (client)`;
+    if (zone === myZone) return `${name} (you)`;
+    return name;
+  };
   const inPast = !!scheduledAtIso && new Date(scheduledAtIso).getTime() < Date.now();
 
   useEffect(() => {
@@ -71,13 +81,41 @@ export default function SchedulePanel({ clientId, timeZone, timeZoneIsClient, sc
         </div>
       </div>
 
+      <div>
+        <FieldLabel htmlFor="composer-zone">Time zone</FieldLabel>
+        <select id="composer-zone" value={timeZone} disabled={disabled} onChange={(e) => onTimeZoneChange(e.target.value)} className={inputClass}>
+          <optgroup label="Suggested">
+            {quickZones.map((zone) => (
+              <option key={zone} value={zone}>
+                {zoneLabel(zone)}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="All time zones">
+            {zones
+              .filter((zone) => !quickZones.includes(zone))
+              .map((zone) => (
+                <option key={zone} value={zone}>
+                  {zone.replace(/_/g, " ")}
+                </option>
+              ))}
+          </optgroup>
+        </select>
+      </div>
+
       <div className="flex items-start gap-1.5 text-[11px] text-bb-dim">
         <Globe2 size={12} className="mt-px shrink-0" />
         <span>
-          {timeZoneIsClient ? "Client's time zone: " : "Your time zone (client has none set): "}
-          <span className="text-bb-muted">
-            {timeZone} ({zoneAbbreviation(timeZone)})
-          </span>
+          {timeZone === clientTimeZone ? "Client's time zone" : timeZone === myZone ? "Your time zone" : "Scheduling in"}
+          {": "}
+          <span className="text-bb-muted">{zoneAbbreviation(timeZone, scheduledAtIso ? new Date(scheduledAtIso) : undefined)}</span>
+          {!clientTimeZone && " · client has none set"}
+          {scheduledAtIso && clientTimeZone && clientTimeZone !== timeZone && (
+            <>
+              {" "}
+              · {formatInZone(scheduledAtIso, clientTimeZone)} for the client
+            </>
+          )}
           {scheduledAtIso && myZone !== timeZone && (
             <>
               {" "}

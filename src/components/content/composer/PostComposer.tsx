@@ -39,7 +39,7 @@ import SharedEditor from "./SharedEditor";
 import { TikTokConsent, type CreatorInfoState } from "./panels/TikTokPanel";
 import { kindFromMime, metaFromClientMedia, probeMedia } from "./media";
 import { prewarmRenditions, savePosts, type SavedPost, type SaveIntent } from "./save";
-import { browserTimezone, isValidTimezone } from "./timezone";
+import { browserTimezone, isValidTimezone, readZoneChoices, writeZoneChoices } from "./timezone";
 import {
   MANUAL_REDNOTE_KEY,
   isLocked,
@@ -181,7 +181,20 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
 
   const editing = !!postId;
   const client = clients.find((c) => c.id === clientId);
-  const timeZone = isValidTimezone(client?.timezone) ? client!.timezone! : browserTimezone();
+  const clientTimeZone = isValidTimezone(client?.timezone) ? client!.timezone! : null;
+  // Whoever is scheduling can plan in another zone; remembered per client on their device
+  const [zoneChoices, setZoneChoices] = useState<Record<string, string>>(readZoneChoices);
+  const chosenZone = zoneChoices[clientId];
+  const timeZone = isValidTimezone(chosenZone) ? chosenZone : clientTimeZone || browserTimezone();
+  const changeTimeZone = (zone: string) => {
+    setZoneChoices((prev) => {
+      const next = { ...prev };
+      if (zone && zone !== (clientTimeZone || browserTimezone())) next[clientId] = zone;
+      else delete next[clientId];
+      writeZoneChoices(next);
+      return next;
+    });
+  };
 
   // ─── Loading ──────────────────────────────────────────────────────────────
 
@@ -755,7 +768,8 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
               <SchedulePanel
                 clientId={clientId}
                 timeZone={timeZone}
-                timeZoneIsClient={isValidTimezone(client?.timezone)}
+                clientTimeZone={clientTimeZone}
+                onTimeZoneChange={changeTimeZone}
                 scheduledAtIso={scheduledAtIso}
                 platform={firstSpecPlatform}
                 disabled={allLocked}

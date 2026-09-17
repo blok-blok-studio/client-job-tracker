@@ -22,6 +22,38 @@ export function isValidTimezone(tz: string | null | undefined): tz is string {
   }
 }
 
+/** Every IANA zone the browser knows, for the schedule picker. */
+export function allTimezones(): string[] {
+  try {
+    const zones = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone");
+    if (zones?.length) return zones;
+  } catch {
+    /* older browser */
+  }
+  return ["UTC", "America/Los_Angeles", "America/Denver", "America/Chicago", "America/New_York", "Europe/London", "Europe/Berlin", "Asia/Dubai", "Asia/Shanghai", "Asia/Tokyo", "Australia/Sydney"];
+}
+
+const ZONE_CHOICES_KEY = "bb-composer-zones";
+
+/** Zone each person last picked per client (clientId → IANA), kept in their browser. */
+export function readZoneChoices(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(ZONE_CHOICES_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function writeZoneChoices(choices: Record<string, string>) {
+  try {
+    window.localStorage.setItem(ZONE_CHOICES_KEY, JSON.stringify(choices));
+  } catch {
+    /* private window or storage blocked: the choice still holds for this session */
+  }
+}
+
 /** Wall-clock parts of an instant in a zone. */
 function zonedParts(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
