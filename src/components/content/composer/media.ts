@@ -25,6 +25,7 @@ interface ClientMediaRow {
   height?: number | null;
   duration?: number | null;
   thumbnailUrl?: string | null;
+  playbackUrl?: string | null;
 }
 
 export function metaFromClientMedia(row: ClientMediaRow): MediaMeta {
@@ -41,6 +42,7 @@ export function metaFromClientMedia(row: ClientMediaRow): MediaMeta {
     height: row.height ?? null,
     duration: row.duration ?? null,
     thumbnailUrl: row.thumbnailUrl ?? null,
+    playbackUrl: row.playbackUrl ?? null,
   };
 }
 

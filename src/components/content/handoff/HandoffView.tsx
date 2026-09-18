@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
   TrendingUp,
   Loader2,
+  Play,
   Share2,
   Smartphone,
   AlertTriangle,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import PlatformIcon, { getPlatformLabel } from "@/components/content/PlatformIcon";
 import { optimizedThumb } from "@/lib/media-thumb";
+import MediaViewer from "@/components/shared/MediaViewer";
 import type { AssignedSound } from "@/lib/trending-sound";
 import { formatInZone, safeTimeZone, tomorrowAtInZone } from "./zoned-time";
 
@@ -220,6 +222,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
   const [status, setStatus] = useState(post.status);
   const [qr, setQr] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<HandoffMedia | null>(null);
 
   useEffect(() => {
     QRCode.toDataURL(window.location.href, { margin: 1, width: 180, color: { dark: "#0A0A0A", light: "#FFFFFF" } })
@@ -504,6 +507,19 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
                         {m.kind === "video" ? <Film size={22} /> : <ImageIcon size={22} />}
                       </div>
                     )}
+                    {/* Check it before posting: streams, nothing is saved */}
+                    <button
+                      type="button"
+                      onClick={() => setViewing(m)}
+                      aria-label={m.kind === "video" ? `Play ${m.filename}` : `View ${m.filename}`}
+                      className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                    >
+                      {m.kind === "video" && (
+                        <span className="flex items-center justify-center w-10 h-10 rounded-full bg-black/60 text-white">
+                          <Play size={18} className="ml-0.5" />
+                        </span>
+                      )}
+                    </button>
                     <span className="absolute top-1 left-1 text-[10px] font-mono bg-black/70 text-white rounded px-1">{i + 1}</span>
                     {m.kind === "video" && (
                       <span className="absolute bottom-1 right-1 bg-black/70 rounded p-0.5"><Film size={11} className="text-white" /></span>
@@ -737,6 +753,8 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
       )}
 
       {error && <p className="text-sm text-red-400 px-1">{error}</p>}
+
+      <MediaViewer item={viewing} onClose={() => setViewing(null)} />
     </div>
   );
 }

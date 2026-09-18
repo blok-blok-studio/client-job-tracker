@@ -109,6 +109,8 @@ model Client {
   paymentLinks     PaymentLink[]
   contentPosts     ContentPost[]
   trendingSounds   TrendingSound[]
+  contentSnippets  ContentSnippet[]
+  postingSlots     PostingSlot[]
   contentApprovals ContentApproval[]
   mediaFiles       ClientMedia[]
   automationFlows  AutomationFlow[]
@@ -1093,6 +1095,35 @@ model TrendingSound {
   createdAt DateTime @default(now())
 
   @@index([platform, archived])
+  @@index([clientId])
+}
+
+// Reusable caption text and hashtag sets for the composer. clientId null =
+// available on every client's posts.
+model ContentSnippet {
+  id        String   @id @default(cuid())
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  kind      String // "CAPTION" | "HASHTAGS"
+  name      String
+  body      String?  @db.Text // CAPTION
+  hashtags  String[] // HASHTAGS, stored without the #
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([clientId, kind])
+}
+
+// A client's usual posting times ("Mon 18:00"), read in the client's time zone.
+// The composer's "Next free slot" fills the schedule from these.
+model PostingSlot {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  weekday  Int // 0 = Sunday ... 6 = Saturday
+  time     String // "HH:mm"
+
+  @@unique([clientId, weekday, time])
   @@index([clientId])
 }
 

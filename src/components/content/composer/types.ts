@@ -34,6 +34,8 @@ export interface MediaMeta {
   height?: number | null;
   duration?: number | null;
   thumbnailUrl?: string | null;
+  /** Browser-friendly copy of a video, when one was made */
+  playbackUrl?: string | null;
 }
 
 /** Per-account state. Unset overrides fall back to the shared content. */

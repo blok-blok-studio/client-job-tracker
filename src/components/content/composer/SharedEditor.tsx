@@ -7,10 +7,13 @@ import { cn } from "@/lib/utils";
 import { AccountIcon } from "./AccountPicker";
 import { Card, ChipInput, CharCounter, FieldLabel, inputClass } from "./ui";
 import { FALLBACK_BODY_LIMITS, platformName, type SharedContent } from "./types";
+import SnippetMenu from "./SnippetMenu";
 
 interface Props {
   shared: SharedContent;
   platforms: string[];
+  /** Saved captions and hashtag sets are kept per client */
+  clientId: string;
   disabled?: boolean;
   onChange: (patch: Partial<SharedContent>) => void;
 }
@@ -21,7 +24,7 @@ export function captionLength(body: string, hashtags: string[]): number {
   return [body, tags].filter(Boolean).join("\n\n").length;
 }
 
-export default function SharedEditor({ shared, platforms, disabled, onChange }: Props) {
+export default function SharedEditor({ shared, platforms, clientId, disabled, onChange }: Props) {
   const [suggesting, setSuggesting] = useState(false);
   const unique = [...new Set(platforms)];
   const titleLimits = unique
@@ -78,6 +81,15 @@ export default function SharedEditor({ shared, platforms, disabled, onChange }: 
 
       <div>
         <FieldLabel htmlFor="composer-body">Caption</FieldLabel>
+        <div className="flex flex-wrap text-[11px] mb-1.5">
+          <SnippetMenu
+            kind="CAPTION"
+            clientId={clientId}
+            current={{ body: shared.body }}
+            disabled={disabled}
+            onInsert={(s) => onChange({ body: [shared.body.trimEnd(), s.body || ""].filter(Boolean).join("\n\n") })}
+          />
+        </div>
         <textarea
           id="composer-body"
           value={shared.body}
@@ -116,6 +128,15 @@ export default function SharedEditor({ shared, platforms, disabled, onChange }: 
             <Hash size={11} /> Hashtags
           </span>
         </FieldLabel>
+        <div className="flex flex-wrap text-[11px] mb-1.5">
+          <SnippetMenu
+            kind="HASHTAGS"
+            clientId={clientId}
+            current={{ hashtags: shared.hashtags }}
+            disabled={disabled}
+            onInsert={(s) => onChange({ hashtags: [...shared.hashtags, ...s.hashtags.filter((t) => !shared.hashtags.includes(t))] })}
+          />
+        </div>
         <ChipInput values={shared.hashtags} onChange={(hashtags) => onChange({ hashtags })} placeholder="Type a tag and press Enter" prefix="#" disabled={disabled} />
       </div>
     </Card>

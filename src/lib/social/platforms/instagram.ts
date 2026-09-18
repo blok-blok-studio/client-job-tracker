@@ -55,7 +55,7 @@ function apiBase(credential: ResolvedCredential): string {
   return `https://${host}/${GRAPH_VERSION}`;
 }
 
-async function graph<T = Record<string, unknown>>(
+export async function graph<T = Record<string, unknown>>(
   credential: ResolvedCredential,
   method: "GET" | "POST",
   path: string,

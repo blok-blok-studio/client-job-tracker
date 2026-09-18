@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  FileBarChart, Upload, Sparkles, Send, Trash2, Loader2, CheckCircle2, Lightbulb, TrendingUp,
+  FileBarChart, Upload, Sparkles, Send, Trash2, Loader2, CheckCircle2, Lightbulb, TrendingUp, Share2,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
@@ -58,6 +58,7 @@ export default function MonthlyReportsPage() {
   const [generating, setGenerating] = useState(false);
   const [confirmSend, setConfirmSend] = useState(false);
   const [sending, setSending] = useState(false);
+  const [addingSocial, setAddingSocial] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -87,6 +88,31 @@ export default function MonthlyReportsPage() {
       };
       reader.readAsText(f);
     });
+  }
+
+  // What the scheduler published for this client that month, with the stats we hold
+  async function addSocialPosts() {
+    if (!clientId || addingSocial) return;
+    setAddingSocial(true);
+    try {
+      const res = await fetch(`/api/content-posts/month-summary?clientId=${encodeURIComponent(clientId)}&month=${month}`);
+      const result = await readJson<{ data: { text: string; postCount: number } }>(res, "Couldn't load the social posts.");
+      if (!result.ok || !result.data) {
+        toast(result.error || "Couldn't load the social posts.", "error");
+        return;
+      }
+      const { text, postCount } = result.data.data;
+      if (postCount === 0) {
+        toast("No posts were published through the scheduler that month.", "error");
+        return;
+      }
+      // Re-adding replaces the earlier block instead of stacking a second copy
+      const without = rawData.replace(/===== SOCIAL POSTS PUBLISHED FOR [\s\S]*?(?=\n\n===== |$)/, "").trim();
+      setRawData([without, text].filter(Boolean).join("\n\n"));
+      toast(`Added ${postCount} post${postCount === 1 ? "" : "s"} from the scheduler`, "success");
+    } finally {
+      setAddingSocial(false);
+    }
   }
 
   async function generate() {
@@ -171,7 +197,7 @@ export default function MonthlyReportsPage() {
               placeholder={"Paste the analytics here — CSV exports, Meta Business Suite stats, TikTok analytics, or just copied numbers.\n\nInclude last month's numbers too if you want change percentages."}
               className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-xs font-mono text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
             />
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 ref={fileInput}
                 type="file"
@@ -186,7 +212,14 @@ export default function MonthlyReportsPage() {
               >
                 <Upload size={13} /> Add CSV files
               </button>
-              <span className="text-[10px] text-bb-dim">appends file contents to the box above</span>
+              <button
+                onClick={addSocialPosts}
+                disabled={!clientId || addingSocial}
+                className="flex items-center gap-1.5 px-3 py-2 bg-bb-elevated hover:bg-bb-border text-bb-muted hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {addingSocial ? <Loader2 size={13} className="animate-spin" /> : <Share2 size={13} />} Add social posts
+              </button>
+              <span className="text-[10px] text-bb-dim">both append to the box above</span>
             </div>
             <input
               value={notes}

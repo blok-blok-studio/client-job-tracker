@@ -129,3 +129,37 @@ export function nextUtcSlot(day: number, hour: number, from = new Date()): Date 
   d.setUTCDate(d.getUTCDate() + add);
   return d;
 }
+
+export interface PostingSlot {
+  /** 0 = Sunday ... 6 = Saturday */
+  weekday: number;
+  /** "HH:mm" wall clock in the slot zone */
+  time: string;
+}
+
+/**
+ * The next posting slot after `from` that no scheduled post already sits on.
+ * Slots are wall-clock times in `timeZone`; `takenIso` are instants in use.
+ */
+export function nextFreeSlot(slots: PostingSlot[], timeZone: string, takenIso: string[], from = new Date()): string | null {
+  if (slots.length === 0) return null;
+  const taken = takenIso.map((iso) => new Date(iso).getTime());
+  const earliest = from.getTime() + 5 * 60_000;
+  const today = zonedParts(from, timeZone);
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  for (let i = 0; i < 120; i++) {
+    // Calendar-day steps on the local date, so DST changes can't skip or repeat a day
+    const day = new Date(Date.UTC(today.year, today.month - 1, today.day + i));
+    const date = `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}`;
+    const todays = slots.filter((s) => s.weekday === day.getUTCDay()).sort((a, b) => a.time.localeCompare(b.time));
+    for (const slot of todays) {
+      const iso = zonedLocalToIso(`${date}T${slot.time}`, timeZone);
+      const at = new Date(iso).getTime();
+      if (at < earliest) continue;
+      if (taken.some((t) => Math.abs(t - at) < 60_000)) continue;
+      return iso;
+    }
+  }
+  return null;
+}

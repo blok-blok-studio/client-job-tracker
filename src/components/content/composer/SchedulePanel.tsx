@@ -5,6 +5,7 @@ import { CalendarClock, Globe2, Sparkles } from "lucide-react";
 import { Card, FieldLabel, inputClass } from "./ui";
 import { allTimezones, browserTimezone, formatInZone, isoToZonedLocal, nextUtcSlot, zonedLocalToIso, zoneAbbreviation } from "./timezone";
 import { platformName } from "./types";
+import SlotPicker from "./SlotPicker";
 
 interface BestTime {
   day: number;
@@ -21,11 +22,13 @@ interface Props {
   onTimeZoneChange: (zone: string) => void;
   scheduledAtIso: string;
   platform?: string;
+  /** This post's group, so "Next free slot" doesn't treat its own time as taken */
+  groupId?: string;
   disabled?: boolean;
   onChange: (iso: string) => void;
 }
 
-export default function SchedulePanel({ clientId, timeZone, clientTimeZone, onTimeZoneChange, scheduledAtIso, platform, disabled, onChange }: Props) {
+export default function SchedulePanel({ clientId, timeZone, clientTimeZone, onTimeZoneChange, scheduledAtIso, platform, groupId, disabled, onChange }: Props) {
   const [bestTimes, setBestTimes] = useState<BestTime[]>([]);
   const local = isoToZonedLocal(scheduledAtIso, timeZone);
   const myZone = browserTimezone();
@@ -80,6 +83,8 @@ export default function SchedulePanel({ clientId, timeZone, clientTimeZone, onTi
           <input id="composer-time" type="time" value={time} disabled={disabled || !date} onChange={(e) => setParts(date, e.target.value)} className={inputClass} />
         </div>
       </div>
+
+      {!disabled && <SlotPicker clientId={clientId} slotZone={clientTimeZone || timeZone} groupId={groupId} onPick={onChange} />}
 
       <div>
         <FieldLabel htmlFor="composer-zone">Time zone</FieldLabel>

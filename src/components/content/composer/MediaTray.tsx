@@ -13,7 +13,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Download, Film, Share, FolderOpen, GripVertical, ImagePlus, Loader2, Music, Upload, X, FileText, Accessibility } from "lucide-react";
+import { Download, Film, Play, Share, FolderOpen, GripVertical, ImagePlus, Loader2, Music, Upload, X, FileText, Accessibility } from "lucide-react";
 import MediaLibrary from "../MediaLibrary";
 import ReelAudioMaker from "./ReelAudioMaker";
 import VideoAudioMaker from "./VideoAudioMaker";
@@ -27,6 +27,7 @@ import { Card, inputClass } from "./ui";
 import { safeUuid } from "@/lib/safe-uuid";
 import { SHARE_SHEET_MAX_BYTES, canShareFile, downloadMediaFile, fetchAsFile, isIOSDevice } from "@/lib/client-download";
 import { useZipDownload } from "@/components/shared/useZipDownload";
+import MediaViewer from "@/components/shared/MediaViewer";
 
 interface Props {
   clientId: string;
@@ -67,6 +68,7 @@ function SortableTile({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: url, disabled });
   const [showAlt, setShowAlt] = useState(false);
+  const [viewing, setViewing] = useState(false);
   // iPhone/iPad: first tap pulls the file in, second tap opens the share sheet
   // (Save Video / Save Image). iOS only opens it straight from a tap, so the
   // download can't be chained into it.
@@ -122,6 +124,26 @@ function SortableTile({
             {kind === "video" ? <Film size={22} /> : kind === "audio" ? <Music size={22} /> : <FileText size={22} />}
           </div>
         )}
+        {/* Watch or listen right here: it streams, nothing is saved to the device */}
+        {(kind === "video" || kind === "image" || kind === "audio") && (
+          <button
+            type="button"
+            onClick={() => setViewing(true)}
+            aria-label={kind === "image" ? `View ${meta?.filename || "photo"}` : `Play ${meta?.filename || kind}`}
+            title={kind === "image" ? "View" : "Play with sound"}
+            className="absolute inset-0 flex items-center justify-center cursor-pointer group/play"
+          >
+            {kind !== "image" && (
+              <span className="flex items-center justify-center w-10 h-10 rounded-full bg-black/60 text-white group-hover/play:bg-bb-orange transition-colors">
+                <Play size={18} className="ml-0.5" />
+              </span>
+            )}
+          </button>
+        )}
+        <MediaViewer
+          item={viewing && kind !== "document" ? { url, kind, filename: meta?.filename, playbackUrl: meta?.playbackUrl, thumbnailUrl: meta?.thumbnailUrl } : null}
+          onClose={() => setViewing(false)}
+        />
         <span className="absolute top-1 left-1 text-[10px] font-mono bg-black/70 text-white rounded px-1">{index + 1}</span>
         {kind === "video" && (
           <span className="absolute bottom-1 left-1 inline-flex items-center gap-0.5 text-[10px] bg-black/70 text-white rounded px-1">

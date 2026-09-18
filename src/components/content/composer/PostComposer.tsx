@@ -754,7 +754,7 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
                 onToggle={toggleAccount}
                 onRefresh={() => loadConnections(clientId)}
               />
-              <SharedEditor shared={shared} platforms={selectedDrafts.map((d) => d.platform)} disabled={allLocked} onChange={updateShared} />
+              <SharedEditor shared={shared} platforms={selectedDrafts.map((d) => d.platform)} clientId={clientId} disabled={allLocked} onChange={updateShared} />
               <MediaTray
                 clientId={clientId}
                 mediaUrls={shared.mediaUrls}
@@ -772,6 +772,7 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
                 onTimeZoneChange={changeTimeZone}
                 scheduledAtIso={scheduledAtIso}
                 platform={firstSpecPlatform}
+                groupId={groupIdRef.current}
                 disabled={allLocked}
                 onChange={(iso) => {
                   touch();
