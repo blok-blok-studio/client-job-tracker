@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate --no-engine && ([ -n \"$DIRECT_DATABASE_URL\" ] && prisma db push --skip-generate --accept-data-loss || true) && next build",
+    "build": "prisma generate --no-engine && if [ -n \"$DIRECT_DATABASE_URL\" ]; then prisma db push --skip-generate; fi && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",
