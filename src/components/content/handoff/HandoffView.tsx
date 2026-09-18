@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Film,
   Image as ImageIcon,
+  TrendingUp,
   Loader2,
   Share2,
   Smartphone,
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 import PlatformIcon, { getPlatformLabel } from "@/components/content/PlatformIcon";
 import { optimizedThumb } from "@/lib/media-thumb";
+import type { AssignedSound } from "@/lib/trending-sound";
 import { formatInZone, safeTimeZone, tomorrowAtInZone } from "./zoned-time";
 
 export interface HandoffMedia {
@@ -56,6 +58,8 @@ export interface HandoffPost {
   assigneeName: string | null;
   client: { id: string; name: string; timezone: string | null };
   media: HandoffMedia[];
+  /** Trending sound assigned in the composer; it can only be added in the app */
+  trendingSound?: AssignedSound | null;
   /** A format was chosen but the formatted copies aren't ready; media shown is the original */
   formatPending?: boolean;
 }
@@ -229,6 +233,11 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
 
   const allReady = post.media.length > 0 && post.media.every((_, i) => prep[i]?.status === "ready");
   const anyPreparing = Object.values(prep).some((p) => p.status === "preparing");
+
+  const sound = post.trendingSound || null;
+  const checklist = sound
+    ? [CHECKLIST[0], { key: "sound", label: "Trending sound added in the app" }, ...CHECKLIST.slice(1)]
+    : CHECKLIST;
 
   const tick = (key: string) => setChecks((c) => ({ ...c, [key]: true }));
 
@@ -593,6 +602,31 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
       {/* Step 3: post */}
       <section className="bg-bb-surface border border-bb-border rounded-xl p-4 space-y-3">
         <h2 className="text-sm font-medium text-white">3. Post it</h2>
+        {sound && (
+          <div className="rounded-lg border border-bb-orange/30 bg-bb-orange/5 p-3 space-y-2">
+            <p className="flex items-center gap-1.5 text-xs text-bb-dim uppercase tracking-wide">
+              <TrendingUp size={12} className="text-bb-orange" /> Trending sound for this post
+            </p>
+            <p className="text-sm text-white">
+              {sound.name}
+              {sound.artist && <span className="text-bb-muted"> · {sound.artist}</span>}
+            </p>
+            <a
+              href={sound.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => tick("sound")}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold transition-colors"
+            >
+              <PlatformIcon platform={sound.platform} size={16} className="text-white" />
+              Open the sound in {getPlatformLabel(sound.platform)}
+            </a>
+            <p className="text-xs text-bb-muted">
+              Save the media first. Then open the sound, tap {sound.platform === "TIKTOK" ? "Use this sound" : "Use audio"}, and pick the saved video from your camera roll.
+            </p>
+            <CopyButton label="Copy sound name" text={sound.name} />
+          </div>
+        )}
         {app && (
           <button
             type="button"
@@ -617,7 +651,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
         )}
 
         <div className="border-t border-bb-border pt-3 space-y-2">
-          {CHECKLIST.map((item) => (
+          {checklist.map((item) => (
             <label key={item.key} className="flex items-center gap-2.5 text-sm text-bb-muted cursor-pointer select-none">
               <input
                 type="checkbox"

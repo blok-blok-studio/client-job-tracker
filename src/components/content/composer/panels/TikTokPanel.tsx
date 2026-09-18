@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Avatar, FieldLabel, Toggle, inputClass } from "../ui";
 import type { TikTokCreatorInfo } from "../validation";
 import { setting, type PanelProps } from "./shared";
+import TrendingSoundField from "./TrendingSoundField";
 
 const MUSIC_URL = TIKTOK_MUSIC_USAGE_URL;
 const BRANDED_URL = TIKTOK_BRANDED_CONTENT_POLICY_URL;
@@ -59,7 +60,7 @@ export function TikTokConsent({ branded }: { branded: boolean }) {
   );
 }
 
-export default function TikTokPanel({ draft, postType, disabled, onSettings, creator }: PanelProps & { creator?: CreatorInfoState }) {
+export default function TikTokPanel({ draft, postType, disabled, onDraft, onSettings, creator }: PanelProps & { creator?: CreatorInfoState }) {
   const info = creator?.data;
   const isPhoto = postType === "photo";
   const privacy = draft.settings.privacyLevel as string | undefined;
@@ -72,7 +73,12 @@ export default function TikTokPanel({ draft, postType, disabled, onSettings, cre
   const labelNotice = brandedContent ? TIKTOK_LABEL_BRANDED : brandOrganic ? TIKTOK_LABEL_YOUR_BRAND : null;
 
   if (draft.publishMode === "ASSISTED") {
-    return <p className="text-[11px] text-bb-dim">Posting by hand: privacy, interactions and disclosure are set in the TikTok app.</p>;
+    return (
+      <div className="space-y-3">
+        <TrendingSoundField draft={draft} disabled={disabled} onDraft={onDraft} onSettings={onSettings} platform="TIKTOK" />
+        <p className="text-[11px] text-bb-dim">Posting by hand: privacy, interactions and disclosure are set in the TikTok app.</p>
+      </div>
+    );
   }
 
   return (
@@ -219,6 +225,8 @@ export default function TikTokPanel({ draft, postType, disabled, onSettings, cre
           />
         </div>
       )}
+
+      <TrendingSoundField draft={draft} disabled={disabled} onDraft={onDraft} onSettings={onSettings} platform="TIKTOK" />
 
       {info?.maxVideoPostDurationSec && !isPhoto && (
         <p className="text-[11px] text-bb-dim">This account can post videos up to {Math.floor(info.maxVideoPostDurationSec / 60)} min {info.maxVideoPostDurationSec % 60 ? `${info.maxVideoPostDurationSec % 60}s` : ""}.</p>

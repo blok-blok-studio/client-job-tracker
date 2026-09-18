@@ -16,6 +16,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Download, Film, Share, FolderOpen, GripVertical, ImagePlus, Loader2, Music, Upload, X, FileText, Accessibility } from "lucide-react";
 import MediaLibrary from "../MediaLibrary";
 import ReelAudioMaker from "./ReelAudioMaker";
+import VideoAudioMaker from "./VideoAudioMaker";
 import { uploadFile } from "@/lib/client-upload";
 import { readJson } from "@/lib/fetch-json";
 import { cn } from "@/lib/utils";
@@ -213,6 +214,8 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
   const { startZip, zipBar } = useZipDownload();
   // Photos only (no GIFs): these can be turned into one Reel video with audio
   const photosOnly = mediaUrls.length > 0 && mediaUrls.every((u) => (meta[u]?.kind || kindFromMime(meta[u]?.mimeType, u)) === "image" && !/\.gif(\?|#|$)/i.test(u));
+  // One video on its own: an uploaded track can be laid over it
+  const singleVideo = mediaUrls.length === 1 && (meta[mediaUrls[0]]?.kind || kindFromMime(meta[mediaUrls[0]]?.mimeType, mediaUrls[0])) === "video" ? mediaUrls[0] : null;
   const libraryIds = mediaUrls.map((u) => meta[u]?.id).filter((id): id is string => !!id);
 
   const sensors = useSensors(
@@ -399,6 +402,17 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
           <ReelAudioMaker
             clientId={clientId}
             imageUrls={mediaUrls}
+            onCreated={(video) => {
+              onMetaAdd([video]);
+              onChange([video.url]);
+            }}
+          />
+        )}
+        {!disabled && clientId && singleVideo && uploads.length === 0 && (
+          <VideoAudioMaker
+            key={singleVideo}
+            clientId={clientId}
+            videoUrl={singleVideo}
             onCreated={(video) => {
               onMetaAdd([video]);
               onChange([video.url]);

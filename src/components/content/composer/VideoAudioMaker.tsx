@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Clapperboard, Loader2, Music } from "lucide-react";
+import { Loader2, Music } from "lucide-react";
 import { readJson } from "@/lib/fetch-json";
 import { cn } from "@/lib/utils";
 import type { MediaMeta } from "./types";
@@ -11,51 +11,37 @@ import AudioChoice, { type AudioFile } from "./AudioChoice";
 
 interface Props {
   clientId: string;
-  /** The post's photos, in slide order */
-  imageUrls: string[];
+  videoUrl: string;
   /** Called with the finished video, already saved to the client's library */
   onCreated: (video: MediaMeta) => void;
 }
 
-/** Must match the label the slideshow route saves on the finished video. */
-const REEL_LABEL = "Reel made from photos + audio";
-
-const SLIDE_LENGTHS = [
-  { value: "2", label: "2 seconds per photo" },
-  { value: "3", label: "3 seconds per photo" },
-  { value: "4", label: "4 seconds per photo" },
-  { value: "5", label: "5 seconds per photo" },
-  { value: "match", label: "Spread photos across the whole track" },
-];
+/** Must match the label the audio-mix route saves on the finished video. */
+const MIX_LABEL = "Video with added audio";
 
 /**
- * Instagram and Facebook can't add audio to a carousel through the API, so the
- * photos are rendered into one vertical video with the track over it, and that
- * video posts as a Reel.
+ * Lays an uploaded track over the post's video. The result is an ordinary
+ * video in the client's library, so it publishes automatically like any other.
  */
-export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props) {
+export default function VideoAudioMaker({ clientId, videoUrl, onCreated }: Props) {
   const [open, setOpen] = useState(false);
   const [audio, setAudio] = useState<AudioFile | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [slideLength, setSlideLength] = useState("3");
-  const [fit, setFit] = useState<"pad" | "crop">("pad");
+  const [keepOriginal, setKeepOriginal] = useState(false);
+  const [trackVolume, setTrackVolume] = useState(60);
   const [audioStart, setAudioStart] = useState("0");
   const [rendering, setRendering] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * A phone that locks or switches apps mid-render drops the request, but the
-   * server carries on and saves the video. Look for it in the library rather
-   * than showing an error for something that worked.
-   */
-  const findFinishedReel = async (startedAt: number): Promise<Parameters<typeof metaFromClientMedia>[0] | null> => {
+  // A phone that locks mid-render drops the request while the server finishes: look for the saved video
+  const findFinished = async (startedAt: number): Promise<Parameters<typeof metaFromClientMedia>[0] | null> => {
     for (let attempt = 0; attempt < 24; attempt++) {
       await new Promise((r) => setTimeout(r, 5000));
       try {
         const res = await fetch(`/api/client-media?clientId=${encodeURIComponent(clientId)}&fileType=VIDEO`);
         const d = await res.json();
         const hit = (d?.data as { url: string; label?: string | null; createdAt: string }[] | undefined)?.find(
-          (m) => m.label === REEL_LABEL && new Date(m.createdAt).getTime() >= startedAt - 5000
+          (m) => m.label === MIX_LABEL && new Date(m.createdAt).getTime() >= startedAt - 5000
         );
         if (hit) return hit;
       } catch {
@@ -75,15 +61,15 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
       let failure: string | null = null;
       let dropped = false;
       try {
-        const res = await fetch("/api/client-media/slideshow", {
+        const res = await fetch("/api/client-media/audio-mix", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             clientId,
-            imageUrls,
+            videoUrl,
             audioUrl: audio.url,
-            secondsPerSlide: slideLength === "match" ? "match" : Number(slideLength),
-            fit,
+            keepOriginal,
+            trackVolume: keepOriginal ? trackVolume / 100 : 1,
             audioStart: Number(audioStart) || 0,
           }),
         });
@@ -96,12 +82,12 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
       } catch {
         dropped = true;
       }
-      if (!record && dropped) record = await findFinishedReel(startedAt);
-      if (!record) throw new Error(failure || "Couldn't make the video. Check your connection and try again.");
+      if (!record && dropped) record = await findFinished(startedAt);
+      if (!record) throw new Error(failure || "Couldn't add the audio. Check your connection and try again.");
       onCreated(metaFromClientMedia(record));
       setOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't make the video. Try again.");
+      setError(err instanceof Error ? err.message : "Couldn't add the audio. Try again.");
     } finally {
       setRendering(false);
     }
@@ -114,7 +100,7 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
         onClick={() => setOpen(true)}
         className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors"
       >
-        <Music size={14} /> Add audio and post as a Reel
+        <Music size={14} /> Add an MP3 to this video
       </button>
     );
   }
@@ -124,11 +110,11 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="flex items-center gap-1.5 text-sm text-white">
-            <Clapperboard size={14} className="text-bb-orange" /> Photos with audio, posted as a Reel
+            <Music size={14} className="text-bb-orange" /> Add an MP3 to this video
           </p>
           <p className="text-[11px] text-bb-dim mt-1">
-            Instagram and Facebook can&apos;t add audio to a carousel from a scheduling tool, so {imageUrls.length === 1 ? "this photo becomes" : `these ${imageUrls.length} photos become`} one
-            vertical video with your track over it. Use audio you have the rights to; Instagram&apos;s in-app music isn&apos;t available here.
+            The track is baked into the video, so it still publishes automatically. The picture isn&apos;t touched. Use audio you have the rights to. It posts as
+            original audio, not as a trending sound.
           </p>
         </div>
         <button type="button" onClick={() => setOpen(false)} disabled={rendering} className="p-2 -m-2 text-xs sm:text-[11px] text-bb-dim hover:text-white cursor-pointer transition-colors shrink-0">
@@ -136,48 +122,56 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
         </button>
       </div>
 
-      <AudioChoice id="reel-audio" clientId={clientId} value={audio} disabled={rendering} onChange={setAudio} onError={setError} onBusy={setUploading} />
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <div className="sm:col-span-2">
-          <FieldLabel htmlFor="reel-length">Photo timing</FieldLabel>
-          <select id="reel-length" value={slideLength} disabled={rendering} onChange={(e) => setSlideLength(e.target.value)} className={inputClass}>
-            {SLIDE_LENGTHS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <FieldLabel htmlFor="reel-start">Start audio at (sec)</FieldLabel>
-          <input id="reel-start" type="number" min={0} step={1} inputMode="numeric" value={audioStart} disabled={rendering} onChange={(e) => setAudioStart(e.target.value)} className={inputClass} />
-        </div>
-      </div>
+      <AudioChoice id="video-audio" clientId={clientId} value={audio} disabled={rendering} onChange={setAudio} onError={setError} onBusy={setUploading} />
 
       <div>
-        <FieldLabel>Photos that aren&apos;t vertical</FieldLabel>
+        <FieldLabel>The video&apos;s own sound</FieldLabel>
         <div className="grid grid-cols-2 gap-2">
           {(
             [
-              { value: "pad", label: "Show the whole photo", hint: "black bars" },
-              { value: "crop", label: "Fill the screen", hint: "crops the edges" },
+              { value: false, label: "Replace it", hint: "only the track plays" },
+              { value: true, label: "Keep it", hint: "track plays underneath" },
             ] as const
           ).map((o) => (
             <button
-              key={o.value}
+              key={String(o.value)}
               type="button"
               disabled={rendering}
-              onClick={() => setFit(o.value)}
+              onClick={() => setKeepOriginal(o.value)}
               className={cn(
                 "px-3 py-2 rounded-lg border text-left text-xs cursor-pointer transition-colors",
-                fit === o.value ? "border-bb-orange/60 text-white bg-bb-orange/10" : "border-bb-border text-bb-muted hover:text-white"
+                keepOriginal === o.value ? "border-bb-orange/60 text-white bg-bb-orange/10" : "border-bb-border text-bb-muted hover:text-white"
               )}
             >
               {o.label}
               <span className="block text-[10px] text-bb-dim">{o.hint}</span>
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {keepOriginal && (
+          <div className="sm:col-span-2">
+            <FieldLabel htmlFor="video-audio-volume" hint={`${trackVolume}%`}>
+              Track volume
+            </FieldLabel>
+            <input
+              id="video-audio-volume"
+              type="range"
+              min={5}
+              max={100}
+              step={5}
+              value={trackVolume}
+              disabled={rendering}
+              onChange={(e) => setTrackVolume(Number(e.target.value))}
+              className="w-full h-9 accent-bb-orange cursor-pointer"
+            />
+          </div>
+        )}
+        <div>
+          <FieldLabel htmlFor="video-audio-start">Start audio at (sec)</FieldLabel>
+          <input id="video-audio-start" type="number" min={0} step={1} inputMode="numeric" value={audioStart} disabled={rendering} onChange={(e) => setAudioStart(e.target.value)} className={inputClass} />
         </div>
       </div>
 
@@ -189,10 +183,10 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
         onClick={create}
         className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg bg-bb-orange text-white text-sm font-medium cursor-pointer transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        {rendering ? <Loader2 size={14} className="animate-spin" /> : <Clapperboard size={14} />}
-        {rendering ? "Making the video, usually under a minute" : "Make the Reel video"}
+        {rendering ? <Loader2 size={14} className="animate-spin" /> : <Music size={14} />}
+        {rendering ? "Adding the audio, usually under a minute" : "Add the audio"}
       </button>
-      <p className="text-[11px] text-bb-dim">The video replaces the photos on this post. The photos stay in the client&apos;s library.</p>
+      <p className="text-[11px] text-bb-dim">The new video replaces this one on the post. The original stays in the client&apos;s library.</p>
     </div>
   );
 }

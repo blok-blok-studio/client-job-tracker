@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { addDays, endOfMonth, startOfMonth, subDays } from "date-fns";
-import { BarChart3, CalendarDays, List, Loader2, PlugZap, Plus, Upload } from "lucide-react";
+import { BarChart3, CalendarDays, List, Loader2, Music, PlugZap, Plus, Upload } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { useToast } from "@/components/shared/Toast";
@@ -17,6 +17,7 @@ import ConnectionsTab from "@/components/content/planner/ConnectionsTab";
 import AttentionStrip from "@/components/content/planner/AttentionStrip";
 import PlannerFilters, { EMPTY_FILTERS, type PlannerFilterState } from "@/components/content/planner/PlannerFilters";
 import AnalyticsTab from "@/components/content/analytics/AnalyticsTab";
+import AudioTab from "@/components/content/audio/AudioTab";
 import { deletePost, rescheduleGroup, retryPost } from "@/components/content/planner/planner-actions";
 import {
   displayStatus,
@@ -29,11 +30,12 @@ import {
 import { readJson } from "@/lib/fetch-json";
 import { cn } from "@/lib/utils";
 
-type Tab = "calendar" | "list" | "analytics" | "connections";
+type Tab = "calendar" | "list" | "audio" | "analytics" | "connections";
 
 const TABS: { key: Tab; label: string; icon: typeof CalendarDays }[] = [
   { key: "calendar", label: "Calendar", icon: CalendarDays },
   { key: "list", label: "List", icon: List },
+  { key: "audio", label: "Audio", icon: Music },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "connections", label: "Connections", icon: PlugZap },
 ];
@@ -333,6 +335,8 @@ function ContentPlanner() {
             onBulkReschedule={handleBulkReschedule}
             onBulkDelete={handleBulkDelete}
           />
+        ) : tab === "audio" ? (
+          <AudioTab clients={clients} />
         ) : tab === "analytics" ? (
           <AnalyticsTab clients={clients} />
         ) : (

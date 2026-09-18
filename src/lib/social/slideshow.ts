@@ -53,7 +53,7 @@ export interface SlideshowResult {
   thumbnailUrl: string | null;
 }
 
-function runFfmpeg(ffmpegPath: string, args: string[], timeoutMs: number): Promise<{ code: number | null; stderr: string }> {
+export function runFfmpeg(ffmpegPath: string, args: string[], timeoutMs: number): Promise<{ code: number | null; stderr: string }> {
   return new Promise((resolve, reject) => {
     const proc = spawn(ffmpegPath, args);
     let stderr = "";

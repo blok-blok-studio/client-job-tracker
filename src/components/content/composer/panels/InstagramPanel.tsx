@@ -3,6 +3,7 @@
 import PeopleInput from "../PeopleInput";
 import { FieldLabel, SegmentedControl, Toggle, inputClass, CharCounter } from "../ui";
 import { ImageChoice, imagesOf, setting, type PanelProps } from "./shared";
+import TrendingSoundField from "./TrendingSoundField";
 import { getSpec } from "@/lib/social/specs";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +87,7 @@ export default function InstagramPanel({ draft, postType, mediaUrls, meta, disab
               className={inputClass}
             />
           </div>
+          <TrendingSoundField draft={draft} disabled={disabled} onDraft={onDraft} onSettings={onSettings} platform="INSTAGRAM" />
         </>
       )}
 

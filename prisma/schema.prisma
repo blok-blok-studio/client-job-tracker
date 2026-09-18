@@ -108,6 +108,7 @@ model Client {
   contracts        ContractSignature[]
   paymentLinks     PaymentLink[]
   contentPosts     ContentPost[]
+  trendingSounds   TrendingSound[]
   contentApprovals ContentApproval[]
   mediaFiles       ClientMedia[]
   automationFlows  AutomationFlow[]
@@ -1071,6 +1072,28 @@ model AudioTrack {
   @@index([genre])
   @@index([mood])
   @@index([source])
+}
+
+// Sounds the team spots trending in the Instagram / TikTok apps. The platforms
+// don't let a scheduler attach their in-app sounds, so a sound saved here is a
+// link: it gets assigned to a post and added in the app when the post goes out.
+model TrendingSound {
+  id       String  @id @default(cuid())
+  name     String
+  artist   String?
+  platform String // "INSTAGRAM" | "TIKTOK"
+  url      String // Link to the sound's page in the app
+  note     String? @db.Text
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  addedBy  String?
+  // Trends fade: archived sounds leave the composer's picker but stay on posts that used them
+  archived Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([platform, archived])
+  @@index([clientId])
 }
 
 // --- DM AUTOMATION (ManyChat Replacement) ---

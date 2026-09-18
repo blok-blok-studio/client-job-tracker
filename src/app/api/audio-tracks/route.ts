@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { isAllowedBlobUrl } from "@/lib/blob-fetch";
 
 // GET — list audio tracks (uploaded + cached from APIs)
 export async function GET(request: NextRequest) {
@@ -35,9 +36,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    if (typeof body.title !== "string" || !body.title.trim()) {
+      return NextResponse.json({ success: false, error: "Give the track a name." }, { status: 400 });
+    }
+    // Uploaded tracks get fetched server-side when they're laid over a video
+    if ((body.source || "upload") === "upload" && (typeof body.url !== "string" || !isAllowedBlobUrl(body.url))) {
+      return NextResponse.json({ success: false, error: "Upload the file first." }, { status: 400 });
+    }
+
     const track = await prisma.audioTrack.create({
       data: {
-        title: body.title,
+        title: body.title.trim().slice(0, 200),
         artist: body.artist || null,
         genre: body.genre || null,
         mood: body.mood || null,

@@ -22,6 +22,8 @@ const nextConfig = {
     "/api/cron/render-media": ["./node_modules/@ffmpeg-installer/**/*"],
     // Photos + an audio track rendered into one Reel video
     "/api/client-media/slideshow": ["./node_modules/@ffmpeg-installer/**/*"],
+    // An MP3 laid over a video
+    "/api/client-media/audio-mix": ["./node_modules/@ffmpeg-installer/**/*"],
   },
   async headers() {
     return [

@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import HandoffView, { type HandoffPost } from "@/components/content/handoff/HandoffView";
 import { lookupFormattedMedia } from "@/lib/social/renditions";
+import { readAssignedSound } from "@/lib/trending-sound";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,7 @@ export default async function HandoffPage({ params }: { params: Promise<{ id: st
     approvalNote: post.approvalNote,
     assigneeName: assignee?.name ?? null,
     client: { id: post.client.id, name: post.client.name, timezone: post.client.timezone },
+    trendingSound: readAssignedSound(settings),
     formatPending: formatted.items.some((item) => item.pending),
     media: formatted.items.map((item, i) => {
       const m = byUrl.get(item.sourceUrl);
