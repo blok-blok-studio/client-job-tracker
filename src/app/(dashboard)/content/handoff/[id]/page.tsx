@@ -63,6 +63,8 @@ export default async function HandoffPage({ params }: { params: Promise<{ id: st
     assigneeName: assignee?.name ?? null,
     client: { id: post.client.id, name: post.client.name, timezone: post.client.timezone },
     trendingSound: readAssignedSound(settings),
+    // Sent through the API as a draft: externalId is TikTok's id for the upload
+    inTikTokDrafts: post.platform === "TIKTOK" && settings.tiktokDraft === true && !!post.externalId,
     formatPending: formatted.items.some((item) => item.pending),
     media: formatted.items.map((item, i) => {
       const m = byUrl.get(item.sourceUrl);

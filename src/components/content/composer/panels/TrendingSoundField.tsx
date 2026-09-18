@@ -18,7 +18,8 @@ interface SavedSound {
 /**
  * Assign a saved trending sound (Content > Audio) to this post. The platforms
  * don't take their in-app sounds through the API, so choosing one switches the
- * account to Post manually; the handoff page then opens the sound in the app.
+ * account to Post manually (TikTok: to drafts); the handoff page then opens the
+ * sound in the app.
  */
 export default function TrendingSoundField({ draft, disabled, onDraft, onSettings, platform }: Pick<PanelProps, "draft" | "disabled" | "onDraft" | "onSettings"> & { platform: SoundPlatform }) {
   const [sounds, setSounds] = useState<SavedSound[]>([]);
@@ -47,7 +48,10 @@ export default function TrendingSoundField({ draft, disabled, onDraft, onSetting
       return;
     }
     onSettings({ trendingSound: { id: s.id, name: s.name, artist: s.artist || undefined, url: s.url, platform: s.platform } });
-    if (draft.publishMode === "AUTO") onDraft({ publishMode: "ASSISTED" });
+    if (draft.publishMode !== "AUTO" || draft.settings.tiktokDraft === true) return;
+    // TikTok can take the video as a draft, so only the sound is left to do by hand
+    if (platform === "TIKTOK") onSettings({ tiktokDraft: true });
+    else onDraft({ publishMode: "ASSISTED" });
   };
 
   return (
@@ -72,13 +76,18 @@ export default function TrendingSoundField({ draft, disabled, onDraft, onSetting
           <a href={assigned.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-bb-orange hover:text-bb-orange-light">
             Open the sound <ExternalLink size={10} />
           </a>
-          {draft.publishMode === "ASSISTED" ? (
+          {draft.settings.tiktokDraft === true ? (
+            <p className="flex items-start gap-1.5 text-[11px] text-bb-dim">
+              <Hand size={11} className="mt-px shrink-0 text-bb-orange" />
+              The app is the only place this sound can be added, so this goes to TikTok as a draft. Whoever finishes it gets the sound link in the reminder.
+            </p>
+          ) : draft.publishMode === "ASSISTED" ? (
             <p className="flex items-start gap-1.5 text-[11px] text-bb-dim">
               <Hand size={11} className="mt-px shrink-0 text-bb-orange" />
               The app is the only place this sound can be added, so this account is set to Post manually. Whoever posts it gets the sound link with everything else.
             </p>
           ) : (
-            <p className="text-[11px] text-amber-300">Publishing automatically will post this without the sound. Switch to Post manually to use it.</p>
+            <p className="text-[11px] text-amber-300">Publishing automatically will post this without the sound. Switch to {platform === "TIKTOK" ? "Send to TikTok drafts or " : ""}Post manually to use it.</p>
           )}
         </div>
       )}

@@ -213,6 +213,7 @@ export async function publishToThreads(content: PostContent, cred: DecryptedCred
     const step = await publishStep(content, cred, null, state);
     if (step.kind === "done") return { success: true, externalId: step.externalId, externalUrl: step.externalUrl };
     if (Date.now() > giveUpAt) throw new Error("Threads is still processing the post. Check the account before retrying.");
+    if (step.kind !== "continue") throw new Error("Unexpected publish step");
     state = step.state as ThreadsState;
     await new Promise((r) => setTimeout(r, step.retryAfterMs ?? 10_000));
   }

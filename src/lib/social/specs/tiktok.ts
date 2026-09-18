@@ -165,8 +165,8 @@ export const tiktokSpec: PlatformSpec = {
       }
     }
 
-    // Guideline rules only apply when the API posts it; manual posts are done in the app.
-    if (input.publishMode !== "ASSISTED") {
+    // Guideline rules only apply when the API posts it; manual posts and drafts are finished in the app.
+    if (input.publishMode !== "ASSISTED" && settings.tiktokDraft !== true) {
       const privacy = settings.privacyLevel as string | undefined;
       const options = Array.isArray(settings.privacyLevelOptions) ? (settings.privacyLevelOptions as string[]) : null;
       if (!privacy) {

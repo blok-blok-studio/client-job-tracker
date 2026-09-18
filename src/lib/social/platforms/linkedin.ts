@@ -361,6 +361,7 @@ export async function publishToLinkedin(
     const step = await publishStep(content, credential, state, giveUpAt);
     if (step.kind === "done") return { success: true, externalId: step.externalId, externalUrl: step.externalUrl };
     if (Date.now() > giveUpAt) throw new Error("LinkedIn is still processing the upload. Check the profile before retrying.");
+    if (step.kind !== "continue") throw new Error("Unexpected publish step");
     state = step.state as LinkedInState;
     await new Promise((r) => setTimeout(r, step.retryAfterMs ?? 10_000));
   }

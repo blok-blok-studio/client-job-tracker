@@ -112,6 +112,34 @@ async function applyStep(post: PostWithClient, step: PublishStep, actor: string,
     return;
   }
 
+  if (step.kind === "handoff") {
+    // From here it's a manual post: ASSISTED so a snooze reminds the person
+    // again instead of sending the platform a second copy
+    const { count } = await prisma.contentPost.updateMany({
+      where: { id: post.id, status: "PUBLISHING" },
+      data: {
+        status: "ACTION_NEEDED",
+        publishMode: "ASSISTED",
+        externalId: step.externalId || null,
+        publishError: null,
+        publishPhase: null,
+        publishState: Prisma.DbNull,
+        pollLockedUntil: null,
+      },
+    });
+    if (count !== 1) return;
+    await logActivity(post.clientId, actor, "content_action_needed", `${post.platform} post "${post.title || "(untitled)"}" was sent to the account as a draft and is waiting to be finished in the app`);
+    await notifyPostPeople(post, {
+      type: "post_action_needed",
+      title: step.notice.title,
+      body: `${post.client.name}${post.title ? `: ${post.title}` : ""}. ${step.notice.body}`,
+      link: `/content/handoff/${post.id}`,
+    });
+    run.handedOff++;
+    run.results.push({ id: post.id, platform: post.platform, status: "ACTION_NEEDED" });
+    return;
+  }
+
   await prisma.contentPost.updateMany({
     where: { id: post.id, status: "PUBLISHING" },
     data: {

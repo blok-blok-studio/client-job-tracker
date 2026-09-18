@@ -58,6 +58,8 @@ export interface HandoffPost {
   assigneeName: string | null;
   client: { id: string; name: string; timezone: string | null };
   media: HandoffMedia[];
+  /** The media is already sitting in the account's TikTok inbox as a draft */
+  inTikTokDrafts?: boolean;
   /** Trending sound assigned in the composer; it can only be added in the app */
   trendingSound?: AssignedSound | null;
   /** A format was chosen but the formatted copies aren't ready; media shown is the original */
@@ -98,6 +100,13 @@ const TIPS: Record<string, string[]> = {
     "Paste the title and description separately, and set the audience (made for kids or not).",
   ],
 };
+
+const DRAFT_TIPS = [
+  "Open TikTok on the phone that's logged in to this account and tap Inbox.",
+  "Tap the notification that says your video is ready to edit. It opens the draft.",
+  "Add the sound, paste the caption, set who can view it, then post.",
+  "No notification? Save the media above and upload it the usual way.",
+];
 
 const TITLE_LIMITS: Record<string, number> = { REDNOTE: 20, YOUTUBE: 100 };
 const BODY_LIMITS: Record<string, number> = { REDNOTE: 1000, INSTAGRAM: 2200, TIKTOK: 2200, YOUTUBE: 5000 };
@@ -235,9 +244,13 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
   const anyPreparing = Object.values(prep).some((p) => p.status === "preparing");
 
   const sound = post.trendingSound || null;
-  const checklist = sound
-    ? [CHECKLIST[0], { key: "sound", label: "Trending sound added in the app" }, ...CHECKLIST.slice(1)]
-    : CHECKLIST;
+  const inDrafts = !!post.inTikTokDrafts;
+  const checklist = [
+    inDrafts ? { key: "media", label: "Draft opened from the TikTok inbox" } : CHECKLIST[0],
+    ...(sound ? [{ key: "sound", label: "Trending sound added in the app" }] : []),
+    ...CHECKLIST.slice(1),
+  ];
+  const tips = inDrafts ? DRAFT_TIPS : TIPS[post.platform];
 
   const tick = (key: string) => setChecks((c) => ({ ...c, [key]: true }));
 
@@ -449,11 +462,24 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
         </div>
       )}
 
+      {inDrafts && !done && (
+        <div className="bg-bb-orange/5 border border-bb-orange/30 rounded-xl p-4 flex items-start gap-3">
+          <Smartphone size={18} className="text-bb-orange shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="text-white font-medium">This is already in TikTok as a draft</p>
+            <p className="text-bb-muted text-xs mt-1">
+              No need to save the {post.media.some((m) => m.kind === "video") ? "video" : "photos"}. Open TikTok, tap Inbox, and open the notification from us. Then copy the
+              caption below, {post.trendingSound ? "add the sound, " : ""}and post.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Step 1: media */}
       {post.media.length > 0 && (
         <section className="bg-bb-surface border border-bb-border rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-medium text-white">1. Save the media</h2>
+            <h2 className="text-sm font-medium text-white">{inDrafts ? "1. Media (only if the draft is missing)" : "1. Save the media"}</h2>
             <span className="text-xs text-bb-dim">{post.media.length} file{post.media.length === 1 ? "" : "s"}, in posting order</span>
           </div>
           {post.formatPending && (
@@ -622,7 +648,9 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
               Open the sound in {getPlatformLabel(sound.platform)}
             </a>
             <p className="text-xs text-bb-muted">
-              Save the media first. Then open the sound, tap {sound.platform === "TIKTOK" ? "Use this sound" : "Use audio"}, and pick the saved video from your camera roll.
+              {inDrafts
+                ? "Open the sound and tap the bookmark to save it to Favorites. Then open the draft from the TikTok inbox, tap Add sound, and pick it under Favorites."
+                : `Save the media first. Then open the sound, tap ${sound.platform === "TIKTOK" ? "Use this sound" : "Use audio"}, and pick the saved video from your camera roll.`}
             </p>
             <CopyButton label="Copy sound name" text={sound.name} />
           </div>
@@ -639,9 +667,9 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
             Open {platformLabel}
           </button>
         )}
-        {TIPS[post.platform] && (
+        {tips && (
           <ul className="space-y-1.5">
-            {TIPS[post.platform].map((tip) => (
+            {tips.map((tip) => (
               <li key={tip} className="text-xs text-bb-muted flex gap-2">
                 <span className="text-bb-orange">•</span>
                 {tip}

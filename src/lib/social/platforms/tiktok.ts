@@ -1,5 +1,7 @@
 /**
- * TikTok Content Posting API (Direct Post).
+ * TikTok Content Posting API: Direct Post, and upload to the creator's inbox
+ * as a draft (settings.tiktokDraft) so sounds and effects can be added in the
+ * app before it goes live.
  *
  * Videos go up with FILE_UPLOAD in sequential chunks straight from Blob, so no
  * domain verification is needed. Photo carousels only support PULL_FROM_URL,
@@ -11,6 +13,9 @@
  *   init (creates the publish on TikTok)  → persist publishId
  *   uploading (video only, chunk by chunk) → persist nextChunk
  *   processing (poll status/fetch)         → done
+ *
+ * Drafts run the same steps against the inbox endpoints and end in a handoff
+ * once TikTok says the draft reached the creator's inbox.
  */
 
 import { createHmac, timingSafeEqual } from "crypto";
@@ -87,6 +92,8 @@ function explain(err: unknown): Error {
       return new PublishValidationError(
         "TikTok couldn't pull the photos because the media link prefix isn't verified in the TikTok developer portal."
       );
+    case "spam_risk_too_many_pending_share":
+      return new PublishValidationError("This TikTok account already has 5 drafts from us waiting in its inbox from the last 24 hours. Post or delete one in the TikTok app, then reschedule.");
     case "access_token_invalid":
     case "scope_not_authorized":
       return new Error(`TikTok connection needs a reconnect (${err.code}).`);
@@ -177,6 +184,8 @@ function mediaProxyUrl(blobUrl: string): string {
 
 interface TikTokState {
   kind?: "video" | "photo";
+  /** Sent to the creator's TikTok inbox as a draft instead of posted */
+  draft?: boolean;
   publishId?: string;
   uploadUrl?: string;
   uploadUrlExpiresAt?: number;
@@ -252,7 +261,9 @@ async function startVideo(ctx: PublishContext, state: TikTokState): Promise<Publ
     throw new PublishValidationError("A TikTok video post needs exactly one video.");
   }
 
-  const { creator, postInfo } = await checkCreatorAndBuildPostInfo(ctx, true);
+  const draft = flag(settings, "tiktokDraft");
+  // A draft carries no post settings: privacy, caption and the rest are set in the app
+  const { creator, postInfo } = draft ? { creator: await queryCreatorInfo(credential.password), postInfo: null } : await checkCreatorAndBuildPostInfo(ctx, true);
 
   const media = await findVideoDuration(videoUrl);
   if (media?.duration != null && creator.maxVideoPostDurationSec != null && media.duration > creator.maxVideoPostDurationSec) {
@@ -262,7 +273,7 @@ async function startVideo(ctx: PublishContext, state: TikTokState): Promise<Publ
   }
 
   const caption = tiktokCaption(content.body || content.title, content.hashtags);
-  if (caption.length > TIKTOK_VIDEO_CAPTION_MAX) {
+  if (!draft && caption.length > TIKTOK_VIDEO_CAPTION_MAX) {
     throw new PublishValidationError(`TikTok captions max out at ${TIKTOK_VIDEO_CAPTION_MAX} characters including hashtags.`);
   }
 
@@ -275,15 +286,18 @@ async function startVideo(ctx: PublishContext, state: TikTokState): Promise<Publ
 
   let init: { publish_id: string; upload_url: string };
   try {
-    init = await tiktokPost("/post/publish/video/init/", credential.password, {
-      post_info: {
-        ...postInfo,
-        title: caption,
-        ...(typeof settings.videoCoverTimestampMs === "number" ? { video_cover_timestamp_ms: settings.videoCoverTimestampMs } : {}),
-        is_aigc: flag(settings, "isAigc"),
-      },
-      source_info: { source: "FILE_UPLOAD", video_size: total, chunk_size: chunkSize, total_chunk_count: totalChunks },
-    });
+    const sourceInfo = { source: "FILE_UPLOAD", video_size: total, chunk_size: chunkSize, total_chunk_count: totalChunks };
+    init = draft
+      ? await tiktokPost("/post/publish/inbox/video/init/", credential.password, { source_info: sourceInfo })
+      : await tiktokPost("/post/publish/video/init/", credential.password, {
+          post_info: {
+            ...postInfo,
+            title: caption,
+            ...(typeof settings.videoCoverTimestampMs === "number" ? { video_cover_timestamp_ms: settings.videoCoverTimestampMs } : {}),
+            is_aigc: flag(settings, "isAigc"),
+          },
+          source_info: sourceInfo,
+        });
   } catch (err) {
     return retryInitOrThrow(err, state);
   }
@@ -295,6 +309,7 @@ async function startVideo(ctx: PublishContext, state: TikTokState): Promise<Publ
     retryAfterMs: 0,
     state: {
       kind: "video",
+      draft,
       publishId: init.publish_id,
       uploadUrl: init.upload_url,
       uploadUrlExpiresAt: Date.now() + UPLOAD_URL_TTL_MS,
@@ -321,7 +336,8 @@ async function startPhotos(ctx: PublishContext, state: TikTokState): Promise<Pub
     throw new PublishValidationError("TikTok only accepts JPEG or WebP photos.");
   }
 
-  const { postInfo } = await checkCreatorAndBuildPostInfo(ctx, false);
+  const draft = flag(settings, "tiktokDraft");
+  const { postInfo } = draft ? { postInfo: null } : await checkCreatorAndBuildPostInfo(ctx, false);
   const title = (content.title || "").slice(0, TIKTOK_TITLE_MAX);
   const description = tiktokCaption(content.body, content.hashtags);
   if (description.length > TIKTOK_PHOTO_DESCRIPTION_MAX) {
@@ -333,20 +349,20 @@ async function startPhotos(ctx: PublishContext, state: TikTokState): Promise<Pub
   try {
     init = await tiktokPost("/post/publish/content/init/", credential.password, {
       media_type: "PHOTO",
-      post_mode: "DIRECT_POST",
-      post_info: { ...postInfo, title, description, auto_add_music: flag(settings, "autoAddMusic") },
+      post_mode: draft ? "MEDIA_UPLOAD" : "DIRECT_POST",
+      post_info: draft ? { title, description } : { ...postInfo, title, description, auto_add_music: flag(settings, "autoAddMusic") },
       source_info: {
         source: "PULL_FROM_URL",
         photo_cover_index: Math.min(Math.max(0, coverIndex), photos.length - 1),
         photo_images: photos.map(mediaProxyUrl),
       },
-      is_aigc: flag(settings, "isAigc"),
+      ...(draft ? {} : { is_aigc: flag(settings, "isAigc") }),
     });
   } catch (err) {
     return retryInitOrThrow(err, state);
   }
 
-  return { kind: "continue", phase: "processing", retryAfterMs: 10_000, state: { kind: "photo", publishId: init.publish_id } };
+  return { kind: "continue", phase: "processing", retryAfterMs: 10_000, state: { kind: "photo", draft, publishId: init.publish_id } };
 }
 
 /** Init creates nothing when it's rate limited, so it's safe to try again a minute later. */
@@ -409,6 +425,19 @@ async function pollStatus(ctx: PublishContext, state: TikTokState): Promise<Publ
       return { kind: "continue", phase: "processing", retryAfterMs: 30_000, state: state as Record<string, unknown> };
     }
     throw explain(err);
+  }
+
+  // A draft is finished on our side once it lands in the creator's inbox. If
+  // they were quick and already posted it, fall through to PUBLISH_COMPLETE.
+  if (state.draft && data.status === "SEND_TO_USER_INBOX") {
+    return {
+      kind: "handoff",
+      externalId: state.publishId,
+      notice: {
+        title: "A draft is waiting in TikTok",
+        body: "Open TikTok, tap the Inbox notification, add the sound and the caption, then post it.",
+      },
+    };
   }
 
   if (data.status === "PUBLISH_COMPLETE") {

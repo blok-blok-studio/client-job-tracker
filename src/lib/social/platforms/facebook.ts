@@ -198,6 +198,7 @@ export async function publishToFacebook(
     const step = await publishStep(content, credential, {}, state);
     if (step.kind === "done") return { success: true, externalId: step.externalId, externalUrl: step.externalUrl };
     if (Date.now() > giveUpAt) throw new Error("Facebook is still processing the video. Check the Page before retrying.");
+    if (step.kind !== "continue") throw new Error("Unexpected publish step");
     state = step.state as FacebookState;
     await new Promise((r) => setTimeout(r, step.retryAfterMs ?? 20_000));
   }

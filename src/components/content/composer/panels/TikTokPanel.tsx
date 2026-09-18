@@ -72,6 +72,18 @@ export default function TikTokPanel({ draft, postType, disabled, onDraft, onSett
 
   const labelNotice = brandedContent ? TIKTOK_LABEL_BRANDED : brandOrganic ? TIKTOK_LABEL_YOUR_BRAND : null;
 
+  if (draft.settings.tiktokDraft === true) {
+    return (
+      <div className="space-y-3">
+        <TrendingSoundField draft={draft} disabled={disabled} onDraft={onDraft} onSettings={onSettings} platform="TIKTOK" />
+        <p className="text-[11px] text-bb-dim">
+          Sent as a draft: privacy, interactions and disclosure are set in the TikTok app when the draft is finished.
+          {!isPhoto && " TikTok doesn't take a caption with a video draft, so the reminder has a button to copy it."}
+        </p>
+      </div>
+    );
+  }
+
   if (draft.publishMode === "ASSISTED") {
     return (
       <div className="space-y-3">

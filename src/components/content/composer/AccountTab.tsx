@@ -61,6 +61,9 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
   const content = effectiveContent(draft, shared);
   const manualOnly = !!account.manualOnly || draft.platform === "REDNOTE" || !!spec?.assistedOnly;
   const limits = spec?.limits ?? {};
+  // TikTok only: the API drops the video into the account's TikTok inbox as a draft
+  const tiktokDraft = draft.platform === "TIKTOK" && draft.settings.tiktokDraft === true;
+  const needsPerson = draft.publishMode === "ASSISTED" || tiktokDraft;
 
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -269,6 +272,20 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
           <p className="flex items-center gap-1.5 text-xs text-bb-muted">
             <Hand size={13} className="text-bb-orange" /> Posted by hand from a phone at the scheduled time.
           </p>
+        ) : draft.platform === "TIKTOK" ? (
+          <SegmentedControl
+            value={tiktokDraft ? "DRAFTS" : draft.publishMode}
+            disabled={disabled}
+            onChange={(mode) => {
+              onDraft({ publishMode: mode === "ASSISTED" ? "ASSISTED" : "AUTO" });
+              onSettings({ tiktokDraft: mode === "DRAFTS" ? true : undefined });
+            }}
+            options={[
+              { value: "AUTO", label: "Publish automatically" },
+              { value: "DRAFTS", label: "Send to TikTok drafts" },
+              { value: "ASSISTED", label: "Post manually" },
+            ]}
+          />
         ) : (
           <SegmentedControl
             value={draft.publishMode}
@@ -280,15 +297,21 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
             ]}
           />
         )}
-        {draft.publishMode === "ASSISTED" && !manualOnly && (
+        {tiktokDraft && (
+          <p className="text-[11px] text-bb-dim">
+            At the scheduled time the {postType === "photo" ? "photos land" : "video lands"} in this account&apos;s TikTok inbox as a draft. Whoever is assigned gets a
+            reminder, opens it in TikTok, adds the sound and the caption, and posts it. Nothing goes live until they do.
+          </p>
+        )}
+        {draft.publishMode === "ASSISTED" && !manualOnly && !tiktokDraft && (
           <p className="text-[11px] text-bb-dim">
             For things the API can&apos;t do, like stickers, trending sounds or tagging products. The assignee gets a reminder with everything ready to copy.
           </p>
         )}
-        {draft.publishMode === "ASSISTED" && (
+        {needsPerson && (
           <div>
             <FieldLabel htmlFor={`assignee-${draft.key}`} hint={draft.platform === "REDNOTE" ? "Required" : undefined}>
-              Who posts it
+              {tiktokDraft ? "Who finishes it in TikTok" : "Who posts it"}
             </FieldLabel>
             <select
               id={`assignee-${draft.key}`}

@@ -83,7 +83,8 @@ export function buildPayload(opts: {
     platformSettings: settingsForSave(draft, shared, meta),
     groupId,
     publishMode: draft.publishMode,
-    assignedToId: draft.publishMode === "ASSISTED" ? draft.assignedToId : null,
+    // A TikTok draft also needs a person: someone finishes it in the app
+    assignedToId: draft.publishMode === "ASSISTED" || draft.settings.tiktokDraft === true ? draft.assignedToId : null,
     ...(holdForApproval ? { holdForApproval: true } : {}),
   };
 }

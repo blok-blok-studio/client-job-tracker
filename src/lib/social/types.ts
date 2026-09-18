@@ -53,6 +53,12 @@ export type PublishPhase = "uploading" | "processing";
 
 export type PublishStep =
   | { kind: "done"; externalId?: string; externalUrl?: string }
+  /**
+   * The API's part is finished but a person has to finish the post in the app
+   * (TikTok drafts). The runner moves the post to ACTION_NEEDED and notifies
+   * whoever is assigned, exactly like a manual post that came due.
+   */
+  | { kind: "handoff"; externalId?: string; notice: { title: string; body: string } }
   | {
       kind: "continue";
       phase: PublishPhase;

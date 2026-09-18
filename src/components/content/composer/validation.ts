@@ -146,6 +146,9 @@ export function issuesForDraft(opts: {
       );
     }
   } else if (account) {
+    if (draft.settings.tiktokDraft === true && !draft.assignedToId) {
+      add({ level: "warning", field: "assignedToId", message: "Nobody is assigned to finish the draft in TikTok, so the owners get the reminder." });
+    }
     if (account.health === "expired" || account.health === "needs_reconnect") {
       add({ level: "warning", message: "This connection needs a reconnect before the post is due, or it will fail." });
     } else if (account.health === "expiring") {
@@ -153,7 +156,7 @@ export function issuesForDraft(opts: {
     }
   }
 
-  if (draft.platform === "TIKTOK" && draft.publishMode === "AUTO") {
+  if (draft.platform === "TIKTOK" && draft.publishMode === "AUTO" && draft.settings.tiktokDraft !== true) {
     const s = draft.settings;
     if (tiktokError) {
       add({ level: "warning", message: `Couldn't load TikTok account settings: ${tiktokError}` });

@@ -304,6 +304,7 @@ export async function publishToTwitter(
     const step = await publishStep(content, credential, {}, state, giveUpAt);
     if (step.kind === "done") return { success: true, externalId: step.externalId, externalUrl: step.externalUrl };
     if (Date.now() > giveUpAt) throw new Error("X is still processing the upload. Check the account before retrying.");
+    if (step.kind !== "continue") throw new Error("Unexpected publish step");
     state = step.state as XState;
     await new Promise((r) => setTimeout(r, step.retryAfterMs ?? 5_000));
   }
