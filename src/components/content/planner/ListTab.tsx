@@ -7,6 +7,7 @@ import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import AccountStack from "./AccountStack";
 import { PostStatusRow } from "./GroupCard";
+import { GroupKindTags } from "./KindTag";
 import {
   displayStatus,
   isReschedulable,
@@ -201,6 +202,7 @@ export default function ListTab({
                       <span className="text-xs text-bb-dim tabular-nums">
                         {group.date ? format(group.date, "EEE MMM d, h:mm a") : "No date"}
                       </span>
+                      <GroupKindTags group={group} />
                     </div>
                     <p className="mt-1 text-sm text-white line-clamp-2">{postSnippet(lead, 140)}</p>
                     <p className="mt-0.5 text-xs text-bb-dim md:hidden">{group.clientName}</p>

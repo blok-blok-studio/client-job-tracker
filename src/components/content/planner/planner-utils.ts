@@ -30,6 +30,8 @@ export interface PlannerPost {
   publishState: Record<string, unknown> | null;
   groupId: string | null;
   publishMode: string;
+  /** Composer saves the chosen post type here as platformSettings.postType */
+  platformSettings?: Record<string, unknown> | null;
   assignedToId: string | null;
   approvalStatus: string | null;
   approvalNote: string | null;
@@ -149,6 +151,60 @@ const VIDEO = /\.(mp4|mov|m4v|webm)(\?|#|$)/i;
 
 export function isVideo(url: string): boolean {
   return VIDEO.test(url);
+}
+
+export type PostKindKey = "trial_reel" | "reel" | "short" | "video" | "long_video" | "carousel" | "story" | "post" | "text";
+
+/** What a post is (reel, trial reel, carousel...), so the calendar shows the mix per day. */
+export const KIND_META: Record<PostKindKey, { label: string; dot: string; tag: string }> = {
+  trial_reel: { label: "Trial reel", dot: "bg-amber-400", tag: "text-amber-300 bg-amber-500/10 border-amber-500/40 border-dashed" },
+  reel: { label: "Reel", dot: "bg-fuchsia-400", tag: "text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/30" },
+  short: { label: "Short", dot: "bg-fuchsia-400", tag: "text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/30" },
+  video: { label: "Video", dot: "bg-fuchsia-400", tag: "text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/30" },
+  long_video: { label: "Long video", dot: "bg-indigo-400", tag: "text-indigo-300 bg-indigo-500/10 border-indigo-500/30" },
+  carousel: { label: "Carousel", dot: "bg-cyan-400", tag: "text-cyan-300 bg-cyan-500/10 border-cyan-500/30" },
+  story: { label: "Story", dot: "bg-violet-400", tag: "text-violet-300 bg-violet-500/10 border-violet-500/30" },
+  post: { label: "Post", dot: "bg-zinc-300", tag: "text-zinc-200 bg-zinc-500/10 border-zinc-500/40" },
+  text: { label: "Text", dot: "bg-zinc-500", tag: "text-zinc-400 bg-zinc-500/10 border-zinc-500/30" },
+};
+
+/** Legend order; reel, short and video share a colour (the same clip cross-posted). */
+export const KIND_LEGEND: PostKindKey[] = ["reel", "trial_reel", "carousel", "post", "story", "long_video", "text"];
+
+const KIND_BY_POST_TYPE: Record<string, Record<string, PostKindKey>> = {
+  INSTAGRAM: { feed: "post", carousel: "carousel", reel: "reel", trial_reel: "trial_reel", story: "story" },
+  TIKTOK: { video: "video", photo: "carousel" },
+  YOUTUBE: { short: "short", video: "long_video" },
+  REDNOTE: { video_note: "video" },
+};
+
+export function postKind(post: PlannerPost): PostKindKey {
+  const settings = post.platformSettings || {};
+  const saved = typeof settings.postType === "string" ? KIND_BY_POST_TYPE[post.platform]?.[settings.postType] : undefined;
+  if (saved) return saved;
+  // Older posts and platforms without post types: read it off the media
+  const hasVideo = post.mediaUrls.some(isVideo);
+  if (post.platform === "INSTAGRAM" && settings.shareToStory === true && post.mediaUrls.length === 1) return "story";
+  if (post.mediaUrls.length === 0) return "text";
+  if (post.platform === "YOUTUBE") return "long_video";
+  if (post.platform === "INSTAGRAM") return post.mediaUrls.length >= 2 ? "carousel" : hasVideo ? "reel" : "post";
+  if (hasVideo) return "video";
+  return post.mediaUrls.length >= 2 ? "carousel" : "post";
+}
+
+const CLIP_KINDS: PostKindKey[] = ["reel", "short", "video"];
+
+/**
+ * Distinct kinds across a group's accounts. A clip cross-posted as Reel + Short
+ * + TikTok video counts once; a trial reel always shows and comes first.
+ */
+export function groupKinds(group: PostGroup): PostKindKey[] {
+  const kinds = [...new Set(group.posts.map(postKind))];
+  const clip = CLIP_KINDS.find((k) => kinds.includes(k));
+  const order = Object.keys(KIND_META) as PostKindKey[];
+  return kinds
+    .filter((k) => !CLIP_KINDS.includes(k) || k === clip)
+    .sort((a, b) => order.indexOf(a) - order.indexOf(b));
 }
 
 /** Best still image for a post card (cover, thumbnail, or first image). */

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { optimizedThumb } from "@/lib/media-thumb";
 import { getPlatformLabel } from "@/components/content/PlatformIcon";
 import AccountStack from "./AccountStack";
+import { GroupKindTags, PostKindTag } from "./KindTag";
 import StatusBadge, { StatusDot } from "./StatusBadge";
 import {
   displayStatus,
@@ -90,7 +91,7 @@ export function MonthChip({
         onOpen(group.lead);
       }}
       className={cn(
-        "w-full flex items-center gap-1 rounded px-1 py-0.5 text-left bg-bb-elevated/80 hover:bg-bb-elevated border border-transparent hover:border-bb-border transition-colors cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-bb-orange",
+        "w-full flex items-center gap-1 overflow-hidden rounded px-1 py-0.5 text-left bg-bb-elevated/80 hover:bg-bb-elevated border border-transparent hover:border-bb-border transition-colors cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-bb-orange",
         movable && "touch-none",
         isDragging && "opacity-40"
       )}
@@ -100,6 +101,7 @@ export function MonthChip({
       <span className="hidden sm:inline text-[10px] text-bb-dim tabular-nums shrink-0">
         {group.date ? format(group.date, "h:mma").toLowerCase() : ""}
       </span>
+      <GroupKindTags group={group} max={1} />
       <span className="hidden md:block min-w-0 flex-1 truncate text-[11px] text-bb-muted">{postSnippet(group.lead, 40)}</span>
       <span className="hidden lg:flex shrink-0">
         <AccountStack posts={group.posts} size="xs" max={3} />
@@ -131,7 +133,8 @@ export function WeekBlock({ group, onOpen }: { group: PostGroup; onOpen: (post: 
       title={`${group.clientName}: ${postSnippet(group.lead, 120)}`}
     >
       <span className={cn("flex items-center gap-1 text-[10px] font-medium", STATUS_META[accent].text)}>
-        {group.date ? format(group.date, "h:mm a") : ""}
+        <span className="shrink-0">{group.date ? format(group.date, "h:mm a") : ""}</span>
+        <GroupKindTags group={group} max={1} />
       </span>
       <span className="block text-[11px] text-white truncate leading-tight">{postSnippet(group.lead, 50)}</span>
       <span className="mt-0.5 flex items-center justify-between gap-1">
@@ -168,6 +171,7 @@ export function GroupCard({
             {group.clientName}
             {group.date && <> · {format(group.date, "EEE MMM d, h:mm a")}</>}
           </p>
+          <GroupKindTags group={group} className="mt-1 flex-wrap" />
         </div>
       </button>
       {!compact && (
@@ -207,9 +211,12 @@ export function PostStatusRow({
   return (
     <div className="rounded-md bg-bb-surface/60 border border-bb-border/60 px-2 py-1.5">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-xs text-bb-muted truncate">
-          {getPlatformLabel(post.platform)}
-          {post.credential?.label ? ` · ${post.credential.label}` : ""}
+        <span className="flex items-center gap-1.5 min-w-0">
+          <span className="text-xs text-bb-muted truncate">
+            {getPlatformLabel(post.platform)}
+            {post.credential?.label ? ` · ${post.credential.label}` : ""}
+          </span>
+          <PostKindTag post={post} />
         </span>
         <div className="flex items-center gap-1.5">
           <StatusBadge post={post} />

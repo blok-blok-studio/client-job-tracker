@@ -32,6 +32,7 @@ import MonthView from "./MonthView";
 import WeekView, { HOUR_PX } from "./WeekView";
 import { GroupCard, MonthChip } from "./GroupCard";
 import AccountStack from "./AccountStack";
+import { KindLegend } from "./KindTag";
 import { localTimezoneLabel, postSnippet, withDay, type PlannerPost, type PostGroup } from "./planner-utils";
 
 export type CalendarMode = "month" | "week";
@@ -222,6 +223,8 @@ export default function CalendarTab({
           ) : (
             <WeekView days={days} groupsByDay={groupsByDay} timezoneLabel={timezoneLabel} onCreateAt={onCreate} onOpen={onOpen} />
           )}
+
+          <KindLegend />
 
           <p className="text-[11px] text-bb-dim">
             Drag a post to move it. Posts that are publishing or already out stay put.

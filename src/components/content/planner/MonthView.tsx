@@ -5,7 +5,7 @@ import { format, isSameMonth, isToday } from "date-fns";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MonthChip } from "./GroupCard";
-import type { PlannerPost, PostGroup } from "./planner-utils";
+import { groupKinds, KIND_META, type PlannerPost, type PostGroup } from "./planner-utils";
 
 export function dayId(day: Date) {
   return `day:${format(day, "yyyy-MM-dd")}`;
@@ -71,10 +71,10 @@ function DayCell({
           <Plus size={12} />
         </button>
       </div>
-      {/* Phones: dots only; wider: time + snippet chips */}
+      {/* Phones: dots coloured by post type; wider: time + type + snippet chips */}
       <div className="flex sm:hidden flex-wrap gap-0.5">
         {groups.slice(0, 4).map((g) => (
-          <span key={g.key} className="w-1.5 h-1.5 rounded-full bg-bb-orange/80" />
+          <span key={g.key} className={cn("w-1.5 h-1.5 rounded-full", KIND_META[groupKinds(g)[0]].dot)} />
         ))}
       </div>
       <div className="hidden sm:flex flex-col gap-0.5 min-w-0">
