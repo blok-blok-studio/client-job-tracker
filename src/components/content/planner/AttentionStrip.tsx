@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { GroupCard } from "./GroupCard";
 import type { PlannerPost, PostGroup } from "./planner-utils";
 
@@ -16,15 +16,20 @@ export default function AttentionStrip({
   groups,
   onOpen,
   onRetry,
+  onDelete,
+  onDeleteAllFailed,
 }: {
   groups: PostGroup[];
   onOpen: (post: PlannerPost) => void;
   onRetry: (post: PlannerPost) => void;
+  onDelete: (post: PlannerPost) => void;
+  onDeleteAllFailed: (posts: PlannerPost[]) => void;
 }) {
   const [open, setOpen] = useState(true);
   const items = groups.filter(needsAttention);
   if (items.length === 0) return null;
 
+  const failedPosts = items.flatMap((g) => g.posts.filter((p) => p.status === "FAILED"));
   const failed = items.filter((g) => g.posts.some((p) => p.status === "FAILED")).length;
   const manual = items.filter((g) => g.posts.some((p) => p.status === "ACTION_NEEDED")).length;
   const changes = items.filter((g) => g.posts.some((p) => p.approvalStatus === "CHANGES_REQUESTED")).length;
@@ -49,10 +54,21 @@ export default function AttentionStrip({
         </span>
         {open ? <ChevronUp size={15} className="text-bb-dim" /> : <ChevronDown size={15} className="text-bb-dim" />}
       </button>
+      {open && failedPosts.length > 1 && (
+        <div className="px-4 pb-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => onDeleteAllFailed(failedPosts)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs text-red-300 border border-red-500/30 hover:bg-red-500/10 transition-colors cursor-pointer"
+          >
+            <Trash2 size={12} /> Delete all {failedPosts.length} failed
+          </button>
+        </div>
+      )}
       {open && (
         <div className="px-4 pb-4 grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
           {items.slice(0, 9).map((g) => (
-            <GroupCard key={g.key} group={g} onOpen={onOpen} onRetry={onRetry} />
+            <GroupCard key={g.key} group={g} onOpen={onOpen} onRetry={onRetry} onDelete={onDelete} />
           ))}
         </div>
       )}

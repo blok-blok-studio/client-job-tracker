@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useDraggable } from "@dnd-kit/core";
 import { format } from "date-fns";
-import { AlertTriangle, ExternalLink, Film, MessageSquareWarning, RotateCcw, Smartphone } from "lucide-react";
+import { AlertTriangle, ExternalLink, Film, MessageSquareWarning, RotateCcw, Smartphone, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { optimizedThumb } from "@/lib/media-thumb";
 import { getPlatformLabel } from "@/components/content/PlatformIcon";
@@ -150,11 +150,13 @@ export function GroupCard({
   group,
   onOpen,
   onRetry,
+  onDelete,
   compact = false,
 }: {
   group: PostGroup;
   onOpen: (post: PlannerPost) => void;
   onRetry: (post: PlannerPost) => void;
+  onDelete?: (post: PlannerPost) => void;
   compact?: boolean;
 }) {
   const lead = group.lead;
@@ -177,7 +179,7 @@ export function GroupCard({
       {!compact && (
         <div className="mt-2 space-y-1.5">
           {group.posts.map((post) => (
-            <PostStatusRow key={post.id} post={post} onRetry={onRetry} showWhenFine={group.posts.length > 1} />
+            <PostStatusRow key={post.id} post={post} onRetry={onRetry} onDelete={onDelete} showWhenFine={group.posts.length > 1} />
           ))}
         </div>
       )}
@@ -189,10 +191,12 @@ export function GroupCard({
 export function PostStatusRow({
   post,
   onRetry,
+  onDelete,
   showWhenFine = true,
 }: {
   post: PlannerPost;
   onRetry: (post: PlannerPost) => void;
+  onDelete?: (post: PlannerPost) => void;
   showWhenFine?: boolean;
 }) {
   const status = displayStatus(post);
@@ -227,6 +231,15 @@ export function PostStatusRow({
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] text-white bg-bb-orange hover:bg-bb-orange-light transition-colors cursor-pointer"
             >
               <RotateCcw size={11} /> Retry
+            </button>
+          )}
+          {post.status === "FAILED" && onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(post)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] text-red-300 border border-red-500/30 hover:bg-red-500/10 transition-colors cursor-pointer"
+            >
+              <Trash2 size={11} /> Delete
             </button>
           )}
           {post.status === "ACTION_NEEDED" && (

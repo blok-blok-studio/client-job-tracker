@@ -94,6 +94,7 @@ function ContentPlanner() {
   const [meId, setMeId] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [retryConfirm, setRetryConfirm] = useState<PlannerPost | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<PlannerPost[] | null>(null);
 
   const [composer, setComposer] = useState<{ open: boolean; postId?: string; defaultScheduledAt?: string }>({ open: false });
 
@@ -246,6 +247,14 @@ function ContentPlanner() {
     [doRetry]
   );
 
+  const doDeleteFailed = async (targets: PlannerPost[]) => {
+    const results = await Promise.allSettled(targets.map((p) => deletePost(p.id)));
+    const failed = results.filter((r) => r.status === "rejected").length;
+    const gone = new Set(targets.filter((_, i) => results[i].status === "fulfilled").map((p) => p.id));
+    setPosts((prev) => prev.filter((p) => !gone.has(p.id)));
+    toast(failed ? `Deleted ${targets.length - failed}, ${failed} couldn't be deleted.` : `Deleted ${targets.length} post${targets.length === 1 ? "" : "s"}.`, failed ? "error" : "success");
+  };
+
   const handleBulkReschedule = async (selected: PostGroup[], when: Date) => {
     if (Number.isNaN(when.getTime())) return;
     for (const g of selected) await handleReschedule(g, when);
@@ -306,7 +315,13 @@ function ContentPlanner() {
         {showPlannerChrome && (
           <>
             <PlannerFilters value={filters} onChange={setFilters} clients={clients} users={users} />
-            {!loading && <AttentionStrip groups={groups} onOpen={openPost} onRetry={handleRetry} />}
+            {!loading && <AttentionStrip
+                groups={groups}
+                onOpen={openPost}
+                onRetry={handleRetry}
+                onDelete={(post) => setDeleteConfirm([post])}
+                onDeleteAllFailed={setDeleteConfirm}
+              />}
           </>
         )}
 
@@ -371,6 +386,15 @@ function ContentPlanner() {
         message={`This ${retryConfirm ? getPlatformLabel(retryConfirm.platform) : ""} post was cut off before the platform confirmed it, so it may already be live. Look at the account first. Retry only if it isn't there, or it will post twice.`}
         confirmLabel="It's not there, retry"
         confirmVariant="warning"
+      />
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => deleteConfirm && doDeleteFailed(deleteConfirm)}
+        title={deleteConfirm && deleteConfirm.length > 1 ? `Delete ${deleteConfirm.length} failed posts?` : "Delete this failed post?"}
+        message="This removes the failed post from the planner for good. Anything that already went out on the platform stays there, and other accounts in the same post are not touched."
+        confirmLabel="Delete"
       />
     </>
   );
