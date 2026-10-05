@@ -3,6 +3,7 @@ import { after } from "next/server";
 import prisma from "@/lib/prisma";
 import { del } from "@vercel/blob";
 import { requestMeta } from "@/lib/request-meta";
+import { urlsKeptByWorkRecords } from "@/lib/work-media";
 
 // PATCH — update media label/notes/thumbnailUrl
 export async function PATCH(
@@ -80,7 +81,12 @@ export async function DELETE(
     await prisma.clientMedia.delete({ where: { id } });
 
     after(async () => {
-      await del(media.url).catch((err) => console.warn("[Blob] Failed to delete blob:", err));
+      // A file that came in through Work is still a finished-work record and
+      // sits in the client's Files tab: remove the gallery row only.
+      const kept = await urlsKeptByWorkRecords([media.url]).catch(() => new Set([media.url]));
+      if (!kept.has(media.url)) {
+        await del(media.url).catch((err) => console.warn("[Blob] Failed to delete blob:", err));
+      }
       await prisma.activityLog.create({
         data: {
           clientId: media.clientId,

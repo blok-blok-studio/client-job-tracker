@@ -1,17 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { requestMeta } from "@/lib/request-meta";
 import { notifySlack } from "@/lib/slack";
 import { isAllowedBlobUrl } from "@/lib/blob-fetch";
+import { mirrorWorkFileToMedia, prepareMirroredMedia, type MirroredMedia } from "@/lib/work-media";
 
 // Public, token-scoped contractor finished-work API ("Submit Work" tab).
 // GET  — validate the link and return assigned clients + the contractor's own uploads
 // POST — register uploaded work files (already in Vercel Blob from the browser
 //        upload). Files tagged to a client are mirrored into that client's
 //        Files tab so the team sees them where client files already live.
+//        Videos, photos and audio are also listed in the media gallery (the
+//        Files page).
 // Deliberately NOT gated on onboarding paperwork (like hours, unlike invoices) —
 // finished work stays submittable.
+
+// Thumbnails / playback copies for mirrored videos run after the response
+export const maxDuration = 300;
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
 
@@ -139,6 +145,7 @@ export async function POST(
     const folder = `From ${contractor.name}`;
 
     const created = [];
+    const mirrored: MirroredMedia[] = [];
     for (const f of d.files) {
       // Mirror into the client's Files tab first so the work row can point at it
       let clientFileId: string | null = null;
@@ -158,6 +165,20 @@ export async function POST(
           select: { id: true },
         });
         clientFileId = mirror.id;
+
+        const media = await mirrorWorkFileToMedia({
+          clientId: client.id,
+          url: f.blobUrl,
+          filename: f.filename,
+          mimeType: f.contentType,
+          fileSize: f.size,
+          folder,
+          notes: note,
+        }).catch((err) => {
+          console.error("Failed to list work file in the media gallery:", err);
+          return null;
+        });
+        if (media) mirrored.push(media);
       }
 
       const row = await prisma.contractorWorkFile.create({
@@ -179,6 +200,8 @@ export async function POST(
       });
       created.push(row);
     }
+
+    if (mirrored.length > 0) after(() => prepareMirroredMedia(mirrored));
 
     const fileSummary =
       d.files.length === 1

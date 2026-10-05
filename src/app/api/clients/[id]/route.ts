@@ -147,10 +147,20 @@ export async function DELETE(
 
       // Delete all media files from Vercel Blob storage before cascade
       if (client?.mediaFiles.length) {
-        const urls = client.mediaFiles.map((m) => m.url);
-        await del(urls).catch((err) =>
-          console.error("[Blob] Failed to delete media files:", err)
-        );
+        // Work records outlive the client (SetNull), so files that came in
+        // through Work keep their stored file.
+        const allUrls = client.mediaFiles.map((m) => m.url);
+        const work = await prisma.contractorWorkFile.findMany({
+          where: { url: { in: allUrls } },
+          select: { url: true },
+        });
+        const kept = new Set(work.map((w) => w.url));
+        const urls = allUrls.filter((u) => !kept.has(u));
+        if (urls.length > 0) {
+          await del(urls).catch((err) =>
+            console.error("[Blob] Failed to delete media files:", err)
+          );
+        }
       }
 
       await prisma.client.delete({ where: { id } });

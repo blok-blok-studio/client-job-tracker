@@ -3,6 +3,7 @@ import { after } from "next/server";
 import prisma from "@/lib/prisma";
 import { del } from "@vercel/blob";
 import { requestMeta } from "@/lib/request-meta";
+import { urlsKeptByWorkRecords } from "@/lib/work-media";
 
 // PATCH — batch assign multiple media files to an event/folder (or unfile with folder: null)
 export async function PATCH(request: NextRequest) {
@@ -72,10 +73,16 @@ export async function DELETE(request: NextRequest) {
     });
 
     after(async () => {
-      const urls = mediaFiles.map((m) => m.url);
-      await del(urls).catch((err) =>
-        console.error("[Blob] Failed to delete some blobs:", err)
-      );
+      // Files that came in through Work are still finished-work records and
+      // sit in the client's Files tab: those keep their stored file.
+      const allUrls = mediaFiles.map((m) => m.url);
+      const kept = await urlsKeptByWorkRecords(allUrls).catch(() => new Set(allUrls));
+      const urls = allUrls.filter((u) => !kept.has(u));
+      if (urls.length > 0) {
+        await del(urls).catch((err) =>
+          console.error("[Blob] Failed to delete some blobs:", err)
+        );
+      }
 
       // Activity log — group by clientId
       const byClient = new Map<string, string[]>();
