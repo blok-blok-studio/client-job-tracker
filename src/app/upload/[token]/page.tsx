@@ -6,12 +6,14 @@ import { Upload, CheckCircle, AlertCircle, Loader2, Film, Image as ImageIcon, Mu
 import AddToHomeScreen from "@/components/shared/AddToHomeScreen";
 import { friendlyError } from "@/lib/fetch-json";
 import { safeUuid } from "@/lib/safe-uuid";
+import { DEFAULT_UPLOAD_LIMIT_MB } from "@/lib/upload-limits";
 
 interface ClientInfo {
   id: string;
   name: string;
   company?: string;
   avatarUrl?: string;
+  uploadLimitMb?: number | null;
 }
 
 interface UploadResult {
@@ -21,7 +23,6 @@ interface UploadResult {
   error?: string;
 }
 
-const MAX_FILE_BYTES = 500 * 1024 * 1024;
 const fileKey = (f: File) => `${f.name}:${f.size}:${f.lastModified}`;
 
 export default function ClientUploadPortal({ params }: { params: Promise<{ token: string }> }) {
@@ -35,6 +36,10 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
   const [results, setResults] = useState<UploadResult[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Per-client cap set on the client record; falls back to the default
+  const maxFileMb = client?.uploadLimitMb ?? DEFAULT_UPLOAD_LIMIT_MB;
+  const MAX_FILE_BYTES = maxFileMb * 1024 * 1024;
 
   // Phones kill background tabs; warn before leaving mid-upload
   useEffect(() => {
@@ -258,7 +263,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
               <span className="hidden sm:inline">Browse Files</span>
             </span>
             <p className="text-xs text-gray-500 mt-3">
-              Photos, videos, audio, and documents &middot; Up to 500MB per file
+              Photos, videos, audio, and documents &middot; Up to {maxFileMb}MB per file
             </p>
             <p className="text-xs text-gray-600 mt-1">
               All image &amp; video formats, PDF, Word, Excel, PowerPoint, and more
@@ -305,7 +310,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
                   <p className="text-sm text-white truncate">{file.name}</p>
                   <p className={`text-[11px] ${file.size > MAX_FILE_BYTES ? "text-red-400" : "text-gray-500"}`}>
                     {formatSize(file.size)}
-                    {file.size > MAX_FILE_BYTES && " · over the 500MB limit, send this one another way"}
+                    {file.size > MAX_FILE_BYTES && ` · over the ${maxFileMb}MB limit, send this one another way`}
                   </p>
                 </div>
                 <button

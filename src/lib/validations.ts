@@ -39,6 +39,7 @@ export const clientSchema = z.object({
   careTier: z.enum(["CARE", "CARE_PLUS", "CARE_PRO"]).nullable().optional(),
   referrerId: z.string().nullable().optional(),
   referralFeeOwed: z.number().min(0).nullable().optional(),
+  uploadLimitMb: z.number().int().min(1).max(4096).nullable().optional(),
   automationsPaused: z.boolean().optional(),
 });
 

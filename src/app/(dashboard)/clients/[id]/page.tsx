@@ -43,6 +43,7 @@ interface ClientDetail {
   timezone: string | null;
   onboardToken: string | null;
   uploadToken: string | null;
+  uploadLimitMb: number | null;
   contacts: Array<{ id: string; name: string; role: string | null; email: string | null; phone: string | null; isPrimary: boolean }>;
   tasks: Array<{ id: string; title: string; status: string; priority: string; dueDate: string | null }>;
   credentials: Array<{ id: string; platform: string; username: string; label?: string }>;
@@ -73,6 +74,8 @@ export default function ClientDetailPage() {
   const [contactForm, setContactForm] = useState({ name: "", role: "", email: "", phone: "" });
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [limitDraft, setLimitDraft] = useState("");
+  const [savingLimit, setSavingLimit] = useState(false);
   const [newSocial, setNewSocial] = useState(false);
   const [socialForm, setSocialForm] = useState({ platform: "", url: "", handle: "" });
   const [customPlatform, setCustomPlatform] = useState("");
@@ -184,6 +187,32 @@ export default function ClientDetailPage() {
       }
     } finally {
       setRegenerating(false);
+    }
+  }
+
+  async function handleSaveUploadLimit() {
+    const mb = parseInt(limitDraft, 10);
+    if (!Number.isInteger(mb) || mb < 1 || mb > 4096) {
+      toast("Enter a limit between 1 and 4096 MB", "error");
+      return;
+    }
+    setSavingLimit(true);
+    try {
+      const res = await fetch(`/api/clients/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uploadLimitMb: mb }),
+      });
+      const data = await res.json();
+      if (data.success && client) {
+        setClient({ ...client, uploadLimitMb: mb });
+        setLimitDraft("");
+        toast(`Upload limit set to ${mb}MB per file`, "success");
+      } else {
+        toast(data.error || "Failed to save upload limit", "error");
+      }
+    } finally {
+      setSavingLimit(false);
     }
   }
 
@@ -970,6 +999,25 @@ export default function ClientDetailPage() {
                       title="Copy link"
                     >
                       {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 mt-3">
+                    <span className="text-xs text-bb-dim">Per-file limit: {client.uploadLimitMb ?? 500}MB</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={4096}
+                      value={limitDraft}
+                      onChange={(e) => setLimitDraft(e.target.value)}
+                      placeholder="MB"
+                      className="w-20 text-xs bg-bb-black px-2 py-1 rounded border border-bb-border text-white"
+                    />
+                    <button
+                      onClick={handleSaveUploadLimit}
+                      disabled={savingLimit || !limitDraft}
+                      className="px-3 py-1 text-xs bg-bb-elevated hover:bg-bb-border text-bb-muted hover:text-white rounded transition-colors disabled:opacity-50"
+                    >
+                      {savingLimit ? "Saving..." : "Set limit"}
                     </button>
                   </div>
                 </>

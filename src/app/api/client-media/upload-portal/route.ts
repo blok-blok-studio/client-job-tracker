@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
   const client = await prisma.client.findUnique({
     where: { uploadToken: token },
-    select: { id: true, name: true, company: true, avatarUrl: true, type: true },
+    select: { id: true, name: true, company: true, avatarUrl: true, type: true, uploadLimitMb: true },
   });
 
   if (!client || client.type === "ARCHIVED") {

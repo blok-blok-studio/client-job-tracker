@@ -62,6 +62,7 @@ model Client {
   avatarUrl        String?
   onboardToken     String?    @unique
   uploadToken      String?    @unique // Shareable link for client file uploads
+  uploadLimitMb    Int?       // Per-file upload cap on the portal link, in MB (null = 500MB default)
   telegramChatId   String?    @unique
   stripeCustomerId String?    @unique
   companyAddress   String?    @db.Text

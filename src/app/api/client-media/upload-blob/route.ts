@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import prisma from "@/lib/prisma";
+import { DEFAULT_UPLOAD_LIMIT_MB } from "@/lib/upload-limits";
 
 // Client-side Vercel Blob upload token handler
 // Files go directly from browser → Vercel Blob (no size limit)
@@ -18,7 +19,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
         const client = await prisma.client.findUnique({
           where: { uploadToken: payload.token },
-          select: { id: true, name: true, type: true },
+          select: { id: true, name: true, type: true, uploadLimitMb: true },
         });
 
         if (!client || client.type === "ARCHIVED") {
@@ -26,7 +27,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         }
 
         return {
-          maximumSizeInBytes: 500 * 1024 * 1024, // 500MB
+          maximumSizeInBytes: (client.uploadLimitMb ?? DEFAULT_UPLOAD_LIMIT_MB) * 1024 * 1024,
           allowOverwrite: true,
           tokenPayload: JSON.stringify({ clientId: client.id }),
         };
