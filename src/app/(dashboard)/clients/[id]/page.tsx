@@ -25,6 +25,7 @@ import DeliverablesPanel, { type DeliverableItem } from "@/components/clients/De
 import ClientFilesPanel, { type ClientFileItem } from "@/components/clients/ClientFilesPanel";
 import { friendlyError } from "@/lib/fetch-json";
 import { safeUuid } from "@/lib/safe-uuid";
+import { DEFAULT_UPLOAD_LIMIT_MB } from "@/lib/upload-limits";
 
 interface ClientDetail {
   id: string;
@@ -1002,7 +1003,7 @@ export default function ClientDetailPage() {
                     </button>
                   </div>
                   <div className="flex items-center gap-2 mt-3">
-                    <span className="text-xs text-bb-dim">Per-file limit: {client.uploadLimitMb ?? 500}MB</span>
+                    <span className="text-xs text-bb-dim">Per-file limit: {client.uploadLimitMb ?? DEFAULT_UPLOAD_LIMIT_MB}MB</span>
                     <input
                       type="number"
                       min={1}
