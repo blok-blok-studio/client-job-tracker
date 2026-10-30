@@ -47,8 +47,12 @@ export async function startConnectOnboarding(partnerId: string): Promise<{ url: 
       email: partner.email || undefined,
       business_type: "company",
       capabilities: { transfers: { requested: true } },
-      // Transfers-only account: the partner never takes payments through us.
-      tos_acceptance: { service_agreement: "recipient" },
+      // Transfers only: the partner never takes payments through us. The
+      // "recipient" service agreement exists only for cross-border payouts;
+      // Stripe rejects it when platform and partner share a country.
+      ...(partner.country && partner.country !== "US"
+        ? { tos_acceptance: { service_agreement: "recipient" as const } }
+        : {}),
       business_profile: {
         name: partner.legalName || partner.name,
         product_description: "Sales partner commissions from Blok Blok Studio LLC",
