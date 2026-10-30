@@ -61,9 +61,25 @@ export async function POST(
   });
   notifySlack(`:bust_in_silhouette: *${admin.partner.name}* added a new rep: *${rep.name}*. Approve them as a closer on the Partners page when ready.`).catch(() => {});
 
+  let emailed = false;
+  if (rep.email) {
+    try {
+      const { sendPartnerPortalEmail } = await import("@/lib/email");
+      emailed = !!(await sendPartnerPortalEmail({
+        to: rep.email,
+        name: rep.name,
+        partnerName: admin.partner.name,
+        portalUrl: partnerPortalUrl(rep.token),
+        isAdmin: false,
+      }));
+    } catch (err) {
+      console.error("[partner/reps] portal email failed:", err);
+    }
+  }
+
   return NextResponse.json({
     success: true,
-    data: { ...rep, token: undefined, portalUrl: partnerPortalUrl(rep.token) },
+    data: { ...rep, token: undefined, portalUrl: partnerPortalUrl(rep.token), emailed },
   });
 }
 

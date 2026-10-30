@@ -118,8 +118,25 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  // The admin gets their portal link straight away; nothing to copy by hand.
+  let emailed = false;
+  if (email) {
+    try {
+      const { sendPartnerPortalEmail } = await import("@/lib/email");
+      emailed = !!(await sendPartnerPortalEmail({
+        to: email,
+        name: adminRep.name,
+        partnerName: partner.name,
+        portalUrl: partnerPortalUrl(adminRep.token),
+        isAdmin: true,
+      }));
+    } catch (err) {
+      console.error("[partners] portal email failed:", err);
+    }
+  }
+
   return NextResponse.json({
     success: true,
-    data: { id: partner.id, adminPortalUrl: partnerPortalUrl(adminRep.token) },
+    data: { id: partner.id, adminPortalUrl: partnerPortalUrl(adminRep.token), emailed },
   });
 }

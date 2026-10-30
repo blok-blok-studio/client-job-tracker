@@ -174,8 +174,9 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
     setBusy(`rep:${repId}`);
     try {
       const res = await fetch(`/api/partners/${id}/reps/${repId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const r = await readJson(res);
+      const r = await readJson<{ data?: { emailed?: boolean } }>(res);
       if (!r.ok) toast(r.error || "Update failed", "error");
+      else if (body.emailLink) toast(r.data?.data?.emailed ? "Portal link emailed" : "Saved, but email is not configured", r.data?.data?.emailed ? "success" : "info");
       await load();
     } finally {
       setBusy(null);
@@ -528,7 +529,12 @@ function RepsTab({
                     <button onClick={() => onCopy(r.portalUrl, r.id)} className="inline-flex items-center gap-1 text-xs text-bb-muted hover:text-white">
                       {copied === r.id ? <Check size={12} /> : <Copy size={12} />} copy
                     </button>
-                    <button onClick={() => onPatch(r.id, { rotateToken: true })} className="text-xs text-bb-dim hover:text-white" title="Issue a new link; the old one stops working">
+                    {r.email && (
+                      <button onClick={() => onPatch(r.id, { emailLink: true })} className="text-xs text-bb-dim hover:text-white" title={`Email the link to ${r.email}`}>
+                        email
+                      </button>
+                    )}
+                    <button onClick={() => onPatch(r.id, { rotateToken: true, emailLink: !!r.email })} className="text-xs text-bb-dim hover:text-white" title="Issue a new link (emailed if they have an address); the old one stops working">
                       rotate
                     </button>
                   </div>

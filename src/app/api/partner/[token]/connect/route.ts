@@ -31,7 +31,7 @@ export async function GET(
     if (rep.partner.connectOnboarded) {
       return NextResponse.redirect(await connectDashboardLink(rep.partnerId));
     }
-    const { url } = await startConnectOnboarding(rep.partnerId);
+    const { url } = await startConnectOnboarding(rep.partnerId, { returnTo: `/partner/${token}` });
     return NextResponse.redirect(url);
   } catch (err) {
     console.error("[partner/connect] failed:", err);

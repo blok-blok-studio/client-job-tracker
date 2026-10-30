@@ -24,7 +24,10 @@ export class PayoutError extends Error {
 }
 
 /** Create the Express account if needed and return a hosted onboarding link. */
-export async function startConnectOnboarding(partnerId: string): Promise<{ url: string; accountId: string }> {
+export async function startConnectOnboarding(
+  partnerId: string,
+  opts: { returnTo?: string } = {}
+): Promise<{ url: string; accountId: string }> {
   const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
   if (!partner) throw new PayoutError("Partner not found", 404);
 
@@ -63,11 +66,12 @@ export async function startConnectOnboarding(partnerId: string): Promise<{ url: 
     await prisma.partner.update({ where: { id: partner.id }, data: { stripeConnectAccountId: accountId } });
   }
 
+  const to = opts.returnTo ? `&to=${encodeURIComponent(opts.returnTo)}` : "";
   const link = await stripe.accountLinks.create({
     account: accountId,
     type: "account_onboarding",
-    refresh_url: `${APP_URL}/api/partners/${partner.id}/connect/return?refresh=1`,
-    return_url: `${APP_URL}/api/partners/${partner.id}/connect/return`,
+    refresh_url: `${APP_URL}/api/partners/${partner.id}/connect/return?refresh=1${to}`,
+    return_url: `${APP_URL}/api/partners/${partner.id}/connect/return?done=1${to}`,
   });
 
   return { url: link.url, accountId };

@@ -143,11 +143,14 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
 
   useEffect(() => {
     load();
-    const err = new URLSearchParams(window.location.search).get("stripe_error");
-    if (err) {
-      notify(err, "err");
-      window.history.replaceState(null, "", window.location.pathname);
-    }
+    const qs = new URLSearchParams(window.location.search);
+    const err = qs.get("stripe_error");
+    const stripe = qs.get("stripe");
+    if (err) notify(err, "err");
+    else if (stripe === "done") notify("Stripe payouts are set up. Commissions will be transferred to your account.");
+    else if (stripe === "pending") notify("Stripe has your details and is finishing verification. Nothing else to do for now.");
+    else if (stripe === "expired") notify("That Stripe link expired. Press Set up Stripe payouts again to continue.", "err");
+    if (err || stripe) window.history.replaceState(null, "", window.location.pathname);
   }, [load, notify]);
 
   const criteria = useMemo(() => {

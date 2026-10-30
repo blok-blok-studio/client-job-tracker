@@ -1308,3 +1308,74 @@ export async function sendContractorPortalEmail(params: {
   }
   return data;
 }
+
+
+/**
+ * Sales-partner portal link. Sent to the partner admin when the partner is
+ * created and to each rep when they are added (by us or by the admin).
+ */
+export async function sendPartnerPortalEmail(params: {
+  to: string;
+  name: string;
+  partnerName: string;
+  portalUrl: string;
+  isAdmin: boolean;
+  resend?: boolean;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping email");
+    return null;
+  }
+
+  const first = params.name.split(" ")[0];
+  const adminBlock = params.isAdmin
+    ? `<p style="color: #333; font-size: 15px; line-height: 1.6;">As the ${params.partnerName} admin you can also:</p>
+       <ul style="color: #333; font-size: 15px; line-height: 1.8;">
+         <li>Add your reps under <strong>Team</strong>. Each one gets their own private link.</li>
+         <li>Set up commission payouts under <strong>Statement</strong> (about five minutes on Stripe: company details, bank account, ID check).</li>
+         <li>See every deal, every commission and every payout in one place.</li>
+       </ul>`
+    : `<p style="color: #333; font-size: 15px; line-height: 1.6;">Register a practice <strong>before</strong> the first call so it is credited to you, then book the call. You will see each practice move from Registered to Contract sent, Signed, Deposit paid and Live.</p>`;
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: params.resend
+      ? `Your Blok Blok Studio partner portal link`
+      : `${params.partnerName} × Blok Blok Studio: your partner portal`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h2 style="color: #111; margin: 0;">Blok Blok Studio</h2>
+          <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">creative tech studio</p>
+        </div>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">Hi ${first},</p>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          ${
+            params.resend
+              ? "Here is your private link to the Blok Blok partner portal again."
+              : "This is your private link to the Blok Blok partner portal. It is where you register practices, see the price list and what is included, download the kit, and follow each deal through to launch."
+          }
+        </p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${params.portalUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            Open your portal
+          </a>
+        </div>
+        ${adminBlock}
+        <p style="color: #666; font-size: 14px; line-height: 1.6;">
+          Bookmark it. The link is yours and does not expire. Please do not forward it or share it with practices: anything done through it is recorded as coming from you. Questions? Just reply to this email.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">Blok Blok Studio · chase@blokblokstudio.com</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send partner portal email:", error);
+    throw new Error(`Resend error: ${error.message}`);
+  }
+  return data;
+}

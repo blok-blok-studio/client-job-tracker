@@ -43,8 +43,23 @@ export async function POST(
   await prisma.activityLog.create({
     data: { actor: session.name, action: "partner_rep_added", details: `Added rep ${rep.name} to ${partner.name}` },
   });
+  let emailed = false;
+  if (rep.email) {
+    try {
+      const { sendPartnerPortalEmail } = await import("@/lib/email");
+      emailed = !!(await sendPartnerPortalEmail({
+        to: rep.email,
+        name: rep.name,
+        partnerName: partner.name,
+        portalUrl: partnerPortalUrl(rep.token),
+        isAdmin: rep.isAdmin,
+      }));
+    } catch (err) {
+      console.error("[partners/reps] portal email failed:", err);
+    }
+  }
   return NextResponse.json({
     success: true,
-    data: { id: rep.id, name: rep.name, portalUrl: partnerPortalUrl(rep.token) },
+    data: { id: rep.id, name: rep.name, portalUrl: partnerPortalUrl(rep.token), emailed },
   });
 }

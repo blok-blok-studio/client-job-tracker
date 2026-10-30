@@ -13,6 +13,8 @@ const patchSchema = z.object({
   isActive: z.boolean().optional(),
   /** Issue a fresh portal link (the old one stops working) */
   rotateToken: z.boolean().optional(),
+  /** Email the rep their portal link (again) */
+  emailLink: z.boolean().optional(),
 });
 
 // PATCH — approve as closer, make admin, deactivate, or rotate the link
@@ -51,7 +53,29 @@ export async function PATCH(
     },
   });
 
+  let emailed = false;
+  if (d.emailLink) {
+    if (!updated.email) {
+      return NextResponse.json({ success: false, error: "This rep has no email on file" }, { status: 400 });
+    }
+    try {
+      const { sendPartnerPortalEmail } = await import("@/lib/email");
+      emailed = !!(await sendPartnerPortalEmail({
+        to: updated.email,
+        name: updated.name,
+        partnerName: rep.partner.name,
+        portalUrl: partnerPortalUrl(updated.token),
+        isAdmin: updated.isAdmin,
+        resend: !d.rotateToken,
+      }));
+    } catch (err) {
+      console.error("[partners/reps] portal email failed:", err);
+      return NextResponse.json({ success: false, error: "Email failed to send" }, { status: 502 });
+    }
+  }
+
   const changes: string[] = [];
+  if (d.emailLink) changes.push(emailed ? "portal link emailed" : "portal link email skipped (email not configured)");
   if (d.canClose !== undefined) changes.push(d.canClose ? "approved as closer" : "closer approval removed");
   if (d.isActive !== undefined) changes.push(d.isActive ? "reactivated" : "deactivated");
   if (d.isAdmin !== undefined) changes.push(d.isAdmin ? "made partner admin" : "admin removed");
@@ -68,6 +92,6 @@ export async function PATCH(
 
   return NextResponse.json({
     success: true,
-    data: { id: updated.id, canClose: updated.canClose, isActive: updated.isActive, isAdmin: updated.isAdmin, portalUrl: partnerPortalUrl(updated.token) },
+    data: { id: updated.id, canClose: updated.canClose, isActive: updated.isActive, isAdmin: updated.isAdmin, portalUrl: partnerPortalUrl(updated.token), emailed },
   });
 }
