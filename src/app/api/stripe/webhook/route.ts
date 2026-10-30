@@ -363,9 +363,13 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Sales-partner plan commission for subscription months
+        // Sales-partner plan commission for subscription months. The endpoint
+        // is pinned to API version 2024-06-20, where the subscription sits at
+        // invoice.subscription; newer versions moved it under parent. Read both.
         {
-          const subRef = paidInvoice.parent?.subscription_details?.subscription;
+          const subRef =
+            paidInvoice.parent?.subscription_details?.subscription ??
+            (paidInvoice as unknown as { subscription?: string | { id: string } | null }).subscription;
           const subId = (typeof subRef === "string" ? subRef : subRef?.id) ?? null;
           if (subId) {
             await recordPlanCommissionForInvoice({
@@ -383,10 +387,12 @@ export async function POST(request: NextRequest) {
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
         const pi = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id || null;
-        // Subscription months: the charge's invoice is reached through its
-        // payment intent (Charge no longer carries `invoice` on current API versions)
-        let inv: string | null = null;
-        if (pi) {
+        // Subscription months: on the endpoint's API version (2024-06-20) the
+        // charge still carries `invoice`; on current versions it is reached
+        // through the payment intent. Try the direct field first.
+        const legacyInv = (charge as unknown as { invoice?: string | { id: string } | null }).invoice;
+        let inv: string | null = (typeof legacyInv === "string" ? legacyInv : legacyInv?.id) ?? null;
+        if (!inv && pi) {
           try {
             const payments = await stripe.invoicePayments.list({
               payment: { type: "payment_intent", payment_intent: pi },
