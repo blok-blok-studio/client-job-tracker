@@ -143,7 +143,12 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
 
   useEffect(() => {
     load();
-  }, [load]);
+    const err = new URLSearchParams(window.location.search).get("stripe_error");
+    if (err) {
+      notify(err, "err");
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [load, notify]);
 
   const criteria = useMemo(() => {
     const raw = data?.partner.qualificationCriteria?.trim();
@@ -285,7 +290,7 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
       {tab === "team" && data.reps && <TeamTab token={token} reps={data.reps} selfId={data.rep.id} onChanged={load} notify={notify} />}
 
       {tab === "statement" && data.commissions && data.totals && (
-        <StatementTab partner={data.partner} commissions={data.commissions} payouts={data.payouts || []} totals={data.totals} />
+        <StatementTab token={token} partner={data.partner} commissions={data.commissions} payouts={data.payouts || []} totals={data.totals} />
       )}
 
       {registerOpen && (
@@ -712,11 +717,13 @@ function TeamTab({ token, reps, selfId, onChanged, notify }: { token: string; re
 }
 
 function StatementTab({
+  token,
   partner,
   commissions,
   payouts,
   totals,
 }: {
+  token: string;
   partner: PortalData["partner"];
   commissions: CommissionRow[];
   payouts: NonNullable<PortalData["payouts"]>;
@@ -731,10 +738,21 @@ function StatementTab({
         <Tile label="Lifetime" value={usd2(totals.lifetime)} />
       </div>
 
-      <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 text-sm space-y-1.5">
+      <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 text-sm space-y-2">
         <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Setup</p>
-        <p className={partner.connectOnboarded ? "text-green-400" : "text-yellow-400"}>{partner.connectOnboarded ? "Stripe payouts: connected" : "Stripe payouts: not connected yet (Chase will send the Stripe link)"}</p>
-        <p className={partner.w9ReceivedAt ? "text-green-400" : "text-yellow-400"}>{partner.w9ReceivedAt ? "W-9: received" : "W-9: needed before the first payout"}</p>
+        <p className={partner.connectOnboarded ? "text-green-400" : "text-yellow-400"}>{partner.connectOnboarded ? "Stripe payouts: connected" : "Stripe payouts: not set up yet"}</p>
+        <a
+          href={`/api/partner/${token}/connect`}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium"
+        >
+          {partner.connectOnboarded ? "Open Stripe dashboard" : "Set up Stripe payouts"}
+        </a>
+        <p className="text-xs text-gray-500">
+          {partner.connectOnboarded
+            ? "See your payouts and update your bank details in Stripe."
+            : "Takes about five minutes on Stripe: company details, a bank account for payouts, and an ID check. Commissions are transferred there."}
+        </p>
+        <p className={partner.w9ReceivedAt ? "text-green-400" : "text-yellow-400"}>{partner.w9ReceivedAt ? "W-9: received" : "W-9: send Chase a completed W-9 before the first payout"}</p>
         {r && (
           <p className="text-gray-400 pt-1">
             Projects {r.projectHandoff}% handoff / {r.projectClose}% team close (first $15k) · brand guide {r.brandGuideHandoff}% / {r.brandGuideClose}% · plans {r.plan}% for {r.planMonths} months · paid within {r.payoutDays} days of the client payment.
