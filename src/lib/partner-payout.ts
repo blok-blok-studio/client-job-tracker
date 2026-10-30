@@ -33,14 +33,21 @@ export async function startConnectOnboarding(partnerId: string): Promise<{ url: 
 
   if (!accountId) {
     const account = await stripe.accounts.create({
-      type: "express",
+      // Stripe's current account model: say who controls what instead of a
+      // legacy top-level type. This is the Express configuration: Stripe
+      // collects the partner's details, we carry fees and losses, and the
+      // partner gets the Express dashboard.
+      controller: {
+        fees: { payer: "application" },
+        losses: { payments: "application" },
+        requirement_collection: "stripe",
+        stripe_dashboard: { type: "express" },
+      },
       country: partner.country || "US",
       email: partner.email || undefined,
       business_type: "company",
       capabilities: { transfers: { requested: true } },
       // Transfers-only account: the partner never takes payments through us.
-      // The recipient agreement is also what lets a platform outside the US
-      // pay a US entity.
       tos_acceptance: { service_agreement: "recipient" },
       business_profile: {
         name: partner.legalName || partner.name,
