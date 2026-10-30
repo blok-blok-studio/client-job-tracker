@@ -63,7 +63,7 @@ export async function GET() {
 
 const createSchema = z.object({
   contractorId: z.string().min(1),
-  kind: z.enum(["IC_AGREEMENT", "NDA", "SOW"]).default("IC_AGREEMENT"),
+  kind: z.enum(["IC_AGREEMENT", "NDA", "SOW", "REFERRAL_PARTNER"]).default("IC_AGREEMENT"),
   title: z.string().max(200).optional(),
   services: z.string().max(5000).optional(),
   compensation: z.string().max(2000).optional(),
@@ -99,12 +99,21 @@ export async function POST(request: NextRequest) {
     }
     const d = parsed.data;
 
-    const contractor = await prisma.contractor.findUnique({
+    const contractorRow = await prisma.contractor.findUnique({
       where: { id: d.contractorId },
       select: { id: true, name: true, company: true, country: true, location: true },
     });
-    if (!contractor) {
+    if (!contractorRow) {
       return NextResponse.json({ success: false, error: "Contractor not found" }, { status: 404 });
+    }
+    // A sales partner's contractor record carries the commission terms for its agreement
+    const partner = await prisma.partner.findUnique({ where: { contractorId: contractorRow.id } });
+    const contractor = { ...contractorRow, partner };
+    if (d.kind === "REFERRAL_PARTNER" && !contractor.partner) {
+      return NextResponse.json(
+        { success: false, error: "Create this person as a sales partner on the Partners page first — the agreement takes its commission rates from there." },
+        { status: 400 }
+      );
     }
 
     const providerLegalName =
@@ -125,6 +134,20 @@ export async function POST(request: NextRequest) {
       compensation: d.compensation,
       paymentDays: d.paymentDays,
       extraTerms: d.extraTerms,
+      partnerTerms: contractor.partner
+        ? {
+            partnerName: contractor.partner.name,
+            partnerLegalName: contractor.partner.legalName,
+            rateProjectHandoff: Number(contractor.partner.rateProjectHandoff),
+            rateProjectClose: Number(contractor.partner.rateProjectClose),
+            rateBrandGuideHandoff: Number(contractor.partner.rateBrandGuideHandoff),
+            rateBrandGuideClose: Number(contractor.partner.rateBrandGuideClose),
+            ratePlan: Number(contractor.partner.ratePlan),
+            planMonths: contractor.partner.planMonths,
+            payoutDays: contractor.partner.payoutDays,
+            territory: contractor.partner.country === "US" ? "the United States" : contractor.partner.country,
+          }
+        : undefined,
     });
 
     // Custom instructions route the baseline through AI drafting; any failure

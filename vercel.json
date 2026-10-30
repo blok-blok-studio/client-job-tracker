@@ -75,6 +75,12 @@
     },
     "src/app/api/cron/render-media/route.ts": {
       "maxDuration": 800
+    },
+    "src/app/api/partner/[token]/contract/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/partners/[id]/pay/route.ts": {
+      "maxDuration": 120
     }
   }
 }

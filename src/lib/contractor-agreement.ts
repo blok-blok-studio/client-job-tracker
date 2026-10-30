@@ -19,7 +19,7 @@
  * AND ACCEPTANCE block.
  */
 
-export type ContractorContractKind = "IC_AGREEMENT" | "NDA" | "SOW";
+export type ContractorContractKind = "IC_AGREEMENT" | "NDA" | "SOW" | "REFERRAL_PARTNER";
 
 export const CONTRACTOR_CONTRACT_KINDS: {
   key: ContractorContractKind;
@@ -45,6 +45,12 @@ export const CONTRACTOR_CONTRACT_KINDS: {
     title: "Statement of Work",
     blurb: "Scope, fee, and dates for one engagement under an existing agreement.",
   },
+  {
+    key: "REFERRAL_PARTNER",
+    label: "Sales Partner Agreement",
+    title: "Sales Partnership Agreement",
+    blurb: "Commission schedule, registration rules, payout timing and compliance for a referral / closing partner.",
+  },
 ];
 
 export const DEFAULT_PROVIDER_LEGAL_NAME = "Blok Blok Studio LLC";
@@ -66,6 +72,27 @@ export interface ContractorAgreementOptions {
   effectiveDate?: Date;
   /** Appended verbatim as the final numbered section. */
   extraTerms?: string | null;
+  /** Sales-partner commission terms; required for the REFERRAL_PARTNER kind. */
+  partnerTerms?: PartnerAgreementTerms | null;
+}
+
+export interface PartnerAgreementTerms {
+  partnerName: string;
+  partnerLegalName?: string | null;
+  /** percent of project fee when the partner books the call and we close */
+  rateProjectHandoff: number;
+  /** percent of the first $15,000 when an approved partner rep closes */
+  rateProjectClose: number;
+  rateBrandGuideHandoff: number;
+  rateBrandGuideClose: number;
+  /** percent of each eligible plan payment */
+  ratePlan: number;
+  /** calendar months from the first eligible plan payment */
+  planMonths: number;
+  /** days from our receipt of the client payment to the commission being paid */
+  payoutDays: number;
+  /** "the United States" */
+  territory: string;
 }
 
 function fmtDate(d: Date): string {
@@ -424,6 +451,202 @@ Delays caused by late feedback, missing assets, or scope changes move the remain
   return out + CLOSING;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sales Partnership Agreement (referral / closing partners such as MBMedSolutions)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const pct = (v: number) => `${Number.isInteger(v) ? v : v.toFixed(2)}%`;
+
+function buildReferralPartnerAgreement(opts: ContractorAgreementOptions): string {
+  const {
+    contractorName,
+    company,
+    country: rawCountry,
+    contractorAddress,
+    providerLegalName: rawProvider,
+    providerAddress,
+    effectiveDate = new Date(),
+    extraTerms,
+  } = opts;
+  const t: PartnerAgreementTerms = opts.partnerTerms || {
+    partnerName: company || contractorName,
+    rateProjectHandoff: 9,
+    rateProjectClose: 18,
+    rateBrandGuideHandoff: 5,
+    rateBrandGuideClose: 10,
+    ratePlan: 15,
+    planMonths: 16,
+    payoutDays: 30,
+    territory: "the United States",
+  };
+
+  const country = (rawCountry || "US").toUpperCase();
+  const providerLegalName = rawProvider?.trim() || DEFAULT_PROVIDER_LEGAL_NAME;
+  const partnerEntity = t.partnerLegalName?.trim() || company || contractorName;
+  const section = sectionWriter();
+
+  let out = `SALES PARTNERSHIP AGREEMENT
+
+This Sales Partnership Agreement ("Agreement") is entered into as of ${fmtDate(effectiveDate)} by and between ${partyLine(providerLegalName, null, providerAddress)} ("Blok Blok" or the "Provider") and ${partyLine(contractorName, partnerEntity, contractorAddress)} ("Partner"). Together referred to as the "Parties."
+
+Blok Blok designs, builds and maintains websites and digital services. The Partner operates a sales organization and will introduce prospective clients to Blok Blok and, once approved, close sales of Blok Blok's services on Blok Blok's standard terms. This Agreement sets out how introductions are registered, how commissions are calculated and paid, and what each Party is responsible for.
+
+`;
+
+  out += section(
+    "Relationship of the Parties",
+    `The Parties are independent contractors. Nothing in this Agreement creates an employment, joint venture, franchise or agency relationship. The Partner has no authority to bind Blok Blok to any contract, price, scope, delivery date or guarantee, and will not represent otherwise. The Partner alone engages, manages, compensates and is responsible for its own sales representatives and appointment setters ("Partner Reps"). Blok Blok has no payment obligation to any Partner Rep.
+
+This Agreement is non-exclusive. The Partner may represent other products and services, and Blok Blok may accept clients from any other source, provided neither Party uses the other's confidential information to do so.`
+  );
+
+  out += section(
+    "Definitions",
+    `"Registered Practice" means a prospective client that the Partner has registered through Blok Blok's partner portal under Section 3 and that Blok Blok has not already been in contact with.
+
+"Handoff Close" means a sale to a Registered Practice where the Partner or a Partner Rep booked and qualified the sales call and Blok Blok conducted the close.
+
+"Partner Close" means a sale to a Registered Practice closed by the Partner or by a Partner Rep that Blok Blok has approved in writing as a closer, using the contract and payment links generated through the partner portal.
+
+"Project Fee" means the one-time fee for a website or similar project in Blok Blok's partner price list. "Brand Guide Fee" means the one-time fee for a brand strategy guide. "Plan Payment" means a monthly payment under one of Blok Blok's monthly plans.
+
+"Eligible Receipts" means amounts actually received by Blok Blok from a Registered Practice, excluding sales and similar taxes and excluding Pass-Through Costs. "Pass-Through Costs" means hosting beyond what a package includes, domain registration, telephony, SMS, AI usage, advertising spend and any other third-party service billed at cost or billed directly to the client.`
+  );
+
+  out += section(
+    "Registering a Practice",
+    `The Partner registers each prospective client in Blok Blok's partner portal before Blok Blok has any contact with that practice. Registration records the practice name, contact details, the Partner Rep and the date. The first Party to register a practice holds it: a practice already known to Blok Blok, already a client, or already registered by another source does not qualify, and Blok Blok will say so at registration.
+
+A registration is valid for twelve (12) months. If the practice has not signed a Blok Blok agreement within that period the registration lapses and the practice may be registered again by any party. Blok Blok may approve exceptions in writing.
+
+No commission is earned on a client that contacts Blok Blok on its own, on an existing Blok Blok client, or on any sale that is not tied to a valid registration.`
+  );
+
+  out += section(
+    "Pricing, Approved Closers and the Standard Agreement",
+    `Blok Blok supplies the Partner with an approved price list, package descriptions and sales materials (the "Kit"), and will update the Kit in writing when prices or packages change. The Partner and Partner Reps present only the approved price list and inclusions and make no promises about search rankings, patient or customer volume, timelines or results beyond what the Kit states.
+
+Blok Blok may approve the Partner and named Partner Reps as closers in writing and may withdraw that approval at any time. An approved closer may generate Blok Blok's standard Service Agreement and payment links for a Registered Practice through the partner portal. The Service Agreement is Blok Blok's unmodified standard form at list prices with a fifty percent (50%) deposit and fifty percent (50%) balance on completion; it may not be edited, discounted or supplemented by the Partner. Blok Blok reviews every contract generated through the portal and may void one before the client signs.
+
+Every client contract is between Blok Blok and the client. All client payments are made to ${providerLegalName} only. The Partner never collects, holds or forwards client money.`
+  );
+
+  out += section(
+    "Commission Schedule",
+    `Blok Blok pays the Partner commission on Eligible Receipts from Registered Practices as follows.
+
+(a) Project Fee, Handoff Close: ${pct(t.rateProjectHandoff)} of the Project Fee.
+
+(b) Project Fee, Partner Close: ${pct(t.rateProjectClose)} of the first $15,000 of the Project Fee, ten percent (10%) of the portion from $15,000 to $50,000, and five percent (5%) of the portion above $50,000.
+
+(c) Brand Guide Fee: ${pct(t.rateBrandGuideHandoff)} on a Handoff Close and ${pct(t.rateBrandGuideClose)} on a Partner Close. A brand guide sold together with a project is commissioned separately at these rates and is not added to the Project Fee for the purposes of (a) or (b).
+
+(d) Plan Payments: ${pct(t.ratePlan)} of each Plan Payment received, whether the plan was a Handoff Close or a Partner Close, for ${t.planMonths} calendar months starting on the date of the first Plan Payment from that practice. The window runs once per practice: a plan upgrade, downgrade, pause or restart does not restart it, and no commission is due for a month in which no Plan Payment is received. A plan qualifies when it is the practice's first plan and is started at introduction or within ninety (90) days of the practice's project deposit.
+
+The applicable Handoff or Partner Close rate for a practice is the one in force on the date the client signs. Commission percentages apply to Eligible Receipts only. Payment processing fees are Blok Blok's cost and are not deducted.`
+  );
+
+  out += section(
+    "When Commission Is Earned and Paid",
+    `Project and brand guide commission is earned in full when Blok Blok receives the client's deposit, so that the Partner can pay its Partner Reps promptly. Plan commission is earned when each Plan Payment is received.
+
+Blok Blok pays earned commission within ${t.payoutDays} days of receiving the client payment that earned it, in United States dollars, by transfer to the Stripe Connect account the Partner opens for this purpose. Blok Blok may group payments into a single monthly payout provided every item is paid inside its ${t.payoutDays}-day window. Each payout is accompanied by a statement listing the practice, the payment that earned the commission, the rate and the amount. The Partner's own payout statements and payment history are available in the partner portal at any time.
+
+Refunds, chargebacks and uncollected balances reduce commission in the same proportion. If a client is refunded, or the engagement ends before the balance is collected, the commission attributable to the refunded or uncollected amount is reversed and netted against the Partner's next payouts. If the Partner's net balance is negative, no payout is made until later commissions cover it. Blok Blok will not withhold commission on money it has received and kept.`
+  );
+
+  out += section(
+    "Partner Responsibilities",
+    `The Partner will:
+
+(a) qualify each practice against the criteria Blok Blok provides before booking a call, and register the practice before the call;
+
+(b) represent Blok Blok, its services and prices accurately, using only approved materials, and make no guarantee of results;
+
+(c) conduct all outreach lawfully, including compliance with the Telephone Consumer Protection Act, the Telemarketing Sales Rule, CAN-SPAM, state telemarketing and do-not-call rules, and the rules of any platform used for outreach, and keep records sufficient to show compliance;
+
+(d) not request, receive or store any protected health information or patient data in the course of this Agreement;
+
+(e) employ or engage, train, supervise and pay its Partner Reps, and be solely responsible for their wages, commissions, taxes, benefits and conduct;
+
+(f) keep its Stripe Connect account, tax information and contact details current.
+
+The Partner will indemnify and hold harmless Blok Blok from any third-party claim, fine or loss arising from the Partner's or a Partner Rep's outreach practices, misrepresentations, or breach of this Agreement.`
+  );
+
+  out += section(
+    "Blok Blok Responsibilities",
+    `Blok Blok will: take booked and qualified sales calls promptly and professionally; keep the partner portal and Kit available and current; confirm in the portal when a Registered Practice signs and when each payment is received, and in any case within five (5) business days of a request; keep accurate records of Eligible Receipts and make the relevant payment details available to the Partner on request; deliver the services it sells to its clients under its own contracts; and pay commission as set out in Sections 5 and 6.`
+  );
+
+  out += section(
+    "Taxes and Paperwork",
+    `The Partner is responsible for all taxes on commission it receives. Before the first payout the Partner provides a completed IRS Form W-9 (or the applicable W-8 form) and completes Stripe Connect onboarding. Blok Blok will issue Form 1099-NEC where required. Each Party bears its own costs under this Agreement.`
+  );
+
+  out += section(
+    "Term and Termination",
+    `This Agreement starts on the effective date and runs for twelve (12) months, then renews automatically for successive twelve-month terms unless either Party gives thirty (30) days' written notice of non-renewal. Either Party may terminate this Agreement for convenience on thirty (30) days' written notice, and immediately on written notice if the other Party materially breaches this Agreement and does not cure the breach within fifteen (15) days of notice, or acts in a way that exposes the other Party to legal liability or reputational harm.
+
+On termination: no new practices may be registered; a practice validly registered before termination that signs within ninety (90) days after termination still earns commission under this Agreement; plan commission continues to be paid for the remainder of each practice's ${t.planMonths}-month window; and all earned commission is paid in the ordinary course. Sections 1, 6 (as to amounts earned), 7, 11, 12 and 13 survive termination.`
+  );
+
+  out += section(
+    "Confidentiality and Non-Circumvention",
+    `Each Party will keep confidential the other Party's non-public business information, including client lists, pricing, commission terms, sales materials and performance data, use it only for this Agreement, and protect it with at least reasonable care, for the term of this Agreement and two (2) years after. The Partner will not, during the term and for twelve (12) months after, divert a Registered Practice or Blok Blok client to a competing website or digital services provider.
+
+Blok Blok may name the Partner as a sales partner, and the Partner may describe itself as an authorized sales partner of Blok Blok, in each case subject to the other Party's reasonable brand guidelines and withdrawn on termination.`
+  );
+
+  out += section(
+    "Limitation of Liability",
+    `Neither Party is liable to the other for indirect, incidental, special, consequential or punitive damages, or for lost profits, arising out of this Agreement. Each Party's total liability under this Agreement is limited to the commission paid or payable under it in the twelve (12) months before the claim, except for a Party's indemnity obligations, breach of confidentiality, or liability that cannot be limited by law.`
+  );
+
+  out += section("Governing Law and Disputes", governingLawSection(country, providerLegalName).replace("the Contractor", "the Partner"));
+
+  out += section(
+    "General",
+    `This Agreement, including its commission schedule, is the entire agreement between the Parties about its subject and replaces every earlier proposal, draft agreement, deck and discussion. Commission rates and the price list may be changed only by a written amendment signed by both Parties; a change applies to practices that sign after the change takes effect and never reduces commission already earned. Notices are given by email to the addresses each Party designates. Neither Party may assign this Agreement without the other's written consent, except to a successor of its business. If a provision is unenforceable the rest remains in effect. Signatures exchanged electronically are binding.`
+  );
+
+  if (extraTerms?.trim()) {
+    out += section("Additional Terms", extraTerms.trim());
+  }
+
+  out += `
+EXHIBIT A. COMMISSION SCHEDULE SUMMARY
+
+Territory: ${t.territory}
+Project fee, Handoff Close (Partner books, Blok Blok closes): ${pct(t.rateProjectHandoff)}
+Project fee, Partner Close (approved Partner Rep closes): ${pct(t.rateProjectClose)} on the first $15,000, 10% from $15,000 to $50,000, 5% above $50,000
+Brand strategy guide: ${pct(t.rateBrandGuideHandoff)} Handoff Close, ${pct(t.rateBrandGuideClose)} Partner Close
+Monthly plans: ${pct(t.ratePlan)} of each plan payment received, ${t.planMonths} calendar months from the first plan payment
+Earned: project and brand guide commission on the client's deposit; plan commission on each plan payment
+Paid: within ${t.payoutDays} days of Blok Blok receiving the client payment, by Stripe Connect transfer, with a statement
+Client terms: Blok Blok's standard Service Agreement at list price, 50% deposit, 50% on completion; all payments to ${providerLegalName}
+
+`;
+
+  out += `
+
+ACKNOWLEDGMENT AND ACCEPTANCE
+
+By signing below, both Parties acknowledge that they have read this Agreement in its entirety, understand its terms and conditions, and agree to be bound by them. Both Parties confirm that they have the authority to enter into this Agreement and that they do so voluntarily. An electronic signature captured with the signer's name, timestamp, and IP address has the same force as a handwritten one.
+
+PROVIDER:
+Name: ____________________
+Date: ____________________
+
+PARTNER:
+Name: ____________________
+Date: ____________________
+
+`;
+
+  return out;
+}
+
 /** Build the baseline body for a contractor agreement of the given kind. */
 export function generateContractorAgreementBody(
   kind: ContractorContractKind,
@@ -431,6 +654,7 @@ export function generateContractorAgreementBody(
 ): string {
   if (kind === "NDA") return buildNda(opts);
   if (kind === "SOW") return buildSow(opts);
+  if (kind === "REFERRAL_PARTNER") return buildReferralPartnerAgreement(opts);
   return buildIcAgreement(opts);
 }
 

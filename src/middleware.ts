@@ -15,6 +15,8 @@ const PUBLIC_PATHS = [
   "/upload",
   "/contractor/",
   "/agreement/",
+  "/partner/", // sales-partner rep portal (token-scoped; "/partners" dashboard stays private)
+  "/partner-connect", // landing page after a partner finishes Stripe Connect onboarding
   "/post-review/",
   "/legal/", // privacy policy, terms, data deletion (platform reviewers and clients)
   "/about", // public app home page for platform consent screens
@@ -30,6 +32,7 @@ const PUBLIC_PATHS = [
   "/api/review/",
   "/api/contractor/",
   "/api/agreement/",
+  "/api/partner/", // token-scoped portal API ("/api/partners/" is owner-only)
   "/api/post-review/",
   "/api/client-media/upload-portal",
   "/api/client-media/zip-link/", // random 15-minute links made by the team (iPhone zip downloads open in Safari)

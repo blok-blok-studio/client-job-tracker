@@ -38,6 +38,7 @@ const CATEGORY_MAP: Record<PackageCategory, string> = {
   "dev-retainers": "DEVELOPMENT",
   "general-addons": "GENERAL",
   "dev-addons": "DEVELOPMENT",
+  "partner-us": "DESIGN",
 };
 
 // --- Timeline Parsing ---

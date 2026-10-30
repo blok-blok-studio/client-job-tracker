@@ -62,7 +62,7 @@ model Client {
   avatarUrl        String?
   onboardToken     String?    @unique
   uploadToken      String?    @unique // Shareable link for client file uploads
-  uploadLimitMb    Int?       // Per-file upload cap on the portal link, in MB (null = 1000MB default)
+  uploadLimitMb    Int? // Per-file upload cap on the portal link, in MB (null = 1000MB default)
   telegramChatId   String?    @unique
   stripeCustomerId String?    @unique
   companyAddress   String?    @db.Text
@@ -97,6 +97,15 @@ model Client {
   referralFeeOwed    Decimal?     @db.Decimal(10, 2)
   automationsPaused  Boolean      @default(false) // pause all lifecycle automations for this client
   lastPartnerTouchAt DateTime? // partners: last quarterly touch logged
+
+  // --- Sales partner attribution (MBMedSolutions-style referral/closing partners) ---
+  partnerId           String?
+  partner             Partner?     @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  partnerRepId        String?
+  partnerRep          PartnerRep?  @relation(fields: [partnerRepId], references: [id], onDelete: SetNull)
+  closedBy            ClosedBy? // who ran the close: us, or an approved partner rep
+  partnerRegisteredAt DateTime? // when the partner registered this practice (first registered wins)
+  commissions         Commission[]
 
   credentials      Credential[]
   tasks            Task[]
@@ -142,6 +151,7 @@ model Client {
   @@index([telegramChatId])
   @@index([role])
   @@index([careStatus])
+  @@index([partnerId])
 }
 
 enum ClientType {
@@ -690,26 +700,28 @@ enum ContractStatus {
 
 // --- PAYMENT LINKS (Stripe) ---
 model PaymentLink {
-  id                   String             @id @default(cuid())
-  clientId             String
-  client               Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  stripePaymentLink    String             @unique
-  stripeUrl            String
-  amount               Int // cents
-  currency             String             @default("usd")
-  description          String
-  recurring            Boolean            @default(false)
-  interval             String? // "month" | "year"
-  country              String             @default("US")
-  status               PaymentStatus      @default(PENDING)
-  stripePriceId        String?
-  stripeProductId      String?
-  stripeSessionId      String?
-  stripeSubscriptionId String?
-  paidAt               DateTime?
-  contractId           String?
-  contract             ContractSignature? @relation(fields: [contractId], references: [id])
-  milestone            String? // "deposit" | "completion" | null
+  id                    String             @id @default(cuid())
+  clientId              String
+  client                Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  stripePaymentLink     String             @unique
+  stripeUrl             String
+  amount                Int // cents
+  currency              String             @default("usd")
+  description           String
+  recurring             Boolean            @default(false)
+  interval              String? // "month" | "year"
+  country               String             @default("US")
+  status                PaymentStatus      @default(PENDING)
+  stripePriceId         String?
+  stripeProductId       String?
+  stripeSessionId       String?
+  stripeSubscriptionId  String?
+  stripePaymentIntentId String? // set when the Checkout completes; lets charge.refunded find this link
+  paidAt                DateTime?
+  contractId            String?
+  contract              ContractSignature? @relation(fields: [contractId], references: [id])
+  milestone             String? // "deposit" | "completion" | null
+  commissions           Commission[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1229,6 +1241,7 @@ model Contractor {
   clientAssignments ContractorClientAssignment[]
   taxDocuments      TaxDocument[]
   contracts         ContractorContract[]
+  partner           Partner? // when this contractor record is a sales partner's legal entity
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1785,4 +1798,158 @@ enum TaxDocStatus {
   EXPIRED
   NA
   ATTESTED // contractor confirmed they hold the form (SSN/TIN) — no copy stored here
+}
+
+// --- SALES PARTNERS (referral / closing partners such as MBMedSolutions) ---
+// A Partner is the paid entity (Eric's company). Its reps work from token links
+// (never dashboard logins): they register practices, and approved closers can
+// generate our standard contract + Stripe links. Commissions accrue from Stripe
+// webhooks and are paid out through Stripe Connect transfers.
+
+model Partner {
+  id          String  @id @default(cuid())
+  name        String // "MBMedSolutions"
+  legalName   String? // "MBMedSolutions LLC"
+  contactName String?
+  email       String?
+  phone       String?
+  country     String  @default("US")
+  isActive    Boolean @default(true)
+  notes       String? @db.Text
+
+  // Commission schedule (percent). Defaults are the 30 Oct 2026 MMS terms.
+  rateProjectHandoff    Decimal @default(9) @db.Decimal(5, 2) // partner sets the call, we close
+  rateProjectClose      Decimal @default(18) @db.Decimal(5, 2) // approved partner rep closes (banded above $15k)
+  rateBrandGuideHandoff Decimal @default(5) @db.Decimal(5, 2)
+  rateBrandGuideClose   Decimal @default(10) @db.Decimal(5, 2)
+  ratePlan              Decimal @default(15) @db.Decimal(5, 2) // of each paid plan month, either stage
+  planMonths            Int     @default(16) // calendar months from the first eligible plan payment
+  payoutDays            Int     @default(30) // commission due within N days of the client payment
+
+  // Lead qualification criteria shown to reps in the portal and printed in the kit
+  qualificationCriteria String? @db.Text
+
+  // Paperwork + payout rail
+  w9ReceivedAt           DateTime?
+  stripeConnectAccountId String?   @unique // Stripe Connect Express account (acct_...)
+  connectOnboarded       Boolean   @default(false) // details submitted + payouts enabled
+
+  // The contractor record that carries the signed partnership agreement + tax docs
+  contractorId String?     @unique
+  contractor   Contractor? @relation(fields: [contractorId], references: [id], onDelete: SetNull)
+
+  reps        PartnerRep[]
+  clients     Client[]
+  commissions Commission[]
+  payouts     CommissionPayout[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model PartnerRep {
+  id        String  @id @default(cuid())
+  partnerId String
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  name      String
+  email     String?
+  token     String  @unique // their portal link
+  isAdmin   Boolean @default(false) // partner owner: sees every rep, statements, manages reps
+  canClose  Boolean @default(false) // owner-approved closer: may generate contracts + payment links
+  isActive  Boolean @default(true)
+
+  clients     Client[]
+  commissions Commission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([partnerId])
+}
+
+enum ClosedBy {
+  OWNER
+  PARTNER_REP
+}
+
+enum CommissionKind {
+  PROJECT
+  BRAND_GUIDE
+  PLAN
+  ADJUSTMENT
+}
+
+enum CommissionStatus {
+  PAYABLE
+  PAID
+  VOID
+}
+
+// One ledger row per commissionable event. Negative amounts are clawbacks
+// (refunds, manual adjustments) and net against positives at payout time.
+model Commission {
+  id           String      @id @default(cuid())
+  partnerId    String
+  partner      Partner     @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partnerRepId String?
+  partnerRep   PartnerRep? @relation(fields: [partnerRepId], references: [id], onDelete: SetNull)
+  clientId     String
+  client       Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  kind        CommissionKind
+  description String
+  basisAmount Decimal        @db.Decimal(12, 2) // client money the rate was applied to (USD)
+  rate        Decimal        @db.Decimal(5, 2) // percent actually applied (blended for banded closes)
+  amount      Decimal        @db.Decimal(12, 2) // signed; negative = clawback
+  closedBy    ClosedBy?
+
+  eventAt   DateTime // when the client paid (drives the plan window + payout deadline)
+  payableBy DateTime?
+  status    CommissionStatus @default(PAYABLE)
+
+  // Provenance — one of these identifies the Stripe event the row came from
+  paymentLinkId   String?
+  paymentLink     PaymentLink? @relation(fields: [paymentLinkId], references: [id], onDelete: SetNull)
+  stripeInvoiceId String?
+  stripeRefundId  String?
+  reversesId      String? // for clawbacks: the commission being reversed
+  reverses        Commission?  @relation("Reversal", fields: [reversesId], references: [id], onDelete: SetNull)
+  reversedBy      Commission[] @relation("Reversal")
+
+  payoutId String?
+  payout   CommissionPayout? @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  paidAt   DateTime?
+
+  createdBy String? // owner name for manual adjustments; "stripe" for webhook rows
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Webhook idempotency: the same Stripe event must never create a second row
+  @@unique([paymentLinkId, kind])
+  @@unique([stripeInvoiceId, kind])
+  @@unique([stripeRefundId, reversesId])
+  @@index([partnerId, status])
+  @@index([clientId])
+  @@index([eventAt])
+}
+
+// A payout run: the net of a set of PAYABLE rows sent to the partner's Connect account.
+model CommissionPayout {
+  id               String  @id @default(cuid())
+  partnerId        String
+  partner          Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  amount           Decimal @db.Decimal(12, 2) // net transferred (USD)
+  currency         String  @default("usd")
+  stripeTransferId String? @unique
+  note             String?
+  createdBy        String?
+
+  commissions Commission[]
+
+  createdAt DateTime @default(now())
+
+  @@index([partnerId])
 }
