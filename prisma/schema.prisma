@@ -1828,6 +1828,8 @@ model Partner {
 
   // Lead qualification criteria shown to reps in the portal and printed in the kit
   qualificationCriteria String? @db.Text
+  // Where this partner's reps book sales calls with us (shown in the portal and the kit)
+  bookingLink           String?
 
   // Paperwork + payout rail
   w9ReceivedAt           DateTime?

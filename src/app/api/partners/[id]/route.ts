@@ -55,6 +55,7 @@ export async function GET(
       isActive: partner.isActive,
       notes: partner.notes,
       qualificationCriteria: partner.qualificationCriteria,
+      bookingLink: partner.bookingLink,
       rates: {
         rateProjectHandoff: Number(partner.rateProjectHandoff),
         rateProjectClose: Number(partner.rateProjectClose),
@@ -97,6 +98,7 @@ const patchSchema = z.object({
   phone: z.string().max(40).nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
   qualificationCriteria: z.string().max(10000).nullable().optional(),
+  bookingLink: z.string().url().max(500).nullable().optional().or(z.literal("")),
   isActive: z.boolean().optional(),
   w9Received: z.boolean().optional(),
   rates: z
@@ -150,6 +152,7 @@ export async function PATCH(
       ...(d.phone !== undefined ? { phone: d.phone?.trim() || null } : {}),
       ...(d.notes !== undefined ? { notes: d.notes?.trim() || null } : {}),
       ...(d.qualificationCriteria !== undefined ? { qualificationCriteria: d.qualificationCriteria?.trim() || null } : {}),
+      ...(d.bookingLink !== undefined ? { bookingLink: d.bookingLink?.trim() || null } : {}),
       ...(d.isActive !== undefined ? { isActive: d.isActive } : {}),
       ...(d.w9Received !== undefined ? { w9ReceivedAt: d.w9Received ? partner.w9ReceivedAt || new Date() : null } : {}),
       ...(d.rates || {}),

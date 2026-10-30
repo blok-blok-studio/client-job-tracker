@@ -75,6 +75,7 @@ interface Partner {
   isActive: boolean;
   notes: string | null;
   qualificationCriteria: string | null;
+  bookingLink: string | null;
   rates: Rates;
   w9ReceivedAt: string | null;
   w9DocStatus: string | null;
@@ -818,6 +819,7 @@ function CommissionsTab({
 function SettingsTab({ partner, onSave }: { partner: Partner; onSave: (body: Record<string, unknown>, ok?: string) => Promise<boolean> }) {
   const [rates, setRates] = useState<Rates>(partner.rates);
   const [criteria, setCriteria] = useState(partner.qualificationCriteria || "");
+  const [bookingLink, setBookingLink] = useState(partner.bookingLink || "");
   const [signerName, setSignerName] = useState(partner.signer.name);
   const [signature, setSignature] = useState<string | null>(null);
   const [details, setDetails] = useState({
@@ -874,7 +876,11 @@ function SettingsTab({ partner, onSave }: { partner: Partner; onSave: (body: Rec
         <h3 className="text-white font-medium">Qualification criteria</h3>
         <p className="text-xs text-bb-muted">Shown to every rep in the portal and printed in the kit. One bullet per line starting with a dash. Leave blank for the default list.</p>
         <textarea value={criteria} onChange={(e) => setCriteria(e.target.value)} className={`${inputClass} min-h-[200px] font-mono text-xs`} placeholder={"A qualified call means:\n- Decision maker on the call\n- Wants a site in the next 90 days\n- Heard the starting price"} />
-        <SaveButton saving={saving === "criteria"} onClick={() => save("criteria", { qualificationCriteria: criteria })} />
+        <label className="block">
+          <span className="block text-xs text-bb-muted mb-1">Booking link for this partner&apos;s reps</span>
+          <input value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} className={inputClass} placeholder="https://calendar.app.google/..." />
+        </label>
+        <SaveButton saving={saving === "criteria"} onClick={() => save("criteria", { qualificationCriteria: criteria, bookingLink: bookingLink || null })} />
       </section>
 
       <section className="bg-bb-surface border border-bb-border rounded-xl p-5 space-y-3">

@@ -32,6 +32,7 @@ export async function GET(
     partner: {
       name: partner.name,
       qualificationCriteria: partner.qualificationCriteria,
+      bookingLink: partner.bookingLink,
     },
     catalog: catalogSummary(),
     deals,

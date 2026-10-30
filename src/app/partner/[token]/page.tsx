@@ -73,6 +73,7 @@ interface PortalData {
   partner: {
     name: string;
     qualificationCriteria: string | null;
+    bookingLink?: string | null;
     connectOnboarded?: boolean;
     w9ReceivedAt?: string | null;
     rates?: { projectHandoff: number; projectClose: number; brandGuideHandoff: number; brandGuideClose: number; plan: number; planMonths: number; payoutDays: number };
@@ -236,6 +237,16 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
                 </li>
               ))}
             </ul>
+            {data.partner.bookingLink && (
+              <a
+                href={data.partner.bookingLink}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm"
+              >
+                Book a call with Chase
+              </a>
+            )}
           </div>
 
           {data.deals.length === 0 ? (

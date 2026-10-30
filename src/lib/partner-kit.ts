@@ -32,10 +32,10 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clien
 export async function renderPartnerKit(partnerId: string): Promise<Uint8Array> {
   const partner = await prisma.partner.findUnique({
     where: { id: partnerId },
-    select: { name: true, contactName: true, qualificationCriteria: true, country: true },
+    select: { name: true, contactName: true, qualificationCriteria: true, country: true, bookingLink: true },
   });
   if (!partner) throw new Error("Partner not found");
-  const bookingLink = await getSetting<string>("booking_link", "");
+  const bookingLink = partner.bookingLink || (await getSetting<string>("booking_link", ""));
 
   const catalog = catalogSummary();
   const websites = catalog.filter((p) => (PARTNER_WEBSITE_IDS as readonly string[]).includes(p.id));
