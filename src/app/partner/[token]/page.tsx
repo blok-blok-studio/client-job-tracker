@@ -238,14 +238,21 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
               ))}
             </ul>
             {data.partner.bookingLink && (
-              <a
-                href={data.partner.bookingLink}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm"
-              >
-                Book a call with Chase
-              </a>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <a
+                  href={data.partner.bookingLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm"
+                >
+                  Book the practice a call with Chase
+                </a>
+                <span className="text-xs text-gray-500">
+                  {data.rep.canClose
+                    ? "You are an approved closer: run the call on your own calendar and generate the contract here when they say yes."
+                    : "Register the practice first, then book them in. Chase runs the call and the close."}
+                </span>
+              </div>
             )}
           </div>
 
