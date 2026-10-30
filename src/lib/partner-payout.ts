@@ -38,6 +38,10 @@ export async function startConnectOnboarding(partnerId: string): Promise<{ url: 
       email: partner.email || undefined,
       business_type: "company",
       capabilities: { transfers: { requested: true } },
+      // Transfers-only account: the partner never takes payments through us.
+      // The recipient agreement is also what lets a platform outside the US
+      // pay a US entity.
+      tos_acceptance: { service_agreement: "recipient" },
       business_profile: {
         name: partner.legalName || partner.name,
         product_description: "Sales partner commissions from Blok Blok Studio LLC",
