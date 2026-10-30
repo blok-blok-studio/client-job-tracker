@@ -13,7 +13,8 @@ export type PackageCategory =
   | "custom-development"
   | "dev-retainers"
   | "general-addons"
-  | "dev-addons";
+  | "dev-addons"
+  | "partner-us";
 
 export interface ServicePackage {
   id: string;
@@ -47,11 +48,154 @@ export const PACKAGE_CATEGORIES: { id: PackageCategory; label: string }[] = [
   { id: "dev-retainers", label: "Dev Retainers" },
   { id: "general-addons", label: "General Add-Ons" },
   { id: "dev-addons", label: "Development Add-Ons" },
+  { id: "partner-us", label: "Partner Catalog (US)" },
 ];
 
 // ─── ONE-TIME PROJECTS ──────────────────────────────────────────────
 
 export const SERVICE_PACKAGES: ServicePackage[] = [
+  // ─── Partner Catalog (US) ──────────────────────────────────────
+  // The fixed price list sales partners (MBMedSolutions) sell from. These are
+  // the exact figures in the 28 Oct 2026 partnership deck: reps quote them,
+  // the contract prints them, Stripe charges them, commissions are computed
+  // on them. Change a price here and every downstream document follows.
+  // Kept in one place with src/lib/partner-catalog.ts, which groups them.
+
+  {
+    id: "partner-website-5",
+    name: "Website, up to 5 pages",
+    category: "partner-us",
+    price: 6500,
+    description: "A custom, mobile-first website for a practice or small business. Home, About, Services, Contact plus one more page.",
+    deliverables: [
+      "Custom website (up to 5 pages) — fully custom-designed, mobile-responsive, built in Next.js (Home, About, Services, Contact, +1)",
+      "Design iteration calls with the Client during the build",
+      "SEO meta titles and descriptions for every page, Google Search Console connected",
+      "Analytics: GA4 installed with 1 conversion goal and CTA event tracking",
+      "SSL and hosting setup on Vercel included",
+      "Contact form with email notifications",
+      "2 design revision rounds per page (1 round = 1 consolidated set of feedback within 5 business days)",
+      "Content & copy: Client provides written content (headlines, body copy, bios, service descriptions) — we handle layout, formatting, and placement",
+      "CMS training video so the Client can make simple updates",
+    ],
+    timeline: "About 4 weeks from deposit and receipt of content",
+    supportPeriod: "30 days post-launch support",
+  },
+  {
+    id: "partner-website-10",
+    name: "Website, 10 pages",
+    category: "partner-us",
+    price: 12000,
+    description: "A larger custom site with a content system for practices that publish regularly.",
+    deliverables: [
+      "Custom website (10 pages + CMS) — fully custom-designed, mobile-responsive, built in Next.js with a blog or resources CMS",
+      "Design iteration calls with the Client during the build",
+      "Full on-page SEO: meta titles and descriptions, structured data, Google Search Console connected",
+      "Analytics: GA4 installed with 2 conversion goals and CTA event tracking",
+      "SSL and hosting setup on Vercel included",
+      "Contact and booking request forms with email notifications",
+      "3 custom animations or interactive sections",
+      "2 design revision rounds per page (1 round = 1 consolidated set of feedback within 5 business days)",
+      "Homepage and services page copy included (up to 1,500 words); Client provides remaining content",
+      "CMS training video so the Client can make updates",
+    ],
+    timeline: "6 to 8 weeks from deposit and receipt of content",
+    supportPeriod: "30 days post-launch support",
+  },
+  {
+    id: "partner-website-15",
+    name: "Website, 15+ pages",
+    category: "partner-us",
+    price: 18000,
+    description: "A premium, multi-location or multi-service site with a headless CMS and full SEO foundation.",
+    deliverables: [
+      "Premium website (15+ pages) — fully custom-designed, mobile-responsive, built in Next.js with a headless CMS",
+      "Design iteration calls with the Client during the build",
+      "Full on-page SEO: meta titles and descriptions, structured data, location pages where relevant, Google Search Console connected",
+      "Analytics: GA4 installed with 3 conversion goals, CTA event tracking, Google Business Profile linked",
+      "SSL and hosting setup on Vercel included, CDN optimization",
+      "Contact, booking request and intake forms with email notifications",
+      "6 custom animations or interactive sections",
+      "3 design revision rounds per page (1 round = 1 consolidated set of feedback within 5 business days)",
+      "Copy for up to 10 pages included; Client provides remaining content",
+      "CMS training video so the Client can make updates",
+    ],
+    timeline: "8 to 12 weeks from deposit and receipt of content",
+    supportPeriod: "45 days post-launch support",
+  },
+  {
+    id: "partner-brand-guide",
+    name: "Brand Strategy Guide",
+    category: "partner-us",
+    price: 2000,
+    description: "The visual identity the website is built on: logo, color palette and typography, documented in a guide.",
+    deliverables: [
+      "Brand strategy call to capture positioning, audience and tone",
+      "Logo: 2 initial concepts, 1 refined to final (PNG, SVG, PDF — full color, white, and black versions)",
+      "Primary color palette (5 colors with hex codes) and 1 font pairing (heading + body)",
+      "Brand strategy guide PDF covering logo usage, colors, typography and tone of voice",
+      "2 revision rounds on the chosen concept",
+    ],
+    timeline: "2 to 3 weeks",
+    supportPeriod: "Included",
+  },
+  {
+    id: "partner-plan-base",
+    name: "Base Plan — Website Upkeep",
+    category: "partner-us",
+    price: 499,
+    recurring: true,
+    description: "Keeps the website live, secure, fast and current.",
+    deliverables: [
+      "Hosting, SSL and domain management",
+      "Software, framework and dependency updates",
+      "Security monitoring and daily backups",
+      "Uptime monitoring and performance checks",
+      "Up to 2 hours per month of content and design updates",
+      "SEO maintenance: meta data, sitemap and Search Console health",
+      "Monthly summary email",
+    ],
+    timeline: "Ongoing monthly, cancel with 30 days notice",
+    supportPeriod: "Included",
+  },
+  {
+    id: "partner-plan-growth",
+    name: "Growth Plan — Local Visibility",
+    category: "partner-us",
+    price: 1200,
+    recurring: true,
+    description: "Everything in Base, plus the work that gets a practice found locally.",
+    deliverables: [
+      "Everything in the Base Plan",
+      "Local SEO: Google Business Profile management, local keyword tracking and on-page optimization",
+      "Review management: review requests, monitoring and responses",
+      "Directory listings: creation and consistency across major directories",
+      "1 SEO blog post or landing page per month",
+      "Monthly performance report: traffic, rankings, calls and form submissions",
+    ],
+    timeline: "Ongoing monthly, cancel with 30 days notice",
+    supportPeriod: "Included",
+  },
+  {
+    id: "partner-plan-premium",
+    name: "Premium Plan — Practice Support",
+    category: "partner-us",
+    price: 2500,
+    recurring: true,
+    description: "Everything in Growth, plus AI reception, booking chat and patient reactivation. 12-month term.",
+    deliverables: [
+      "Everything in the Growth Plan",
+      "AI phone reception: inbound call answering, FAQs and message taking, transcripts delivered to the practice",
+      "Website booking chat: answers questions and captures appointment requests 24/7",
+      "Patient reactivation: monthly email or SMS campaign to lapsed patients",
+      "2 SEO blog posts or landing pages per month",
+      "Quarterly strategy call",
+      "Third-party usage fees (telephony, SMS, AI minutes) are billed directly to the Client's own accounts and are not included in this fee",
+    ],
+    timeline: "Ongoing monthly, 12-month minimum term",
+    supportPeriod: "Included",
+  },
+
   // ─── AI Agent Builds (One-Time) ─────────────────────────────────
   {
     id: "single-agent",

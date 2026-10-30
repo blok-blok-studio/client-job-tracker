@@ -38,7 +38,7 @@ export const PAGE_OPTIONS: Array<{ key: string; label: string }> = [
  * lists saved before the lockdown still parse. The server-side gates (routes +
  * page layouts) are what actually enforce this — a stale grant is inert.
  */
-const LEGACY_OWNER_ONLY_PAGES = ["money", "contracts"];
+const LEGACY_OWNER_ONLY_PAGES = ["money", "contracts", "partners"];
 
 export const VALID_PAGES: string[] = [...PAGE_OPTIONS.map((p) => p.key), ...LEGACY_OWNER_ONLY_PAGES];
 

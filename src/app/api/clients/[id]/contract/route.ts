@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { randomBytes, createHash } from "crypto";
-import { generateContractBody } from "@/lib/contract-templates";
-import { getCurrencyForCountry } from "@/lib/stripe";
-import { generateAiContractBody } from "@/lib/contract-ai";
-import { sendContract } from "@/lib/contract-send";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { requestMeta } from "@/lib/request-meta";
-import { contractTitle, generateClientAgreementBody } from "@/lib/client-agreement";
+import { createClientContract, ContractCreateError } from "@/lib/contract-create";
 
 // Allow up to 120s for exchange rate fetch + Stripe API calls + email sending
 export const maxDuration = 300;
@@ -72,194 +67,41 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const client = await prisma.client.findUnique({
-      where: { id },
-      select: { id: true, name: true, email: true, company: true, stripeCustomerId: true },
-    });
-
-    if (!client) {
-      return NextResponse.json({ success: false, error: "Client not found" }, { status: 404 });
-    }
-
     const body = await request.json();
     const parsed = generateSchema.parse(body);
-
-    // Validate payment schedule adds up to 100%
-    if (parsed.paymentSchedule && parsed.paymentSchedule.length > 0) {
-      const totalPercent = parsed.paymentSchedule.reduce((s, m) => s + m.percent, 0);
-      if (totalPercent !== 100) {
-        return NextResponse.json(
-          { success: false, error: `Payment schedule must add up to 100% (got ${totalPercent}%)` },
-          { status: 400 }
-        );
-      }
-    }
-
-    const token = randomBytes(16).toString("base64url");
-    const contractCurrency = getCurrencyForCountry(parsed.country);
-
-    // Fetch live USD→EUR rate for non-USD contracts
-    let exchangeRate: number | undefined;
-    if (contractCurrency === "eur") {
-      try {
-        const rateRes = await fetch("https://api.frankfurter.app/latest?from=USD&to=EUR");
-        const rateData = await rateRes.json();
-        if (rateData.rates?.EUR) exchangeRate = rateData.rates.EUR;
-      } catch {
-        exchangeRate = 0.92; // fallback
-      }
-    }
-
-    if (parsed.template?.kind === "SOCIAL_MEDIA" && !parsed.template.social) {
-      return NextResponse.json(
-        { success: false, error: "The Social Media agreement needs its accounts, deliverables, fee and people filled in" },
-        { status: 400 }
-      );
-    }
-
-    const kind = parsed.template?.kind || "SERVICE_AGREEMENT";
-    const title = contractTitle(kind);
-
-    const baselineBody = parsed.template
-      ? generateClientAgreementBody(parsed.template.kind, {
-          clientName: client.name,
-          company: client.company,
-          clientDescriptor: parsed.template.clientDescriptor,
-          social: parsed.template.social,
-          extraTerms: parsed.template.extraTerms,
-        })
-      : generateContractBody(
-      client.name,
-      client.company,
-      parsed.packages,
-      parsed.addons,
-      parsed.customItems,
-      parsed.customTerms,
-      parsed.packageCustomizations,
-      parsed.paymentSchedule,
-      contractCurrency,
-      exchangeRate
-    );
-
-    // If a custom prompt is provided, run the baseline through AI drafting (figures stay locked).
-    // Falls back to the baseline body on any AI failure.
-    let contractBody = baselineBody;
-    let aiError: string | null = null;
-    if (!parsed.template && parsed.customPrompt && parsed.customPrompt.trim()) {
-      const ai = await generateAiContractBody({
-        baselineBody,
-        customPrompt: parsed.customPrompt.trim(),
-        clientName: client.name,
-        companyName: client.company,
-      });
-      contractBody = ai.body;
-      if (!ai.usedAi) aiError = ai.error || "AI drafting unavailable — used baseline contract";
-    }
-
-    // SHA-256 hash of the contract body for tamper detection
-    const documentHash = createHash("sha256").update(contractBody).digest("hex");
-
-    // Capture provider's IP and user agent (platform-observed address, not the
-    // spoofable left-most X-Forwarded-For hop: this is signature evidence)
     const meta = requestMeta(request);
-    const providerIp = meta.ipAddress || "unknown";
-    const providerUa = meta.userAgent || "unknown";
 
-    const contract = await prisma.contractSignature.create({
-      data: {
-        clientId: client.id,
-        token,
-        kind,
-        title,
-        contractBody,
-        documentHash,
-        status: parsed.draft ? "DRAFT" : "PENDING",
-        providerSignedName: parsed.providerSignedName,
-        providerSignatureData: parsed.providerSignatureData || null,
-        providerSignedAt: new Date(),
-        providerIpAddress: providerIp,
-        providerUserAgent: providerUa,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        // Persist the full generation params so the contract can be sent later (draft → send)
-        selectedPackages: {
-          packages: parsed.packages,
-          addons: parsed.addons || [],
-          customItems: parsed.customItems || [],
-          packageCustomizations: parsed.packageCustomizations || {},
-          country: parsed.country,
-          paymentSchedule: parsed.paymentSchedule || null,
-          // Standard documents never create payment links
-          skipPayment: parsed.template ? true : parsed.skipPayment,
-          exchangeRate: exchangeRate ?? null,
-        },
-      },
+    const result = await createClientContract({
+      clientId: id,
+      packages: parsed.packages,
+      addons: parsed.addons,
+      customItems: parsed.customItems,
+      customTerms: parsed.customTerms,
+      customPrompt: parsed.customPrompt,
+      packageCustomizations: parsed.packageCustomizations,
+      providerSignedName: parsed.providerSignedName,
+      providerSignatureData: parsed.providerSignatureData,
+      country: parsed.country,
+      paymentSchedule: parsed.paymentSchedule,
+      skipPayment: parsed.skipPayment,
+      draft: parsed.draft,
+      template: parsed.template,
+      createdBy: session.email,
+      actor: "chase",
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
     });
 
-    // Create audit log entries
-    await prisma.contractAuditLog.createMany({
-      data: [
-        {
-          contractId: contract.id,
-          event: "created",
-          actor: "system",
-          ipAddress: providerIp,
-          userAgent: providerUa,
-          metadata: JSON.stringify({ documentHash, kind, title, createdBy: session.email }),
-        },
-        {
-          contractId: contract.id,
-          event: "provider_signed",
-          actor: "provider",
-          ipAddress: providerIp,
-          userAgent: providerUa,
-          metadata: JSON.stringify({ signedName: parsed.providerSignedName, signedBy: session.email, documentHash }),
-        },
-      ],
-    });
-
-    // Log the activity
-    await prisma.activityLog.create({
-      data: {
-        clientId: client.id,
-        actor: "chase",
-        action: "contract_generated",
-        details: `${title} generated and counter-signed by ${parsed.providerSignedName} for ${client.name}`,
-      },
-    });
-
-    // Draft mode: create the contract but DON'T send anything yet — owner reviews first,
-    // then calls POST /api/clients/[id]/contract/[contractId]/send to dispatch it.
-    let paymentLinks: Array<{ milestone: string; url: string; amount: number }> = [];
-    let paymentLinkError: string | null = null;
-
-    if (!parsed.draft) {
-      const sendResult = await sendContract(contract.id, { ...meta, sentBy: session.email });
-      paymentLinks = sendResult.paymentLinks;
-      paymentLinkError = sendResult.paymentLinkError;
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: contract.id,
-        token: contract.token,
-        kind,
-        title,
-        status: parsed.draft ? "DRAFT" : "PENDING",
-        createdAt: contract.createdAt,
-        contractBody,        // returned so the UI can show a review preview
-        isDraft: parsed.draft,
-        aiError,
-        paymentLinks,
-        paymentLinkError,
-      },
-    });
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { success: false, error: "Validation failed", details: error.issues },
         { status: 400 }
       );
+    }
+    if (error instanceof ContractCreateError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
     }
     console.error("Contract generation error:", error);
     return NextResponse.json(

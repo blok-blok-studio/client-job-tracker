@@ -24,7 +24,7 @@ export async function GET(
     const pdfBytes = await renderContractPdf({
       documentLabel: contract.title,
       counterpartyLabel: label,
-      counterpartyRole: "Contractor",
+      counterpartyRole: contract.kind === "REFERRAL_PARTNER" ? "Partner" : "Contractor",
       contractBody: contract.contractBody,
       providerSignedName: contract.providerSignedName,
       providerSignatureData: contract.providerSignatureData,

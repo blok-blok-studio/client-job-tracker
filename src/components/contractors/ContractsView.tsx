@@ -84,6 +84,11 @@ const KIND_OPTIONS = [
   },
   { key: "NDA", label: "NDA", blurb: "Mutual confidentiality — good for talks before any work starts." },
   { key: "SOW", label: "Statement of Work", blurb: "Scope, fee, and dates for one engagement." },
+  {
+    key: "REFERRAL_PARTNER",
+    label: "Sales Partner Agreement",
+    blurb: "Commission schedule, registration rules, payout timing and compliance for a referral / closing partner. Rates pre-fill from the Partners page.",
+  },
 ] as const;
 
 const STATUS_TABS = [
