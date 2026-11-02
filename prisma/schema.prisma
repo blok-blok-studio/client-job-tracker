@@ -72,6 +72,13 @@ model Client {
   companyCountry   String?
   taxId            String?
 
+  // Direct debit mandate: Stripe ids + display info only, no account numbers stored here
+  debitPaymentMethodId String?
+  debitType            String? // sepa_debit | us_bank_account
+  debitLast4           String?
+  debitMandateId       String?
+  debitConsentAt       DateTime?
+
   // --- Lifecycle system (client/partner journey automation) ---
   role               PersonRole   @default(CLIENT)
   packageTier        PackageTier? // launch/essential/growth/scale project package — distinct from `tier` (account importance)
@@ -630,6 +637,11 @@ model StudioInvoice {
   plan          RecurringPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
   reminderStage Int       @default(0) // 0 none · 1 due soon · 2 overdue · 3 second · 4 final notice (Mahnung)
   lastReminderAt DateTime?
+
+  // Direct debit attempt (Stripe). Bank details live at Stripe, never here.
+  debitIntentId String?
+  debitStatus   String? // PROCESSING | SUCCEEDED | FAILED
+  debitError    String?
 
   // Sales-partner attribution: drafted from the partner portal by an approved closer
   partnerId    String?

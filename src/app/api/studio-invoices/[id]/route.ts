@@ -30,8 +30,9 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
       select: { id: true, action: true, actor: true, details: true, createdAt: true },
     });
     const partnerContext = await partnerContextForInvoice(invoice.id);
+    const mandate = await prisma.client.findUnique({ where: { id: invoice.clientId }, select: { debitPaymentMethodId: true, debitType: true, debitLast4: true } });
     const origin = invoice.partnerRepId ? await prisma.partnerRep.findUnique({ where: { id: invoice.partnerRepId }, select: { name: true, partner: { select: { name: true } } } }).catch(() => null) : null;
-    return NextResponse.json({ success: true, data: { ...view, client: invoice.client, internalNote: invoice.internalNote, qrDataUrl: qr, activity, contentHash: invoice.contentHash, integrity: integrityOf(invoice), partnerContext, draftedBy: origin ? `${origin.name} (${origin.partner.name})` : null, correctedBy, correctsId: invoice.correctsId } });
+    return NextResponse.json({ success: true, data: { ...view, client: invoice.client, internalNote: invoice.internalNote, qrDataUrl: qr, activity, contentHash: invoice.contentHash, integrity: integrityOf(invoice), partnerContext, draftedBy: origin ? `${origin.name} (${origin.partner.name})` : null, correctedBy, correctsId: invoice.correctsId, debit: { status: invoice.debitStatus, error: invoice.debitError, mandate: mandate?.debitPaymentMethodId ? { type: mandate.debitType, last4: mandate.debitLast4 } : null } } });
   } catch (err) {
     return handleError(err, "Failed to load invoice");
   }

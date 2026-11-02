@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const schema = z.object({
   paidAt: z.string().max(40).nullable().optional(),
-  method: z.enum(["bank", "wise", "stripe", "paypal", "cash", "other"]).optional(),
+  method: z.enum(["bank", "wise", "stripe", "direct_debit", "paypal", "cash", "other"]).optional(),
   note: z.string().max(500).nullable().optional(),
   commissionKind: z.enum(["PROJECT", "BRAND_GUIDE", "PLAN", "NONE"]).nullable().optional(),
   sendReceipt: z.boolean().nullable().optional(),

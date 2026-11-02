@@ -15,6 +15,8 @@ import type { InvoiceView } from "../src/lib/invoicing/types";
 import { statementVat, renderStatementPdf, statementNumber, type StatementView } from "../src/lib/invoicing/partner-statement";
 import { firstRunAt, advanceRun, fillPeriod } from "../src/lib/invoicing/recurring";
 import { stageDue } from "../src/lib/invoicing/reminders";
+import { buildCiiXml } from "../src/lib/invoicing/einvoice";
+import { debitTypeFor } from "../src/lib/invoicing/direct-debit";
 import { parseBankCsv } from "../src/lib/invoicing/reconcile";
 import { buildDatevCsv, normalizeDatev } from "../src/lib/invoicing/datev";
 
@@ -213,6 +215,14 @@ const de27View: InvoiceView = {
 };
 (async () => {
   const corrView: InvoiceView = { ...deView, number: "BBS-2026-009", kind: "CORRECTION", corrects: { number: "BBS-2026-007", issueDate: "2026-11-02" }, status: "PAID", paidAt: "2026-11-05T00:00:00Z", eurAmount: -6025, items: deView.items.map((i) => ({ ...i, unitPrice: -i.unitPrice, lineTotal: -i.lineTotal })), subtotal: -6025, total: -6025, notes: "Falsche Leistungsperiode", qrPayload: null, qrKind: null };
+  const xml = buildCiiXml(deView);
+  check("xml: en16931 profile", xml.includes("urn:cen.eu:en16931:2017"));
+  check("xml: § 19 is category E", xml.includes("<ram:CategoryCode>E</ram:CategoryCode>") && xml.includes("§ 19 UStG"));
+  check("xml: total + iban", xml.includes("<ram:GrandTotalAmount>6025.00</ram:GrandTotalAmount>") && xml.includes("DE89370400440532013000"));
+  check("xml: buyer zip + city parsed", xml.includes("<ram:PostcodeCode>10115</ram:PostcodeCode>") && xml.includes("<ram:CityName>Berlin</ram:CityName>"), xml.slice(0, 0));
+  check("xml: correction type 381, nothing due", buildCiiXml(corrView).includes("<ram:TypeCode>381</ram:TypeCode>") && buildCiiXml(corrView).includes("<ram:DuePayableAmount>0.00</ram:DuePayableAmount>"));
+  check("xml: escapes", buildCiiXml({ ...deView, items: [{ description: "A & B <x>", qty: 1, unitPrice: 1, lineTotal: 1 }] }).includes("A &amp; B &lt;x&gt;"));
+  check("debit types", debitTypeFor("EUR") === "sepa_debit" && debitTypeFor("USD") === "us_bank_account" && debitTypeFor("GBP") === null);
   const cb = await renderInvoicePdf(corrView);
   fs.writeFileSync(path.join(outDir, "sample-correction.pdf"), cb);
   check("correction pdf", cb.length > 5000);

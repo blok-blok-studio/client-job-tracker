@@ -29,7 +29,7 @@ interface Plan {
   items: Array<{ description: string; qty: number; unitPrice: number }>;
   notes: string | null;
   autoSend: boolean;
-  paymentMethod: "BANK" | "STRIPE";
+  paymentMethod: "BANK" | "STRIPE" | "DIRECT_DEBIT";
   paymentUrl: string | null;
   amount: number;
   client: { id: string; name: string; company: string | null };
@@ -327,7 +327,9 @@ function PlanEditor({ plan, onClose, onSaved }: { plan: Plan | null; onClose: ()
             <div className="flex gap-1.5 flex-wrap">
               <button type="button" className={chipCls(f.paymentMethod === "BANK")} onClick={() => setF({ ...f, paymentMethod: "BANK" })}>Bank transfer</button>
               <button type="button" className={chipCls(f.paymentMethod === "STRIPE")} onClick={() => setF({ ...f, paymentMethod: "STRIPE" })}>Stripe link</button>
+              <button type="button" className={chipCls(f.paymentMethod === "DIRECT_DEBIT")} onClick={() => setF({ ...f, paymentMethod: "DIRECT_DEBIT" })}>Direct debit</button>
             </div>
+            {f.paymentMethod === "DIRECT_DEBIT" && <p className="text-[11px] text-bb-dim mt-1">EUR or USD. Collects automatically once the client has set up direct debit from their invoice pay page. Without a mandate the invoice stays open for a normal transfer.</p>}
             {f.paymentMethod === "STRIPE" && <input className={`${inputCls} mt-2`} placeholder="https://buy.stripe.com/…" value={f.paymentUrl} onChange={(e) => setF({ ...f, paymentUrl: e.target.value })} />}
           </div>
           <div>

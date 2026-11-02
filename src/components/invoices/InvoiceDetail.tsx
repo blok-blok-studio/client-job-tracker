@@ -21,6 +21,7 @@ type Detail = InvoiceView & {
   draftedBy: string | null;
   correctedBy: { id: string; number: string | null } | null;
   correctsId: string | null;
+  debit: { status: string | null; error: string | null; mandate: { type: string | null; last4: string | null } | null };
 };
 
 interface Props {
@@ -168,6 +169,9 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
             </div>
           )}
 
+          {inv.debit.status === "PROCESSING" && <p className="text-xs text-blue-300">Direct debit in progress. It is marked paid automatically once Stripe confirms, which takes a few days.</p>}
+          {inv.debit.status === "FAILED" && <p className="text-xs text-red-400">Direct debit failed: {inv.debit.error}</p>}
+
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
             {canIssue && (
@@ -195,8 +199,14 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
             <a href={pdfHref} target="_blank" rel="noreferrer" className={`${btnGhost} inline-flex items-center gap-1.5`}>
               <Download size={14} /> PDF
             </a>
+            {canPay && inv.debit.mandate && inv.debit.status !== "PROCESSING" && (
+              <button className={`${btnGhost} inline-flex items-center gap-1.5`} disabled={busy} onClick={() => act("/charge", { method: "POST" }, "Direct debit started")}>
+                Collect by direct debit (…{inv.debit.mandate.last4})
+              </button>
+            )}
             {inv.status !== "DRAFT" && (
               <>
+                <a href={`/api/studio-invoices/${inv.id}/xml`} className={btnGhost}>E-invoice XML</a>
                 <button className={`${btnGhost} inline-flex items-center gap-1.5`} onClick={copyLink}><Link2 size={14} /> Copy pay link</button>
                 <a href={inv.publicUrl} target="_blank" rel="noreferrer" className={`${btnGhost} inline-flex items-center gap-1.5`}><ExternalLink size={14} /> Open</a>
                 <button className={`${btnGhost} inline-flex items-center gap-1.5`} disabled={busy} onClick={() => setConfirm("rotate")} title="Replace the pay link; the old one stops working"><RefreshCw size={14} /> New link</button>

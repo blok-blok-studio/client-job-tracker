@@ -27,7 +27,7 @@ export const planSchema = z.object({
   items: z.array(lineItemSchema).min(1).max(50),
   notes: z.string().max(2000).nullable().optional(),
   autoSend: z.boolean().default(true),
-  paymentMethod: z.enum(["BANK", "STRIPE"]).default("BANK"),
+  paymentMethod: z.enum(["BANK", "STRIPE", "DIRECT_DEBIT"]).default("BANK"),
   paymentUrl: z.string().trim().url().regex(/^https:\/\//).max(500).nullable().optional().or(z.literal("")),
 });
 export type PlanInput = z.infer<typeof planSchema>;
@@ -129,7 +129,7 @@ export async function updatePlan(id: string, input: Partial<PlanInput> & { statu
 /** One billing run: draft → issue → (auto)send. Returns the invoice id or the reason it was skipped. */
 export async function runPlanOnce(plan: RecurringPlan, runAt: Date, actor: string): Promise<{ invoiceId: string | null; number: string | null; skipped?: string; sent?: boolean }> {
   const settings = await loadInvoiceSettings();
-  if (plan.paymentMethod === "BANK" && missingBankFields(settings, plan.currency).length) {
+  if (plan.paymentMethod !== "STRIPE" && missingBankFields(settings, plan.currency).length) {
     return { invoiceId: null, number: null, skipped: `${plan.currency} bank details missing` };
   }
   const items = (plan.items as unknown as Array<{ description: string; qty: number; unitPrice: number }>).map((i) => ({
@@ -149,7 +149,7 @@ export async function runPlanOnce(plan: RecurringPlan, runAt: Date, actor: strin
       notes: plan.notes ? fillPeriod(plan.notes, runAt, plan.interval, plan.language) : null,
       internalNote: `Recurring plan "${plan.name}" (${plan.interval.toLowerCase()})`,
       vatOverride: (plan.vatOverride as "KLEINUNTERNEHMER" | "REGULAR" | "REVERSE_CHARGE" | "DRITTLAND" | null) ?? "AUTO",
-      paymentMethod: plan.paymentMethod as "BANK" | "STRIPE",
+      paymentMethod: plan.paymentMethod === "STRIPE" ? "STRIPE" : "BANK",
       paymentUrl: plan.paymentUrl || "",
       serviceDateFrom: runAt.toISOString().slice(0, 10),
       serviceDateTo: new Date(advanceRun(runAt, plan.interval, plan.dayOfMonth).getTime() - 86_400_000).toISOString().slice(0, 10),
@@ -162,6 +162,13 @@ export async function runPlanOnce(plan: RecurringPlan, runAt: Date, actor: strin
   if (plan.autoSend && settings.autoSendOnIssue !== false) {
     const r = await sendIssuedInvoice(invoice.id, actor);
     sent = r.sent;
+  }
+  // Mandate on file: collect now. A failure leaves a normal open invoice the client can pay by transfer.
+  if (plan.paymentMethod === "DIRECT_DEBIT") {
+    const { chargeInvoice } = await import("./direct-debit");
+    await chargeInvoice(invoice.id, actor).catch(async (err) => {
+      await logInvoiceActivity({ clientId: plan.clientId, actor, action: "debit_failed", details: `Direct debit for ${issued.number} could not start: ${err instanceof Error ? err.message : "unknown"}` });
+    });
   }
   return { invoiceId: invoice.id, number: issued.number, sent };
 }
