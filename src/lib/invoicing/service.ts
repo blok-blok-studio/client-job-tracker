@@ -319,6 +319,11 @@ export async function markPaid(id: string, actor: string, input: { paidAt?: stri
       return { recorded: false, reason: "error" };
     });
   }
+  // A paid contract invoice moves the client forward exactly like a paid deposit link did
+  if (invoice.contractId) {
+    const { onPaymentConfirmed } = await import("@/lib/pipeline");
+    await onPaymentConfirmed(invoice.clientId).catch((err) => console.error("[invoicing] pipeline after payment failed:", err));
+  }
   return Object.assign(invoice, { commission, receipt, eurAmount, fxRate: fx.rate, fxRateDate: fx.rateDate });
 }
 

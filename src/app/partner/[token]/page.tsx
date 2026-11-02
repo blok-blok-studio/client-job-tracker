@@ -8,7 +8,7 @@ import { readJson, friendlyError } from "@/lib/fetch-json";
 /**
  * Sales-partner portal. One link per rep; no login.
  *  - every rep: price list, qualification criteria, register a practice, see their own deals
- *  - approved closers: generate our standard contract + Stripe links on a call
+ *  - approved closers: generate our standard contract on a call
  *  - the partner admin: every rep's deals, manage reps, commission statement and payouts
  */
 
@@ -74,7 +74,7 @@ interface PortalData {
     name: string;
     qualificationCriteria: string | null;
     bookingLink?: string | null;
-    connectOnboarded?: boolean;
+    payout?: { onFile: boolean; last4: string | null; verified: boolean };
     w9ReceivedAt?: string | null;
     billing?: { legalName: string | null; billingAddress: string | null; taxId: string | null; email: string | null; country: string };
     rates?: { projectHandoff: number; projectClose: number; brandGuideHandoff: number; brandGuideClose: number; plan: number; planMonths: number; payoutDays: number };
@@ -83,7 +83,7 @@ interface PortalData {
   deals: Deal[];
   reps?: RepRow[];
   commissions?: CommissionRow[];
-  payouts?: Array<{ id: string; amount: number; stripeTransferId: string | null; note: string | null; createdAt: string; items: number }>;
+  payouts?: Array<{ id: string; amount: number; stripeTransferId: string | null; wiseTransferId?: string | null; note: string | null; createdAt: string; items: number }>;
   totals?: { payable: number; paid: number; lifetime: number };
 }
 
@@ -146,13 +146,6 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
   useEffect(() => {
     load();
     const qs = new URLSearchParams(window.location.search);
-    const err = qs.get("stripe_error");
-    const stripe = qs.get("stripe");
-    if (err) notify(err, "err");
-    else if (stripe === "done") notify("Stripe payouts are set up. Commissions will be transferred to your account.");
-    else if (stripe === "pending") notify("Stripe has your details and is finishing verification. Nothing else to do for now.");
-    else if (stripe === "expired") notify("That Stripe link expired. Press Set up Stripe payouts again to continue.", "err");
-    if (err || stripe) window.history.replaceState(null, "", window.location.pathname);
   }, [load, notify]);
 
   const criteria = useMemo(() => {
@@ -542,7 +535,8 @@ function CloseSheet({
           <LinkBox label="Signing link" url={result.contractUrl} />
           {result.depositUrl && <LinkBox label={`Deposit${result.depositAmount ? ` · ${usd2(result.depositAmount)}` : ""}`} url={result.depositUrl} />}
           {result.planUrl && <LinkBox label={`Plan${result.planAmount ? ` · ${usd2(result.planAmount)} / month` : ""}`} url={result.planUrl} />}
-          {result.paymentLinkError && <p className="text-sm text-yellow-400">Payment links could not be created: {result.paymentLinkError}. Chase has been notified.</p>}
+          <p className="text-sm text-gray-400">The deposit invoice goes to the practice by email as soon as they sign. Its pay link then shows on this deal.</p>
+          {result.paymentLinkError && <p className="text-sm text-yellow-400">Invoices could not be prepared: {result.paymentLinkError}. Chase has been notified.</p>}
           <p className="text-xs text-gray-500">The balance link is sent by Blok Blok when the project is complete. Once the deposit lands, onboarding starts automatically.</p>
           <button onClick={onClose} className="w-full px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm">
             Done
@@ -775,18 +769,7 @@ function StatementTab({
 
       <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 text-sm space-y-2">
         <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Setup</p>
-        <p className={partner.connectOnboarded ? "text-green-400" : "text-yellow-400"}>{partner.connectOnboarded ? "Stripe payouts: connected" : "Stripe payouts: not set up yet"}</p>
-        <a
-          href={`/api/partner/${token}/connect`}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium"
-        >
-          {partner.connectOnboarded ? "Open Stripe dashboard" : "Set up Stripe payouts"}
-        </a>
-        <p className="text-xs text-gray-500">
-          {partner.connectOnboarded
-            ? "See your payouts and update your bank details in Stripe."
-            : "Takes about five minutes on Stripe: company details, a bank account for payouts, and an ID check. Commissions are transferred there."}
-        </p>
+        <PayoutForm token={token} payout={partner.payout} />
         <p className={partner.w9ReceivedAt ? "text-green-400" : "text-yellow-400"}>{partner.w9ReceivedAt ? "W-9: received" : "W-9: send Chase a completed W-9 before the first payout"}</p>
         <BillingForm token={token} billing={partner.billing} />
         {r && (
@@ -846,13 +829,64 @@ function StatementTab({
                   ) : (
                     <span className="text-[11px] text-gray-500">statement coming</span>
                   )}
-                  {p.stripeTransferId && <span className="font-mono text-[11px] text-gray-500 hidden sm:inline">{p.stripeTransferId}</span>}
+                  {(p.wiseTransferId || p.stripeTransferId) && <span className="font-mono text-[11px] text-gray-500 hidden sm:inline">{p.wiseTransferId || p.stripeTransferId}</span>}
                 </div>
               </div>
             ))}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PayoutForm({ token, payout }: { token: string; payout?: PortalData["partner"]["payout"] }) {
+  const [saved, setSaved] = useState(payout);
+  const [open, setOpen] = useState(!payout?.onFile);
+  const [form, setForm] = useState({ accountHolder: "", bankName: "", routingNumber: "", accountNumber: "", accountType: "checking", address: "" });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  async function save() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/partner/${token}/payout-details`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const r = await readJson<{ data: { last4: string } }>(res);
+      if (!r.ok || !r.data) throw new Error(r.error || "Could not save");
+      setSaved({ onFile: true, last4: r.data.data.last4, verified: false });
+      setForm({ ...form, routingNumber: "", accountNumber: "" });
+      setOpen(false);
+      setMsg("Saved. Chase will confirm them with you before the next payout.");
+    } catch (err) {
+      setMsg(friendlyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <p className={saved?.verified ? "text-green-400" : "text-yellow-400"}>
+          {!saved?.onFile ? "Payouts: add the US bank account commissions should go to" : saved.verified ? `Payouts: account ending ${saved.last4}, confirmed` : `Payouts: account ending ${saved.last4}, waiting for Chase to confirm`}
+        </p>
+        {saved?.onFile && <button onClick={() => setOpen((v) => !v)} className="text-xs text-orange-300 hover:underline">{open ? "Hide" : "Change"}</button>}
+      </div>
+      <p className="text-xs text-gray-500 mt-1">Commissions are paid by bank transfer through Wise. Your details are encrypted and are not shown here again. Changing them pauses payouts until Chase confirms with you.</p>
+      {open && (
+        <div className="grid sm:grid-cols-2 gap-2 mt-3">
+          <input className={inputClass} placeholder="Account holder (legal name)" value={form.accountHolder} onChange={(e) => setForm({ ...form, accountHolder: e.target.value })} />
+          <input className={inputClass} placeholder="Bank name" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} />
+          <input className={inputClass} inputMode="numeric" autoComplete="off" placeholder="Routing number (9 digits)" value={form.routingNumber} onChange={(e) => setForm({ ...form, routingNumber: e.target.value })} />
+          <input className={inputClass} inputMode="numeric" autoComplete="off" placeholder="Account number" value={form.accountNumber} onChange={(e) => setForm({ ...form, accountNumber: e.target.value })} />
+          <select className={inputClass} value={form.accountType} onChange={(e) => setForm({ ...form, accountType: e.target.value })}>
+            <option value="checking">Checking</option>
+            <option value="savings">Savings</option>
+          </select>
+          <input className={inputClass} placeholder="Account holder's address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          <button onClick={save} disabled={busy} className="sm:col-span-2 px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium disabled:opacity-50">{busy ? "Saving…" : "Save payout details"}</button>
+        </div>
+      )}
+      {msg && <p className="text-xs text-gray-400 mt-2">{msg}</p>}
     </div>
   );
 }

@@ -108,138 +108,36 @@ export async function sendContract(
         // $0 contract — skip payment, auto-confirm and send contract signing link directly
         await onPaymentConfirmed(client.id);
       } else if (oneTimeTotal > 0 || recurringTotal > 0) {
-        const currency = getCurrencyForCountry(params.country);
-        const currencyConfig = CURRENCY_CONFIG[currency];
-        let latestStripeCustomerId = client.stripeCustomerId;
-
-        for (const milestone of schedule) {
-          const milestoneAmount = Math.round(((oneTimeTotal * milestone.percent) / 100) * 100) / 100;
-          if (milestoneAmount <= 0) continue;
-
-          const milestoneLabel =
-            milestone.label === "deposit" ? "Deposit" : milestone.label === "milestone" ? "Milestone" : "Completion";
-          const description = `${milestoneLabel} (${milestone.percent}%) — ${client.name}`;
-
-          const result = await createCheckoutSession({
+        // Bank transfer: draft invoices + paused plans now, issued when the client signs
+        const { prepareContractBilling } = await import("@/lib/invoicing/contract-billing");
+        const prepared = await prepareContractBilling(
+          {
+            contractId: contract.id,
             clientId: client.id,
             clientName: client.name,
-            clientEmail: client.email,
-            stripeCustomerId: latestStripeCustomerId,
-            amount: milestoneAmount,
-            description,
-            currency,
             country: params.country,
-            contractId: contract.id,
-            milestone: milestone.label,
-          });
-
-          latestStripeCustomerId = result.stripeCustomerId;
-
-          paymentLinksCreated.push({ milestone: milestone.label, url: result.url, amount: milestoneAmount });
-
-          await prisma.activityLog.create({
-            data: {
-              clientId: client.id,
-              actor: "chase",
-              action: "payment_link_created",
-              details: `${milestoneLabel} payment link created: ${currencyConfig.symbol}${milestoneAmount.toLocaleString()} (${milestone.percent}%) for contract`,
-            },
-          });
-        }
-
-        // Recurring subscription checkout sessions
-        for (const item of recurringItems) {
-          if (item.price <= 0) continue;
-
-          const result = await createCheckoutSession({
-            clientId: client.id,
-            clientName: client.name,
-            clientEmail: client.email,
-            stripeCustomerId: latestStripeCustomerId,
-            amount: item.price,
-            description: `${item.name} (monthly) — ${client.name}`,
-            currency,
-            country: params.country,
-            contractId: contract.id,
-            recurring: true,
-            interval: "month",
-          });
-
-          latestStripeCustomerId = result.stripeCustomerId;
-
-          paymentLinksCreated.push({ milestone: "subscription", url: result.url, amount: item.price });
-
-          await prisma.activityLog.create({
-            data: {
-              clientId: client.id,
-              actor: "chase",
-              action: "payment_link_created",
-              details: `Subscription link created: ${currencyConfig.symbol}${item.price.toLocaleString()}/mo for ${item.name}`,
-            },
-          });
-        }
-
-        // Auto-send first payment link via email (deposit or full payment)
-        const firstLink = paymentLinksCreated[0];
-        if (firstLink && client.email) {
-          const amountFormatted = new Intl.NumberFormat("en-US", {
-            style: "currency",
-            currency: currency.toUpperCase(),
-          }).format(firstLink.amount);
-
-          const isFullPayment = schedule.length === 1 && schedule[0].percent === 100;
-          try {
-            const emailResult = await sendPaymentLinkEmail({
-              to: client.email,
-              clientName: client.name,
-              amount: amountFormatted,
-              description: isFullPayment ? `Payment — ${client.name}` : `Deposit — ${client.name}`,
-              paymentUrl: firstLink.url,
-              recurring: false,
-              interval: null,
-            });
-            if (emailResult) {
-              await prisma.activityLog.create({
-                data: {
-                  clientId: client.id,
-                  actor: "agent",
-                  action: "payment_email_sent",
-                  details: `Payment link email sent to ${client.email} for ${amountFormatted}`,
-                },
-              });
-            } else {
-              console.warn("[Email] Payment link email returned null (RESEND_API_KEY missing?)");
-              await prisma.activityLog.create({
-                data: {
-                  clientId: client.id,
-                  actor: "agent",
-                  action: "pipeline_error",
-                  details: `Payment link email skipped — email service not configured`,
-                },
-              });
-            }
-          } catch (emailErr) {
-            console.error("[Email] Payment link email error:", emailErr);
-            await prisma.activityLog.create({
-              data: {
-                clientId: client.id,
-                actor: "agent",
-                action: "pipeline_error",
-                details: `Payment link email failed: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`,
-              },
-            });
-          }
-        }
+            currency: getCurrencyForCountry(params.country).toUpperCase(),
+            milestones: schedule.map((m) => ({
+              label: m.label,
+              title: m.label === "deposit" ? "Deposit" : m.label === "milestone" ? "Milestone" : "Completion",
+              percent: m.percent,
+              amount: Math.round(((oneTimeTotal * m.percent) / 100) * 100) / 100,
+            })),
+            recurring: recurringItems,
+          },
+          sender?.sentBy || "contract"
+        );
+        paymentLinksCreated.push(...prepared);
       }
     } catch (err) {
-      console.error("[Contract] Failed to create payment links:", err);
-      paymentLinkError = err instanceof Error ? err.message : "Failed to create payment links";
+      console.error("[Contract] Failed to prepare invoices:", err);
+      paymentLinkError = err instanceof Error ? err.message : "Failed to prepare invoices";
       await prisma.activityLog.create({
         data: {
           clientId: client.id,
           actor: "agent",
           action: "pipeline_error",
-          details: `Contract created but payment links failed: ${paymentLinkError}`,
+          details: `Contract created but invoices failed: ${paymentLinkError}`,
         },
       });
     }

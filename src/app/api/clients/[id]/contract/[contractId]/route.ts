@@ -74,6 +74,8 @@ export async function DELETE(
       );
     }
 
+    const { cancelContractBilling } = await import("@/lib/invoicing/contract-billing");
+    await cancelContractBilling([contractId]);
     await prisma.contractSignature.delete({ where: { id: contractId } });
 
     await prisma.activityLog.create({

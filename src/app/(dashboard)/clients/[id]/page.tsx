@@ -366,9 +366,9 @@ export default function ClientDetailPage() {
           });
           toast("Draft contract created. Review it, then send to the client.", "success");
         } else if (data.data?.paymentLinkError) {
-          toast(`Contract created, but payment links failed: ${data.data.paymentLinkError}`, "error");
+          toast(`Contract created, but invoices failed: ${data.data.paymentLinkError}`, "error");
         } else if (data.data?.paymentLinks?.length > 0) {
-          toast(`Contract generated with ${data.data.paymentLinks.length} payment link(s). Deposit link sent to client.`, "success");
+          toast(`Contract sent. ${data.data.paymentLinks.length} invoice(s) or plan(s) prepared; the deposit invoice goes out when the client signs.`, "success");
         } else {
           toast("Contract generated and sent to client for signing.", "success");
         }
@@ -409,9 +409,9 @@ export default function ClientDetailPage() {
         setReviewContract(null);
         fetchClient();
         if (data.data?.paymentLinkError) {
-          toast(`Contract sent, but payment links failed: ${data.data.paymentLinkError}`, "error");
+          toast(`Contract sent, but invoices failed: ${data.data.paymentLinkError}`, "error");
         } else if (data.data?.paymentLinks?.length > 0) {
-          toast(`Contract sent with ${data.data.paymentLinks.length} payment link(s). Deposit link emailed to client.`, "success");
+          toast(`Contract sent. ${data.data.paymentLinks.length} invoice(s) or plan(s) prepared; the deposit invoice goes out when the client signs.`, "success");
         } else {
           toast("Contract sent to client for signing.", "success");
         }

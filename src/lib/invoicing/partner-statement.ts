@@ -65,6 +65,7 @@ export interface StatementView {
   vatNotes: string[];
   total: number; // net + vatAmount: what was / is owed to the partner
   stripeTransferId: string | null;
+  wiseTransferId: string | null;
   contentHash: string | null;
   createdAt: string;
 }
@@ -125,7 +126,7 @@ export function statementNumber(year: number, sequence: number): string {
   return `BBS-PS-${year}-${String(sequence).padStart(3, "0")}`;
 }
 
-function contentHash(row: { number: string; issueDate: Date; currency: string; partnerSnapshot: unknown; sellerSnapshot: unknown; lines: unknown; gross: unknown; clawbacks: unknown; net: unknown; vatRate: unknown; vatAmount: unknown; stripeTransferId: string | null }): string {
+function contentHash(row: { number: string; issueDate: Date; currency: string; partnerSnapshot: unknown; sellerSnapshot: unknown; lines: unknown; gross: unknown; clawbacks: unknown; net: unknown; vatRate: unknown; vatAmount: unknown; stripeTransferId: string | null; wiseTransferId: string | null }): string {
   return createHash("sha256")
     .update(
       JSON.stringify({
@@ -140,7 +141,7 @@ function contentHash(row: { number: string; issueDate: Date; currency: string; p
         net: Number(row.net),
         vatRate: Number(row.vatRate),
         vatAmount: Number(row.vatAmount),
-        transfer: row.stripeTransferId,
+        transfer: row.stripeTransferId ?? row.wiseTransferId, // old statements keep their hash
       })
     )
     .digest("hex");
@@ -223,6 +224,7 @@ export async function createStatementForPayout(payoutId: string, actor: string):
       vatAmount,
       vatNote: vat.notes.join("\n"),
       stripeTransferId: payout.stripeTransferId,
+      wiseTransferId: payout.wiseTransferId,
       createdBy: actor,
     };
     const created = await tx.partnerStatement.create({ data });
@@ -269,6 +271,7 @@ export function buildStatementView(row: PartnerStatement): StatementView {
     vatNotes: (row.vatNote || "").split("\n").filter(Boolean),
     total: round2(net + vatAmount),
     stripeTransferId: row.stripeTransferId,
+    wiseTransferId: row.wiseTransferId,
     contentHash: row.contentHash,
     createdAt: row.createdAt.toISOString(),
   };
@@ -390,6 +393,7 @@ export async function renderStatementPdf(v: StatementView): Promise<Uint8Array> 
   ];
   if (v.periodFrom) meta.push(["Commissions earned", v.periodFrom === v.periodTo || !v.periodTo ? dateEn(v.periodFrom) : `${dateEn(v.periodFrom)} - ${dateEn(v.periodTo)}`]);
   if (v.stripeTransferId) meta.push(["Paid by Stripe transfer", v.stripeTransferId]);
+  if (v.wiseTransferId) meta.push(["Paid by Wise transfer", v.wiseTransferId]);
   for (const [k, val] of meta) {
     text(k, colRightX, ry, 8, font, MUTED);
     textRight(val, PAGE_W - M, ry, 8.5, bold, INK);
@@ -476,7 +480,9 @@ export async function renderStatementPdf(v: StatementView): Promise<Uint8Array> 
   text("SETTLEMENT", M + 14, y - 18, 7.5, bold, BLACK);
   const settle = v.stripeTransferId
     ? `Paid in full on ${dateEn(v.issueDate)} by Stripe Connect transfer ${v.stripeTransferId} to the partner's connected account. No payment is due from either side.`
-    : `Paid on ${dateEn(v.issueDate)}. No payment is due from either side.`;
+    : v.wiseTransferId
+      ? `Paid in full on ${dateEn(v.issueDate)} by Wise transfer ${v.wiseTransferId} to the partner's bank account. No payment is due from either side.`
+      : `Paid on ${dateEn(v.issueDate)}. No payment is due from either side.`;
   wrap(settle, 8.5, font, CW - 28).forEach((l, i) => text(l, M + 14, y - 33 - i * 11, 8.5, font, INK));
   y -= ph + 16;
   for (const l of wrap("This statement is issued by Blok Blok Studio LLC on behalf of the partner under the self-billing clause of the Sales Partnership Agreement. It is accepted unless the partner objects in writing within 14 days. Keep it with your records; it is the invoice for the commission it lists.", 7.5, font, CW)) {

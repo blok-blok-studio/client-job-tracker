@@ -187,9 +187,13 @@ export async function onPaymentConfirmed(clientId: string) {
       orderBy: { paidAt: "desc" },
       select: { contractId: true },
     });
-    if (paymentLink?.contractId) {
+    const paidInvoice = paymentLink?.contractId
+      ? null
+      : await prisma.studioInvoice.findFirst({ where: { clientId, status: "PAID", contractId: { not: null } }, orderBy: { paidAt: "desc" }, select: { contractId: true } });
+    const paidContractId = paymentLink?.contractId || paidInvoice?.contractId;
+    if (paidContractId) {
       const { generateTasksFromContract } = await import("./task-generation");
-      const count = await generateTasksFromContract(clientId, paymentLink.contractId);
+      const count = await generateTasksFromContract(clientId, paidContractId);
       if (count > 0) {
         console.log(`[Pipeline] Auto-generated ${count} task(s) for client ${clientId}`);
       }
@@ -280,6 +284,15 @@ export async function onContractSigned(
     // Send contract-signed emails (to client + Chase)
     if (signingDetails) {
       await sendContractSignedEmails(clientId, signingDetails);
+    }
+
+    // Bank billing: issue + email the deposit invoice, start monthly plans
+    if (signingDetails?.token) {
+      const signed = await prisma.contractSignature.findUnique({ where: { token: signingDetails.token }, select: { id: true } });
+      if (signed) {
+        const { activateContractBilling } = await import("@/lib/invoicing/contract-billing");
+        await activateContractBilling(signed.id).catch((err) => console.error("[Pipeline] Contract billing failed:", err));
+      }
     }
 
     // Check if both payment + contract are done → send onboarding if so

@@ -193,10 +193,10 @@ export async function renderPartnerKit(partnerId: string): Promise<Uint8Array> {
   gap(8);
   h1("How clients pay");
   bullet("Websites and brand guides: 50% deposit when the agreement is signed, 50% when the project is complete. Work starts when the deposit lands.");
-  bullet("Plans: billed monthly by card or bank debit through Stripe. Base and Growth are month to month with 30 days notice. Premium has a 12-month term.");
+  bullet("Plans: invoiced monthly and paid by bank transfer. Base and Growth are month to month with 30 days notice. Premium has a 12-month term.");
   bullet("A plan usually starts when the site goes live; it can also be sold on its own to a practice that keeps its current site.");
   bullet("Third-party usage (telephony, SMS, AI minutes, ad spend, domains) is billed to the client's own accounts, never bundled into our fee. The client owns those accounts.");
-  bullet("All payments go to Blok Blok Studio LLC through Stripe. Reps never take payment.");
+  bullet("All payments go to Blok Blok Studio LLC by bank transfer against our invoice. Reps never take payment.");
 
   // ── Inclusions ─────────────────────────────────────────────────────────
   newPage();
@@ -251,10 +251,10 @@ export async function renderPartnerKit(partnerId: string): Promise<Uint8Array> {
   text("Approved closers skip this step: you run the call on your own calendar and generate the contract from the portal when the practice says yes.", 10, font, BODY, M, CW, 15);
   gap(8);
   h2("3. Approved closers: generate the agreement on the call");
-  text("Reps that Blok Blok has approved as closers see a Generate contract button on each practice. Pick the website size, add the brand guide and a plan if they want them, and press generate. The portal creates Blok Blok's standard Service Agreement and the Stripe deposit link, emails both to the practice, and shows you the links to paste into the call. Nothing in the agreement can be edited or discounted; if a practice needs something different, book Chase.", 10, font, BODY, M, CW, 15);
+  text("Reps that Blok Blok has approved as closers see a Generate contract button on each practice. Pick the website size, add the brand guide and a plan if they want them, and press generate. The portal creates Blok Blok's standard Service Agreement, emails it to the practice and shows you the signing link to paste into the call. The deposit invoice goes out automatically when the practice signs. Nothing in the agreement can be edited or discounted; if a practice needs something different, book Chase.", 10, font, BODY, M, CW, 15);
   gap(8);
   h2("4. What happens next");
-  bullet("The practice signs the agreement online and pays the deposit by card or bank. Both show up in your portal as they happen.");
+  bullet("The practice signs the agreement online, receives the deposit invoice by email and pays by bank transfer. Both show up in your portal as they happen.");
   bullet("Blok Blok sends the onboarding link, collects content and starts the build. You do not need to chase anything after the deposit.");
   bullet("If a practice goes quiet, tell your team lead. Blok Blok follows up with the practice directly.");
   gap(14);
@@ -262,7 +262,7 @@ export async function renderPartnerKit(partnerId: string): Promise<Uint8Array> {
   bullet("Quote only the prices and inclusions in this kit. No discounts, no custom scopes, no promises about rankings, patient volume or dates.");
   bullet("Be clear that the call and the agreement are with Blok Blok Studio, a web design studio.");
   bullet("Follow calling, texting and emailing rules: honor do-not-call requests immediately and keep a record. Never ask for or store patient information.");
-  bullet("Never take payment or bank details from a practice. Payment is always through the Stripe link Blok Blok issues.");
+  bullet("Never take payment or bank details from a practice. Payment is always by bank transfer against the invoice Blok Blok issues.");
 
   // ── Objections + contact ───────────────────────────────────────────────
   newPage();

@@ -82,14 +82,13 @@ interface Partner {
   rates: Rates;
   w9ReceivedAt: string | null;
   w9DocStatus: string | null;
-  stripeConnectAccountId: string | null;
-  connectOnboarded: boolean;
+  payout?: { onFile: boolean; last4: string | null; updatedAt: string | null; verifiedAt: string | null };
   contractorId: string | null;
   agreements: Array<{ id: string; status: string; title: string; signedAt: string | null; createdAt: string; token: string }>;
   reps: Rep[];
   deals: Deal[];
   totals: { payable: number; paid: number; lifetime: number };
-  payouts: Array<{ id: string; amount: number; stripeTransferId: string | null; note: string | null; createdAt: string; createdBy: string | null; items: number }>;
+  payouts: Array<{ id: string; amount: number; stripeTransferId: string | null; wiseTransferId?: string | null; note: string | null; createdAt: string; createdBy: string | null; items: number }>;
   statements?: Array<{ id: string; number: string; payoutId: string; issueDate: string; net: number; vatAmount: number; currency: string }>;
   signer: { name: string; hasSignature: boolean };
 }
@@ -208,37 +207,12 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  async function connectStripe() {
-    setBusy("connect");
+  async function confirmPayoutDetails() {
+    setBusy("verify");
     try {
-      const res = await fetch(`/api/partners/${id}/connect`, { method: "POST" });
-      const r = await readJson<{ data: { url: string } }>(res);
-      if (!r.ok || !r.data) throw new Error(r.error || "Could not start Stripe onboarding");
-      await copy(r.data.data.url, "connect");
-      toast("Onboarding link copied. Send it to the partner; it expires in a few minutes, so make a new one if needed.", "success");
-      await load();
-    } catch (err) {
-      toast(friendlyError(err), "error");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function refreshStripe() {
-    setBusy("refresh");
-    try {
-      const res = await fetch(`/api/partners/${id}/connect`);
-      const r = await readJson<{ data: { onboarded: boolean; detailsSubmitted: boolean; payoutsEnabled: boolean; requirementsDue: string[] } }>(res);
-      if (!r.ok || !r.data) throw new Error(r.error || "Could not read Stripe status");
-      const s = r.data.data;
-      toast(
-        s.onboarded
-          ? "Stripe: connected and payouts enabled"
-          : s.detailsSubmitted
-          ? `Stripe: details submitted, verification pending${s.requirementsDue.length ? ` (${s.requirementsDue.join(", ")})` : ""}`
-          : "Stripe: onboarding not completed yet",
-        s.onboarded ? "success" : "info"
-      );
+      const r = await readJson(await fetch(`/api/partners/${id}/payout-details`, { method: "POST" }));
+      if (!r.ok) throw new Error(r.error || "Could not confirm");
+      toast("Bank details confirmed", "success");
       await load();
     } catch (err) {
       toast(friendlyError(err), "error");
@@ -293,21 +267,16 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
             <p className="text-xs text-bb-dim mt-2">Uses the Sales Partnership template with this partner&apos;s rates. You review, sign and send it from Contractors.</p>
           </Card>
 
-          <Card title="Stripe Connect">
-            <p className={cn("text-sm", partner.connectOnboarded ? "text-green-400" : "text-yellow-400")}>
-              {partner.connectOnboarded ? "Connected, payouts enabled" : partner.stripeConnectAccountId ? "Account created, onboarding incomplete" : "Not connected"}
+          <Card title="Payouts (Wise)">
+            <p className={cn("text-sm", partner.payout?.verifiedAt ? "text-green-400" : "text-yellow-400")}>
+              {!partner.payout?.onFile ? "Waiting for the partner to enter bank details in the portal" : partner.payout.verifiedAt ? `Account ending ${partner.payout.last4}, confirmed ${fmtDate(partner.payout.verifiedAt)}` : `Account ending ${partner.payout.last4}, not confirmed yet`}
             </p>
-            <div className="flex flex-wrap gap-2 mt-3">
-              <ActionButton onClick={connectStripe} loading={busy === "connect"} icon={copied === "connect" ? Check : Send}>
-                {partner.stripeConnectAccountId ? "New onboarding link" : "Connect partner"}
-              </ActionButton>
-              {partner.stripeConnectAccountId && (
-                <ActionButton onClick={refreshStripe} loading={busy === "refresh"} icon={RefreshCw} subtle>
-                  Refresh status
-                </ActionButton>
-              )}
-            </div>
-            <p className="text-xs text-bb-dim mt-2">The partner completes Stripe&apos;s hosted onboarding (bank details, ID). Commissions transfer to that account.</p>
+            {partner.payout?.onFile && !partner.payout.verifiedAt && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                <ActionButton onClick={confirmPayoutDetails} loading={busy === "verify"} icon={Check}>I confirmed these with the partner</ActionButton>
+              </div>
+            )}
+            <p className="text-xs text-bb-dim mt-2">Check new or changed details with the partner by phone before paying. Payouts stay blocked until you do.</p>
           </Card>
 
           <Card title="Paperwork + kit">
@@ -594,6 +563,8 @@ function CommissionsTab({
   const { toast } = useToast();
   const [filter, setFilter] = useState<"PAYABLE" | "PAID" | "ALL">("PAYABLE");
   const [preview, setPreview] = useState<{ gross: number; clawbacks: number; net: number; rows: Array<{ id: string }> } | null>(null);
+  const [bank, setBank] = useState<Record<string, string> | null>(null);
+  const [wiseId, setWiseId] = useState("");
   const [confirmPay, setConfirmPay] = useState(false);
   const [paying, setPaying] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
@@ -606,6 +577,9 @@ function CommissionsTab({
     const res = await fetch(`/api/partners/${partnerId}/pay`);
     const r = await readJson<{ data: { gross: number; clawbacks: number; net: number; rows: Array<{ id: string }> } }>(res);
     if (!r.ok || !r.data) return toast(r.error || "Could not preview the payout", "error");
+    const b = await readJson<{ data: Record<string, string> | null }>(await fetch(`/api/partners/${partnerId}/payout-details`));
+    setBank(b.ok && b.data ? b.data.data : null);
+    setWiseId("");
     setPreview(r.data.data);
     setConfirmPay(true);
   }
@@ -613,10 +587,10 @@ function CommissionsTab({
   async function pay() {
     setPaying(true);
     try {
-      const res = await fetch(`/api/partners/${partnerId}/pay`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-      const r = await readJson<{ data: { amount: number; items: number; transferId: string } }>(res);
-      if (!r.ok || !r.data) throw new Error(r.error || "Payout failed");
-      toast(`Sent ${usd(r.data.data.amount)} (${r.data.data.items} items), transfer ${r.data.data.transferId}`, "success");
+      const res = await fetch(`/api/partners/${partnerId}/pay`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wiseTransferId: wiseId, expectedNet: preview?.net }) });
+      const r = await readJson<{ data: { amount: number; items: number; statementNumber: string | null } }>(res);
+      if (!r.ok || !r.data) throw new Error(r.error || "Could not record the payout");
+      toast(`Recorded ${usd(r.data.data.amount)} (${r.data.data.items} items)${r.data.data.statementNumber ? `, statement ${r.data.data.statementNumber}` : ""}`, "success");
       setConfirmPay(false);
       await onChanged();
     } catch (err) {
@@ -672,7 +646,7 @@ function CommissionsTab({
             disabled={partner.totals.payable <= 0}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bb-orange hover:bg-bb-orange-light disabled:opacity-50 text-sm text-white"
           >
-            <Send size={14} /> Pay {usd(partner.totals.payable)} via Stripe
+            <Send size={14} /> Pay {usd(partner.totals.payable)} via Wise
           </button>
         </div>
       </div>
@@ -761,7 +735,7 @@ function CommissionsTab({
                       <span className="text-xs text-yellow-400">no statement</span>
                     );
                   })()}
-                  {p.stripeTransferId && <span className="font-mono text-xs text-bb-muted">{p.stripeTransferId}</span>}
+                  {(p.wiseTransferId || p.stripeTransferId) && <span className="font-mono text-xs text-bb-muted">{p.wiseTransferId || p.stripeTransferId}</span>}
                 </div>
               </div>
             ))}
@@ -784,22 +758,34 @@ function CommissionsTab({
         </div>
       )}
 
-      <ConfirmDialog
-        open={confirmPay}
-        onClose={() => setConfirmPay(false)}
-        onConfirm={pay}
-        loading={paying}
-        confirmVariant="default"
-        confirmLabel={preview ? `Send ${usd(preview.net)}` : "Send"}
-        title="Send this payout through Stripe Connect?"
-        message={
-          preview
-            ? `${preview.rows.length} payable item${preview.rows.length === 1 ? "" : "s"}: ${usd(preview.gross)} in commission${
-                preview.clawbacks < 0 ? ` less ${usd(Math.abs(preview.clawbacks))} in clawbacks` : ""
-              } = ${usd(preview.net)} net. One transfer goes to ${partner.name}'s Stripe account and every item is marked paid.`
-            : ""
-        }
-      />
+      <Modal open={confirmPay} onClose={() => setConfirmPay(false)} title="Pay in Wise, then record it">
+        {preview && (
+          <div className="space-y-3 text-sm">
+            <p className="text-bb-muted">
+              {preview.rows.length} payable item{preview.rows.length === 1 ? "" : "s"}: {usd(preview.gross)} in commission{preview.clawbacks < 0 ? ` less ${usd(Math.abs(preview.clawbacks))} in clawbacks` : ""}.
+            </p>
+            <p className="text-2xl font-display font-bold text-white">{usd(preview.net)}</p>
+            {bank ? (
+              <div className="rounded-lg border border-bb-border p-3 space-y-1">
+                {[["Account holder", bank.accountHolder], ["Bank", bank.bankName], ["Routing", bank.routingNumber], ["Account", bank.accountNumber], ["Type", bank.accountType], ["Address", bank.address]].map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-3"><span className="text-bb-dim">{k}</span><span className="text-white text-right break-all">{v}</span></div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-yellow-400">No bank details on file yet.</p>
+            )}
+            <ol className="text-xs text-bb-dim list-decimal pl-4 space-y-0.5">
+              <li>Send exactly this amount in USD from Wise to this account.</li>
+              <li>Paste the Wise transfer ID below. That marks the items paid and issues the statement.</li>
+            </ol>
+            <input value={wiseId} onChange={(e) => setWiseId(e.target.value)} placeholder="Wise transfer ID" className={inputClass} />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmPay(false)} className="px-3 py-2 rounded-lg text-sm text-bb-muted hover:text-white">Cancel</button>
+              <button onClick={pay} disabled={paying || wiseId.trim().length < 4} className="px-4 py-2 rounded-lg bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold disabled:opacity-50">{paying ? "Recording…" : "Record payout"}</button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <ConfirmDialog
         open={!!voidRow}

@@ -53,6 +53,7 @@ export async function GET(
       email: partner.email,
       phone: partner.phone,
       country: partner.country,
+      payout: { onFile: !!partner.payoutVault, last4: partner.payoutLast4, updatedAt: partner.payoutDetailsUpdatedAt, verifiedAt: partner.payoutDetailsVerifiedAt },
       billingAddress: partner.billingAddress,
       taxId: partner.taxId,
       chargesVat: partner.chargesVat,

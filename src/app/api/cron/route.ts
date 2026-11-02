@@ -78,6 +78,8 @@ export async function GET(request: NextRequest) {
         where: { id: { in: expiredContracts.map((c) => c.id) } },
         data: { status: "EXPIRED" },
       });
+      const { cancelContractBilling } = await import("@/lib/invoicing/contract-billing");
+      await cancelContractBilling(expiredContracts.map((c) => c.id)).catch((err) => console.error("[Cron] Contract billing cleanup error:", err));
 
       await prisma.activityLog.createMany({
         data: expiredContracts.map((c) => ({

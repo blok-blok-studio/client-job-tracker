@@ -2,9 +2,11 @@ import type Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { notifySlack } from "@/lib/slack";
+import { encrypt, decrypt } from "@/lib/encryption";
 
 /**
- * Paying a sales partner through Stripe Connect.
+ * Paying a sales partner. New payouts go through Wise (recordWisePayout below).
+ * The Connect helpers remain only until the Stripe code is removed.
  *
  * The partner onboards as a Connect Express account (Stripe collects their
  * KYC and bank details; we never hold them). A payout run nets every PAYABLE
@@ -147,85 +149,70 @@ export async function previewPayout(partnerId: string): Promise<PayoutPreview> {
   };
 }
 
+export interface PayoutDetails {
+  accountHolder: string;
+  bankName: string;
+  routingNumber: string;
+  accountNumber: string;
+  accountType: "checking" | "savings";
+  address: string;
+}
+
+export function readPayoutDetails(vault: string | null): PayoutDetails | null {
+  if (!vault) return null;
+  const v = JSON.parse(vault) as { encrypted: string; iv: string };
+  return JSON.parse(decrypt(v.encrypted, v.iv)) as PayoutDetails;
+}
+
+/** Partner admin saves bank details. Any change needs the owner's confirmation before money can move. */
+export async function savePayoutDetails(partnerId: string, details: PayoutDetails, actor: string) {
+  const { encrypted, iv } = encrypt(JSON.stringify(details));
+  await prisma.partner.update({
+    where: { id: partnerId },
+    data: { payoutVault: JSON.stringify({ encrypted, iv }), payoutLast4: details.accountNumber.slice(-4), payoutDetailsUpdatedAt: new Date(), payoutDetailsVerifiedAt: null },
+  });
+  await prisma.activityLog.create({ data: { actor, action: "partner_payout_details_changed", details: `Payout bank details changed, ending ${details.accountNumber.slice(-4)}. Confirm before the next payout.` } }).catch(() => {});
+  await notifySlack(`:warning: A partner changed their payout bank details. Confirm with them directly before the next payout.\n${APP_URL}/partners/${partnerId}`).catch(() => {});
+}
+
 /**
- * Net every PAYABLE row and transfer the result. If the net is zero or
- * negative nothing is sent and the rows stay open: the clawback carries
- * forward until future commissions cover it.
+ * The owner sends the payment in Wise, then records it here. This nets every
+ * PAYABLE row into one payout, stamps them with the Wise transfer ID and issues
+ * the commission statement. If the net is zero or negative nothing can be
+ * recorded: the clawback carries forward until commissions cover it.
  */
-export async function runPayout(partnerId: string, by: string, note?: string) {
+export async function recordWisePayout(partnerId: string, by: string, input: { wiseTransferId: string; expectedNet: number; note?: string }) {
   const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
   if (!partner) throw new PayoutError("Partner not found", 404);
-  if (!partner.stripeConnectAccountId) throw new PayoutError("Partner has not been connected to Stripe yet");
-
-  const status = await refreshConnectStatus(partnerId);
-  if (!status.onboarded) {
-    throw new PayoutError(
-      status.detailsSubmitted
-        ? "Stripe has not enabled payouts for this partner yet (verification pending)."
-        : "The partner has not finished Stripe onboarding."
-    );
-  }
+  if (!partner.payoutVault) throw new PayoutError("The partner has not entered payout bank details yet.");
+  if (!partner.payoutDetailsVerifiedAt) throw new PayoutError("Confirm the partner's bank details first. They are new or have changed.");
+  if (!partner.w9ReceivedAt) throw new PayoutError("The W-9 is required before the first payout.");
+  const dup = await prisma.commissionPayout.findFirst({ where: { wiseTransferId: input.wiseTransferId }, select: { id: true } });
+  if (dup) throw new PayoutError("That Wise transfer is already recorded.", 409);
 
   const preview = await previewPayout(partnerId);
   if (preview.rows.length === 0) throw new PayoutError("Nothing is payable right now");
   if (preview.net <= 0) {
-    throw new PayoutError(
-      `Net payable is $${preview.net.toFixed(2)}: clawbacks exceed commissions, so nothing is sent. The balance carries forward.`
-    );
+    throw new PayoutError(`Net payable is $${preview.net.toFixed(2)}: clawbacks exceed commissions, so nothing is due. The balance carries forward.`);
+  }
+  // Commission may have landed while the owner was in Wise: the amount sent must still be the amount due
+  if (Math.abs(preview.net - input.expectedNet) > 0.005) {
+    throw new PayoutError(`The payable amount changed to $${preview.net.toFixed(2)} while this was open. Reopen it and check what you sent.`, 409);
   }
 
-  const amountCents = Math.round(preview.net * 100);
-  const stripe = getStripe();
-
-  // Create the payout record first so the transfer carries our ID, then stamp
-  // the rows. If the transfer fails the record is removed and nothing changes.
-  const payout = await prisma.commissionPayout.create({
-    data: {
-      partnerId,
-      amount: preview.net,
-      currency: "usd",
-      note: note || null,
-      createdBy: by,
-    },
+  const payout = await prisma.$transaction(async (tx) => {
+    const created = await tx.commissionPayout.create({
+      data: { partnerId, amount: preview.net, currency: "usd", wiseTransferId: input.wiseTransferId, note: input.note || null, createdBy: by },
+    });
+    await tx.commission.updateMany({
+      where: { id: { in: preview.rows.map((r) => r.id) }, status: "PAYABLE" },
+      data: { status: "PAID", paidAt: new Date(), payoutId: created.id },
+    });
+    return created;
   });
 
-  let transfer: Stripe.Transfer;
-  try {
-    transfer = await stripe.transfers.create(
-      {
-        amount: amountCents,
-        currency: "usd",
-        destination: partner.stripeConnectAccountId,
-        description: `Blok Blok Studio commissions — ${preview.rows.length} item${preview.rows.length === 1 ? "" : "s"}`,
-        transfer_group: payout.id,
-        metadata: {
-          partnerId,
-          payoutId: payout.id,
-          commissionIds: preview.rows.map((r) => r.id).join(",").slice(0, 490),
-        },
-      },
-      { idempotencyKey: `payout_${payout.id}` }
-    );
-  } catch (err) {
-    await prisma.commissionPayout.delete({ where: { id: payout.id } }).catch(() => {});
-    const msg = err instanceof Error ? err.message : "Stripe transfer failed";
-    throw new PayoutError(`Stripe transfer failed: ${msg}`, 502);
-  }
-
-  await prisma.$transaction([
-    prisma.commissionPayout.update({
-      where: { id: payout.id },
-      data: { stripeTransferId: transfer.id },
-    }),
-    prisma.commission.updateMany({
-      where: { id: { in: preview.rows.map((r) => r.id) }, status: "PAYABLE" },
-      data: { status: "PAID", paidAt: new Date(), payoutId: payout.id },
-    }),
-  ]);
-
-  // The agreement promises a statement with every payout: issue the
-  // self-billing credit note now (best effort; "Generate missing statements"
-  // on the partner page catches any that fail here)
+  // The agreement promises a statement with every payout. Best effort here;
+  // "Generate missing statements" on the partner page catches any that fail.
   let statementNumber: string | null = null;
   try {
     const { createStatementForPayout } = await import("@/lib/invoicing/partner-statement");
@@ -233,18 +220,7 @@ export async function runPayout(partnerId: string, by: string, note?: string) {
   } catch (err) {
     console.error("[partner-payout] statement not issued:", err instanceof Error ? err.message : err);
   }
-
-  await prisma.activityLog.create({
-    data: {
-      actor: by,
-      action: "partner_payout_sent",
-      details: `Commission payout sent to ${partner.name}: ${preview.rows.length} items, Stripe transfer ${transfer.id}`,
-    },
-  }).catch(() => {});
-
-  await notifySlack(
-    `:money_with_wings: *Partner payout sent* to *${partner.name}* (${preview.rows.length} items).\n${APP_URL}/partners/${partner.id}`
-  ).catch(() => {});
-
-  return { payoutId: payout.id, transferId: transfer.id, amount: preview.net, items: preview.rows.length, statementNumber };
+  await prisma.activityLog.create({ data: { actor: by, action: "partner_payout_sent", details: `Commission payout recorded for ${partner.name}: ${preview.rows.length} items, Wise transfer ${input.wiseTransferId}` } }).catch(() => {});
+  await notifySlack(`:money_with_wings: *Partner payout recorded* for *${partner.name}* (${preview.rows.length} items).\n${APP_URL}/partners/${partner.id}`).catch(() => {});
+  return { payoutId: payout.id, amount: preview.net, items: preview.rows.length, statementNumber };
 }

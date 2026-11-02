@@ -1,46 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getSession } from "@/lib/auth";
-import { previewPayout, runPayout, PayoutError } from "@/lib/partner-payout";
+import { requireOwner } from "@/app/api/studio-invoices/_shared";
+import { previewPayout, recordWisePayout, PayoutError } from "@/lib/partner-payout";
 
-export const maxDuration = 120;
+export const maxDuration = 60;
 
-// GET  — what a payout run would send right now
-// POST — send it (one Stripe Connect transfer for the net)
+// GET  — what is payable right now
+// POST — record a payment already sent in Wise
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getSession();
-  if (session?.role !== "OWNER") {
-    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
-  }
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { denied } = await requireOwner();
+  if (denied) return denied;
   const { id } = await params;
-  const preview = await previewPayout(id);
-  return NextResponse.json({ success: true, data: preview });
+  return NextResponse.json({ success: true, data: await previewPayout(id) });
 }
 
-const schema = z.object({ note: z.string().max(300).optional() });
+const schema = z.object({
+  wiseTransferId: z.string().trim().min(4).max(60),
+  expectedNet: z.number(),
+  note: z.string().max(300).optional(),
+});
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getSession();
-  if (session?.role !== "OWNER") {
-    return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
-  }
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { session, denied } = await requireOwner();
+  if (denied || !session) return denied;
   const { id } = await params;
   const parsed = schema.safeParse(await request.json().catch(() => ({})));
+  if (!parsed.success) return NextResponse.json({ success: false, error: "Enter the Wise transfer ID" }, { status: 400 });
   try {
-    const result = await runPayout(id, session.name, parsed.success ? parsed.data.note : undefined);
-    return NextResponse.json({ success: true, data: result });
+    return NextResponse.json({ success: true, data: await recordWisePayout(id, session.name, parsed.data) });
   } catch (err) {
-    if (err instanceof PayoutError) {
-      return NextResponse.json({ success: false, error: err.message }, { status: err.status });
-    }
+    if (err instanceof PayoutError) return NextResponse.json({ success: false, error: err.message }, { status: err.status });
     console.error("[partners/pay] failed:", err);
-    return NextResponse.json({ success: false, error: "Payout failed" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Could not record the payout" }, { status: 500 });
   }
 }

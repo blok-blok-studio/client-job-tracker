@@ -126,7 +126,7 @@ check("skip straight to +14 if never reminded", stageDue(new Date("2026-11-30T12
 check("final at +30", stageDue(new Date("2026-12-16T00:00:00Z"), due, 3, cfg)?.kind === "final");
 check("final not repeated", stageDue(new Date("2027-01-16T00:00:00Z"), due, 4, cfg) === null);
 check("other currency bank missing", missingBankFields(DEFAULT_INVOICE_SETTINGS, "GBP").some((m) => m.includes("GBP")));
-check("other currency bank ok", missingBankFields({ ...DEFAULT_INVOICE_SETTINGS, otherBanks: [{ currency: "GBP", holder: "x", bank: "Wise", lines: [{ label: "Sort code", value: "23-14-70" }] }] }, "GBP").length === 1 /* only tax id check passes since steuernummer set → 0? */ || true);
+check("other currency bank ok", missingBankFields({ ...DEFAULT_INVOICE_SETTINGS, otherBanks: [{ currency: "GBP", holder: "x", bank: "Wise", lines: [{ label: "Sort code", value: "23-14-70" }] }] }, "GBP").length === 0);
 check("gbp pdf money", formatMoneyPdf(1234.5, "GBP", "en") === "£1,234.50", formatMoneyPdf(1234.5, "GBP", "en"));
 check("jpy no decimals", formatMoneyPdf(1234, "JPY", "en") === "JPY 1,234", formatMoneyPdf(1234, "JPY", "en"));
 check("normalize other banks drops EUR", normalizeInvoiceSettings({ otherBanks: [{ currency: "eur", lines: [] }, { currency: "gbp", holder: "h", bank: "b", lines: [{ label: "Sort code", value: "1" }] }] }).otherBanks.length === 1);
@@ -242,7 +242,7 @@ const de27View: InvoiceView = {
       { description: "Refund clawback: Brand guide", client: "Oak Family Practice", kind: "BRAND_GUIDE", eventAt: "2026-11-28T00:00:00Z", basisAmount: 1000, rate: 5, amount: -50 },
     ],
     gross: 765, clawbacks: -50, net: 715, vatScheme: "DRITTLAND", vatRate: 0, vatAmount: 0,
-    vatNotes: statementVat({ country: "US", chargesVat: false }).notes, total: 715, stripeTransferId: "tr_test_123", contentHash: "a".repeat(64), createdAt: new Date().toISOString(),
+    vatNotes: statementVat({ country: "US", chargesVat: false }).notes, total: 715, stripeTransferId: "tr_test_123", wiseTransferId: null, contentHash: "a".repeat(64), createdAt: new Date().toISOString(),
   };
   const sb = await renderStatementPdf(st);
   fs.writeFileSync(path.join(outDir, "sample-partner-statement.pdf"), sb);

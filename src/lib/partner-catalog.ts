@@ -6,7 +6,7 @@ import { SERVICE_PACKAGES, type ServicePackage } from "@/lib/contract-templates"
  * Partner reps never see the full package list — only this locked US price
  * list, which is exactly what the partnership deck promised. The packages
  * themselves live in SERVICE_PACKAGES (category "partner-us") so contract
- * generation, PDF rendering and Stripe Checkout need no special casing; this
+ * generation, PDF rendering and invoicing need no special casing; this
  * file just groups them and says which commission pillar each one belongs to.
  */
 

@@ -550,7 +550,7 @@ The applicable Handoff or Partner Close rate for a practice is the one in force 
     "When Commission Is Earned and Paid",
     `Project and brand guide commission is earned in full when Blok Blok receives the client's deposit, so that the Partner can pay its Partner Reps promptly. Plan commission is earned when each Plan Payment is received.
 
-Blok Blok pays earned commission within ${t.payoutDays} days of receiving the client payment that earned it, in United States dollars, by transfer to the Stripe Connect account the Partner opens for this purpose. Blok Blok may group payments into a single monthly payout provided every item is paid inside its ${t.payoutDays}-day window. Each payout is accompanied by a statement listing the practice, the payment that earned the commission, the rate and the amount. The Partner agrees that Blok Blok issues these statements as self-billing credit notes on the Partner's behalf (Gutschrift within the meaning of § 14 (2) UStG), that each statement is the invoice for the commission it covers, and that a statement is accepted unless the Partner objects in writing within fourteen (14) days of receiving it. The Partner's own payout statements and payment history are available in the partner portal at any time.
+Blok Blok pays earned commission within ${t.payoutDays} days of receiving the client payment that earned it, in United States dollars, by bank transfer through Wise to the account the Partner enters in the partner portal. Blok Blok may group payments into a single monthly payout provided every item is paid inside its ${t.payoutDays}-day window. Each payout is accompanied by a statement listing the practice, the payment that earned the commission, the rate and the amount. The Partner agrees that Blok Blok issues these statements as self-billing credit notes on the Partner's behalf (Gutschrift within the meaning of § 14 (2) UStG), that each statement is the invoice for the commission it covers, and that a statement is accepted unless the Partner objects in writing within fourteen (14) days of receiving it. The Partner's own payout statements and payment history are available in the partner portal at any time.
 
 Refunds, chargebacks and uncollected balances reduce commission in the same proportion. If a client is refunded, or the engagement ends before the balance is collected, the commission attributable to the refunded or uncollected amount is reversed and netted against the Partner's next payouts. If the Partner's net balance is negative, no payout is made until later commissions cover it. Blok Blok will not withhold commission on money it has received and kept.`
   );
@@ -569,7 +569,7 @@ Refunds, chargebacks and uncollected balances reduce commission in the same prop
 
 (e) employ or engage, train, supervise and pay its Partner Reps, and be solely responsible for their wages, commissions, taxes, benefits and conduct;
 
-(f) keep its Stripe Connect account, tax information and contact details current.
+(f) keep its payout bank details, tax information and contact details current.
 
 The Partner will indemnify and hold harmless Blok Blok from any third-party claim, fine or loss arising from the Partner's or a Partner Rep's outreach practices, misrepresentations, or breach of this Agreement.`
   );
@@ -581,7 +581,7 @@ The Partner will indemnify and hold harmless Blok Blok from any third-party clai
 
   out += section(
     "Taxes and Paperwork",
-    `The Partner is responsible for all taxes on commission it receives. Before the first payout the Partner provides a completed IRS Form W-9 (or the applicable W-8 form) and completes Stripe Connect onboarding. Blok Blok will issue Form 1099-NEC where required. Each Party bears its own costs under this Agreement.`
+    `The Partner is responsible for all taxes on commission it receives. Before the first payout the Partner provides a completed IRS Form W-9 (or the applicable W-8 form) and enters its payout bank details in the partner portal. Blok Blok will issue Form 1099-NEC where required. Each Party bears its own costs under this Agreement.`
   );
 
   out += section(
@@ -623,7 +623,7 @@ Project fee, Partner Close (approved Partner Rep closes): ${pct(t.rateProjectClo
 Brand strategy guide: ${pct(t.rateBrandGuideHandoff)} Handoff Close, ${pct(t.rateBrandGuideClose)} Partner Close
 Monthly plans: ${pct(t.ratePlan)} of each plan payment received, ${t.planMonths} calendar months from the first plan payment
 Earned: project and brand guide commission on the client's deposit; plan commission on each plan payment
-Paid: within ${t.payoutDays} days of Blok Blok receiving the client payment, by Stripe Connect transfer, with a statement
+Paid: within ${t.payoutDays} days of Blok Blok receiving the client payment, by bank transfer through Wise, with a statement
 Client terms: Blok Blok's standard Service Agreement at list price, 50% deposit, 50% on completion; all payments to ${providerLegalName}
 
 `;

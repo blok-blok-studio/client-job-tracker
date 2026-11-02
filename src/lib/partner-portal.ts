@@ -134,12 +134,32 @@ export async function partnerDeals(partnerId: string, repId: string | null): Pro
     }),
     prisma.partnerRep.findMany({ where: { partnerId }, select: { id: true, name: true } }),
   ]);
+  const [contractInvoices, plans] = await Promise.all([
+    prisma.studioInvoice.findMany({
+      where: { clientId: { in: ids }, contractId: { not: null }, status: { not: "VOID" } },
+      orderBy: { createdAt: "asc" },
+      select: { clientId: true, milestone: true, status: true, token: true, total: true },
+    }),
+    prisma.recurringPlan.findMany({ where: { clientId: { in: ids }, contractId: { not: null } }, select: { clientId: true, name: true, status: true } }),
+  ]);
+  const billing = [
+    ...contractInvoices.map((i) => ({
+      clientId: i.clientId,
+      milestone: i.milestone,
+      status: i.status === "PAID" ? "PAID" : i.status === "DRAFT" ? "DRAFT" : "PENDING",
+      recurring: false,
+      stripeUrl: i.status === "DRAFT" ? "" : `${APP_URL}/b/${i.token}`,
+      amount: Math.round(Number(i.total) * 100),
+      description: "",
+    })),
+    ...plans.map((p) => ({ clientId: p.clientId, milestone: null, status: p.status, recurring: true, stripeUrl: "", amount: 0, description: p.name })),
+  ];
 
   const repById = new Map(reps.map((r) => [r.id, r]));
 
   return clients.map((c) => {
     const myContracts = contracts.filter((k) => k.clientId === c.id);
-    const myLinks = links.filter((l) => l.clientId === c.id);
+    const myLinks = [...links, ...billing].filter((l) => l.clientId === c.id);
     const stage = dealStage({ type: c.type, launchDate: c.launchDate, contracts: myContracts, paymentLinks: myLinks });
     const latest = myContracts[0];
     const live = latest && latest.status !== "EXPIRED" ? latest : null;
@@ -231,6 +251,7 @@ export async function partnerPayoutRows(partnerId: string, take = 100) {
     amount: Number(p.amount),
     currency: p.currency,
     stripeTransferId: p.stripeTransferId,
+    wiseTransferId: p.wiseTransferId,
     note: p.note,
     createdBy: p.createdBy,
     createdAt: p.createdAt,

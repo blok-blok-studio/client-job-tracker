@@ -1,6 +1,7 @@
 import { addDays, addMonths } from "date-fns";
 import prisma from "@/lib/prisma";
-import { bandedCloseCommission, flatCommission } from "@/lib/commissions";
+import { bandedCloseCommission, flatCommission, pillarValuesForContract, previewProjectCommission } from "@/lib/commissions";
+import { readGenParams } from "@/lib/contract-send";
 import { notifySlack } from "@/lib/slack";
 import { rateToEurOn, usdToEur } from "./revenue";
 
@@ -22,6 +23,9 @@ export async function recordCommissionForStudioInvoice(invoiceId: string, kind: 
   if (!client?.partnerId) return { recorded: false, reason: "client has no partner" };
   const partner = await prisma.partner.findUnique({ where: { id: client.partnerId } });
   if (!partner || !partner.isActive) return { recorded: false, reason: "partner inactive" };
+
+  // Contract invoices use the same pillars as a paid deposit link: full fees, first milestone only
+  if (inv.contractId && kind !== "PLAN") return recordContractCommission({ ...inv, contractId: inv.contractId }, client, partner, actor);
 
   // The agreement: project and brand commission is earned in full on the deposit, on the full fee.
   let basis = Number(inv.subtotal);
@@ -91,6 +95,55 @@ export async function recordCommissionForStudioInvoice(invoiceId: string, kind: 
   return { recorded: true, amount: calc.amount };
 }
 
+async function recordContractCommission(
+  inv: { id: string; number: string | null; milestone: string | null; paidAt: Date | null; contractId: string },
+  client: { id: string; name: string; partnerRepId: string | null; closedBy: "OWNER" | "PARTNER_REP" | null },
+  partner: Parameters<typeof previewProjectCommission>[0]["rates"] & { id: string; name: string; payoutDays: number },
+  actor: string
+): Promise<{ recorded: boolean; reason?: string; amount?: number }> {
+  const contract = await prisma.contractSignature.findUnique({ where: { id: inv.contractId }, select: { selectedPackages: true } });
+  if (!contract) return { recorded: false, reason: "contract missing" };
+  const firstLabel = readGenParams(contract.selectedPackages).paymentSchedule?.[0]?.label || "deposit";
+  if ((inv.milestone || firstLabel) !== firstLabel) return { recorded: false, reason: "earned on the deposit" };
+  const values = pillarValuesForContract(contract.selectedPackages);
+  const closedByRep = client.closedBy === "PARTNER_REP";
+  const preview = previewProjectCommission({ projectValue: values.PROJECT, brandGuideValue: values.BRAND_GUIDE, closedByRep, rates: partner });
+  const eventAt = inv.paidAt || new Date();
+  const payableBy = addDays(eventAt, partner.payoutDays);
+  const stage = closedByRep ? "team close" : "handoff";
+  const rows = [
+    { kind: "PROJECT" as const, label: "Project", value: values.PROJECT, calc: preview.project },
+    { kind: "BRAND_GUIDE" as const, label: "Brand guide", value: values.BRAND_GUIDE, calc: preview.brand },
+  ].filter((r) => r.value > 0 && r.calc.amount > 0);
+  let total = 0;
+  for (const r of rows) {
+    const dup = await prisma.commission.findFirst({ where: { studioInvoiceId: inv.id, kind: r.kind, status: { not: "VOID" } }, select: { id: true } });
+    if (dup) continue;
+    await prisma.commission.create({
+      data: {
+        partnerId: partner.id,
+        partnerRepId: client.partnerRepId,
+        clientId: client.id,
+        kind: r.kind,
+        description: `${r.label} commission (${stage}) on $${r.value.toLocaleString("en-US")} — ${client.name}`,
+        basisAmount: r.value,
+        rate: r.calc.blendedRate,
+        amount: r.calc.amount,
+        closedBy: closedByRep ? "PARTNER_REP" : "OWNER",
+        eventAt,
+        payableBy,
+        studioInvoiceId: inv.id,
+        createdBy: actor,
+      },
+    });
+    total += r.calc.amount;
+  }
+  if (!total) return { recorded: false, reason: rows.length ? "already recorded" : "nothing commissionable" };
+  await prisma.activityLog.create({ data: { clientId: client.id, actor, action: "commission_recorded", details: `Partner commission recorded for ${partner.name} from invoice ${inv.number} — due by ${payableBy.toLocaleDateString("en-US")}` } }).catch(() => {});
+  await notifySlack(`:handshake: *Partner commission payable* to *${partner.name}* for *${client.name}* (${stage}). Due by ${payableBy.toLocaleDateString("en-US")}.\n${APP_URL}/partners/${partner.id}`).catch(() => {});
+  return { recorded: true, amount: round2(total) };
+}
+
 /** Best guess when nobody chose: a plan invoice is a plan month, otherwise project unless it reads as a brand guide. */
 export function inferCommissionKind(inv: { planId: string | null; items: unknown }): StudioCommissionKind {
   if (inv.planId) return "PLAN";
@@ -99,8 +152,8 @@ export function inferCommissionKind(inv: { planId: string | null; items: unknown
 }
 
 /** Payment undone: void the commission rows that invoice created, unless already paid out. */
-export async function voidCommissionsForStudioInvoice(invoiceId: string, actor: string): Promise<{ voided: number; keptPaid: number }> {
-  const rows = await prisma.commission.findMany({ where: { studioInvoiceId: invoiceId }, select: { id: true, status: true, clientId: true } });
+export async function voidCommissionsForStudioInvoice(invoiceId: string, actor: string): Promise<{ voided: number; keptPaid: number; clawedBack: number }> {
+  const rows = await prisma.commission.findMany({ where: { studioInvoiceId: invoiceId, reversesId: null } });
   const payable = rows.filter((r) => r.status === "PAYABLE");
   if (payable.length) {
     await prisma.commission.updateMany({ where: { id: { in: payable.map((r) => r.id) } }, data: { status: "VOID" } });
@@ -108,7 +161,33 @@ export async function voidCommissionsForStudioInvoice(invoiceId: string, actor: 
       .create({ data: { clientId: rows[0].clientId, actor, action: "commission_voided", details: `${payable.length} partner commission row(s) voided: invoice payment undone` } })
       .catch(() => {});
   }
-  return { voided: payable.length, keptPaid: rows.filter((r) => r.status === "PAID").length };
+  // Already paid out: nothing to void, so the money comes back through the next payout
+  const paidOut = rows.filter((r) => r.status === "PAID");
+  let clawedBack = 0;
+  for (const r of paidOut) {
+    const done = await prisma.commission.findFirst({ where: { reversesId: r.id, status: { not: "VOID" } }, select: { id: true } });
+    if (done) continue;
+    await prisma.commission.create({
+      data: {
+        partnerId: r.partnerId,
+        partnerRepId: r.partnerRepId,
+        clientId: r.clientId,
+        kind: r.kind,
+        description: `Clawback: ${r.description}`.slice(0, 300),
+        basisAmount: r.basisAmount,
+        rate: r.rate,
+        amount: -Number(r.amount),
+        closedBy: r.closedBy,
+        eventAt: new Date(),
+        payableBy: new Date(),
+        studioInvoiceId: invoiceId,
+        reversesId: r.id,
+        createdBy: actor,
+      },
+    });
+    clawedBack++;
+  }
+  return { voided: payable.length, keptPaid: paidOut.length, clawedBack };
 }
 
 /** For the owner UI: does this invoice's client have a partner, and was commission already recorded? */

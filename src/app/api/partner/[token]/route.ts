@@ -58,7 +58,7 @@ export async function GET(
       ...base,
       partner: {
         ...base.partner,
-        connectOnboarded: partner.connectOnboarded,
+        payout: { onFile: !!partner.payoutVault, last4: partner.payoutLast4, verified: !!partner.payoutDetailsVerifiedAt },
         w9ReceivedAt: partner.w9ReceivedAt,
         billing: { legalName: partner.legalName, billingAddress: partner.billingAddress, taxId: partner.taxId, email: partner.email, country: partner.country },
         rates: {
