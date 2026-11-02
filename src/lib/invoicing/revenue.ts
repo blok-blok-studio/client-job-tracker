@@ -26,6 +26,53 @@ export async function usdToEur(): Promise<number> {
   return rateCache?.rate ?? 0.92;
 }
 
+/** USD→EUR on a given date (ECB via frankfurter; weekends/holidays roll back to the last fixing). Falls back to the latest rate. */
+export async function usdToEurOn(date: Date): Promise<{ rate: number; rateDate: string }> {
+  const iso = date.toISOString().slice(0, 10);
+  try {
+    const res = await fetch(`https://api.frankfurter.app/${iso}?from=USD&to=EUR`, { next: { revalidate: 86400 } });
+    const json = (await res.json()) as { date?: string; rates?: { EUR?: number } };
+    if (typeof json.rates?.EUR === "number") return { rate: json.rates.EUR, rateDate: json.date || iso };
+  } catch {
+    // fall through
+  }
+  return { rate: await usdToEur(), rateDate: "latest" };
+}
+
+export interface MonthIncome {
+  month: string; // YYYY-MM
+  count: number;
+  byCurrency: Record<string, number>;
+  eur: number; // sum of eurAmount (USD converted at the payment-date rate)
+}
+
+/** Paid studio invoices as income: per month, in invoice currency and in EUR as booked. */
+export async function incomeByMonth(year: number): Promise<{ year: number; months: MonthIncome[]; ytdEur: number; ytdByCurrency: Record<string, number>; count: number }> {
+  const from = new Date(Date.UTC(year, 0, 1));
+  const to = new Date(Date.UTC(year + 1, 0, 1));
+  const rows = await prisma.studioInvoice.findMany({
+    where: { status: "PAID", paidAt: { gte: from, lt: to } },
+    select: { total: true, currency: true, paidAt: true, eurAmount: true },
+  });
+  const latest = await usdToEur();
+  const months = new Map<string, MonthIncome>();
+  const ytdByCurrency: Record<string, number> = {};
+  let ytdEur = 0;
+  for (const r of rows) {
+    const key = r.paidAt!.toISOString().slice(0, 7);
+    const m = months.get(key) || { month: key, count: 0, byCurrency: {}, eur: 0 };
+    const total = Number(r.total);
+    const eur = r.eurAmount != null ? Number(r.eurAmount) : r.currency === "EUR" ? total : Math.round(total * latest * 100) / 100;
+    m.count++;
+    m.byCurrency[r.currency] = Math.round(((m.byCurrency[r.currency] || 0) + total) * 100) / 100;
+    m.eur = Math.round((m.eur + eur) * 100) / 100;
+    months.set(key, m);
+    ytdByCurrency[r.currency] = Math.round(((ytdByCurrency[r.currency] || 0) + total) * 100) / 100;
+    ytdEur = Math.round((ytdEur + eur) * 100) / 100;
+  }
+  return { year, months: [...months.values()].sort((a, b) => (a.month < b.month ? 1 : -1)), ytdEur, ytdByCurrency, count: rows.length };
+}
+
 export interface YearRevenue {
   year: number;
   studioEur: number;

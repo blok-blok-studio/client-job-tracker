@@ -4,7 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { requireOwner, handleError } from "./_shared";
 import { createDraft, draftSchema } from "@/lib/invoicing/service";
 import { loadInvoiceSettings, missingBankFields, settingsWarnings } from "@/lib/invoicing/settings";
-import { yearRevenueEur } from "@/lib/invoicing/revenue";
+import { yearRevenueEur, incomeByMonth } from "@/lib/invoicing/revenue";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,8 @@ const LIST_SELECT = {
   sentAt: true,
   paidAt: true,
   paidMethod: true,
+  paymentReportedAt: true,
+  eurAmount: true,
   voidedAt: true,
   paymentMethod: true,
   createdAt: true,
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
       ];
     }
     const rows = await prisma.studioInvoice.findMany({ where, select: LIST_SELECT, orderBy: [{ issueDate: "desc" }, { createdAt: "desc" }] });
-    const data = rows.map((r) => ({ ...r, total: Number(r.total) }));
+    const data = rows.map((r) => ({ ...r, total: Number(r.total), eurAmount: r.eurAmount != null ? Number(r.eurAmount) : null }));
 
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -69,6 +71,7 @@ export async function GET(request: NextRequest) {
 
     const settings = await loadInvoiceSettings();
     const revenue = await yearRevenueEur(now.getUTCFullYear()).catch(() => null);
+    const income = await incomeByMonth(now.getUTCFullYear()).catch(() => null);
 
     return NextResponse.json({
       success: true,
@@ -78,6 +81,8 @@ export async function GET(request: NextRequest) {
         overdue: { count: overdue.length, byCurrency: sum(overdue) },
         paidThisMonth: { count: paidThisMonth.length, byCurrency: sum(paidThisMonth) },
         revenue,
+        income,
+        reported: all.length ? await prisma.studioInvoice.count({ where: { status: { in: ["ISSUED", "SENT"] }, paymentReportedAt: { not: null } } }) : 0,
         setup: {
           missingBank: { EUR: missingBankFields(settings, "EUR"), USD: missingBankFields(settings, "USD") },
           warnings: settingsWarnings(settings),

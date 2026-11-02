@@ -26,6 +26,8 @@ interface Row {
   sentAt: string | null;
   paidAt: string | null;
   paidMethod: string | null;
+  paymentReportedAt?: string | null;
+  eurAmount?: number | null;
   paymentMethod: string;
   createdAt: string;
   client: { id: string; name: string; company: string | null };
@@ -37,6 +39,8 @@ interface Summary {
   overdue: { count: number; byCurrency: Record<string, number> };
   paidThisMonth: { count: number; byCurrency: Record<string, number> };
   revenue: { year: number; totalEur: number; studioEur: number; stripeEur: number; ceilingEur: number; pct: number; kleinunternehmerUntil: string } | null;
+  income: { year: number; months: Array<{ month: string; count: number; byCurrency: Record<string, number>; eur: number }>; ytdEur: number; ytdByCurrency: Record<string, number>; count: number } | null;
+  reported: number;
   setup: { missingBank: { EUR: string[]; USD: string[] }; warnings: string[] };
 }
 
@@ -55,6 +59,8 @@ export default function InvoicesPage() {
   const [tab, setTab] = useState<"invoices" | "settings">(search.get("tab") === "settings" ? "settings" : "invoices");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editDraftId, setEditDraftId] = useState<string | null>(null);
+  const [editorClientId, setEditorClientId] = useState<string | null>(null);
+  const [clientFilter, setClientFilter] = useState<string | null>(search.get("client"));
   const [detailId, setDetailId] = useState<string | null>(search.get("invoice"));
   const [exportMonth, setExportMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
@@ -78,6 +84,8 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     if (search.get("new") === "1") {
+      setEditorClientId(search.get("client"));
+      setClientFilter(null);
       setEditorOpen(true);
       router.replace("/invoices");
     }
@@ -92,6 +100,7 @@ export default function InvoicesPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
+      if (clientFilter && r.client.id !== clientFilter) return false;
       if (filter === "open" && !(r.status === "ISSUED" || r.status === "SENT")) return false;
       if (filter === "overdue" && !isOverdue(r)) return false;
       if ((filter === "DRAFT" || filter === "PAID" || filter === "VOID") && r.status !== filter) return false;
@@ -102,7 +111,7 @@ export default function InvoicesPage() {
       }
       return true;
     });
-  }, [rows, filter, year, query]);
+  }, [rows, filter, year, query, clientFilter]);
 
   const bankMissing = !!summary && summary.setup.missingBank.EUR.length > 0 && summary.setup.missingBank.USD.length > 0;
   const rev = summary?.revenue;
@@ -159,7 +168,7 @@ export default function InvoicesPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
               <Tile label="Outstanding" value={summary ? byCurrency(summary.outstanding.byCurrency) : "…"} sub={summary ? `${summary.outstanding.count} open` : ""} />
               <Tile label="Overdue" value={summary ? byCurrency(summary.overdue.byCurrency) : "…"} sub={summary ? `${summary.overdue.count} past due` : ""} tone={summary && summary.overdue.count > 0 ? "red" : undefined} />
-              <Tile label="Paid this month" value={summary ? byCurrency(summary.paidThisMonth.byCurrency) : "…"} sub={summary ? `${summary.paidThisMonth.count} invoices` : ""} tone="green" />
+              <Tile label={`Income ${summary?.income?.year || ""} (paid)`} value={summary?.income ? money(summary.income.ytdEur, "EUR") : "…"} sub={summary?.income ? `${byCurrency(summary.income.ytdByCurrency)} · ${summary.income.count} paid${summary.reported ? ` · ${summary.reported} reported, unconfirmed` : ""}` : ""} tone="green" />
               {rev ? (
                 <div className={`rounded-xl border p-3 ${revTone}`}>
                   <p className="text-xs text-bb-muted">§ 19 ceiling {rev.year}</p>
@@ -192,6 +201,11 @@ export default function InvoicesPage() {
               ).map(([k, label]) => (
                 <button key={k} className={chipCls(filter === k)} onClick={() => setFilter(k)}>{label}</button>
               ))}
+              {clientFilter && (
+                <button className={chipCls(true)} onClick={() => { setClientFilter(null); router.replace("/invoices"); }} title="Clear client filter">
+                  {rows.find((r) => r.client.id === clientFilter)?.client.company || rows.find((r) => r.client.id === clientFilter)?.client.name || "This client"} ×
+                </button>
+              )}
               <select value={year} onChange={(e) => setYear(e.target.value === "all" ? "all" : Number(e.target.value))} className="px-3 py-1.5 rounded-lg bg-bb-surface border border-bb-border text-sm text-bb-muted focus:outline-none focus:border-bb-orange/50">
                 <option value="all">All years</option>
                 {years.map((y) => (
@@ -238,7 +252,10 @@ export default function InvoicesPage() {
                         <td className="px-4 py-3 text-right text-white whitespace-nowrap">{money(r.total, r.currency)}</td>
                         <td className="px-4 py-3 text-bb-muted hidden md:table-cell whitespace-nowrap">{shortDate(r.issueDate)}</td>
                         <td className={`px-4 py-3 hidden md:table-cell whitespace-nowrap ${isOverdue(r) ? "text-red-400" : "text-bb-muted"}`}>{r.status === "PAID" ? `paid ${shortDate(r.paidAt)}` : shortDate(r.dueDate)}</td>
-                        <td className="px-4 py-3"><StatusBadge status={r.status} overdue={isOverdue(r)} /></td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={r.status} overdue={isOverdue(r)} />
+                          {r.paymentReportedAt && r.status !== "PAID" && <p className="text-[10px] text-green-400 mt-0.5">client says paid</p>}
+                        </td>
                         <td className="px-2 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <a href={`/api/studio-invoices/${r.id}/pdf?inline=1`} target="_blank" rel="noreferrer" className="inline-flex p-1.5 rounded text-bb-dim hover:text-white" title="PDF"><Download size={14} /></a>
                           {r.status !== "DRAFT" && (
@@ -247,6 +264,30 @@ export default function InvoicesPage() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Income as booked */}
+            {summary?.income && summary.income.months.length > 0 && (
+              <div className="mt-6 bg-bb-surface border border-bb-border rounded-xl p-4">
+                <p className="text-sm text-white font-medium">Income by month, as booked in EUR</p>
+                <p className="text-xs text-bb-dim mb-3">Paid bank-transfer invoices only. USD is converted at the ECB rate of the day the money arrived (the rate is stored on each invoice), so the EUR figure is what goes in the German books.</p>
+                <table className="w-full text-sm">
+                  <thead className="text-xs text-bb-dim">
+                    <tr><th className="text-left py-1 font-medium">Month</th><th className="text-right py-1 font-medium">Invoices</th><th className="text-right py-1 font-medium">Received</th><th className="text-right py-1 font-medium">Booked (EUR)</th></tr>
+                  </thead>
+                  <tbody>
+                    {summary.income.months.map((m) => (
+                      <tr key={m.month} className="border-t border-bb-border/60">
+                        <td className="py-1.5 text-white">{new Date(`${m.month}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })}</td>
+                        <td className="py-1.5 text-right text-bb-muted">{m.count}</td>
+                        <td className="py-1.5 text-right text-bb-muted">{byCurrency(m.byCurrency)}</td>
+                        <td className="py-1.5 text-right text-white">{money(m.eur, "EUR")}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t border-bb-border font-semibold"><td className="py-1.5 text-white">Year to date</td><td className="py-1.5 text-right text-bb-muted">{summary.income.count}</td><td className="py-1.5 text-right text-bb-muted">{byCurrency(summary.income.ytdByCurrency)}</td><td className="py-1.5 text-right text-white">{money(summary.income.ytdEur, "EUR")}</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -270,8 +311,9 @@ export default function InvoicesPage() {
       <InvoiceEditor
         open={editorOpen}
         draftId={editDraftId}
-        onClose={() => { setEditorOpen(false); setEditDraftId(null); }}
-        onSaved={(id) => { setEditorOpen(false); setEditDraftId(null); load(); setDetailId(id); }}
+        initialClientId={editorClientId}
+        onClose={() => { setEditorOpen(false); setEditDraftId(null); setEditorClientId(null); }}
+        onSaved={(id) => { setEditorOpen(false); setEditDraftId(null); setEditorClientId(null); load(); setDetailId(id); }}
       />
       <InvoiceDetail
         open={!!detailId}

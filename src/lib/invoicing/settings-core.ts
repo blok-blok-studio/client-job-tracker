@@ -45,6 +45,8 @@ export interface InvoiceSettings {
   sequenceStart: number;
   /** Rough Stripe card cost shown next to the Stripe option, in percent. */
   stripeFeePct: number;
+  /** Email the invoice (PDF + pay link) to the client the moment it is issued. */
+  autoSendOnIssue: boolean;
 }
 
 export const INVOICE_SETTINGS_KEY = "invoice_settings";
@@ -66,6 +68,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   sequenceStartYear: 2026,
   sequenceStart: 1,
   stripeFeePct: 5.5,
+  autoSendOnIssue: true,
 };
 
 function str(v: unknown, fallback: string): string {
@@ -114,6 +117,7 @@ export function normalizeInvoiceSettings(raw: unknown): InvoiceSettings {
     sequenceStartYear: Math.round(num(r.sequenceStartYear, d.sequenceStartYear)),
     sequenceStart: Math.max(1, Math.round(num(r.sequenceStart, d.sequenceStart))),
     stripeFeePct: Math.max(0, num(r.stripeFeePct, d.stripeFeePct)),
+    autoSendOnIssue: typeof r.autoSendOnIssue === "boolean" ? r.autoSendOnIssue : d.autoSendOnIssue,
   };
 }
 

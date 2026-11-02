@@ -58,6 +58,11 @@ export interface InvoiceView {
   sentTo: string | null;
   paidAt: string | null;
   paidMethod: string | null;
+  paymentReportedAt: string | null;
+  paymentReportedNote: string | null;
+  eurAmount: number | null;
+  fxRateToEur: number | null;
+  receiptSentAt: string | null;
   voidedAt: string | null;
   voidReason: string | null;
   publicUrl: string;
@@ -113,6 +118,11 @@ export const LABELS: Record<InvoiceLanguage, Record<string, string>> = {
     account: "Kontonummer",
     swift: "SWIFT / BIC",
     thanks: "Vielen Dank für Ihr Vertrauen.",
+    reportPaid: "Ich habe überwiesen",
+    reportPaidHint: "Sagen Sie uns kurz Bescheid, dann bestätigen wir den Eingang.",
+    reportPaidDone: "Danke! Wir prüfen den Zahlungseingang und schicken Ihnen eine Bestätigung.",
+    reportPaidDate: "Überwiesen am",
+    reportPaidRef: "Referenz / Hinweis (optional)",
   },
   en: {
     invoice: "INVOICE",
@@ -159,5 +169,10 @@ export const LABELS: Record<InvoiceLanguage, Record<string, string>> = {
     account: "Account number",
     swift: "SWIFT / BIC",
     thanks: "Thank you for your business.",
+    reportPaid: "I have sent the payment",
+    reportPaidHint: "Let us know and we will confirm once it arrives.",
+    reportPaidDone: "Thank you! We will check the account and send you a confirmation.",
+    reportPaidDate: "Paid on",
+    reportPaidRef: "Reference / note (optional)",
   },
 };

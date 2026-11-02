@@ -88,6 +88,10 @@ check("missing eur bank", missingBankFields(DEFAULT_INVOICE_SETTINGS, "EUR").inc
 check("missing usd bank", missingBankFields(DEFAULT_INVOICE_SETTINGS, "USD").includes("ACH routing number"));
 check("complete eur", missingBankFields({ ...DEFAULT_INVOICE_SETTINGS, eur: { holder: "x", iban: "DE89370400440532013000", bic: "", bank: "N26" } }, "EUR").length === 0);
 
+const ov = decideVat({ template: "DE", issueDate: new Date("2026-11-02"), settings: s, override: "REGULAR" });
+check("override 19% in 2026 with warning", ov.scheme === "REGULAR" && ov.rate === 19 && !!ov.warning);
+check("override AUTO = rule", decideVat({ template: "US", issueDate: new Date("2026-11-02"), settings: s, override: "AUTO" }).scheme === "DRITTLAND");
+check("override reverse charge on US", decideVat({ template: "US", issueDate: new Date("2026-11-02"), settings: s, override: "REVERSE_CHARGE" }).requiresClientVatId);
 check("vat id DE ok", isPlausibleVatId("DE 123 456 789"));
 check("vat id DE bad", !isPlausibleVatId("DE12345678"));
 check("vat id AT ok", isPlausibleVatId("ATU12345678"));
@@ -127,6 +131,7 @@ const base: Omit<InvoiceView, "language" | "currency" | "template" | "vatScheme"
   ], 0).items,
   subtotal: 6025, vatAmount: 0, total: 6025, paymentMethod: "BANK", paymentUrl: null,
   notes: "Zahlbar innerhalb von 14 Tagen ohne Abzug.", sentAt: null, sentTo: null, paidAt: null, paidMethod: null, voidedAt: null, voidReason: null,
+  paymentReportedAt: null, paymentReportedNote: null, eurAmount: null, fxRateToEur: null, receiptSentAt: null,
   publicUrl: "https://app.blokblokstudio.com/b/sampletoken", createdAt: new Date().toISOString(),
 };
 const deView: InvoiceView = {

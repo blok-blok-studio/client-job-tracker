@@ -5,7 +5,7 @@ import { Plus, Trash2, AlertTriangle } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import { useToast } from "@/components/shared/Toast";
 import { computeTotals, formatMoney } from "@/lib/invoicing/money";
-import { decideVat, defaultsForTemplate, VAT_SCHEME_LABELS, type InvoiceTemplate, type InvoiceLanguage, type InvoiceCurrency } from "@/lib/invoicing/vat";
+import { decideVat, defaultsForTemplate, VAT_SCHEME_LABELS, VAT_OVERRIDE_OPTIONS, type InvoiceTemplate, type InvoiceLanguage, type InvoiceCurrency, type VatOverride } from "@/lib/invoicing/vat";
 import type { BillTo } from "@/lib/invoicing/types";
 import { inputCls, labelCls, chipCls, btnPrimary, btnGhost, readJsonSafe, money } from "./shared";
 
@@ -67,10 +67,16 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
   const [notes, setNotes] = useState("");
   const [internalNote, setInternalNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"BANK" | "STRIPE">("BANK");
+  const [vatOverride, setVatOverride] = useState<VatOverride>("AUTO");
   const [paymentUrl, setPaymentUrl] = useState("");
   const [billTo, setBillTo] = useState<BillTo>({ name: "", company: null, addressLines: [], email: null, vatId: null, country: null });
   const [showBillTo, setShowBillTo] = useState(false);
   const [ackDuplicate, setAckDuplicate] = useState(false);
+
+  // Opened from a client page: preselect that client
+  useEffect(() => {
+    if (open && !draftId) setClientId(initialClientId || "");
+  }, [open, draftId, initialClientId]);
 
   // Clients for the picker
   useEffect(() => {
@@ -110,6 +116,7 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
         paymentMethod: "BANK" | "STRIPE";
         paymentUrl: string | null;
         billTo: BillTo;
+        vatOverride?: VatOverride | null;
       };
       setClientId(d.client.id);
       setTemplate(d.template);
@@ -125,6 +132,7 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
       setPaymentMethod(d.paymentMethod);
       setPaymentUrl(d.paymentUrl || "");
       setBillTo(d.billTo);
+      setVatOverride(d.vatOverride || "AUTO");
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, draftId]);
@@ -165,8 +173,8 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
 
   const vat = useMemo(() => {
     const issue = new Date(issueDate || today());
-    return decideVat({ template, issueDate: Number.isNaN(issue.getTime()) ? new Date() : issue, clientVatId: billTo.vatId, settings: { kleinunternehmerUntil: prep?.kleinunternehmerUntil || "2026-12-31" } });
-  }, [template, issueDate, billTo.vatId, prep?.kleinunternehmerUntil]);
+    return decideVat({ template, issueDate: Number.isNaN(issue.getTime()) ? new Date() : issue, clientVatId: billTo.vatId, settings: { kleinunternehmerUntil: prep?.kleinunternehmerUntil || "2026-12-31" }, override: vatOverride });
+  }, [template, issueDate, billTo.vatId, prep?.kleinunternehmerUntil, vatOverride]);
 
   const parsedItems = useMemo(
     () =>
@@ -211,6 +219,7 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
         notes: notes || null,
         internalNote: internalNote || null,
         paymentMethod,
+        vatOverride,
         paymentUrl: paymentMethod === "STRIPE" ? paymentUrl.trim() : null,
         billTo: { ...billTo, addressLines: billTo.addressLines.filter(Boolean), email: billTo.email || "", country: billTo.country || "" },
       };
@@ -234,7 +243,10 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
         onSaved(id, false);
         return;
       }
-      toast(`Issued ${(ij.data as { number: string }).number}`, "success");
+      const issuedData = ij.data as { number: string; send?: { sent: boolean; to: string | null; error: string | null } };
+      if (issuedData.send?.sent) toast(`Issued ${issuedData.number} and emailed to ${issuedData.send.to}`, "success");
+      else if (issuedData.send?.error) toast(`Issued ${issuedData.number}. Not emailed: ${issuedData.send.error}`, "info");
+      else toast(`Issued ${issuedData.number}`, "success");
       onSaved(id, true);
     } catch (err) {
       toast(err instanceof Error ? err.message : "Save failed", "error");
@@ -300,9 +312,16 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
 
             {/* VAT + setup warnings */}
             <div className="rounded-lg border border-bb-border bg-bb-black/40 p-3 text-sm space-y-1.5">
-              <p className="text-white">
-                VAT: <span className="font-medium">{VAT_SCHEME_LABELS[vat.scheme]}</span>
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-white">
+                  VAT: <span className="font-medium">{VAT_SCHEME_LABELS[vat.scheme]}</span>
+                </p>
+                <select className={`${inputCls} w-auto py-1 text-xs ml-auto`} value={vatOverride} onChange={(e) => setVatOverride(e.target.value as VatOverride)} aria-label="VAT treatment">
+                  {VAT_OVERRIDE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
               {vat.notes.map((n) => (
                 <p key={n} className="text-xs text-bb-dim">{n}</p>
               ))}
@@ -459,7 +478,7 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
               <button type="button" className={btnGhost} onClick={onClose} disabled={saving}>Cancel</button>
               <button type="button" className={btnGhost} onClick={() => save(false)} disabled={saving}>Save draft</button>
               <button type="button" className={btnPrimary} onClick={() => save(true)} disabled={saving || (paymentMethod === "BANK" && missingBank.length > 0)} title={missingBank.length ? "Add bank details in Settings first" : undefined}>
-                {saving ? "Working…" : "Save and issue number"}
+                {saving ? "Working…" : billTo.email ? "Issue and email" : "Issue (no email on file)"}
               </button>
             </div>
           </>

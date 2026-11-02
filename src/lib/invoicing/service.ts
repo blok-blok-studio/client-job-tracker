@@ -3,11 +3,12 @@ import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import type { Prisma, StudioInvoice } from "@prisma/client";
 import { loadInvoiceSettings, missingBankFields, type InvoiceSettings } from "./settings";
-import { decideVat, defaultsForTemplate, guessCountry, templateForCountry, type InvoiceTemplate } from "./vat";
+import { decideVat, defaultsForTemplate, guessCountry, templateForCountry, type InvoiceTemplate, type VatOverride } from "./vat";
 import { addDays, computeTotals, parseDateOnly } from "./money";
 import { clientToBillTo, snapshotSeller, invoiceContentHash } from "./view";
 import { sealBank } from "./bank-vault";
 import { recordCommissionForStudioInvoice, voidCommissionsForStudioInvoice } from "./partner-commission";
+import { usdToEurOn } from "./revenue";
 import type { BillTo } from "./types";
 import { assignInvoiceNumber, withNumberRetry } from "./numbering";
 
@@ -40,6 +41,7 @@ export const draftSchema = z.object({
   items: z.array(lineItemSchema).min(1).max(50),
   notes: z.string().max(2000).nullable().optional(),
   internalNote: z.string().max(2000).nullable().optional(),
+  vatOverride: z.enum(["AUTO", "KLEINUNTERNEHMER", "REGULAR", "REVERSE_CHARGE", "DRITTLAND"]).nullable().optional(),
   paymentMethod: z.enum(["BANK", "STRIPE"]).optional(),
   paymentUrl: z.string().trim().url().max(500).regex(/^https:\/\//, "Payment link must start with https://").nullable().optional().or(z.literal("")),
   billTo: billToSchema.optional(),
@@ -150,7 +152,8 @@ function resolveFields(input: DraftInput, client: BillingClient, settings: Invoi
   const issueDate = parseDateOnly(input.issueDate) ?? existing?.issueDate ?? parseDateOnly(new Date().toISOString())!;
   const dueDays = input.dueDays ?? existing?.dueDays ?? settings.defaultDueDays;
   const billTo = input.billTo ? cleanBillTo(input.billTo) : existing ? (existing.billTo as unknown as BillTo) : clientToBillTo(client);
-  const vat = decideVat({ template, issueDate, clientVatId: billTo.vatId, settings });
+  const vatOverride = input.vatOverride === undefined ? ((existing?.vatOverride as VatOverride | null) ?? null) : input.vatOverride === "AUTO" ? null : input.vatOverride;
+  const vat = decideVat({ template, issueDate, clientVatId: billTo.vatId, settings, override: vatOverride });
   const totals = computeTotals(input.items, vat.rate);
   const paymentMethod = input.paymentMethod ?? (existing?.paymentMethod as "BANK" | "STRIPE" | undefined) ?? "BANK";
   const paymentUrl = paymentMethod === "STRIPE" ? input.paymentUrl || existing?.paymentUrl || null : null;
@@ -166,6 +169,7 @@ function resolveFields(input: DraftInput, client: BillingClient, settings: Invoi
     vatScheme: vat.scheme,
     vatRate: vat.rate,
     vatNote: vat.notes.join("\n"),
+    vatOverride,
     billTo: billTo as unknown as Prisma.InputJsonValue,
     items: totals.items as unknown as Prisma.InputJsonValue,
     subtotal: totals.subtotal,
@@ -234,7 +238,7 @@ export async function issueInvoice(id: string, actor: string, meta?: { ipAddress
 
   // Issue date is the day it is issued unless the draft set one explicitly
   const issueDate = existing.issueDate ?? parseDateOnly(new Date().toISOString())!;
-  const vat = decideVat({ template: existing.template as InvoiceTemplate, issueDate, clientVatId: billTo.vatId, settings });
+  const vat = decideVat({ template: existing.template as InvoiceTemplate, issueDate, clientVatId: billTo.vatId, settings, override: existing.vatOverride as VatOverride | null });
   const items = (existing.items as unknown as Array<{ description: string; qty: number; unitPrice: number }>).map((i) => ({
     description: i.description,
     qty: Number(i.qty),
@@ -276,17 +280,31 @@ export async function issueInvoice(id: string, actor: string, meta?: { ipAddress
   return issued;
 }
 
-export async function markPaid(id: string, actor: string, input: { paidAt?: string | null; method?: string | null; note?: string | null; commissionKind?: "PROJECT" | "BRAND_GUIDE" | "PLAN" | "NONE" | null }) {
+export async function markPaid(id: string, actor: string, input: { paidAt?: string | null; method?: string | null; note?: string | null; commissionKind?: "PROJECT" | "BRAND_GUIDE" | "PLAN" | "NONE" | null; sendReceipt?: boolean | null }) {
   const existing = await prisma.studioInvoice.findUnique({ where: { id } });
   if (!existing) throw new InvoiceError("Invoice not found", 404);
   if (!["ISSUED", "SENT"].includes(existing.status)) throw new InvoiceError(`Cannot mark a ${existing.status.toLowerCase()} invoice as paid.`, 409);
   const paidAt = input.paidAt ? (parseDateOnly(input.paidAt) ?? new Date(input.paidAt)) : new Date();
   if (Number.isNaN(paidAt.getTime())) throw new InvoiceError("Invalid paid date");
+  // Book the income in EUR at the ECB rate of the payment date (USD) or 1:1 (EUR)
+  const total = Number(existing.total);
+  const fx = existing.currency === "EUR" ? { rate: 1, rateDate: paidAt.toISOString().slice(0, 10) } : await usdToEurOn(paidAt);
+  const eurAmount = Math.round(total * fx.rate * 100) / 100;
   const invoice = await prisma.studioInvoice.update({
     where: { id },
-    data: { status: "PAID", paidAt, paidMethod: input.method || "bank", paidNote: input.note || null },
+    data: { status: "PAID", paidAt, paidMethod: input.method || "bank", paidNote: input.note || null, fxRateToEur: fx.rate, eurAmount },
   });
-  await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_paid", details: `Invoice ${invoice.number} marked paid (${invoice.paidMethod})` });
+  await logInvoiceActivity({
+    clientId: invoice.clientId,
+    actor,
+    action: "invoice_paid",
+    details: `Invoice ${invoice.number} marked paid (${invoice.paidMethod}); booked as EUR ${eurAmount.toFixed(2)}${existing.currency === "USD" ? ` at ${fx.rate} (ECB ${fx.rateDate})` : ""}`,
+  });
+  // Receipt to the client (best effort)
+  let receipt: { sent: boolean; error: string | null } = { sent: false, error: null };
+  if (input.sendReceipt !== false) {
+    receipt = await sendPaymentReceipt(id, actor).catch((err) => ({ sent: false, error: err instanceof Error ? err.message : "failed" }));
+  }
   let commission: Awaited<ReturnType<typeof recordCommissionForStudioInvoice>> | null = null;
   if (input.commissionKind && input.commissionKind !== "NONE") {
     commission = await recordCommissionForStudioInvoice(id, input.commissionKind, actor).catch((err) => {
@@ -294,7 +312,7 @@ export async function markPaid(id: string, actor: string, input: { paidAt?: stri
       return { recorded: false, reason: "error" };
     });
   }
-  return Object.assign(invoice, { commission });
+  return Object.assign(invoice, { commission, receipt, eurAmount, fxRate: fx.rate, fxRateDate: fx.rateDate });
 }
 
 export async function markUnpaid(id: string, actor: string) {
@@ -303,7 +321,7 @@ export async function markUnpaid(id: string, actor: string) {
   if (existing.status !== "PAID") throw new InvoiceError("Only paid invoices can be reopened.", 409);
   const invoice = await prisma.studioInvoice.update({
     where: { id },
-    data: { status: existing.sentAt ? "SENT" : "ISSUED", paidAt: null, paidMethod: null, paidNote: null },
+    data: { status: existing.sentAt ? "SENT" : "ISSUED", paidAt: null, paidMethod: null, paidNote: null, fxRateToEur: null, eurAmount: null },
   });
   await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_unpaid", details: `Invoice ${invoice.number} reopened (payment undone)` });
   await voidCommissionsForStudioInvoice(id, actor).catch(() => {});
@@ -352,4 +370,74 @@ export async function rotateInvoiceLink(id: string, actor: string) {
 export function integrityOf(inv: Parameters<typeof invoiceContentHash>[0] & { contentHash: string | null; status: string }): "ok" | "mismatch" | "none" {
   if (inv.status === "DRAFT" || !inv.contentHash) return "none";
   return invoiceContentHash(inv) === inv.contentHash ? "ok" : "mismatch";
+}
+
+/**
+ * Auto-send after issue: PDF + pay link to the bill-to email. Never throws;
+ * the invoice is already issued, so a mail failure is reported, not fatal.
+ */
+export async function sendIssuedInvoice(id: string, actor: string, to?: string | null, message?: string | null): Promise<{ sent: boolean; to: string | null; error: string | null }> {
+  const invoice = await prisma.studioInvoice.findUnique({ where: { id } });
+  if (!invoice || !["ISSUED", "SENT", "PAID"].includes(invoice.status)) return { sent: false, to: null, error: "Invoice is not issued" };
+  const billTo = invoice.billTo as unknown as BillTo;
+  const recipient = to || billTo.email;
+  if (!recipient) return { sent: false, to: null, error: "No email on the invoice. Add one under Bill to, or copy the pay link." };
+  if (!process.env.RESEND_API_KEY) return { sent: false, to: recipient, error: "Email sending is not configured (RESEND_API_KEY missing)." };
+  try {
+    const [{ buildInvoiceView }, { renderInvoicePdf }, { sendStudioInvoiceEmail }] = await Promise.all([import("./view"), import("./invoice-pdf"), import("./email")]);
+    const settings = await loadInvoiceSettings();
+    const view = buildInvoiceView(invoice, settings);
+    const pdf = await renderInvoicePdf(view);
+    const { id: emailId } = await sendStudioInvoiceEmail({ to: recipient, view, pdf, message, replyTo: settings.email });
+    if (invoice.status !== "PAID") await recordSent(id, recipient, emailId, actor);
+    else await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_sent", details: `Invoice ${invoice.number} copy emailed to ${recipient}` });
+    return { sent: true, to: recipient, error: null };
+  } catch (err) {
+    await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_send_failed", details: `Invoice ${invoice.number} email to ${recipient} failed: ${err instanceof Error ? err.message : "unknown"}` });
+    return { sent: false, to: recipient, error: err instanceof Error ? err.message : "Email failed" };
+  }
+}
+
+/** The client told us they paid (pay page button). Flags the invoice, pings the owner; the owner still confirms against the bank. */
+export async function reportPayment(token: string, input: { date?: string | null; note?: string | null }, meta: { ipAddress: string | null; userAgent: string | null }) {
+  const invoice = await prisma.studioInvoice.findUnique({ where: { token } });
+  if (!invoice || invoice.status === "DRAFT") throw new InvoiceError("Not found", 404);
+  if (invoice.status === "PAID") return { ok: true, alreadyPaid: true };
+  if (invoice.status === "VOID") throw new InvoiceError("This invoice was cancelled.", 409);
+  const when = input.date ? (parseDateOnly(input.date) ?? new Date()) : new Date();
+  const note = [input.date ? `paid ${input.date}` : null, input.note?.trim() || null].filter(Boolean).join(" · ").slice(0, 300) || null;
+  await prisma.studioInvoice.update({ where: { id: invoice.id }, data: { paymentReportedAt: new Date(), paymentReportedNote: note } });
+  await logInvoiceActivity({ clientId: invoice.clientId, actor: "client", action: "invoice_payment_reported", details: `Client reports invoice ${invoice.number} as paid${note ? ` (${note})` : ""}`, ...meta });
+  const { notifyUser } = await import("@/lib/notifications");
+  const { notifySlack } = await import("@/lib/slack");
+  const client = await prisma.client.findUnique({ where: { id: invoice.clientId }, select: { name: true, company: true } });
+  const who = client?.company || client?.name || "A client";
+  const owners = await prisma.user.findMany({ where: { role: "OWNER", isActive: true }, select: { id: true } });
+  for (const o of owners) {
+    await notifyUser({ userId: o.id, type: "approval_response", title: `${who} says invoice ${invoice.number} is paid`, body: `${note ? `${note}. ` : ""}Check the bank, then press Mark paid to confirm and send the receipt.`, link: `/invoices?invoice=${invoice.id}`, clientId: invoice.clientId }).catch(() => {});
+  }
+  await notifySlack(`:bell: *${who}* reports invoice *${invoice.number}* as paid${input.date ? ` (${input.date})` : ""}. Confirm it on the Invoices page once it shows on the bank.`).catch(() => {});
+  void when;
+  return { ok: true, alreadyPaid: false };
+}
+
+/** Receipt / Zahlungsbestätigung to the client after Mark paid. Best effort, never throws to the caller. */
+export async function sendPaymentReceipt(id: string, actor: string): Promise<{ sent: boolean; error: string | null }> {
+  const invoice = await prisma.studioInvoice.findUnique({ where: { id } });
+  if (!invoice || invoice.status !== "PAID") return { sent: false, error: "not paid" };
+  const billTo = invoice.billTo as unknown as BillTo;
+  if (!billTo.email) return { sent: false, error: "no email on the invoice" };
+  if (!process.env.RESEND_API_KEY) return { sent: false, error: "RESEND_API_KEY missing" };
+  try {
+    const [{ buildInvoiceView }, { renderInvoicePdf }, { sendPaymentReceiptEmail }] = await Promise.all([import("./view"), import("./invoice-pdf"), import("./email")]);
+    const settings = await loadInvoiceSettings();
+    const view = buildInvoiceView(invoice, settings);
+    const pdf = await renderInvoicePdf(view); // carries the PAID stamp now
+    await sendPaymentReceiptEmail({ to: billTo.email, view, pdf, replyTo: settings.email });
+    await prisma.studioInvoice.update({ where: { id }, data: { receiptSentAt: new Date() } });
+    await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_receipt_sent", details: `Receipt for ${invoice.number} emailed to ${billTo.email}` });
+    return { sent: true, error: null };
+  } catch (err) {
+    return { sent: false, error: err instanceof Error ? err.message : "failed" };
+  }
 }

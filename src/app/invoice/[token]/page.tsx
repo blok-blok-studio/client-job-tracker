@@ -17,6 +17,11 @@ export default function PublicInvoicePage() {
   const [inv, setInv] = useState<PublicInvoice | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "missing">("loading");
   const [copied, setCopied] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reportNote, setReportNote] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reported, setReported] = useState(false);
 
   useEffect(() => {
     fetch(`/api/invoice/${token}`)
@@ -29,6 +34,19 @@ export default function PublicInvoicePage() {
       })
       .catch(() => setState("missing"));
   }, [token]);
+
+  async function reportPaid() {
+    setReportBusy(true);
+    try {
+      const r = await fetch(`/api/invoice/${token}/paid`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: reportDate || null, note: reportNote || null }) });
+      if (r.ok) {
+        setReported(true);
+        setReportOpen(false);
+      }
+    } finally {
+      setReportBusy(false);
+    }
+  }
 
   async function copy(label: string, value: string) {
     try {
@@ -143,6 +161,37 @@ export default function PublicInvoicePage() {
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {/* I have paid */}
+      {!isVoid && !isPaid && (
+        <section className="mt-5">
+          {reported || inv.paymentReportedAt ? (
+            <p className="text-sm text-green-400">{L.reportPaidDone}</p>
+          ) : reportOpen ? (
+            <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4 space-y-3">
+              <p className="text-xs text-neutral-500">{L.reportPaidHint}</p>
+              <div className="grid sm:grid-cols-2 gap-2">
+                <label className="text-xs text-neutral-500">
+                  {L.reportPaidDate}
+                  <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-md bg-black border border-neutral-700 text-white text-sm" />
+                </label>
+                <label className="text-xs text-neutral-500">
+                  {L.reportPaidRef}
+                  <input value={reportNote} onChange={(e) => setReportNote(e.target.value)} maxLength={200} className="mt-1 w-full px-3 py-2 rounded-md bg-black border border-neutral-700 text-white text-sm" />
+                </label>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={reportPaid} disabled={reportBusy} className="px-4 py-2 rounded-md bg-white text-black text-sm font-medium hover:bg-neutral-200 disabled:opacity-50">{L.reportPaid}</button>
+                <button onClick={() => setReportOpen(false)} className="px-3 py-2 rounded-md border border-neutral-700 text-neutral-300 text-sm">{lang === "de" ? "Abbrechen" : "Cancel"}</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setReportOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-neutral-700 text-white text-sm hover:border-neutral-400">
+              <Check size={15} /> {L.reportPaid}
+            </button>
+          )}
         </section>
       )}
 

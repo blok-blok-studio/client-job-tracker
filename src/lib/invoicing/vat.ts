@@ -70,13 +70,50 @@ export interface VatDecision {
   requiresClientVatId: boolean;
 }
 
+export type VatOverride = "AUTO" | VatScheme;
+
+export const VAT_OVERRIDE_OPTIONS: Array<{ value: VatOverride; label: string }> = [
+  { value: "AUTO", label: "Automatic (country + date rule)" },
+  { value: "REGULAR", label: "19% USt (German VAT)" },
+  { value: "KLEINUNTERNEHMER", label: "0%, § 19 UStG note" },
+  { value: "REVERSE_CHARGE", label: "0%, EU reverse charge" },
+  { value: "DRITTLAND", label: "0%, non-EU (§ 3a Abs. 2 UStG)" },
+];
+
+function forScheme(scheme: VatScheme, small: boolean): VatDecision {
+  switch (scheme) {
+    case "REGULAR":
+      return {
+        scheme,
+        rate: 19,
+        notes: [],
+        warning: small ? "19% USt chosen while § 19 UStG is still in force. Only do this if you have opted out of the small-business scheme (Verzicht nach § 19 Abs. 2 UStG), otherwise the VAT is owed anyway. Confirm with BD Berlin Digital Tax." : null,
+        requiresClientVatId: false,
+      };
+    case "KLEINUNTERNEHMER":
+      return { scheme, rate: 0, notes: ["Gemäß § 19 UStG wird keine Umsatzsteuer berechnet."], warning: small ? null : "§ 19 note chosen after the small-business scheme ended. Check this is right.", requiresClientVatId: false };
+    case "REVERSE_CHARGE":
+      return { scheme, rate: 0, notes: ["Steuerschuldnerschaft des Leistungsempfängers / Reverse charge (Art. 196 MwStSystRL)."], warning: "Reverse charge needs the client's VAT ID on the invoice.", requiresClientVatId: true };
+    case "DRITTLAND":
+      return {
+        scheme,
+        rate: 0,
+        notes: ["Keine Umsatzsteuer gemäß § 3a Abs. 2 UStG (Leistung an ein Drittland).", "No VAT charged according to § 3a (2) UStG for services supplied to a non-EU country."],
+        warning: null,
+        requiresClientVatId: false,
+      };
+  }
+}
+
 export function decideVat(input: {
   template: InvoiceTemplate;
   issueDate: Date;
   clientVatId?: string | null;
   settings: Pick<InvoiceSettings, "kleinunternehmerUntil">;
+  override?: VatOverride | null;
 }): VatDecision {
   const small = isKleinunternehmer(input.issueDate, input.settings);
+  if (input.override && input.override !== "AUTO") return forScheme(input.override, small);
   if (input.template === "DE") {
     if (small) {
       return {

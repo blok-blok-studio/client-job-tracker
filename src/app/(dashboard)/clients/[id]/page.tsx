@@ -21,6 +21,7 @@ import MediaManager from "@/components/clients/MediaManager";
 import ClientTasks from "@/components/clients/ClientTasks";
 import ClientServices from "@/components/clients/ClientServices";
 import ClientLifecycle from "@/components/clients/ClientLifecycle";
+import ClientInvoices from "@/components/clients/ClientInvoices";
 import DeliverablesPanel, { type DeliverableItem } from "@/components/clients/DeliverablesPanel";
 import ClientFilesPanel, { type ClientFileItem } from "@/components/clients/ClientFilesPanel";
 import { friendlyError } from "@/lib/fetch-json";
@@ -753,6 +754,8 @@ export default function ClientDetailPage() {
             <ClientServices clientId={id} />
 
             <ClientLifecycle clientId={id} isOwner={isOwner} />
+
+            {isOwner && <ClientInvoices clientId={id} />}
 
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">

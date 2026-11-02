@@ -60,6 +60,7 @@ const schema = z.object({
   brandGuide: z.boolean().optional().default(false),
   planId: z.enum(PARTNER_PLAN_IDS).nullable().optional(),
   milestone: z.enum(["deposit", "balance", "full"]).default("deposit"),
+  vat19: z.boolean().optional().default(false),
   note: z.string().trim().max(300).optional(),
 });
 
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   try {
     const { invoice } = await createDraft(
-      { clientId: client.id, template: "US", language: "en", currency: "USD", items, internalNote: `Drafted from the partner portal by ${rep.name}${d.note ? `: ${d.note}` : ""}` },
+      { clientId: client.id, template: "US", language: "en", currency: "USD", items, vatOverride: d.vat19 ? "REGULAR" : null, internalNote: `Drafted from the partner portal by ${rep.name}${d.note ? `: ${d.note}` : ""}` },
       `partner:${rep.name}`
     );
     await prisma.studioInvoice.update({ where: { id: invoice.id }, data: { partnerId: rep.partnerId, partnerRepId: rep.id } });

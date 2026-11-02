@@ -145,6 +145,11 @@ export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings):
     sentTo: inv.sentTo,
     paidAt: inv.paidAt?.toISOString() ?? null,
     paidMethod: inv.paidMethod,
+    paymentReportedAt: inv.paymentReportedAt?.toISOString() ?? null,
+    paymentReportedNote: inv.paymentReportedNote,
+    eurAmount: inv.eurAmount != null ? Number(inv.eurAmount) : null,
+    fxRateToEur: inv.fxRateToEur != null ? Number(inv.fxRateToEur) : null,
+    receiptSentAt: inv.receiptSentAt?.toISOString() ?? null,
     voidedAt: inv.voidedAt?.toISOString() ?? null,
     voidReason: inv.voidReason,
     publicUrl: url,
@@ -156,8 +161,10 @@ export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings):
 
 /** The client-facing shape: no bank account numbers beyond what the invoice prints, no internal notes. */
 export function publicInvoiceView(view: InvoiceView): Omit<InvoiceView, "id"> {
-  const { id: _id, ...rest } = view;
+  const { id: _id, ...withBooks } = view;
   void _id;
+  // Our bookkeeping (EUR conversion) is not the client's business
+  const rest = { ...withBooks, eurAmount: null, fxRateToEur: null };
   const settled = view.status === "PAID" || view.status === "VOID";
   if (!settled) return rest;
   // Once paid or voided there is nothing left to pay: the link still shows the

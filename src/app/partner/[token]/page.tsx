@@ -915,7 +915,7 @@ function PortalInvoices({ token, deals, catalog, canClose, notify }: { token: st
   const [rows, setRows] = useState<PortalInvoiceRow[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState<{ clientId: string; websiteId: string; brandGuide: boolean; planId: string; milestone: "deposit" | "balance" | "full" }>({ clientId: "", websiteId: "", brandGuide: false, planId: "", milestone: "deposit" });
+  const [form, setForm] = useState<{ clientId: string; websiteId: string; brandGuide: boolean; planId: string; milestone: "deposit" | "balance" | "full"; vat19: boolean }>({ clientId: "", websiteId: "", brandGuide: false, planId: "", milestone: "deposit", vat19: false });
   const websites = catalog.filter((c) => !c.recurring && c.id.includes("website"));
   const plans = catalog.filter((c) => c.recurring);
   const brand = catalog.find((c) => c.id.includes("brand"));
@@ -937,7 +937,7 @@ function PortalInvoices({ token, deals, catalog, canClose, notify }: { token: st
     if (form.websiteId) total += (websites.find((w) => w.id === form.websiteId)?.price || 0) * share;
     if (form.brandGuide && brand) total += brand.price * share;
     if (form.planId) total += plans.find((p) => p.id === form.planId)?.price || 0;
-    return total;
+    return form.vat19 ? Math.round(total * 1.19 * 100) / 100 : total;
   })();
   async function submit() {
     if (!form.clientId) return notify("Pick the practice", "err");
@@ -947,13 +947,13 @@ function PortalInvoices({ token, deals, catalog, canClose, notify }: { token: st
       const res = await fetch(`/api/partner/${token}/invoices`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: form.clientId, websiteId: form.websiteId || null, brandGuide: form.brandGuide, planId: form.planId || null, milestone: form.milestone }),
+        body: JSON.stringify({ clientId: form.clientId, websiteId: form.websiteId || null, brandGuide: form.brandGuide, planId: form.planId || null, milestone: form.milestone, vat19: form.vat19 }),
       });
       const r = await readJson(res);
       if (!r.ok) throw new Error(r.error || "Could not create the invoice");
       notify("Draft sent to Chase. You will see the pay link here once it is issued.");
       setFormOpen(false);
-      setForm({ clientId: "", websiteId: "", brandGuide: false, planId: "", milestone: "deposit" });
+      setForm({ clientId: "", websiteId: "", brandGuide: false, planId: "", milestone: "deposit", vat19: false });
       await load();
     } catch (err) {
       notify(friendlyError(err), "err");
@@ -1010,6 +1010,9 @@ function PortalInvoices({ token, deals, catalog, canClose, notify }: { token: st
               </button>
             ))}
           </div>
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input type="checkbox" checked={form.vat19} onChange={(e) => setForm({ ...form, vat19: e.target.checked })} /> Add 19% German VAT (only for a practice based in Germany)
+          </label>
           <div className="flex items-center justify-between">
             <p className="text-sm text-white">Invoice total: {usd2(preview)}</p>
             <button onClick={submit} disabled={busy} className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium disabled:opacity-50">{busy ? "Sending…" : "Send draft to Chase"}</button>

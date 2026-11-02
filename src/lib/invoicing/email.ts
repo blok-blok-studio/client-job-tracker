@@ -84,3 +84,36 @@ export async function sendStudioInvoiceEmail(params: {
   if (error) throw new Error(`Resend error: ${error.message}`);
   return { id: data?.id ?? null };
 }
+
+/** Payment confirmation (Zahlungsbestätigung) with the PAID-stamped invoice attached. */
+export async function sendPaymentReceiptEmail(params: { to: string; view: InvoiceView; pdf: Uint8Array; replyTo?: string | null }): Promise<{ id: string | null }> {
+  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const v = params.view;
+  const de = v.language === "de";
+  const amount = formatMoney(v.total, v.currency, v.language);
+  const first = (v.billTo.name || "").split(" ")[0] || "";
+  const number = v.number || "";
+  const paid = v.paidAt ? formatDate(v.paidAt, v.language) : "";
+  const subject = de ? `Zahlungsbestätigung: Rechnung ${number}` : `Payment received: invoice ${number}`;
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;color:#111;">
+      <h2 style="margin:0 0 28px;font-size:18px;letter-spacing:0.02em;">Blok Blok Studio</h2>
+      <p style="font-size:15px;line-height:1.6;">${esc(de ? `Hallo ${first},` : `Hi ${first},`)}</p>
+      <p style="font-size:15px;line-height:1.6;">${de ? `vielen Dank, Ihre Zahlung über <strong>${esc(amount)}</strong> zur Rechnung <strong>${esc(number)}</strong> ist am ${esc(paid)} bei uns eingegangen. Die Rechnung ist damit vollständig beglichen.` : `thank you, your payment of <strong>${esc(amount)}</strong> for invoice <strong>${esc(number)}</strong> was received on ${esc(paid)}. The invoice is settled in full.`}</p>
+      <p style="font-size:15px;line-height:1.6;">${de ? "Die als bezahlt gekennzeichnete Rechnung ist als PDF angehängt." : "The invoice marked as paid is attached as a PDF for your records."}</p>
+      <p style="font-size:15px;line-height:1.6;">${esc(de ? "Beste Grüße" : "Best regards")}<br/>${esc(v.seller.contactName)}</p>
+      <hr style="border:none;border-top:1px solid #e5e5e5;margin:32px 0;"/>
+      <p style="color:#777;font-size:12px;line-height:1.6;">${esc(v.seller.sellerName)} · ${esc(v.seller.addressLines.join(", "))}<br/>${esc(v.seller.email)} · ${esc(v.seller.website)}</p>
+    </div>`;
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    replyTo: params.replyTo || v.seller.email || undefined,
+    subject,
+    html,
+    attachments: [{ filename: `${number || "invoice"}-${de ? "bezahlt" : "paid"}.pdf`, content: Buffer.from(params.pdf) }],
+  });
+  if (error) throw new Error(`Resend error: ${error.message}`);
+  return { id: data?.id ?? null };
+}

@@ -56,6 +56,8 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
     setInv(d);
     setSendTo(d.billTo.email || d.client.email || "");
     setNote(d.internalNote || "");
+    const reportedDate = /paid (\d{4}-\d{2}-\d{2})/.exec(d.paymentReportedNote || "")?.[1];
+    if (reportedDate) setPaidAt(reportedDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -145,8 +147,20 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
                 {inv.dueDate ? ` · due ${shortDate(inv.dueDate)}` : ""}
                 {inv.paidAt ? ` · paid ${shortDate(inv.paidAt)} (${inv.paidMethod})` : ""}
               </p>
+              {inv.status === "PAID" && inv.eurAmount != null && (
+                <p className="text-xs text-green-400">
+                  Booked as {formatMoney(inv.eurAmount, "EUR", "en")}{inv.currency === "USD" && inv.fxRateToEur ? ` at ${inv.fxRateToEur} USD→EUR (ECB, payment date)` : ""}
+                  {inv.receiptSentAt ? ` · receipt sent ${shortDate(inv.receiptSentAt)}` : " · no receipt sent"}
+                </p>
+              )}
             </div>
           </div>
+
+          {inv.paymentReportedAt && inv.status !== "PAID" && (
+            <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-200">
+              The client says this is paid ({shortDate(inv.paymentReportedAt)}{inv.paymentReportedNote ? `: ${inv.paymentReportedNote}` : ""}). Check the bank, then Mark paid to confirm and send the receipt.
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
@@ -246,9 +260,10 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
                   <p className="text-[11px] text-bb-dim mt-1">Same rates and banding as Stripe payments; the row lands on the partner ledger as payable.</p>
                 </div>
               )}
+              <p className="text-[11px] text-bb-dim">A payment confirmation with the PAID-stamped PDF goes to {inv.billTo.email || "(no email on file)"}. {inv.currency === "USD" ? "The USD amount is booked in EUR at the ECB rate of the paid-on date." : ""}</p>
               <div className="flex justify-end gap-2">
                 <button className={btnGhost} onClick={() => setPanel(null)}>Cancel</button>
-                <button className={btnPrimary} disabled={busy} onClick={async () => { if (await act("/paid", jsonInit("POST", { paidAt, method: paidMethod, note: paidNote || null, commissionKind: inv.partnerContext ? commissionKind : "NONE" }), "Marked as paid")) setPanel(null); }}>
+                <button className={btnPrimary} disabled={busy} onClick={async () => { if (await act("/paid", jsonInit("POST", { paidAt, method: paidMethod, note: paidNote || null, commissionKind: inv.partnerContext ? commissionKind : "NONE" }), "Marked as paid, receipt sent if an email is on file")) setPanel(null); }}>
                   Mark paid
                 </button>
               </div>
@@ -360,10 +375,29 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
       <ConfirmDialog
         open={confirm === "issue"}
         onClose={() => setConfirm(null)}
-        onConfirm={async () => { setConfirm(null); await act("/issue", { method: "POST" }, "Invoice issued"); }}
+        onConfirm={async () => {
+          setConfirm(null);
+          if (!id) return;
+          setBusy(true);
+          try {
+            const res = await fetch(`/api/studio-invoices/${id}/issue`, { method: "POST" });
+            const json = await readJsonSafe(res);
+            if (!json.success) throw new Error(json.error || "Failed");
+            const d = json.data as { number: string; send?: { sent: boolean; to: string | null; error: string | null } };
+            if (d.send?.sent) toast(`Issued ${d.number} and emailed to ${d.send.to}`, "success");
+            else if (d.send?.error) toast(`Issued ${d.number}. Not emailed: ${d.send.error}`, "info");
+            else toast(`Issued ${d.number}`, "success");
+            await load();
+            onChanged();
+          } catch (err) {
+            toast(err instanceof Error ? err.message : "Failed", "error");
+          } finally {
+            setBusy(false);
+          }
+        }}
         title="Issue this invoice?"
-        message="The next number in the sequence is assigned and the invoice becomes a permanent record. After this only the internal note can change; corrections mean voiding and issuing a new one."
-        confirmLabel="Issue number"
+        message={`The next number in the sequence is assigned and the invoice becomes a permanent record. ${inv?.billTo.email ? `It is emailed to ${inv.billTo.email} right away (PDF + pay link).` : "No email on the invoice, so it will not be sent automatically."} Corrections afterwards mean voiding and issuing a new one.`}
+        confirmLabel={inv?.billTo.email ? "Issue and email" : "Issue number"}
         loading={busy}
       />
       <ConfirmDialog

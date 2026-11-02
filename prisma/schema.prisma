@@ -578,6 +578,7 @@ model StudioInvoice {
   language  String @default("en") // de | en
   currency  String @default("USD") // EUR | USD
   vatScheme String @default("DRITTLAND") // KLEINUNTERNEHMER | DRITTLAND | REVERSE_CHARGE | REGULAR
+  vatOverride String? // owner choice instead of the country/date rule: KLEINUNTERNEHMER | REGULAR (19%) | REVERSE_CHARGE | DRITTLAND
   vatRate   Decimal @default(0) @db.Decimal(5, 2)
   vatNote   String? @db.Text
 
@@ -604,6 +605,13 @@ model StudioInvoice {
   paidAt     DateTime?
   paidMethod String? // bank | wise | stripe | cash | other
   paidNote   String?
+  // Income accounting: USD paid → EUR at the ECB rate of the payment date (German books)
+  fxRateToEur Decimal? @db.Decimal(12, 6)
+  eurAmount   Decimal? @db.Decimal(12, 2)
+  // The client pressed "I have paid" on the pay page (self-reported; owner confirms with Mark paid)
+  paymentReportedAt   DateTime?
+  paymentReportedNote String?
+  receiptSentAt       DateTime?
   voidedAt   DateTime?
   voidReason String?
 

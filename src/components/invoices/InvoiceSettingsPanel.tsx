@@ -166,6 +166,10 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
             <input type="number" min={0} className={inputCls} value={s.revenueCeilingEur} onChange={(e) => set("revenueCeilingEur", Number(e.target.value))} />
           </Field>
         </div>
+        <label className="flex items-center gap-2 text-sm text-bb-muted mt-4">
+          <input type="checkbox" checked={s.autoSendOnIssue} onChange={(e) => set("autoSendOnIssue", e.target.checked)} />
+          Email every invoice to the client automatically when it is issued (PDF + pay link)
+        </label>
         <p className="text-xs text-bb-dim mt-3">
           Numbers run BBS-YYYY-001, 002, … per year and are assigned when an invoice is issued. If some 2026 numbers were already used outside this system, set the first number here before issuing. German invoices issued after the § 19 date add 19% USt automatically.
         </p>
