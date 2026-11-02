@@ -110,6 +110,7 @@ model Client {
   credentials      Credential[]
   tasks            Task[]
   invoices         Invoice[]
+  studioInvoices   StudioInvoice[]
   contacts         Contact[]
   activityLogs     ActivityLog[]
   checklistItems   ChecklistItem[]
@@ -555,6 +556,74 @@ model Invoice {
   @@index([clientId])
   @@index([status])
   @@index([dueDate])
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Studio invoices: the invoices Blok Blok issues itself (bank transfer /
+// Wise), separate from `Invoice`, which mirrors Stripe. Numbers are assigned
+// at issue time (BBS-YYYY-###), never reused, never skipped; voided invoices
+// keep their number. Issued invoices are never deleted (GoBD records).
+// ─────────────────────────────────────────────────────────────────
+model StudioInvoice {
+  id       String              @id @default(cuid())
+  token    String              @unique // public view/pay link
+  number   String?             @unique // BBS-2026-001, set when issued
+  year     Int?
+  sequence Int?
+  clientId String
+  client   Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  status   StudioInvoiceStatus @default(DRAFT)
+
+  template  String @default("US") // DE | US | EU — picks language, currency and VAT rule
+  language  String @default("en") // de | en
+  currency  String @default("USD") // EUR | USD
+  vatScheme String @default("DRITTLAND") // KLEINUNTERNEHMER | DRITTLAND | REVERSE_CHARGE | REGULAR
+  vatRate   Decimal @default(0) @db.Decimal(5, 2)
+  vatNote   String? @db.Text
+
+  issueDate       DateTime?
+  serviceDateFrom DateTime?
+  serviceDateTo   DateTime?
+  dueDate         DateTime?
+  dueDays         Int       @default(14)
+
+  billTo         Json // snapshot: { name, company, addressLines[], email, vatId, country }
+  sellerSnapshot Json? // seller + bank details as printed, frozen at issue
+  items          Json // [{ description, qty, unitPrice }]
+  subtotal       Decimal @db.Decimal(12, 2)
+  vatAmount      Decimal @db.Decimal(12, 2)
+  total          Decimal @db.Decimal(12, 2)
+
+  paymentMethod String  @default("BANK") // BANK | STRIPE
+  paymentUrl    String? // Stripe payment link when paymentMethod = STRIPE
+  notes         String? @db.Text // printed on the invoice
+  internalNote  String? @db.Text // never printed
+
+  sentAt     DateTime?
+  sentTo     String?
+  paidAt     DateTime?
+  paidMethod String? // bank | wise | stripe | cash | other
+  paidNote   String?
+  voidedAt   DateTime?
+  voidReason String?
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([year, sequence])
+  @@index([clientId])
+  @@index([status])
+  @@index([issueDate])
+  @@index([dueDate])
+}
+
+enum StudioInvoiceStatus {
+  DRAFT
+  ISSUED
+  SENT
+  PAID
+  VOID
 }
 
 enum InvoiceStatus {

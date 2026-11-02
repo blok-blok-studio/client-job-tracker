@@ -34,6 +34,7 @@ import {
   Menu,
   X,
   Handshake,
+  Receipt,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ const navItems = [
   { href: "/files", label: "Files", icon: FolderOpen },
   { href: "/work", label: "Work", icon: FolderUp },
   { href: "/contracts", label: "Contracts", icon: FileSignature },
+  { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/deliverables", label: "Deliverables", icon: PackageCheck },
   { href: "/contractors", label: "Contractors", icon: HardHat },
   { href: "/partners", label: "Partners", icon: Handshake },
@@ -123,7 +125,7 @@ export default function Sidebar() {
   // Contracts is owner-only (priced contract bodies) — hidden until the fetch
   // confirms OWNER, no matter what tabs were granted. (Money page removed
   // 2026-08-16: Stripe is the books.)
-  const OWNER_ONLY_HREFS = ["/contracts", "/partners"];
+  const OWNER_ONLY_HREFS = ["/contracts", "/partners", "/invoices"];
   const baseItems =
     currentUser?.role === "OWNER"
       ? navItems

@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   "/partner/", // sales-partner rep portal (token-scoped; "/partners" dashboard stays private)
   "/partner-connect", // landing page after a partner finishes Stripe Connect onboarding
   "/post-review/",
+  "/invoice/", // client-facing invoice + pay page (token-scoped; "/invoices" dashboard stays owner-only)
   "/legal/", // privacy policy, terms, data deletion (platform reviewers and clients)
   "/about", // public app home page for platform consent screens
   "/api/auth/login",
@@ -34,6 +35,7 @@ const PUBLIC_PATHS = [
   "/api/agreement/",
   "/api/partner/", // token-scoped portal API ("/api/partners/" is owner-only)
   "/api/post-review/",
+  "/api/invoice/", // token-scoped invoice JSON + PDF ("/api/studio-invoices" is owner-only)
   "/api/client-media/upload-portal",
   "/api/client-media/zip-link/", // random 15-minute links made by the team (iPhone zip downloads open in Safari)
   "/api/client-media/upload-blob",
@@ -124,6 +126,7 @@ const SHORT_LINKS: Record<string, string> = {
   i: "contractor",
   a: "agreement",
   p: "post-review",
+  b: "invoice", // "bill"
 };
 
 export async function middleware(request: NextRequest) {
@@ -131,7 +134,7 @@ export async function middleware(request: NextRequest) {
 
   cleanupRateLimits();
 
-  const shortMatch = pathname.match(/^\/(c|r|o|u|i|a|p)\/([\w-]+)$/);
+  const shortMatch = pathname.match(/^\/(c|r|o|u|i|a|p|b)\/([\w-]+)$/);
   if (shortMatch) {
     const url = request.nextUrl.clone();
     url.pathname = `/${SHORT_LINKS[shortMatch[1]]}/${shortMatch[2]}`;

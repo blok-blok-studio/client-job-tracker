@@ -410,9 +410,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Studio invoices: § 19 revenue-ceiling watch + the December VAT-switch reminder (owner inbox only)
+    let invoiceReminders: string[] = [];
+    try {
+      const { runInvoiceReminders } = await import("@/lib/invoicing/revenue");
+      invoiceReminders = await runInvoiceReminders(new Date());
+    } catch (err) {
+      console.error("[Cron] Invoice reminders error:", err);
+    }
+
     return NextResponse.json({
       success: true,
-      data: { recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, reviewRemindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, postConnectionWarnings, thumbnailsGenerated, playbacksGenerated, digestSent, taxRemindersSent: taxReminders.sent.length, taxRemindersPending: taxReminders.wouldSend.length },
+      data: { invoiceReminders, recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, reviewRemindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, postConnectionWarnings, thumbnailsGenerated, playbacksGenerated, digestSent, taxRemindersSent: taxReminders.sent.length, taxRemindersPending: taxReminders.wouldSend.length },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";
