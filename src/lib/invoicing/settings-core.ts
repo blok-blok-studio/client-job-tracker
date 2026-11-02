@@ -105,7 +105,7 @@ export function normalizeInvoiceSettings(raw: unknown): InvoiceSettings {
       swift: str(usd.swift, "").replace(/\s+/g, "").toUpperCase(),
       bankAddress: str(usd.bankAddress, ""),
     },
-    wisePayLink: str(r.wisePayLink, "").trim(),
+    wisePayLink: /^https:\/\/(www\.)?wise\.com\//i.test(str(r.wisePayLink, "").trim()) ? str(r.wisePayLink, "").trim() : "",
     defaultDueDays: Math.min(90, Math.max(0, Math.round(num(r.defaultDueDays, d.defaultDueDays)))),
     kleinunternehmerUntil: /^\d{4}-\d{2}-\d{2}$/.test(str(r.kleinunternehmerUntil, ""))
       ? (r.kleinunternehmerUntil as string)
@@ -154,6 +154,5 @@ export function settingsWarnings(settings: InvoiceSettings): string[] {
   if (settings.eur.iban && !isValidIban(settings.eur.iban)) w.push("The IBAN does not pass the checksum. Re-check it before issuing EUR invoices.");
   if (!settings.eur.iban) w.push("EUR bank details are empty. EUR invoices cannot be issued until the IBAN is in.");
   if (!settings.usd.routing || !settings.usd.account) w.push("USD (Wise) account details are empty. USD invoices cannot be issued until they are in.");
-  if (settings.wisePayLink && !/^https:\/\/(www\.)?wise\.com\//i.test(settings.wisePayLink)) w.push("The Wise pay link should be a https://wise.com/... URL.");
   return w;
 }

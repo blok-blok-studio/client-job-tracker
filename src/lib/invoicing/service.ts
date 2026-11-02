@@ -39,7 +39,7 @@ export const draftSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
   internalNote: z.string().max(2000).nullable().optional(),
   paymentMethod: z.enum(["BANK", "STRIPE"]).optional(),
-  paymentUrl: z.string().trim().url().max(500).nullable().optional().or(z.literal("")),
+  paymentUrl: z.string().trim().url().max(500).regex(/^https:\/\//, "Payment link must start with https://").nullable().optional().or(z.literal("")),
   billTo: billToSchema.optional(),
 });
 export type DraftInput = z.infer<typeof draftSchema>;

@@ -11,7 +11,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 function csvCell(v: unknown): string {
-  const s = v == null ? "" : String(v);
+  let s = v == null ? "" : String(v);
+  // A client name like "=HYPERLINK(...)" must not run as a formula when the
+  // advisor opens the file in Excel: neutralise leading formula characters.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

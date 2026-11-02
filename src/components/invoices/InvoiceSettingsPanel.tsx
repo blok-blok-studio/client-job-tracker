@@ -139,7 +139,7 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
           <Field label="Bank address (optional, some payers need it)">
             <input className={inputCls} value={s.usd.bankAddress} onChange={(e) => setUsd("bankAddress", e.target.value)} />
           </Field>
-          <Field label="Wise pay link (optional; the USD QR opens it)" className="sm:col-span-2">
+          <Field label="Wise pay link (optional, must be https://wise.com/…; the USD QR opens it)" className="sm:col-span-2">
             <input className={inputCls} placeholder="https://wise.com/pay/…" value={s.wisePayLink} onChange={(e) => set("wisePayLink", e.target.value)} />
           </Field>
         </div>
