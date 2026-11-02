@@ -48,7 +48,7 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
       {rows === null ? (
         <p className="text-xs text-bb-dim">Loading…</p>
       ) : rows.length === 0 ? (
-        <p className="text-xs text-bb-dim">No bank-transfer invoices yet. Stripe-billed work stays in Stripe.</p>
+        <p className="text-xs text-bb-dim">No invoices yet.</p>
       ) : (
         <div className="space-y-1.5">
           {rows.slice(0, 6).map((r) => (

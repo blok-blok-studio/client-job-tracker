@@ -68,9 +68,8 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
   const [items, setItems] = useState<ItemRow[]>([{ description: "", qty: "1", unitPrice: "" }]);
   const [notes, setNotes] = useState("");
   const [internalNote, setInternalNote] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"BANK" | "STRIPE">("BANK");
+  const paymentMethod = "BANK" as const;
   const [vatOverride, setVatOverride] = useState<VatOverride>("AUTO");
-  const [paymentUrl, setPaymentUrl] = useState("");
   const [billTo, setBillTo] = useState<BillTo>({ name: "", company: null, addressLines: [], email: null, vatId: null, country: null });
   const [showBillTo, setShowBillTo] = useState(false);
   const [ackDuplicate, setAckDuplicate] = useState(false);
@@ -131,8 +130,6 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
       setItems(d.items.length ? d.items.map((i) => ({ description: i.description, qty: String(i.qty), unitPrice: String(i.unitPrice) })) : [{ description: "", qty: "1", unitPrice: "" }]);
       setNotes(d.notes || "");
       setInternalNote(d.internalNote || "");
-      setPaymentMethod(d.paymentMethod);
-      setPaymentUrl(d.paymentUrl || "");
       setBillTo(d.billTo);
       setVatOverride(d.vatOverride || "AUTO");
     })();
@@ -205,7 +202,6 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
     if (!clientId) return toast("Pick a client first", "error");
     if (!parsedItems.length) return toast("Add at least one line item with a description and a price", "error");
     if (hasDuplicateRisk && issue && !ackDuplicate) return toast("Confirm the open-invoice check first", "error");
-    if (paymentMethod === "STRIPE" && !/^https:\/\//.test(paymentUrl.trim())) return toast("Paste the Stripe payment link, or switch to bank transfer", "error");
     setSaving(true);
     try {
       const payload = {
@@ -222,7 +218,6 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
         internalNote: internalNote || null,
         paymentMethod,
         vatOverride,
-        paymentUrl: paymentMethod === "STRIPE" ? paymentUrl.trim() : null,
         billTo: { ...billTo, addressLines: billTo.addressLines.filter(Boolean), email: billTo.email || "", country: billTo.country || "" },
       };
       const res = await fetch(draftId ? `/api/studio-invoices/${draftId}` : "/api/studio-invoices", {
@@ -418,25 +413,6 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
                 <div className="flex justify-between text-bb-muted"><span>VAT {vat.rate}%</span><span>{fmt(totals.vatAmount)}</span></div>
                 <div className="flex justify-between text-white font-semibold border-t border-bb-border pt-1"><span>Total</span><span>{fmt(totals.total)}</span></div>
               </div>
-            </div>
-
-            {/* Payment method */}
-            <div>
-              <label className={labelCls}>Payment</label>
-              <div className="flex flex-wrap gap-1.5 items-center">
-                <button type="button" className={chipCls(paymentMethod === "BANK")} onClick={() => setPaymentMethod("BANK")}>
-                  Bank transfer {currency === "EUR" ? "(SEPA + GiroCode)" : currency === "USD" ? "(ACH / wire via Wise)" : `(${currency} account via Wise)`}
-                </button>
-                <button type="button" className={chipCls(paymentMethod === "STRIPE")} onClick={() => setPaymentMethod("STRIPE")}>
-                  Stripe card link
-                </button>
-                {paymentMethod === "STRIPE" && (
-                  <span className="text-xs text-amber-300">Stripe costs about {prep.stripeFeePct}% on EU cards. Only if the client insists or the invoice is small.</span>
-                )}
-              </div>
-              {paymentMethod === "STRIPE" && (
-                <input className={`${inputCls} mt-2`} placeholder="https://buy.stripe.com/… or https://invoice.stripe.com/…" value={paymentUrl} onChange={(e) => setPaymentUrl(e.target.value)} />
-              )}
             </div>
 
             {/* Bill to */}

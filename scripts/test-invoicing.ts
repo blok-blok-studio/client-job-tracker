@@ -16,7 +16,6 @@ import { statementVat, renderStatementPdf, statementNumber, type StatementView }
 import { firstRunAt, advanceRun, fillPeriod } from "../src/lib/invoicing/recurring";
 import { stageDue } from "../src/lib/invoicing/reminders";
 import { buildCiiXml } from "../src/lib/invoicing/einvoice";
-import { debitTypeFor } from "../src/lib/invoicing/direct-debit";
 import { parseBankCsv } from "../src/lib/invoicing/reconcile";
 import { buildDatevCsv, normalizeDatev } from "../src/lib/invoicing/datev";
 
@@ -222,7 +221,6 @@ const de27View: InvoiceView = {
   check("xml: buyer zip + city parsed", xml.includes("<ram:PostcodeCode>10115</ram:PostcodeCode>") && xml.includes("<ram:CityName>Berlin</ram:CityName>"), xml.slice(0, 0));
   check("xml: correction type 381, nothing due", buildCiiXml(corrView).includes("<ram:TypeCode>381</ram:TypeCode>") && buildCiiXml(corrView).includes("<ram:DuePayableAmount>0.00</ram:DuePayableAmount>"));
   check("xml: escapes", buildCiiXml({ ...deView, items: [{ description: "A & B <x>", qty: 1, unitPrice: 1, lineTotal: 1 }] }).includes("A &amp; B &lt;x&gt;"));
-  check("debit types", debitTypeFor("EUR") === "sepa_debit" && debitTypeFor("USD") === "us_bank_account" && debitTypeFor("GBP") === null);
   const cb = await renderInvoicePdf(corrView);
   fs.writeFileSync(path.join(outDir, "sample-correction.pdf"), cb);
   check("correction pdf", cb.length > 5000);

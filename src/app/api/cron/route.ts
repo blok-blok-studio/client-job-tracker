@@ -426,14 +426,6 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       console.error("[Cron] Recurring plans error:", err);
     }
-    // Direct debits in flight: Stripe is polled, the webhook is not subscribed to payment_intent events
-    let debitResults: unknown[] = [];
-    try {
-      const { pollDebits } = await import("@/lib/invoicing/direct-debit");
-      debitResults = await pollDebits();
-    } catch (err) {
-      console.error("[Cron] Direct debit poll error:", err instanceof Error ? err.message : err);
-    }
     // Dunning: due-soon, overdue, final notice
     let paymentReminders: unknown[] = [];
     try {
@@ -445,7 +437,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { invoiceReminders, recurringInvoices, debitResults, paymentReminders, recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, reviewRemindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, postConnectionWarnings, thumbnailsGenerated, playbacksGenerated, digestSent, taxRemindersSent: taxReminders.sent.length, taxRemindersPending: taxReminders.wouldSend.length },
+      data: { invoiceReminders, recurringInvoices, paymentReminders, recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, reviewRemindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, postConnectionWarnings, thumbnailsGenerated, playbacksGenerated, digestSent, taxRemindersSent: taxReminders.sent.length, taxRemindersPending: taxReminders.wouldSend.length },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";

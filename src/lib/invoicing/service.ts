@@ -43,7 +43,7 @@ export const draftSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
   internalNote: z.string().max(2000).nullable().optional(),
   vatOverride: z.enum(["AUTO", "KLEINUNTERNEHMER", "REGULAR", "REVERSE_CHARGE", "DRITTLAND"]).nullable().optional(),
-  paymentMethod: z.enum(["BANK", "STRIPE"]).optional(),
+  paymentMethod: z.enum(["BANK"]).optional(),
   paymentUrl: z.string().trim().url().max(500).regex(/^https:\/\//, "Payment link must start with https://").nullable().optional().or(z.literal("")),
   billTo: billToSchema.optional(),
 });
@@ -311,7 +311,7 @@ export async function markPaid(id: string, actor: string, input: { paidAt?: stri
     receipt = await sendPaymentReceipt(id, actor).catch((err) => ({ sent: false, error: err instanceof Error ? err.message : "failed" }));
   }
   let commission: Awaited<ReturnType<typeof recordCommissionForStudioInvoice>> | null = null;
-  // Automatic paths (bank match, direct debit) pass no kind: infer it so a partner is never silently skipped
+  // Automatic paths (bank match) pass no kind: infer it so a partner is never silently skipped
   const commissionKind = input.commissionKind ?? inferCommissionKind(invoice);
   if (commissionKind !== "NONE") {
     commission = await recordCommissionForStudioInvoice(id, commissionKind, actor).catch((err) => {

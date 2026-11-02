@@ -96,7 +96,6 @@ export async function runPaymentReminders(now = new Date()): Promise<Array<{ num
   const owners = await prisma.user.findMany({ where: { role: "OWNER", isActive: true }, select: { id: true } });
   const out: Array<{ number: string | null; stage: number; result: string }> = [];
   for (const inv of open) {
-    if (inv.debitStatus === "PROCESSING") continue; // money is on its way
     const next = stageDue(now, inv.dueDate!, inv.reminderStage, settings.reminders);
     if (!next) continue;
     // Client says it is paid: do not chase them, chase the owner to confirm

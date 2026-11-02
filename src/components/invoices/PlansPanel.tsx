@@ -29,8 +29,6 @@ interface Plan {
   items: Array<{ description: string; qty: number; unitPrice: number }>;
   notes: string | null;
   autoSend: boolean;
-  paymentMethod: "BANK" | "STRIPE" | "DIRECT_DEBIT";
-  paymentUrl: string | null;
   amount: number;
   client: { id: string; name: string; company: string | null };
 }
@@ -185,8 +183,6 @@ function PlanEditor({ plan, onClose, onSaved }: { plan: Plan | null; onClose: ()
     items: plan?.items?.map((i) => ({ description: i.description, qty: String(i.qty), unitPrice: String(i.unitPrice) })) || [{ description: "Website care plan, {month}", qty: "1", unitPrice: "" }],
     notes: plan?.notes || "",
     autoSend: plan?.autoSend ?? true,
-    paymentMethod: plan?.paymentMethod || "BANK",
-    paymentUrl: plan?.paymentUrl || "",
   });
 
   useEffect(() => {
@@ -222,7 +218,7 @@ function PlanEditor({ plan, onClose, onSaved }: { plan: Plan | null; onClose: ()
     if (!items.length) return toast("Add at least one line with a price", "error");
     setSaving(true);
     try {
-      const body = { ...f, items, endDate: f.endDate || null, notes: f.notes || null, paymentUrl: f.paymentMethod === "STRIPE" ? f.paymentUrl : "" };
+      const body = { ...f, items, endDate: f.endDate || null, notes: f.notes || null };
       const res = await fetch(plan ? `/api/studio-invoices/plans/${plan.id}` : "/api/studio-invoices/plans", { method: plan ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const j = await readJsonSafe(res);
       if (!j.success) throw new Error(j.error || "Save failed");
@@ -322,16 +318,6 @@ function PlanEditor({ plan, onClose, onSaved }: { plan: Plan | null; onClose: ()
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>Payment</label>
-            <div className="flex gap-1.5 flex-wrap">
-              <button type="button" className={chipCls(f.paymentMethod === "BANK")} onClick={() => setF({ ...f, paymentMethod: "BANK" })}>Bank transfer</button>
-              <button type="button" className={chipCls(f.paymentMethod === "STRIPE")} onClick={() => setF({ ...f, paymentMethod: "STRIPE" })}>Stripe link</button>
-              <button type="button" className={chipCls(f.paymentMethod === "DIRECT_DEBIT")} onClick={() => setF({ ...f, paymentMethod: "DIRECT_DEBIT" })}>Direct debit</button>
-            </div>
-            {f.paymentMethod === "DIRECT_DEBIT" && <p className="text-[11px] text-bb-dim mt-1">EUR or USD. Collects automatically once the client has set up direct debit from their invoice pay page. Without a mandate the invoice stays open for a normal transfer.</p>}
-            {f.paymentMethod === "STRIPE" && <input className={`${inputCls} mt-2`} placeholder="https://buy.stripe.com/…" value={f.paymentUrl} onChange={(e) => setF({ ...f, paymentUrl: e.target.value })} />}
-          </div>
           <div>
             <label className={labelCls}>Notes (printed)</label>
             <textarea className={inputCls} rows={2} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} />

@@ -21,7 +21,6 @@ type Detail = InvoiceView & {
   draftedBy: string | null;
   correctedBy: { id: string; number: string | null } | null;
   correctsId: string | null;
-  debit: { status: string | null; error: string | null; mandate: { type: string | null; last4: string | null } | null };
 };
 
 interface Props {
@@ -169,9 +168,6 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
             </div>
           )}
 
-          {inv.debit.status === "PROCESSING" && <p className="text-xs text-blue-300">Direct debit in progress. It is marked paid automatically once Stripe confirms, which takes a few days.</p>}
-          {inv.debit.status === "FAILED" && <p className="text-xs text-red-400">Direct debit failed: {inv.debit.error}</p>}
-
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
             {canIssue && (
@@ -199,11 +195,6 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
             <a href={pdfHref} target="_blank" rel="noreferrer" className={`${btnGhost} inline-flex items-center gap-1.5`}>
               <Download size={14} /> PDF
             </a>
-            {canPay && inv.debit.mandate && inv.debit.status !== "PROCESSING" && (
-              <button className={`${btnGhost} inline-flex items-center gap-1.5`} disabled={busy} onClick={() => act("/charge", { method: "POST" }, "Direct debit started")}>
-                Collect by direct debit (…{inv.debit.mandate.last4})
-              </button>
-            )}
             {inv.status !== "DRAFT" && (
               <>
                 <a href={`/api/studio-invoices/${inv.id}/xml`} className={btnGhost}>E-invoice XML</a>
@@ -261,7 +252,6 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
                   <select className={inputCls} value={paidMethod} onChange={(e) => setPaidMethod(e.target.value as typeof paidMethod)}>
                     <option value="bank">Bank transfer</option>
                     <option value="wise">Wise</option>
-                    <option value="stripe">Stripe</option>
                     <option value="paypal">PayPal</option>
                     <option value="cash">Cash</option>
                     <option value="other">Other</option>
@@ -278,7 +268,7 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
                     <option value="PLAN">A monthly plan month</option>
                     <option value="NONE">No commission on this payment</option>
                   </select>
-                  <p className="text-[11px] text-bb-dim mt-1">Same rates and banding as Stripe payments; the row lands on the partner ledger as payable.</p>
+                  <p className="text-[11px] text-bb-dim mt-1">The row lands on the partner ledger as payable.</p>
                 </div>
               )}
               <p className="text-[11px] text-bb-dim">A payment confirmation with the PAID-stamped PDF goes to {inv.billTo.email || "(no email on file)"}. {inv.currency === "USD" ? "The USD amount is booked in EUR at the ECB rate of the paid-on date." : ""}</p>

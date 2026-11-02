@@ -217,9 +217,6 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
           <Field label="Default due days">
             <input type="number" min={0} max={90} className={inputCls} value={s.defaultDueDays} onChange={(e) => set("defaultDueDays", Number(e.target.value))} />
           </Field>
-          <Field label="Stripe fee shown (%)">
-            <input type="number" step="0.1" min={0} className={inputCls} value={s.stripeFeePct} onChange={(e) => set("stripeFeePct", Number(e.target.value))} />
-          </Field>
           <Field label="First number year">
             <input type="number" className={inputCls} value={s.sequenceStartYear} onChange={(e) => set("sequenceStartYear", Number(e.target.value))} />
           </Field>

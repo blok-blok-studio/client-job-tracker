@@ -141,7 +141,7 @@ export default function InvoicesPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="font-display text-2xl font-bold">Invoices</h1>
-            <p className="text-bb-dim text-sm mt-1">Our own invoices. Stripe-billed work stays in Stripe.</p>
+            <p className="text-bb-dim text-sm mt-1">Our own invoices, paid by bank transfer.</p>
           </div>
           <div className="flex items-center gap-2">
             <button className={chipCls(tab === "invoices")} onClick={() => setTab("invoices")}>

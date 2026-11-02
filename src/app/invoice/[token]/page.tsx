@@ -22,8 +22,6 @@ export default function PublicInvoicePage() {
   const [reportNote, setReportNote] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
   const [reported, setReported] = useState(false);
-  const [debitBusy, setDebitBusy] = useState(false);
-  const [debitMsg, setDebitMsg] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/invoice/${token}`)
@@ -36,19 +34,6 @@ export default function PublicInvoicePage() {
       })
       .catch(() => setState("missing"));
   }, [token]);
-
-  async function startDebit() {
-    setDebitBusy(true);
-    setDebitMsg(null);
-    try {
-      const r = await fetch(`/api/invoice/${token}/debit`, { method: "POST" });
-      const j = await r.json().catch(() => ({}));
-      if (j?.data?.url) window.location.href = j.data.url;
-      else setDebitMsg(j?.error || "Not available right now.");
-    } finally {
-      setDebitBusy(false);
-    }
-  }
 
   async function reportPaid() {
     setReportBusy(true);
@@ -183,15 +168,6 @@ export default function PublicInvoicePage() {
               </div>
             )}
           </div>
-        </section>
-      )}
-
-      {!isVoid && !isPaid && !isCard && (inv.currency === "EUR" || inv.currency === "USD") && inv.kind !== "CORRECTION" && (
-        <section className="mt-3">
-          <button onClick={startDebit} disabled={debitBusy} className="text-sm text-neutral-400 underline underline-offset-2 hover:text-white disabled:opacity-50">
-            {lang === "de" ? "Künftige Rechnungen per Lastschrift bezahlen" : "Pay future invoices by direct debit"}
-          </button>
-          {debitMsg && <p className="text-xs text-neutral-400 mt-1">{debitMsg}</p>}
         </section>
       )}
 
