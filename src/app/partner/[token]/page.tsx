@@ -145,7 +145,6 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
 
   useEffect(() => {
     load();
-    const qs = new URLSearchParams(window.location.search);
   }, [load, notify]);
 
   const criteria = useMemo(() => {

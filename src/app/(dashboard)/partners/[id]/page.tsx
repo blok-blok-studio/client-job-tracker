@@ -12,7 +12,6 @@ import {
   FileSignature,
   Loader2,
   Plus,
-  RefreshCw,
   Send,
   Trash2,
 } from "lucide-react";

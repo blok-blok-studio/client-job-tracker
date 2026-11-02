@@ -1,8 +1,8 @@
 import prisma from "@/lib/prisma";
 import { randomBytes } from "crypto";
 import { SERVICE_PACKAGES, ADDON_PACKAGES } from "@/lib/contract-templates";
-import { createCheckoutSession, getCurrencyForCountry, CURRENCY_CONFIG } from "@/lib/stripe";
-import { sendPaymentLinkEmail, sendContractSigningEmail, sendOnboardingLinkEmail } from "@/lib/email";
+import { getCurrencyForCountry } from "@/lib/stripe";
+import { sendContractSigningEmail, sendOnboardingLinkEmail } from "@/lib/email";
 import { onPaymentConfirmed } from "@/lib/pipeline";
 
 export interface ContractGenParams {
