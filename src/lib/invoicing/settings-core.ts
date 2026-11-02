@@ -37,6 +37,8 @@ export interface ReminderSettings {
   overdueDays: number[]; // reminders after the due date, ascending; the last one is the final notice (Mahnung)
 }
 
+import { normalizeDatev, type DatevSettings } from "./datev";
+
 export interface InvoiceSettings {
   sellerName: string;
   contactName: string;
@@ -63,6 +65,7 @@ export interface InvoiceSettings {
   autoSendOnIssue: boolean;
   otherBanks: OtherBank[];
   reminders: ReminderSettings;
+  datev: DatevSettings;
 }
 
 export const INVOICE_SETTINGS_KEY = "invoice_settings";
@@ -87,6 +90,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   autoSendOnIssue: true,
   otherBanks: [],
   reminders: { enabled: true, beforeDueDays: 3, overdueDays: [7, 14, 30] },
+  datev: normalizeDatev(null),
 };
 
 function str(v: unknown, fallback: string): string {
@@ -165,6 +169,7 @@ export function normalizeInvoiceSettings(raw: unknown): InvoiceSettings {
         overdueDays: [...new Set(days)].sort((a, b) => a - b).slice(0, 5),
       };
     })(),
+    datev: normalizeDatev(r.datev),
   };
 }
 

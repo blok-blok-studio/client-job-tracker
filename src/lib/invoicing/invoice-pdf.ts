@@ -37,8 +37,18 @@ function groupIban(iban: string): string {
   return iban.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
 }
 
-export async function renderInvoicePdf(view: InvoiceView): Promise<Uint8Array> {
+export interface RenderOptions {
+  /** QUOTE renders an Angebot from an InvoiceView-shaped object */
+  docType?: "INVOICE" | "CORRECTION" | "QUOTE";
+  validUntil?: string | null;
+  schedule?: Array<{ label: string; percent: number }> | null;
+  acceptUrl?: string | null;
+}
+
+export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = {}): Promise<Uint8Array> {
+  const docType = opts.docType || (view.kind === "CORRECTION" ? "CORRECTION" : "INVOICE");
   const L = LABELS[view.language];
+  const TITLE = docType === "CORRECTION" ? L.correction : docType === "QUOTE" ? L.quote : L.invoice;
   const lang = view.language;
   const cur = view.currency;
   const money = (n: number) => formatMoneyPdf(n, cur, lang);
@@ -99,7 +109,7 @@ export async function renderInvoicePdf(view: InvoiceView): Promise<Uint8Array> {
     pageNo++;
     if (pageNo > 1) {
       text(view.seller.sellerName.toUpperCase(), M, PAGE_H - 36, 7.5, bold, MUTED);
-      textRight(`${L.invoice} ${view.number || L.draft}`, PAGE_W - M, PAGE_H - 36, 7.5, font, MUTED);
+      textRight(`${TITLE} ${view.number || L.draft}`, PAGE_W - M, PAGE_H - 36, 7.5, font, MUTED);
       rule(M, PAGE_W - M, PAGE_H - 44);
       y = PAGE_H - 70;
     } else {
@@ -128,10 +138,10 @@ export async function renderInvoicePdf(view: InvoiceView): Promise<Uint8Array> {
   }
 
   // Title + number on the right
-  const titleSize = 22;
-  textRight(L.invoice, PAGE_W - M, headTop - 18, titleSize, bold, BLACK);
+  const titleSize = TITLE.length > 14 ? 16 : 22;
+  textRight(TITLE, PAGE_W - M, headTop - 18, titleSize, bold, BLACK);
   textRight(view.number || L.draft, PAGE_W - M, headTop - 34, 10.5, font, INK);
-  if (view.status === "PAID" && view.paidAt) {
+  if (view.status === "PAID" && view.paidAt && docType === "INVOICE") {
     textRight(`${L.paid} · ${formatDate(view.paidAt, lang)}`, PAGE_W - M, headTop - 48, 8, bold, MUTED);
   }
 
@@ -166,14 +176,16 @@ export async function renderInvoicePdf(view: InvoiceView): Promise<Uint8Array> {
 
   // Meta table on the right
   let ry = topBlocks;
-  const metaRows: Array<[string, string]> = [[L.invoiceNumber, view.number || L.draft]];
-  if (view.issueDate) metaRows.push([L.issueDate, formatDate(view.issueDate, lang)]);
+  const metaRows: Array<[string, string]> = [[docType === "QUOTE" ? L.quoteNumber : L.invoiceNumber, view.number || L.draft]];
+  if (view.issueDate) metaRows.push([docType === "QUOTE" ? L.quoteDate : L.issueDate, formatDate(view.issueDate, lang)]);
+  if (docType === "QUOTE" && opts.validUntil) metaRows.push([L.validUntil, formatDate(opts.validUntil, lang)]);
+  if (docType === "CORRECTION" && view.corrects) metaRows.push([L.correctionOf, `${view.corrects.number || ""}${view.corrects.issueDate ? ` (${formatDate(view.corrects.issueDate, lang)})` : ""}`]);
   if (view.serviceDateFrom && view.serviceDateTo && view.serviceDateFrom !== view.serviceDateTo) {
     metaRows.push([L.servicePeriod, `${formatDate(view.serviceDateFrom, lang)} - ${formatDate(view.serviceDateTo, lang)}`]);
   } else if (view.serviceDateFrom || view.serviceDateTo) {
     metaRows.push([L.serviceDate, formatDate(view.serviceDateFrom || view.serviceDateTo, lang)]);
   }
-  if (view.dueDate) metaRows.push([L.dueDate, formatDate(view.dueDate, lang)]);
+  if (view.dueDate && docType === "INVOICE") metaRows.push([L.dueDate, formatDate(view.dueDate, lang)]);
   for (const [k, v] of metaRows) {
     text(k, colRightX, ry, 8, font, MUTED);
     textRight(v, PAGE_W - M, ry, 9, bold, INK);
@@ -249,7 +261,7 @@ export async function renderInvoicePdf(view: InvoiceView): Promise<Uint8Array> {
   y -= 10;
   rule(totLabelX, cTotR, y, 0.8, BLACK);
   y -= 15;
-  text(L.totalDue, totLabelX, y, 11, bold, BLACK);
+  text(docType === "INVOICE" ? L.totalDue : L.total, totLabelX, y, 11, bold, BLACK);
   textRight(money(view.total), cTotR, y, 12, bold, BLACK);
   y -= 20;
 
@@ -261,6 +273,35 @@ export async function renderInvoicePdf(view: InvoiceView): Promise<Uint8Array> {
     }
   }
   y -= 10;
+
+  // ── Correction / quote closing blocks instead of a payment panel ─
+  if (docType === "CORRECTION") {
+    for (const l of wrap(`${L.correctionNote}${view.paidAt && view.eurAmount != null && view.eurAmount < 0 ? ` ${L.refundNote}` : ""}`, 9, font, CW)) {
+      ensure(13);
+      text(l, M, y, 9, font, INK);
+      y -= 13;
+    }
+    y -= 10;
+  }
+  if (docType === "QUOTE") {
+    if (opts.schedule?.length) {
+      ensure(20 + opts.schedule.length * 12);
+      text(L.schedule.toUpperCase(), M, y, 6.5, bold, MUTED);
+      y -= 12;
+      for (const st of opts.schedule) {
+        text(`${st.percent}%  ·  ${st.label}  ·  ${money(Math.round(view.total * st.percent) / 100)}`, M, y, 9, font, INK);
+        y -= 12;
+      }
+      y -= 6;
+    }
+    if (opts.acceptUrl) {
+      ensure(26);
+      text(L.acceptHint, M, y, 8.5, font, MUTED);
+      y -= 12;
+      text(opts.acceptUrl, M, y, 8.5, mono, INK);
+      y -= 16;
+    }
+  }
 
   // ── Payment panel ──────────────────────────────────────────────
   const isCard = view.paymentMethod === "STRIPE" && !!view.paymentUrl;
@@ -292,6 +333,7 @@ export async function renderInvoicePdf(view: InvoiceView): Promise<Uint8Array> {
   }
   rows.push([L.reference, view.number || "-", false]);
 
+  if (docType === "INVOICE") {
   const qrSize = view.qrPayload ? 108 : 0;
   const panelPad = 14;
   const rowH = 12.5;
@@ -331,6 +373,7 @@ export async function renderInvoicePdf(view: InvoiceView): Promise<Uint8Array> {
     }
   }
   y = panelTop - panelH - 16;
+  }
 
   // ── Notes ──────────────────────────────────────────────────────
   if (view.notes?.trim()) {

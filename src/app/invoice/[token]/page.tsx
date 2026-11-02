@@ -105,13 +105,15 @@ export default function PublicInvoicePage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-wider text-neutral-500">{L.invoice}</p>
+          <p className="text-xs uppercase tracking-wider text-neutral-500">{inv.kind === "CORRECTION" ? L.correction : L.invoice}</p>
           <h1 className="text-2xl font-semibold text-white mt-1">{inv.number}</h1>
           <p className="text-sm text-neutral-400 mt-1">{inv.billTo.company || inv.billTo.name}</p>
         </div>
         <div className="text-right">
           <p className="text-3xl font-semibold text-white">{fmt(inv.total)}</p>
-          {isPaid ? (
+          {inv.kind === "CORRECTION" ? (
+            <p className="text-sm text-neutral-400 mt-1">{L.correctionNote}</p>
+          ) : isPaid ? (
             <p className="text-sm text-green-400 mt-1">{L.paid} · {formatDate(inv.paidAt, lang)}</p>
           ) : isVoid ? (
             <p className="text-sm text-red-400 mt-1">{L.void}</p>

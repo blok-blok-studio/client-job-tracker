@@ -112,6 +112,7 @@ model Client {
   invoices         Invoice[]
   studioInvoices   StudioInvoice[]
   recurringPlans   RecurringPlan[]
+  quotes           Quote[]
   contacts         Contact[]
   activityLogs     ActivityLog[]
   checklistItems   ChecklistItem[]
@@ -569,6 +570,12 @@ model StudioInvoice {
   id       String              @id @default(cuid())
   token    String              @unique // public view/pay link
   number   String?             @unique // BBS-2026-001, set when issued
+  kind     String              @default("INVOICE") // INVOICE | CORRECTION (Stornorechnung: negative mirror of an issued invoice)
+  correctsId String?           // CORRECTION → the invoice it cancels
+  corrects   StudioInvoice?    @relation("Correction", fields: [correctsId], references: [id], onDelete: SetNull)
+  correctedBy StudioInvoice[]  @relation("Correction")
+  quoteId    String?           // converted from this quote
+  milestone  String?           // project schedule: deposit | balance
   year     Int?
   sequence Int?
   clientId String
@@ -716,6 +723,74 @@ model RecurringPlan {
 
   @@index([clientId])
   @@index([status, nextRunAt])
+}
+
+// Quotes (Angebote): same look as an invoice, own numbering BBS-Q-YYYY-###,
+// public accept link; accepting converts it into a draft invoice.
+model Quote {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  number    String   @unique
+  year      Int
+  sequence  Int
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  status    String   @default("SENT") // DRAFT | SENT | ACCEPTED | DECLINED | EXPIRED | CONVERTED
+  template  String   @default("US")
+  language  String   @default("en")
+  currency  String   @default("USD")
+  vatOverride String?
+  vatScheme String
+  vatRate   Decimal  @default(0) @db.Decimal(5, 2)
+  vatNote   String?  @db.Text
+  issueDate DateTime
+  validUntil DateTime
+  billTo    Json
+  items     Json
+  subtotal  Decimal  @db.Decimal(12, 2)
+  vatAmount Decimal  @db.Decimal(12, 2)
+  total     Decimal  @db.Decimal(12, 2)
+  notes     String?  @db.Text
+  /** Payment schedule applied on acceptance: [{ label, percent }] (e.g. 50% deposit / 50% on completion) */
+  schedule  Json?
+  acceptedAt   DateTime?
+  acceptedName String?
+  acceptedIp   String?
+  declinedAt   DateTime?
+  convertedInvoiceId String?
+  sentAt    DateTime?
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([year, sequence])
+  @@index([clientId])
+  @@index([status])
+}
+
+// Bank statement lines imported for reconciliation (CSV from the bank or Wise).
+// Matched by the invoice number in the reference, else by amount; owner confirms.
+model BankTransaction {
+  id          String   @id @default(cuid())
+  fingerprint String   @unique // sha256(source|bookedAt|amount|currency|reference|counterparty): re-importing the same file is a no-op
+  source      String // wise | generic | n26 | sparkasse | …
+  bookedAt    DateTime
+  amount      Decimal  @db.Decimal(12, 2) // positive = money in
+  currency    String
+  counterparty String?
+  reference   String?  @db.Text
+  raw         Json?
+  status      String   @default("UNMATCHED") // UNMATCHED | SUGGESTED | MATCHED | IGNORED
+  invoiceId   String?
+  suggestedInvoiceId String?
+  matchedAt   DateTime?
+  matchedBy   String?
+  importedBy  String
+  createdAt   DateTime @default(now())
+
+  @@index([status])
+  @@index([bookedAt])
+  @@index([invoiceId])
 }
 
 enum StudioInvoiceStatus {

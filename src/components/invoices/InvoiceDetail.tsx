@@ -19,6 +19,8 @@ type Detail = InvoiceView & {
   integrity: "ok" | "mismatch" | "none";
   partnerContext: { partner: { id: string; name: string }; closedBy: string | null; commissions: Array<{ id: string; kind: string; amount: number; status: string }> } | null;
   draftedBy: string | null;
+  correctedBy: { id: string; number: string | null } | null;
+  correctsId: string | null;
 };
 
 interface Props {
@@ -33,7 +35,8 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
   const { toast } = useToast();
   const [inv, setInv] = useState<Detail | null>(null);
   const [busy, setBusy] = useState(false);
-  const [panel, setPanel] = useState<null | "send" | "paid" | "void">(null);
+  const [panel, setPanel] = useState<null | "send" | "paid" | "void" | "correct">(null);
+  const [correctReason, setCorrectReason] = useState("");
   const [sendTo, setSendTo] = useState("");
   const [sendMsg, setSendMsg] = useState("");
   const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10));
@@ -114,7 +117,8 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
   const canIssue = inv?.status === "DRAFT";
   const canSend = inv && ["ISSUED", "SENT", "PAID"].includes(inv.status);
   const canPay = inv && ["ISSUED", "SENT"].includes(inv.status);
-  const canVoid = inv && ["ISSUED", "SENT"].includes(inv.status);
+  const canVoid = inv && ["ISSUED", "SENT"].includes(inv.status) && inv.kind !== "CORRECTION";
+  const canCorrect = inv && ["ISSUED", "SENT", "PAID"].includes(inv.status) && inv.kind !== "CORRECTION" && !inv.correctedBy;
   const pdfHref = inv ? `/api/studio-invoices/${inv.id}/pdf?inline=1` : "#";
 
   return (
@@ -130,6 +134,8 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
                 <StatusBadge status={inv.status} overdue={isOverdue(inv)} />
                 <span className="text-xs text-bb-dim">{inv.template} template · {inv.language.toUpperCase()} · {VAT_SCHEME_LABELS[inv.vatScheme]}</span>
               </div>
+              {inv.kind === "CORRECTION" && <p className="text-xs text-red-300 mt-1">Correction invoice{inv.corrects?.number ? ` for ${inv.corrects.number}` : ""}. Nothing to collect.</p>}
+              {inv.correctedBy && <p className="text-xs text-red-300 mt-1">Cancelled by correction {inv.correctedBy.number}.</p>}
               <p className="text-white font-medium mt-2">{inv.client.company || inv.client.name}</p>
               <p className="text-xs text-bb-dim">{inv.billTo.email || inv.client.email || "no email on file"}</p>
               {inv.draftedBy && <p className="text-xs text-amber-300 mt-1">Drafted in the partner portal by {inv.draftedBy}. Check the items, then issue.</p>}
@@ -196,9 +202,14 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
                 <button className={`${btnGhost} inline-flex items-center gap-1.5`} disabled={busy} onClick={() => setConfirm("rotate")} title="Replace the pay link; the old one stops working"><RefreshCw size={14} /> New link</button>
               </>
             )}
+            {canCorrect && (
+              <button className={`${btnGhost} inline-flex items-center gap-1.5 text-red-400`} disabled={busy} onClick={() => setPanel(panel === "correct" ? null : "correct")} title="Stornorechnung: numbered correction that cancels this invoice">
+                <Ban size={14} /> Correct (Storno)
+              </button>
+            )}
             {canVoid && (
-              <button className={`${btnGhost} inline-flex items-center gap-1.5 text-red-400`} disabled={busy} onClick={() => setPanel(panel === "void" ? null : "void")}>
-                <Ban size={14} /> Void
+              <button className={`${btnGhost} inline-flex items-center gap-1.5 text-bb-dim`} disabled={busy} onClick={() => setPanel(panel === "void" ? null : "void")} title="Void without a document (only for invoices that never reached the client)">
+                Void
               </button>
             )}
           </div>
@@ -265,6 +276,19 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
                 <button className={btnGhost} onClick={() => setPanel(null)}>Cancel</button>
                 <button className={btnPrimary} disabled={busy} onClick={async () => { if (await act("/paid", jsonInit("POST", { paidAt, method: paidMethod, note: paidNote || null, commissionKind: inv.partnerContext ? commissionKind : "NONE" }), "Marked as paid, receipt sent if an email is on file")) setPanel(null); }}>
                   Mark paid
+                </button>
+              </div>
+            </div>
+          )}
+
+          {panel === "correct" && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 space-y-2">
+              <p className="text-xs text-red-200">A correction invoice (Stornorechnung) with the next number mirrors this invoice with negative amounts and cancels it. {inv.status === "PAID" ? "The invoice was paid, so a refund is owed and negative income is booked." : "Nothing was paid, so the two net to zero."} It is emailed to the client like any invoice. Then issue a fresh invoice if needed.</p>
+              <input className={inputCls} placeholder="Reason, printed on the correction (required)" value={correctReason} onChange={(e) => setCorrectReason(e.target.value)} />
+              <div className="flex justify-end gap-2">
+                <button className={btnGhost} onClick={() => setPanel(null)}>Cancel</button>
+                <button className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50" disabled={busy || correctReason.trim().length < 3} onClick={async () => { if (await act("/correct", jsonInit("POST", { reason: correctReason.trim() }), "Correction invoice issued")) { setPanel(null); onChanged(); } }}>
+                  Issue correction
                 </button>
               </div>
             </div>

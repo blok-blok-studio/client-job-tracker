@@ -97,7 +97,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       { clientId: client.id, template: "US", language: "en", currency: "USD", items, vatOverride: d.vat19 ? "REGULAR" : null, internalNote: `Drafted from the partner portal by ${rep.name}${d.note ? `: ${d.note}` : ""}` },
       `partner:${rep.name}`
     );
-    await prisma.studioInvoice.update({ where: { id: invoice.id }, data: { partnerId: rep.partnerId, partnerRepId: rep.id } });
+    await prisma.studioInvoice.update({ where: { id: invoice.id }, data: { partnerId: rep.partnerId, partnerRepId: rep.id, milestone: d.milestone } });
     const { ipAddress, userAgent } = requestMeta(request);
     await prisma.activityLog.create({ data: { clientId: client.id, actor: `partner:${rep.name}`, action: "invoice_draft_from_partner", details: `Bank-transfer invoice draft for ${client.name} created in the partner portal (${label})`, ipAddress, userAgent } }).catch(() => {});
     const owners = await prisma.user.findMany({ where: { role: "OWNER", isActive: true }, select: { id: true } });

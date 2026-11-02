@@ -2,7 +2,7 @@ import { addDays, addMonths } from "date-fns";
 import prisma from "@/lib/prisma";
 import { bandedCloseCommission, flatCommission } from "@/lib/commissions";
 import { notifySlack } from "@/lib/slack";
-import { usdToEur } from "./revenue";
+import { rateToEurOn, usdToEur } from "./revenue";
 
 /**
  * Bank-transfer invoices earn partner commission too. Stripe payments record
@@ -23,8 +23,21 @@ export async function recordCommissionForStudioInvoice(invoiceId: string, kind: 
   const partner = await prisma.partner.findUnique({ where: { id: client.partnerId } });
   if (!partner || !partner.isActive) return { recorded: false, reason: "partner inactive" };
 
+  // The agreement: project and brand commission is earned in full on the deposit, on the full fee.
   let basis = Number(inv.subtotal);
-  if (inv.currency === "EUR") basis = round2(basis / (await usdToEur()));
+  if (kind !== "PLAN") {
+    if (inv.milestone === "balance" || /^m[2-9]$/.test(inv.milestone || "")) return { recorded: false, reason: "earned on the deposit" };
+    if (inv.milestone === "deposit") basis = basis * 2;
+    if (inv.milestone === "m1" && inv.quoteId) {
+      const quote = await prisma.quote.findUnique({ where: { id: inv.quoteId }, select: { subtotal: true } });
+      if (quote) basis = Number(quote.subtotal);
+    }
+  }
+  if (inv.currency !== "USD") {
+    const rate = (await rateToEurOn(inv.currency, inv.paidAt || new Date())).rate;
+    if (rate == null) return { recorded: false, reason: `no ECB rate for ${inv.currency}` };
+    basis = round2((basis * rate) / (await usdToEur()));
+  }
   if (basis <= 0) return { recorded: false, reason: "zero basis" };
 
   const paidAt = inv.paidAt || new Date();
@@ -76,6 +89,13 @@ export async function recordCommissionForStudioInvoice(invoiceId: string, kind: 
     .catch(() => {});
   await notifySlack(`:handshake: *Partner commission payable* to *${partner.name}* for *${client.name}* (bank-transfer invoice). Due by ${payableBy.toLocaleDateString("en-US")}.\n${APP_URL}/partners/${partner.id}`).catch(() => {});
   return { recorded: true, amount: calc.amount };
+}
+
+/** Best guess when nobody chose: a plan invoice is a plan month, otherwise project unless it reads as a brand guide. */
+export function inferCommissionKind(inv: { planId: string | null; items: unknown }): StudioCommissionKind {
+  if (inv.planId) return "PLAN";
+  const text = JSON.stringify(inv.items || "").toLowerCase();
+  return text.includes("brand") ? "BRAND_GUIDE" : "PROJECT";
 }
 
 /** Payment undone: void the commission rows that invoice created, unless already paid out. */

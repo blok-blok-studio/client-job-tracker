@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params;
     const invoice = await prisma.studioInvoice.findUnique({ where: { id } });
     if (!invoice) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
-    const view = buildInvoiceView(invoice, await loadInvoiceSettings());
+    const view = buildInvoiceView(invoice, await loadInvoiceSettings(), { corrects: invoice.correctsId ? await prisma.studioInvoice.findUnique({ where: { id: invoice.correctsId }, select: { number: true, issueDate: true } }) : null });
     const bytes = await renderInvoicePdf(view);
     const inline = new URL(request.url).searchParams.get("inline") === "1";
     const name = `${view.number || "draft"}.pdf`;

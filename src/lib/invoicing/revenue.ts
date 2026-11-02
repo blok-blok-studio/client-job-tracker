@@ -69,7 +69,12 @@ export async function incomeByMonth(year: number): Promise<{ year: number; month
   const from = new Date(Date.UTC(year, 0, 1));
   const to = new Date(Date.UTC(year + 1, 0, 1));
   const rows = await prisma.studioInvoice.findMany({
-    where: { status: "PAID", paidAt: { gte: from, lt: to } },
+    // Money that arrived stays in its month even if corrected later (the original is VOID but keeps paidAt);
+    // the refund shows as a negative correction. Corrections of unpaid invoices moved no money.
+    where: {
+      paidAt: { gte: from, lt: to },
+      OR: [{ status: "PAID", kind: "INVOICE" }, { status: "VOID", kind: "INVOICE" }, { kind: "CORRECTION", paidMethod: "refund" }],
+    },
     select: { total: true, currency: true, paidAt: true, eurAmount: true },
   });
   const latest = await usdToEur();
@@ -109,7 +114,8 @@ export async function yearRevenueEur(year: number): Promise<YearRevenue> {
   const to = new Date(Date.UTC(year + 1, 0, 1));
 
   const studio = await prisma.studioInvoice.findMany({
-    where: { status: { in: ["ISSUED", "SENT", "PAID"] }, issueDate: { gte: from, lt: to } },
+    // The corrected original is VOID and already gone from this sum, so its correction must not subtract again
+    where: { status: { in: ["ISSUED", "SENT", "PAID"] }, kind: "INVOICE", issueDate: { gte: from, lt: to } },
     select: { total: true, currency: true },
   });
   const stripe = await prisma.invoice.findMany({

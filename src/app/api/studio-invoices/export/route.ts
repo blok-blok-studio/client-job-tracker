@@ -7,6 +7,7 @@ import { loadInvoiceSettings } from "@/lib/invoicing/settings";
 import { buildInvoiceView } from "@/lib/invoicing/view";
 import { renderInvoicePdf } from "@/lib/invoicing/invoice-pdf";
 import { buildStatementView, renderStatementPdf } from "@/lib/invoicing/partner-statement";
+import { buildDatevCsv } from "@/lib/invoicing/datev";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     const sp = new URL(request.url).searchParams;
     const year = Number(sp.get("year"));
     const month = sp.get("month") ? Number(sp.get("month")) : null; // 1..12 or null = whole year
-    const format = sp.get("format") === "zip" ? "zip" : "csv";
+    const format = sp.get("format") === "zip" ? "zip" : sp.get("format") === "datev" ? "datev" : "csv";
     if (!year || year < 2000 || year > 2100) return NextResponse.json({ success: false, error: "year required" }, { status: 400 });
     if (month !== null && (month < 1 || month > 12)) return NextResponse.json({ success: false, error: "month must be 1-12" }, { status: 400 });
 
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
       orderBy: [{ year: "asc" }, { sequence: "asc" }],
     })) as unknown as Array<StudioInvoice & { client: { name: string; company: string | null } }>;
 
-    const header = ["number", "client", "company", "amount", "currency", "net", "vat_rate", "vat_amount", "vat_scheme", "issue_date", "due_date", "paid_date", "method", "status", "template", "sent_at", "sent_to", "content_hash"];
+    const header = ["number", "client", "company", "amount", "currency", "net", "vat_rate", "vat_amount", "vat_scheme", "issue_date", "due_date", "paid_date", "method", "status", "template", "sent_at", "sent_to", "content_hash", "kind", "eur_booked"];
     const lines = [header.join(",")];
     for (const r of rows) {
       lines.push(
@@ -69,6 +70,8 @@ export async function GET(request: NextRequest) {
           r.sentAt?.toISOString() || "",
           r.sentTo || "",
           r.contentHash || "",
+          r.kind,
+          r.eurAmount != null ? Number(r.eurAmount).toFixed(2) : "",
         ]
           .map(csvCell)
           .join(",")
@@ -79,6 +82,13 @@ export async function GET(request: NextRequest) {
 
     await prisma.activityLog.create({ data: { actor: session.name, action: "invoice_export", details: `Invoice ${format.toUpperCase()} export for ${label} (${rows.length} invoices)` } }).catch(() => {});
 
+    if (format === "datev") {
+      const settings = await loadInvoiceSettings();
+      const body = buildDatevCsv(rows.filter((r) => r.status !== "VOID" || r.voidReason?.startsWith("Corrected by")).map((r) => Object.assign(r, { clientLabel: r.client.company || r.client.name })), { from, to, year }, settings.datev);
+      return new NextResponse(Buffer.from("\uFEFF" + body, "utf8"), {
+        headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="EXTF_Buchungsstapel_${label}.csv"`, "Cache-Control": "no-store" },
+      });
+    }
     if (format === "csv") {
       return new NextResponse(csv, {
         headers: {
@@ -92,7 +102,7 @@ export async function GET(request: NextRequest) {
     const settings = await loadInvoiceSettings();
     const files: Record<string, Uint8Array> = { [`invoices-${label}.csv`]: strToU8(csv) };
     for (const r of rows) {
-      const view = buildInvoiceView(r, settings);
+      const view = buildInvoiceView(r, settings, { corrects: r.correctsId ? await prisma.studioInvoice.findUnique({ where: { id: r.correctsId }, select: { number: true, issueDate: true } }) : null });
       const pdf = await renderInvoicePdf(view);
       const who = (r.client.company || r.client.name).replace(/[^\w.-]+/g, "_").slice(0, 40);
       files[`${r.number}_${who}${r.status === "VOID" ? "_VOID" : ""}.pdf`] = pdf;

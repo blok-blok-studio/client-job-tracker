@@ -29,9 +29,14 @@ export async function sendStudioInvoiceEmail(params: {
   const first = (v.billTo.name || "").split(" ")[0] || "";
   const number = v.number || "";
 
-  const subject = de ? `Rechnung ${number} von Blok Blok Studio` : `Invoice ${number} from Blok Blok Studio`;
+  const isCorrection = v.kind === "CORRECTION";
+  const subject = isCorrection ? (de ? `Stornorechnung ${number} von Blok Blok Studio` : `Correction invoice ${number} from Blok Blok Studio`) : de ? `Rechnung ${number} von Blok Blok Studio` : `Invoice ${number} from Blok Blok Studio`;
   const greeting = de ? `Hallo ${first},` : `Hi ${first},`;
-  const intro = de
+  const intro = isCorrection
+    ? de
+      ? `anbei erhalten Sie die Stornorechnung <strong>${esc(number)}</strong>${v.corrects?.number ? ` zur Rechnung <strong>${esc(v.corrects.number)}</strong>` : ""}. Die ursprüngliche Rechnung ist damit aufgehoben, Sie müssen dafür nichts bezahlen.`
+      : `please find attached correction invoice <strong>${esc(number)}</strong>${v.corrects?.number ? ` for invoice <strong>${esc(v.corrects.number)}</strong>` : ""}. It cancels the original invoice, so nothing is due on it.`
+    : de
     ? `anbei erhalten Sie die Rechnung <strong>${esc(number)}</strong> über <strong>${esc(amount)}</strong>${due ? `, fällig am <strong>${esc(due)}</strong>` : ""}.`
     : `please find attached invoice <strong>${esc(number)}</strong> for <strong>${esc(amount)}</strong>${due ? `, due <strong>${esc(due)}</strong>` : ""}.`;
   const payLine =
@@ -61,7 +66,7 @@ export async function sendStudioInvoiceEmail(params: {
       <p style="font-size:15px;line-height:1.6;">${esc(greeting)}</p>
       <p style="font-size:15px;line-height:1.6;">${intro}</p>
       ${custom}
-      <p style="font-size:15px;line-height:1.6;">${payLine}<br/>${refLine}</p>
+      ${isCorrection ? "" : `<p style="font-size:15px;line-height:1.6;">${payLine}<br/>${refLine}</p>`}
       <div style="margin:28px 0;">
         <a href="${esc(v.publicUrl)}" style="display:inline-block;background:#111;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">${esc(button)}</a>
       </div>

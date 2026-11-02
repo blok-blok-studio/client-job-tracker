@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
-import { Plus, Search, Settings as SettingsIcon, Receipt, Download, FileArchive, AlertTriangle, Link2, FileText, Repeat } from "lucide-react";
+import { Plus, Search, Settings as SettingsIcon, Receipt, Download, FileArchive, AlertTriangle, Link2, FileText, Repeat, FileSignature, Landmark } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
 import type { StudioInvoiceStatus } from "@/lib/invoicing/types";
 import InvoiceEditor from "./InvoiceEditor";
 import InvoiceDetail from "./InvoiceDetail";
 import InvoiceSettingsPanel from "./InvoiceSettingsPanel";
 import PlansPanel from "./PlansPanel";
+import QuotesPanel from "./QuotesPanel";
+import BankPanel from "./BankPanel";
 import { StatusBadge, isOverdue, shortDate, money, byCurrency, chipCls, btnPrimary, btnGhost, inputCls, readJsonSafe } from "./shared";
 
 interface Row {
@@ -33,6 +35,8 @@ interface Row {
   createdAt: string;
   client: { id: string; name: string; company: string | null };
   partner?: { id: string; name: string } | null;
+  kind?: string;
+  milestone?: string | null;
 }
 
 interface Summary {
@@ -57,7 +61,7 @@ export default function InvoicesPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [year, setYear] = useState<"all" | number>("all");
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"invoices" | "plans" | "settings">(search.get("tab") === "settings" ? "settings" : search.get("tab") === "plans" ? "plans" : "invoices");
+  const [tab, setTab] = useState<"invoices" | "plans" | "quotes" | "bank" | "settings">((["settings", "plans", "quotes", "bank"].includes(search.get("tab") || "") ? search.get("tab") : "invoices") as "invoices" | "plans" | "quotes" | "bank" | "settings");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editDraftId, setEditDraftId] = useState<string | null>(null);
   const [editorClientId, setEditorClientId] = useState<string | null>(null);
@@ -146,6 +150,12 @@ export default function InvoicesPage() {
             <button className={chipCls(tab === "plans")} onClick={() => setTab("plans")}>
               <span className="inline-flex items-center gap-1.5"><Repeat size={14} /> Plans</span>
             </button>
+            <button className={chipCls(tab === "quotes")} onClick={() => setTab("quotes")}>
+              <span className="inline-flex items-center gap-1.5"><FileSignature size={14} /> Quotes</span>
+            </button>
+            <button className={chipCls(tab === "bank")} onClick={() => setTab("bank")}>
+              <span className="inline-flex items-center gap-1.5"><Landmark size={14} /> Bank</span>
+            </button>
             <button className={chipCls(tab === "settings")} onClick={() => setTab("settings")}>
               <span className="inline-flex items-center gap-1.5"><SettingsIcon size={14} /> Settings</span>
             </button>
@@ -161,6 +171,10 @@ export default function InvoicesPage() {
           <InvoiceSettingsPanel onSaved={load} />
         ) : tab === "plans" ? (
           <PlansPanel onInvoiceIssued={load} />
+        ) : tab === "quotes" ? (
+          <QuotesPanel onInvoiceDrafted={(id) => { load(); setDetailId(id); }} />
+        ) : tab === "bank" ? (
+          <BankPanel onChanged={load} />
         ) : (
           <>
             {bankMissing && (
@@ -249,7 +263,7 @@ export default function InvoicesPage() {
                   <tbody>
                     {filtered.map((r) => (
                       <tr key={r.id} className="border-t border-bb-border/60 hover:bg-bb-elevated/40 cursor-pointer" onClick={() => setDetailId(r.id)}>
-                        <td className="px-4 py-3 font-mono text-white">{r.number || <span className="text-bb-dim">draft</span>}</td>
+                        <td className="px-4 py-3 font-mono text-white">{r.number || <span className="text-bb-dim">draft</span>}{r.kind === "CORRECTION" && <span className="ml-1 font-sans text-[10px] text-red-300">storno</span>}</td>
                         <td className="px-4 py-3">
                           <p className="text-white">{r.client.company || r.client.name}</p>
                           {r.client.company && <p className="text-xs text-bb-dim">{r.client.name}</p>}
@@ -308,6 +322,7 @@ export default function InvoicesPage() {
               <input type="month" value={exportMonth} onChange={(e) => setExportMonth(e.target.value)} className={`${inputCls} w-auto py-1.5`} />
               <a href={`/api/studio-invoices/export?year=${ey}&month=${em}&format=csv`} className={`${btnGhost} inline-flex items-center gap-1.5`}><Download size={14} /> CSV</a>
               <a href={`/api/studio-invoices/export?year=${ey}&month=${em}&format=zip`} className={`${btnGhost} inline-flex items-center gap-1.5`}><FileArchive size={14} /> PDFs + CSV (zip)</a>
+              <a href={`/api/studio-invoices/export?year=${ey}&month=${em}&format=datev`} className={`${btnGhost} inline-flex items-center gap-1.5`} title="DATEV Buchungsstapel (EXTF) for the advisor's import">DATEV</a>
               <a href={`/api/studio-invoices/export?year=${ey}&format=csv`} className={`${btnGhost} inline-flex items-center gap-1.5`}>Whole {ey} CSV</a>
             </div>
           </>

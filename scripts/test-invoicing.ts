@@ -15,6 +15,8 @@ import type { InvoiceView } from "../src/lib/invoicing/types";
 import { statementVat, renderStatementPdf, statementNumber, type StatementView } from "../src/lib/invoicing/partner-statement";
 import { firstRunAt, advanceRun, fillPeriod } from "../src/lib/invoicing/recurring";
 import { stageDue } from "../src/lib/invoicing/reminders";
+import { parseBankCsv } from "../src/lib/invoicing/reconcile";
+import { buildDatevCsv, normalizeDatev } from "../src/lib/invoicing/datev";
 
 let pass = 0;
 let fail = 0;
@@ -128,6 +130,33 @@ check("gbp pdf money", formatMoneyPdf(1234.5, "GBP", "en") === "£1,234.50", for
 check("jpy no decimals", formatMoneyPdf(1234, "JPY", "en") === "JPY 1,234", formatMoneyPdf(1234, "JPY", "en"));
 check("normalize other banks drops EUR", normalizeInvoiceSettings({ otherBanks: [{ currency: "eur", lines: [] }, { currency: "gbp", holder: "h", bank: "b", lines: [{ label: "Sort code", value: "1" }] }] }).otherBanks.length === 1);
 
+// Bank CSV parsing
+const wise = `"ID","Status","Direction","Created on","Finished on","Source fee amount","Source fee currency","Target fee amount","Target fee currency","Source name","Source amount (after fees)","Source currency","Target name","Target amount (after fees)","Target currency","Exchange rate","Reference","Batch"
+"TRANSFER-1","COMPLETED","IN","2026-11-03 10:00:00","2026-11-03 10:00:00","0","USD","0","USD","Bronco Plumbing","900.00","USD","Blok Blok Studio LLC","900.00","USD","1","BBS-2026-007",""
+"TRANSFER-2","COMPLETED","OUT","2026-11-04 10:00:00","2026-11-04 10:00:00","0","USD","0","USD","Blok Blok Studio LLC","50.00","USD","Vendor","50.00","USD","1","rent",""`;
+const pw = parseBankCsv(wise, "USD");
+check("wise csv: 1 credit", pw.rows.length === 1 && pw.rows[0].amount === 900 && pw.rows[0].currency === "USD", pw);
+check("wise csv: reference", pw.rows[0]?.reference === "BBS-2026-007");
+const sparkasse = `Auftragskonto;Buchungstag;Valutadatum;Buchungstext;Verwendungszweck;Beguenstigter/Zahlungspflichtiger;Kontonummer/IBAN;BIC (SWIFT-Code);Betrag;Waehrung;Info
+DE12;02.11.2026;02.11.2026;GUTSCHRIFT;Rechnung BBS-2026-005 Musterfirma;Musterfirma GmbH;DE89;COBADEFF;"5.800,00";EUR;Umsatz gebucht
+DE12;03.11.2026;03.11.2026;LASTSCHRIFT;Miete;Vermieter;DE11;COBADEFF;"-1.200,00";EUR;Umsatz gebucht`;
+const ps = parseBankCsv(sparkasse);
+check("german csv: 1 credit, german decimals", ps.rows.length === 1 && ps.rows[0].amount === 5800 && ps.source === "de-bank", ps);
+check("german csv: date dd.mm.yyyy", ps.rows[0]?.bookedAt.toISOString().slice(0, 10) === "2026-11-02");
+check("german csv: counterparty", ps.rows[0]?.counterparty === "Musterfirma GmbH");
+check("csv without columns errors", !!parseBankCsv("a,b\n1,2").error);
+// DATEV
+const datev = buildDatevCsv([
+  { number: "BBS-2026-005", total: 5800 as never, eurAmount: 5800 as never, currency: "EUR", fxRateToEur: null, vatScheme: "KLEINUNTERNEHMER", issueDate: new Date("2026-11-02T00:00:00Z"), dueDate: new Date("2026-11-16T00:00:00Z"), serviceDateTo: null, kind: "INVOICE", clientLabel: "Musterfirma GmbH" } as never,
+  { number: "BBS-2026-009", total: -119 as never, eurAmount: -119 as never, currency: "EUR", fxRateToEur: null, vatScheme: "REGULAR", issueDate: new Date("2026-11-05T00:00:00Z"), dueDate: null, serviceDateTo: null, kind: "CORRECTION", clientLabel: "Musterfirma GmbH" } as never,
+], { from: new Date("2026-11-01T00:00:00Z"), to: new Date("2026-12-01T00:00:00Z"), year: 2026 }, normalizeDatev(null));
+const dl = datev.split("\r\n");
+check("datev header EXTF 700", dl[0].startsWith('"EXTF";700;21;"Buchungsstapel"'), dl[0]);
+check("datev 116 columns", dl[1].split(";").length === 116, dl[1].split(";").length);
+check("datev row: amount, S, debtor, 8195", dl[2].startsWith('5800,00;"S";"EUR";;;;10000;8195;;0211;"BBS-2026-005"'), dl[2]);
+check("datev correction is H", dl[3].startsWith('119,00;"H";"EUR";;;;10000;8400;;0511;"BBS-2026-009"'), dl[3]);
+check("datev skr04 default", normalizeDatev({ skr: "SKR04" }).accounts.REGULAR === "4400");
+
 // Partner statements
 check("statement US = drittland, 0%", statementVat({ country: "US", chargesVat: false }).scheme === "DRITTLAND" && statementVat({ country: "US", chargesVat: false }).rate === 0);
 check("statement DE no vat", statementVat({ country: "DE", chargesVat: false }).scheme === "KLEINUNTERNEHMER_PARTNER");
@@ -151,7 +180,7 @@ const seller = {
   wisePayLink: "https://wise.com/pay/business/example",
 };
 const base: Omit<InvoiceView, "language" | "currency" | "template" | "vatScheme" | "vatNotes" | "billTo" | "qrPayload" | "qrKind"> = {
-  id: "x", token: "sampletoken", number: "BBS-2026-007", status: "ISSUED", vatRate: 0,
+  id: "x", token: "sampletoken", number: "BBS-2026-007", kind: "INVOICE", corrects: null, milestone: null, status: "ISSUED", vatRate: 0,
   issueDate: "2026-11-02", serviceDateFrom: "2026-10-01", serviceDateTo: "2026-10-31", dueDate: "2026-11-16", dueDays: 14,
   seller, items: computeTotals([
     { description: "Website redesign: 5 pages, responsive, CMS handover and launch support", qty: 1, unitPrice: 5000 },
@@ -183,6 +212,13 @@ const de27View: InvoiceView = {
   qrPayload: buildEpcPayload({ name: seller.eur.holder, iban: seller.eur.iban, bic: seller.eur.bic, amount: 7169.75, reference: "BBS-2027-001" }), qrKind: "EPC",
 };
 (async () => {
+  const corrView: InvoiceView = { ...deView, number: "BBS-2026-009", kind: "CORRECTION", corrects: { number: "BBS-2026-007", issueDate: "2026-11-02" }, status: "PAID", paidAt: "2026-11-05T00:00:00Z", eurAmount: -6025, items: deView.items.map((i) => ({ ...i, unitPrice: -i.unitPrice, lineTotal: -i.lineTotal })), subtotal: -6025, total: -6025, notes: "Falsche Leistungsperiode", qrPayload: null, qrKind: null };
+  const cb = await renderInvoicePdf(corrView);
+  fs.writeFileSync(path.join(outDir, "sample-correction.pdf"), cb);
+  check("correction pdf", cb.length > 5000);
+  const qb = await renderInvoicePdf({ ...usView, number: "BBS-Q-2026-001" }, { docType: "QUOTE", validUntil: "2026-12-02", schedule: [{ label: "Deposit at signing", percent: 50 }, { label: "On completion", percent: 50 }], acceptUrl: "https://app.blokblokstudio.com/q/sampletoken" });
+  fs.writeFileSync(path.join(outDir, "sample-quote.pdf"), qb);
+  check("quote pdf", qb.length > 5000);
   for (const [name, v] of [["sample-de.pdf", deView], ["sample-us.pdf", usView], ["sample-de-2027-paid.pdf", de27View]] as const) {
     const bytes = await renderInvoicePdf(v);
     fs.writeFileSync(path.join(outDir, name), bytes);

@@ -85,7 +85,7 @@ function vatNotesFrom(vatNote: string | null): string[] {
  * live settings; issued invoices read their frozen seller snapshot, so editing
  * the bank details later never rewrites an invoice that already went out.
  */
-export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings): InvoiceView {
+export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings, extra?: { corrects?: { number: string | null; issueDate: Date | null } | null }): InvoiceView {
   const status = inv.status as StudioInvoiceStatus;
   const seller = status === "DRAFT" ? snapshotSeller(settings) : asSeller(inv.sellerSnapshot, settings);
   const currency = inv.currency as InvoiceCurrency;
@@ -96,7 +96,9 @@ export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings):
 
   let qrPayload: string | null = null;
   let qrKind: InvoiceView["qrKind"] = null;
-  if (paymentMethod === "STRIPE" && inv.paymentUrl) {
+  if (inv.kind === "CORRECTION") {
+    // nothing to pay
+  } else if (paymentMethod === "STRIPE" && inv.paymentUrl) {
     qrPayload = inv.paymentUrl;
     qrKind = "URL";
   } else if (currency === "EUR" && seller.eur?.iban && total >= 0.01) {
@@ -121,6 +123,9 @@ export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings):
     id: inv.id,
     token,
     number: inv.number,
+    kind: (inv.kind as "INVOICE" | "CORRECTION") || "INVOICE",
+    corrects: extra?.corrects ? { number: extra.corrects.number, issueDate: toDateOnly(extra.corrects.issueDate) } : null,
+    milestone: inv.milestone,
     status,
     template: inv.template as InvoiceTemplate,
     language: inv.language as InvoiceLanguage,

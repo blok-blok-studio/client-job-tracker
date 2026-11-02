@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COUNTRY_CURRENCY } from "./vat";
 import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import type { Prisma, StudioInvoice } from "@prisma/client";
@@ -7,7 +8,7 @@ import { decideVat, defaultsForTemplate, guessCountry, templateForCountry, type 
 import { addDays, computeTotals, parseDateOnly } from "./money";
 import { clientToBillTo, snapshotSeller, invoiceContentHash } from "./view";
 import { sealBank } from "./bank-vault";
-import { recordCommissionForStudioInvoice, voidCommissionsForStudioInvoice } from "./partner-commission";
+import { inferCommissionKind, recordCommissionForStudioInvoice, voidCommissionsForStudioInvoice } from "./partner-commission";
 import { rateToEurOn } from "./revenue";
 import type { BillTo } from "./types";
 import { assignInvoiceNumber, withNumberRetry } from "./numbering";
@@ -83,7 +84,7 @@ export async function logInvoiceActivity(params: {
   await prisma.activityLog
     .create({
       data: {
-        clientId: params.clientId,
+        clientId: params.clientId || null,
         actor: params.actor,
         action: params.action,
         details: params.details,
@@ -112,7 +113,10 @@ export async function prepareForClient(clientId: string) {
   const settings = await loadInvoiceSettings();
   const country = guessCountry(client);
   const template = templateForCountry(country);
-  const defaults = defaultsForTemplate(template);
+  const base = defaultsForTemplate(template);
+  // Bill in the client's own currency when we have a receiving account for it
+  const local = country ? COUNTRY_CURRENCY[country] : undefined;
+  const defaults = { ...base, currency: local && settings.otherBanks.some((b) => b.currency === local) ? local : base.currency };
   const billTo = clientToBillTo(client);
   const vat = decideVat({ template, issueDate: new Date(), clientVatId: billTo.vatId, settings });
   const openStripe = await prisma.invoice.findMany({
@@ -307,8 +311,10 @@ export async function markPaid(id: string, actor: string, input: { paidAt?: stri
     receipt = await sendPaymentReceipt(id, actor).catch((err) => ({ sent: false, error: err instanceof Error ? err.message : "failed" }));
   }
   let commission: Awaited<ReturnType<typeof recordCommissionForStudioInvoice>> | null = null;
-  if (input.commissionKind && input.commissionKind !== "NONE") {
-    commission = await recordCommissionForStudioInvoice(id, input.commissionKind, actor).catch((err) => {
+  // Automatic paths (bank match, direct debit) pass no kind: infer it so a partner is never silently skipped
+  const commissionKind = input.commissionKind ?? inferCommissionKind(invoice);
+  if (commissionKind !== "NONE") {
+    commission = await recordCommissionForStudioInvoice(id, commissionKind, actor).catch((err) => {
       console.error("[invoicing] commission on paid invoice failed:", err);
       return { recorded: false, reason: "error" };
     });
@@ -387,7 +393,8 @@ export async function sendIssuedInvoice(id: string, actor: string, to?: string |
   try {
     const [{ buildInvoiceView }, { renderInvoicePdf }, { sendStudioInvoiceEmail }] = await Promise.all([import("./view"), import("./invoice-pdf"), import("./email")]);
     const settings = await loadInvoiceSettings();
-    const view = buildInvoiceView(invoice, settings);
+    const corrects = invoice.correctsId ? await prisma.studioInvoice.findUnique({ where: { id: invoice.correctsId }, select: { number: true, issueDate: true } }) : null;
+    const view = buildInvoiceView(invoice, settings, { corrects });
     const pdf = await renderInvoicePdf(view);
     const { id: emailId } = await sendStudioInvoiceEmail({ to: recipient, view, pdf, message, replyTo: settings.email });
     if (invoice.status !== "PAID") await recordSent(id, recipient, emailId, actor);

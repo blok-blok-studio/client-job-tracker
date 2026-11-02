@@ -196,6 +196,22 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
         <p className="text-xs text-bb-dim mt-2">Reminders stop the moment the client presses &quot;I have paid&quot; on the pay page (you get asked to confirm instead) or the invoice is marked paid.</p>
       </Section>
 
+      <Section title="DATEV export (for BD Berlin Digital Tax)">
+        <p className="text-xs text-bb-dim mb-3">The monthly pack can export a DATEV Buchungsstapel (EXTF 700). Ask the advisor for the Berater- and Mandantennummer and to confirm the revenue accounts; these are SKR defaults.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Field label="Kontenrahmen">
+            <select className={inputCls} value={s.datev.skr} onChange={(e) => set("datev", { ...s.datev, skr: e.target.value as "SKR03" | "SKR04" })}><option>SKR03</option><option>SKR04</option></select>
+          </Field>
+          <Field label="Beraternummer"><input className={inputCls} value={s.datev.beraterNr} onChange={(e) => set("datev", { ...s.datev, beraterNr: e.target.value })} /></Field>
+          <Field label="Mandantennummer"><input className={inputCls} value={s.datev.mandantNr} onChange={(e) => set("datev", { ...s.datev, mandantNr: e.target.value })} /></Field>
+          <Field label="Debitor (Sammelkonto)"><input className={inputCls} value={s.datev.debtorAccount} onChange={(e) => set("datev", { ...s.datev, debtorAccount: e.target.value })} /></Field>
+          <Field label="Erlöse § 19"><input className={inputCls} value={s.datev.accounts.KLEINUNTERNEHMER} onChange={(e) => set("datev", { ...s.datev, accounts: { ...s.datev.accounts, KLEINUNTERNEHMER: e.target.value } })} /></Field>
+          <Field label="Erlöse 19 %"><input className={inputCls} value={s.datev.accounts.REGULAR} onChange={(e) => set("datev", { ...s.datev, accounts: { ...s.datev.accounts, REGULAR: e.target.value } })} /></Field>
+          <Field label="Erlöse EU reverse charge"><input className={inputCls} value={s.datev.accounts.REVERSE_CHARGE} onChange={(e) => set("datev", { ...s.datev, accounts: { ...s.datev.accounts, REVERSE_CHARGE: e.target.value } })} /></Field>
+          <Field label="Erlöse Drittland"><input className={inputCls} value={s.datev.accounts.DRITTLAND} onChange={(e) => set("datev", { ...s.datev, accounts: { ...s.datev.accounts, DRITTLAND: e.target.value } })} /></Field>
+        </div>
+      </Section>
+
       <Section title="Numbering, terms and VAT dates">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Field label="Default due days">

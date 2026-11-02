@@ -12,6 +12,10 @@ const LIST_SELECT = {
   id: true,
   token: true,
   number: true,
+  kind: true,
+  correctsId: true,
+  quoteId: true,
+  milestone: true,
   status: true,
   template: true,
   language: true,
@@ -57,7 +61,7 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const all = await prisma.studioInvoice.findMany({
-      where: { status: { in: ["ISSUED", "SENT", "PAID"] } },
+      where: { status: { in: ["ISSUED", "SENT", "PAID"] }, kind: "INVOICE" },
       select: { status: true, currency: true, total: true, dueDate: true, paidAt: true },
     });
     const sum = (list: typeof all) =>

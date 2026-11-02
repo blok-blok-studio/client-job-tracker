@@ -19,7 +19,9 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
     const invoice = await prisma.studioInvoice.findUnique({ where: { id }, include: { client: { select: { id: true, name: true, company: true, email: true } } } });
     if (!invoice) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     const settings = await loadInvoiceSettings();
-    const view = buildInvoiceView(invoice, settings);
+    const corrects = invoice.correctsId ? await prisma.studioInvoice.findUnique({ where: { id: invoice.correctsId }, select: { number: true, issueDate: true } }) : null;
+    const correctedBy = await prisma.studioInvoice.findFirst({ where: { correctsId: invoice.id }, select: { id: true, number: true } });
+    const view = buildInvoiceView(invoice, settings, { corrects });
     const qr = view.qrPayload ? await qrDataUrl(view.qrPayload).catch(() => null) : null;
     const activity = await prisma.activityLog.findMany({
       where: { clientId: invoice.clientId, action: { startsWith: "invoice_" }, details: invoice.number ? { contains: invoice.number } : undefined },
@@ -29,7 +31,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
     });
     const partnerContext = await partnerContextForInvoice(invoice.id);
     const origin = invoice.partnerRepId ? await prisma.partnerRep.findUnique({ where: { id: invoice.partnerRepId }, select: { name: true, partner: { select: { name: true } } } }).catch(() => null) : null;
-    return NextResponse.json({ success: true, data: { ...view, client: invoice.client, internalNote: invoice.internalNote, qrDataUrl: qr, activity, contentHash: invoice.contentHash, integrity: integrityOf(invoice), partnerContext, draftedBy: origin ? `${origin.name} (${origin.partner.name})` : null } });
+    return NextResponse.json({ success: true, data: { ...view, client: invoice.client, internalNote: invoice.internalNote, qrDataUrl: qr, activity, contentHash: invoice.contentHash, integrity: integrityOf(invoice), partnerContext, draftedBy: origin ? `${origin.name} (${origin.partner.name})` : null, correctedBy, correctsId: invoice.correctsId } });
   } catch (err) {
     return handleError(err, "Failed to load invoice");
   }

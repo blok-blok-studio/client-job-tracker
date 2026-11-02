@@ -15,6 +15,11 @@ export const EU_COUNTRIES = [
   "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE",
 ];
 
+export const COUNTRY_CURRENCY: Record<string, string> = {
+  GB: "GBP", CH: "CHF", CA: "CAD", AU: "AUD", NZ: "NZD", SE: "SEK", NO: "NOK", DK: "DKK", PL: "PLN", CZ: "CZK", HU: "HUF",
+  JP: "JPY", SG: "SGD", HK: "HKD", MX: "MXN", BR: "BRL", ZA: "ZAR", IN: "INR", TR: "TRY", IL: "ILS", KR: "KRW", CN: "CNY", AE: "AED",
+};
+
 const COUNTRY_WORDS: Array<[RegExp, string]> = [
   [/\b(deutschland|germany|berlin|münchen|munich|hamburg|köln|cologne|frankfurt)\b/i, "DE"],
   [/\b(usa|u\.s\.a\.|united states|america|texas|california|new york|florida|dallas|austin|houston)\b/i, "US"],

@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   "/partner/", // sales-partner rep portal (token-scoped; "/partners" dashboard stays private)
   "/partner-connect", // landing page after a partner finishes Stripe Connect onboarding
   "/post-review/",
+  "/quote/", // client-facing quote + accept page (token-scoped)
   "/invoice/", // client-facing invoice + pay page (token-scoped; "/invoices" dashboard stays owner-only)
   "/legal/", // privacy policy, terms, data deletion (platform reviewers and clients)
   "/about", // public app home page for platform consent screens
@@ -35,6 +36,7 @@ const PUBLIC_PATHS = [
   "/api/agreement/",
   "/api/partner/", // token-scoped portal API ("/api/partners/" is owner-only)
   "/api/post-review/",
+  "/api/quote/", // token-scoped quote JSON + accept + PDF
   "/api/invoice/", // token-scoped invoice JSON + PDF ("/api/studio-invoices" is owner-only)
   "/api/client-media/upload-portal",
   "/api/client-media/zip-link/", // random 15-minute links made by the team (iPhone zip downloads open in Safari)
@@ -128,6 +130,7 @@ const SHORT_LINKS: Record<string, string> = {
   a: "agreement",
   p: "post-review",
   b: "invoice", // "bill"
+  q: "quote",
 };
 
 export async function middleware(request: NextRequest) {
@@ -135,7 +138,7 @@ export async function middleware(request: NextRequest) {
 
   cleanupRateLimits();
 
-  const shortMatch = pathname.match(/^\/(c|r|o|u|i|a|p|b)\/([\w-]+)$/);
+  const shortMatch = pathname.match(/^\/(c|r|o|u|i|a|p|b|q)\/([\w-]+)$/);
   if (shortMatch) {
     const url = request.nextUrl.clone();
     url.pathname = `/${SHORT_LINKS[shortMatch[1]]}/${shortMatch[2]}`;
@@ -198,7 +201,7 @@ export async function middleware(request: NextRequest) {
       }
     }
     // Public invoice JSON/PDF: token-scoped and unauthenticated, keep guessing + PDF rendering cheap to refuse
-    else if (pathname.startsWith("/api/invoice/")) {
+    else if (pathname.startsWith("/api/invoice/") || pathname.startsWith("/api/quote/")) {
       if (!checkRateLimit(ip, PUBLIC_INVOICE_RATE_LIMIT_MAX, "pubinv")) {
         return addSecurityHeaders(
           NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429, headers: { "Retry-After": "60" } })

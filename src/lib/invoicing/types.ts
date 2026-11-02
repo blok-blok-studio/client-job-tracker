@@ -34,6 +34,9 @@ export interface InvoiceView {
   id: string;
   token: string;
   number: string | null;
+  kind: "INVOICE" | "CORRECTION";
+  corrects: { number: string | null; issueDate: string | null } | null;
+  milestone: string | null;
   status: StudioInvoiceStatus;
   template: InvoiceTemplate;
   language: InvoiceLanguage;
@@ -124,6 +127,16 @@ export const LABELS: Record<InvoiceLanguage, Record<string, string>> = {
     reportPaidDone: "Danke! Wir prüfen den Zahlungseingang und schicken Ihnen eine Bestätigung.",
     reportPaidDate: "Überwiesen am",
     reportPaidRef: "Referenz / Hinweis (optional)",
+    correction: "STORNORECHNUNG",
+    correctionOf: "Storniert die Rechnung",
+    correctionNote: "Diese Stornorechnung hebt die genannte Rechnung vollständig auf. Es ist keine Zahlung fällig.",
+    refundNote: "Der bereits gezahlte Betrag wird auf Ihr Konto zurücküberwiesen.",
+    quote: "ANGEBOT",
+    quoteNumber: "Angebotsnummer",
+    quoteDate: "Angebotsdatum",
+    validUntil: "Gültig bis",
+    schedule: "Zahlungsplan",
+    acceptHint: "Dieses Angebot kann online angenommen werden:",
   },
   en: {
     invoice: "INVOICE",
@@ -175,5 +188,15 @@ export const LABELS: Record<InvoiceLanguage, Record<string, string>> = {
     reportPaidDone: "Thank you! We will check the account and send you a confirmation.",
     reportPaidDate: "Paid on",
     reportPaidRef: "Reference / note (optional)",
+    correction: "CORRECTION INVOICE",
+    correctionOf: "Cancels invoice",
+    correctionNote: "This correction invoice cancels the invoice named above in full. No payment is due.",
+    refundNote: "The amount already paid will be refunded to your account.",
+    quote: "QUOTE",
+    quoteNumber: "Quote number",
+    quoteDate: "Quote date",
+    validUntil: "Valid until",
+    schedule: "Payment schedule",
+    acceptHint: "This quote can be accepted online:",
   },
 };
