@@ -8,7 +8,7 @@ import type { InvoiceSettings } from "./settings";
 export type InvoiceTemplate = "DE" | "US" | "EU";
 export type VatScheme = "KLEINUNTERNEHMER" | "DRITTLAND" | "REVERSE_CHARGE" | "REGULAR";
 export type InvoiceLanguage = "de" | "en";
-export type InvoiceCurrency = "EUR" | "USD";
+export type InvoiceCurrency = string; // ISO 4217; EUR + USD have dedicated bank blocks, others use settings.otherBanks
 
 export const EU_COUNTRIES = [
   "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU",

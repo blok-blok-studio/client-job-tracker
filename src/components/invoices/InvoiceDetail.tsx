@@ -316,13 +316,16 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
           {/* Payment + QR */}
           <div className="grid sm:grid-cols-[1fr_auto] gap-4 rounded-lg border border-bb-border p-3">
             <div className="text-xs space-y-1 text-bb-muted">
-              <p className="text-white font-medium text-sm mb-1">{inv.paymentMethod === "STRIPE" ? "Card payment" : inv.currency === "EUR" ? "SEPA transfer" : "ACH / wire (Wise)"}</p>
+              <p className="text-white font-medium text-sm mb-1">{inv.paymentMethod === "STRIPE" ? "Card payment" : inv.currency === "EUR" ? "SEPA transfer" : inv.currency === "USD" ? "ACH / wire (Wise)" : `${inv.currency} transfer (Wise)`}</p>
               {inv.paymentMethod === "STRIPE" && inv.paymentUrl && <p className="break-all">{inv.paymentUrl}</p>}
               {inv.paymentMethod !== "STRIPE" && inv.currency === "EUR" && inv.seller.eur && (
                 <>
                   <p>{inv.seller.eur.holder} · {inv.seller.eur.bank || "bank not set"}</p>
                   <p className="font-mono">{inv.seller.eur.iban ? inv.seller.eur.iban.replace(/(.{4})/g, "$1 ").trim() : "IBAN missing"}{inv.seller.eur.bic ? ` · ${inv.seller.eur.bic}` : ""}</p>
                 </>
+              )}
+              {inv.paymentMethod !== "STRIPE" && inv.currency !== "EUR" && inv.currency !== "USD" && (
+                <p>{inv.seller.otherBanks?.find((b) => b.currency === inv.currency) ? `${inv.currency} account: ${inv.seller.otherBanks.find((b) => b.currency === inv.currency)!.lines.map((l) => `${l.label} ${l.value}`).join(" · ")}` : `${inv.currency}: no receiving account in Settings`}</p>
               )}
               {inv.paymentMethod !== "STRIPE" && inv.currency === "USD" && inv.seller.usd && (
                 <>

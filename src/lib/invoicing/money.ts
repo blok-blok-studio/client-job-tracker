@@ -46,8 +46,10 @@ export function formatMoney(amount: number, currency: InvoiceCurrency, language:
  */
 export function formatMoneyPdf(amount: number, currency: InvoiceCurrency, language: InvoiceLanguage): string {
   const locale = language === "de" ? "de-DE" : "en-US";
-  const n = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+  const zeroDp = currency === "JPY" || currency === "KRW" || currency === "HUF";
+  const n = new Intl.NumberFormat(locale, { minimumFractionDigits: zeroDp ? 0 : 2, maximumFractionDigits: zeroDp ? 0 : 2 }).format(amount);
   if (currency === "USD" && language === "en") return `$${n}`;
+  if (currency === "GBP" && language === "en") return `£${n}`;
   return language === "de" ? `${n} ${currency}` : `${currency} ${n}`;
 }
 

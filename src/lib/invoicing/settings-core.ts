@@ -23,6 +23,20 @@ export interface UsdBank {
   bankAddress: string;
 }
 
+/** A receiving account for any other currency (Wise gives GBP sort code + account, AUD BSB, CAD transit, …): free-form labelled lines. */
+export interface OtherBank {
+  currency: string; // ISO 4217
+  holder: string;
+  bank: string;
+  lines: Array<{ label: string; value: string }>;
+}
+
+export interface ReminderSettings {
+  enabled: boolean;
+  beforeDueDays: number; // "due soon" nudge
+  overdueDays: number[]; // reminders after the due date, ascending; the last one is the final notice (Mahnung)
+}
+
 export interface InvoiceSettings {
   sellerName: string;
   contactName: string;
@@ -47,6 +61,8 @@ export interface InvoiceSettings {
   stripeFeePct: number;
   /** Email the invoice (PDF + pay link) to the client the moment it is issued. */
   autoSendOnIssue: boolean;
+  otherBanks: OtherBank[];
+  reminders: ReminderSettings;
 }
 
 export const INVOICE_SETTINGS_KEY = "invoice_settings";
@@ -69,6 +85,8 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   sequenceStart: 1,
   stripeFeePct: 5.5,
   autoSendOnIssue: true,
+  otherBanks: [],
+  reminders: { enabled: true, beforeDueDays: 3, overdueDays: [7, 14, 30] },
 };
 
 function str(v: unknown, fallback: string): string {
@@ -118,6 +136,35 @@ export function normalizeInvoiceSettings(raw: unknown): InvoiceSettings {
     sequenceStart: Math.max(1, Math.round(num(r.sequenceStart, d.sequenceStart))),
     stripeFeePct: Math.max(0, num(r.stripeFeePct, d.stripeFeePct)),
     autoSendOnIssue: typeof r.autoSendOnIssue === "boolean" ? r.autoSendOnIssue : d.autoSendOnIssue,
+    otherBanks: Array.isArray(r.otherBanks)
+      ? (r.otherBanks as unknown[])
+          .map((b) => {
+            const o = (b && typeof b === "object" ? b : {}) as Record<string, unknown>;
+            return {
+              currency: str(o.currency, "").trim().toUpperCase().slice(0, 3),
+              holder: str(o.holder, ""),
+              bank: str(o.bank, ""),
+              lines: Array.isArray(o.lines)
+                ? (o.lines as unknown[])
+                    .map((l) => {
+                      const x = (l && typeof l === "object" ? l : {}) as Record<string, unknown>;
+                      return { label: str(x.label, "").trim().slice(0, 40), value: str(x.value, "").trim().slice(0, 80) };
+                    })
+                    .filter((l) => l.label && l.value)
+                : [],
+            };
+          })
+          .filter((b) => /^[A-Z]{3}$/.test(b.currency) && b.currency !== "EUR" && b.currency !== "USD")
+      : d.otherBanks,
+    reminders: (() => {
+      const o = (r.reminders && typeof r.reminders === "object" ? r.reminders : {}) as Record<string, unknown>;
+      const days = Array.isArray(o.overdueDays) ? (o.overdueDays as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n > 0 && n <= 120) : d.reminders.overdueDays;
+      return {
+        enabled: typeof o.enabled === "boolean" ? o.enabled : d.reminders.enabled,
+        beforeDueDays: Math.min(14, Math.max(0, Math.round(num(o.beforeDueDays, d.reminders.beforeDueDays)))),
+        overdueDays: [...new Set(days)].sort((a, b) => a - b).slice(0, 5),
+      };
+    })(),
   };
 }
 
@@ -135,8 +182,18 @@ export function isValidIban(iban: string): boolean {
 }
 
 /** What still has to be filled in before an invoice in `currency` can be issued. */
-export function missingBankFields(settings: InvoiceSettings, currency: "EUR" | "USD"): string[] {
+export function missingBankFields(settings: InvoiceSettings, currency: string): string[] {
   const missing: string[] = [];
+  if (currency !== "EUR" && currency !== "USD") {
+    const b = settings.otherBanks.find((x) => x.currency === currency);
+    if (!b) missing.push(`${currency} receiving account (add it under Settings → Other currencies)`);
+    else {
+      if (!b.holder) missing.push(`${currency} account holder`);
+      if (!b.lines.length) missing.push(`${currency} account details`);
+    }
+    if (!settings.steuernummer && !settings.ustIdNr) missing.push("Steuernummer or USt-IdNr");
+    return missing;
+  }
   if (currency === "EUR") {
     if (!settings.eur.holder) missing.push("EUR account holder");
     if (!settings.eur.iban) missing.push("IBAN");
@@ -168,3 +225,6 @@ export function settingsWarnings(settings: InvoiceSettings): string[] {
   if (!settings.usd.routing || !settings.usd.account) w.push("USD (Wise) account details are empty. USD invoices cannot be issued until they are in.");
   return w;
 }
+
+/** Currencies offered in the invoice form. Anything ISO 4217 works; these are the ones with ECB rates for EUR booking. */
+export const CURRENCY_OPTIONS = ["EUR", "USD", "GBP", "CHF", "CAD", "AUD", "NZD", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF", "JPY", "SGD", "HKD", "MXN", "BRL", "ZAR", "INR", "TRY", "ILS", "KRW", "CNY", "AED"] as const;

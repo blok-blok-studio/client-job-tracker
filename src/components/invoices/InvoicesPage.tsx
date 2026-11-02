@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
-import { Plus, Search, Settings as SettingsIcon, Receipt, Download, FileArchive, AlertTriangle, Link2, FileText } from "lucide-react";
+import { Plus, Search, Settings as SettingsIcon, Receipt, Download, FileArchive, AlertTriangle, Link2, FileText, Repeat } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
 import type { StudioInvoiceStatus } from "@/lib/invoicing/types";
 import InvoiceEditor from "./InvoiceEditor";
 import InvoiceDetail from "./InvoiceDetail";
 import InvoiceSettingsPanel from "./InvoiceSettingsPanel";
+import PlansPanel from "./PlansPanel";
 import { StatusBadge, isOverdue, shortDate, money, byCurrency, chipCls, btnPrimary, btnGhost, inputCls, readJsonSafe } from "./shared";
 
 interface Row {
@@ -56,7 +57,7 @@ export default function InvoicesPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [year, setYear] = useState<"all" | number>("all");
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"invoices" | "settings">(search.get("tab") === "settings" ? "settings" : "invoices");
+  const [tab, setTab] = useState<"invoices" | "plans" | "settings">(search.get("tab") === "settings" ? "settings" : search.get("tab") === "plans" ? "plans" : "invoices");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editDraftId, setEditDraftId] = useState<string | null>(null);
   const [editorClientId, setEditorClientId] = useState<string | null>(null);
@@ -142,6 +143,9 @@ export default function InvoicesPage() {
             <button className={chipCls(tab === "invoices")} onClick={() => setTab("invoices")}>
               <span className="inline-flex items-center gap-1.5"><Receipt size={14} /> Invoices</span>
             </button>
+            <button className={chipCls(tab === "plans")} onClick={() => setTab("plans")}>
+              <span className="inline-flex items-center gap-1.5"><Repeat size={14} /> Plans</span>
+            </button>
             <button className={chipCls(tab === "settings")} onClick={() => setTab("settings")}>
               <span className="inline-flex items-center gap-1.5"><SettingsIcon size={14} /> Settings</span>
             </button>
@@ -155,6 +159,8 @@ export default function InvoicesPage() {
 
         {tab === "settings" ? (
           <InvoiceSettingsPanel onSaved={load} />
+        ) : tab === "plans" ? (
+          <PlansPanel onInvoiceIssued={load} />
         ) : (
           <>
             {bankMissing && (

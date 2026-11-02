@@ -1,4 +1,4 @@
-import type { EurBank, UsdBank } from "./settings";
+import type { EurBank, UsdBank, OtherBank } from "./settings-core";
 import type { InvoiceCurrency, InvoiceLanguage, InvoiceTemplate, VatScheme } from "./vat";
 import type { LineItem } from "./money";
 
@@ -22,6 +22,7 @@ export interface SellerSnapshot {
   ustIdNr: string;
   eur: EurBank | null;
   usd: UsdBank | null;
+  otherBanks?: OtherBank[];
   wisePayLink: string;
 }
 

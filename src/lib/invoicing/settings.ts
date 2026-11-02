@@ -6,13 +6,13 @@ import { openBank, sealBank } from "./bank-vault";
 export * from "./settings-core";
 
 /** Stored shape: the normalized settings with eur/usd replaced by an encrypted bankVault. */
-type StoredSettings = Omit<InvoiceSettings, "eur" | "usd"> & { eur?: InvoiceSettings["eur"] | null; usd?: InvoiceSettings["usd"] | null; bankVault?: { encrypted: string; iv: string } | null };
+type StoredSettings = Omit<InvoiceSettings, "eur" | "usd" | "otherBanks"> & { eur?: InvoiceSettings["eur"] | null; usd?: InvoiceSettings["usd"] | null; otherBanks?: InvoiceSettings["otherBanks"] | null; bankVault?: { encrypted: string; iv: string } | null };
 
 export async function loadInvoiceSettings(): Promise<InvoiceSettings> {
   const raw = await getSetting<StoredSettings | null>(INVOICE_SETTINGS_KEY, null);
   if (!raw) return normalizeInvoiceSettings(null);
   const opened = openBank(raw);
-  return normalizeInvoiceSettings({ ...opened, eur: opened.eur, usd: opened.usd });
+  return normalizeInvoiceSettings({ ...opened, eur: opened.eur, usd: opened.usd, otherBanks: opened.otherBanks ?? [] });
 }
 
 export async function saveInvoiceSettings(next: unknown, updatedBy: string): Promise<InvoiceSettings> {

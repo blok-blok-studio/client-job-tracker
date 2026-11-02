@@ -274,6 +274,12 @@ export async function renderInvoicePdf(view: InvoiceView): Promise<Uint8Array> {
     if (b.iban) rows.push([L.iban, groupIban(b.iban), true]);
     if (b.bic) rows.push([L.bic, b.bic, true]);
     if (b.bank) rows.push([L.bank, b.bank, false]);
+  } else if (cur !== "USD" && view.seller.otherBanks?.some((b) => b.currency === cur)) {
+    const b = view.seller.otherBanks.find((x) => x.currency === cur)!;
+    rows.push([L.holder, b.holder || view.seller.sellerName, false]);
+    if (b.bank) rows.push([L.bank, b.bank, false]);
+    for (const l of b.lines) rows.push([l.label, l.value, /\d/.test(l.value)]);
+    if (view.seller.wisePayLink) rows.push(["Wise", view.seller.wisePayLink, true]);
   } else if (view.seller.usd) {
     const b = view.seller.usd;
     rows.push([L.holder, b.holder || view.seller.sellerName, false]);

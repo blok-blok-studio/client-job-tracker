@@ -8,7 +8,7 @@ import { addDays, computeTotals, parseDateOnly } from "./money";
 import { clientToBillTo, snapshotSeller, invoiceContentHash } from "./view";
 import { sealBank } from "./bank-vault";
 import { recordCommissionForStudioInvoice, voidCommissionsForStudioInvoice } from "./partner-commission";
-import { usdToEurOn } from "./revenue";
+import { rateToEurOn } from "./revenue";
 import type { BillTo } from "./types";
 import { assignInvoiceNumber, withNumberRetry } from "./numbering";
 
@@ -33,7 +33,7 @@ export const draftSchema = z.object({
   clientId: z.string().min(1),
   template: z.enum(["DE", "US", "EU"]).optional(),
   language: z.enum(["de", "en"]).optional(),
-  currency: z.enum(["EUR", "USD"]).optional(),
+  currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).optional(),
   issueDate: dateOnly.optional(),
   serviceDateFrom: dateOnly.nullable().optional(),
   serviceDateTo: dateOnly.nullable().optional(),
@@ -136,7 +136,8 @@ export async function prepareForClient(clientId: string) {
     vat,
     dueDays: settings.defaultDueDays,
     kleinunternehmerUntil: settings.kleinunternehmerUntil,
-    missingBank: { EUR: missingBankFields(settings, "EUR"), USD: missingBankFields(settings, "USD") },
+    missingBank: Object.fromEntries(["EUR", "USD", ...settings.otherBanks.map((b) => b.currency)].map((c) => [c, missingBankFields(settings, c)])) as Record<string, string[]>,
+    configuredCurrencies: ["EUR", "USD", ...settings.otherBanks.map((b) => b.currency)],
     stripeFeePct: settings.stripeFeePct,
     openStripeInvoices: openStripe.map((i) => ({ ...i, amount: Number(i.amount) })),
     openStudioInvoices: openStudio.map((i) => ({ ...i, total: Number(i.total) })),
@@ -148,7 +149,7 @@ function resolveFields(input: DraftInput, client: BillingClient, settings: Invoi
   const template: InvoiceTemplate = input.template ?? (existing?.template as InvoiceTemplate | undefined) ?? templateForCountry(country);
   const d = defaultsForTemplate(template);
   const language = input.language ?? (input.template && !existing ? d.language : ((existing?.language as "de" | "en" | undefined) ?? d.language));
-  const currency = input.currency ?? (input.template && !existing ? d.currency : ((existing?.currency as "EUR" | "USD" | undefined) ?? d.currency));
+  const currency = input.currency ?? (input.template && !existing ? d.currency : (existing?.currency ?? d.currency));
   const issueDate = parseDateOnly(input.issueDate) ?? existing?.issueDate ?? parseDateOnly(new Date().toISOString())!;
   const dueDays = input.dueDays ?? existing?.dueDays ?? settings.defaultDueDays;
   const billTo = input.billTo ? cleanBillTo(input.billTo) : existing ? (existing.billTo as unknown as BillTo) : clientToBillTo(client);
@@ -223,7 +224,7 @@ export async function issueInvoice(id: string, actor: string, meta?: { ipAddress
   if (!existing) throw new InvoiceError("Invoice not found", 404);
   if (existing.status !== "DRAFT") throw new InvoiceError("This invoice was already issued.", 409);
   const settings = await loadInvoiceSettings();
-  const currency = existing.currency as "EUR" | "USD";
+  const currency = existing.currency;
   const isCard = existing.paymentMethod === "STRIPE" && !!existing.paymentUrl;
   if (!isCard) {
     const missing = missingBankFields(settings, currency);
@@ -280,7 +281,7 @@ export async function issueInvoice(id: string, actor: string, meta?: { ipAddress
   return issued;
 }
 
-export async function markPaid(id: string, actor: string, input: { paidAt?: string | null; method?: string | null; note?: string | null; commissionKind?: "PROJECT" | "BRAND_GUIDE" | "PLAN" | "NONE" | null; sendReceipt?: boolean | null }) {
+export async function markPaid(id: string, actor: string, input: { paidAt?: string | null; method?: string | null; note?: string | null; commissionKind?: "PROJECT" | "BRAND_GUIDE" | "PLAN" | "NONE" | null; sendReceipt?: boolean | null; eurAmount?: number | null }) {
   const existing = await prisma.studioInvoice.findUnique({ where: { id } });
   if (!existing) throw new InvoiceError("Invoice not found", 404);
   if (!["ISSUED", "SENT"].includes(existing.status)) throw new InvoiceError(`Cannot mark a ${existing.status.toLowerCase()} invoice as paid.`, 409);
@@ -288,17 +289,17 @@ export async function markPaid(id: string, actor: string, input: { paidAt?: stri
   if (Number.isNaN(paidAt.getTime())) throw new InvoiceError("Invalid paid date");
   // Book the income in EUR at the ECB rate of the payment date (USD) or 1:1 (EUR)
   const total = Number(existing.total);
-  const fx = existing.currency === "EUR" ? { rate: 1, rateDate: paidAt.toISOString().slice(0, 10) } : await usdToEurOn(paidAt);
-  const eurAmount = Math.round(total * fx.rate * 100) / 100;
+  const fx = existing.currency === "EUR" ? { rate: 1, rateDate: paidAt.toISOString().slice(0, 10) } : await rateToEurOn(existing.currency, paidAt);
+  const eurAmount = fx.rate != null ? Math.round(total * fx.rate * 100) / 100 : (input.eurAmount ?? null);
   const invoice = await prisma.studioInvoice.update({
     where: { id },
-    data: { status: "PAID", paidAt, paidMethod: input.method || "bank", paidNote: input.note || null, fxRateToEur: fx.rate, eurAmount },
+    data: { status: "PAID", paidAt, paidMethod: input.method || "bank", paidNote: input.note || null, fxRateToEur: fx.rate ?? null, eurAmount },
   });
   await logInvoiceActivity({
     clientId: invoice.clientId,
     actor,
     action: "invoice_paid",
-    details: `Invoice ${invoice.number} marked paid (${invoice.paidMethod}); booked as EUR ${eurAmount.toFixed(2)}${existing.currency === "USD" ? ` at ${fx.rate} (ECB ${fx.rateDate})` : ""}`,
+    details: `Invoice ${invoice.number} marked paid (${invoice.paidMethod}); ${eurAmount != null ? `booked as EUR ${eurAmount.toFixed(2)}${existing.currency !== "EUR" ? ` at ${fx.rate} (ECB ${fx.rateDate})` : ""}` : `EUR amount not available for ${existing.currency}, enter it by hand`}`,
   });
   // Receipt to the client (best effort)
   let receipt: { sent: boolean; error: string | null } = { sent: false, error: null };

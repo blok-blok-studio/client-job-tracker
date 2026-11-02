@@ -39,6 +39,24 @@ export async function usdToEurOn(date: Date): Promise<{ rate: number; rateDate: 
   return { rate: await usdToEur(), rateDate: "latest" };
 }
 
+/** Any ECB-listed currency → EUR on a date. rate null when the ECB has no fixing for it. */
+export async function rateToEurOn(currency: string, date: Date): Promise<{ rate: number | null; rateDate: string }> {
+  const c = currency.toUpperCase();
+  if (c === "EUR") return { rate: 1, rateDate: date.toISOString().slice(0, 10) };
+  if (c === "USD") return usdToEurOn(date);
+  const iso = date.toISOString().slice(0, 10);
+  try {
+    const res = await fetch(`https://api.frankfurter.app/${iso}?from=${c}&to=EUR`, { next: { revalidate: 86400 } });
+    if (res.ok) {
+      const json = (await res.json()) as { date?: string; rates?: { EUR?: number } };
+      if (typeof json.rates?.EUR === "number") return { rate: json.rates.EUR, rateDate: json.date || iso };
+    }
+  } catch {
+    // fall through
+  }
+  return { rate: null, rateDate: iso };
+}
+
 export interface MonthIncome {
   month: string; // YYYY-MM
   count: number;
@@ -62,7 +80,7 @@ export async function incomeByMonth(year: number): Promise<{ year: number; month
     const key = r.paidAt!.toISOString().slice(0, 7);
     const m = months.get(key) || { month: key, count: 0, byCurrency: {}, eur: 0 };
     const total = Number(r.total);
-    const eur = r.eurAmount != null ? Number(r.eurAmount) : r.currency === "EUR" ? total : Math.round(total * latest * 100) / 100;
+    const eur = r.eurAmount != null ? Number(r.eurAmount) : r.currency === "EUR" ? total : r.currency === "USD" ? Math.round(total * latest * 100) / 100 : 0;
     m.count++;
     m.byCurrency[r.currency] = Math.round(((m.byCurrency[r.currency] || 0) + total) * 100) / 100;
     m.eur = Math.round((m.eur + eur) * 100) / 100;
@@ -98,7 +116,13 @@ export async function yearRevenueEur(year: number): Promise<YearRevenue> {
     where: { status: "PAID", OR: [{ paidAt: { gte: from, lt: to } }, { paidAt: null, createdAt: { gte: from, lt: to } }] },
     select: { amount: true, currency: true },
   });
-  const toEur = (amount: number, currency: string) => (currency.toUpperCase() === "EUR" ? amount : amount * rate);
+  const others = [...new Set([...studio, ...stripe].map((i) => i.currency.toUpperCase()).filter((c) => c !== "EUR" && c !== "USD"))];
+  const otherRates: Record<string, number> = {};
+  for (const c of others) otherRates[c] = (await rateToEurOn(c, new Date())).rate ?? 0;
+  const toEur = (amount: number, currency: string) => {
+    const c = currency.toUpperCase();
+    return c === "EUR" ? amount : c === "USD" ? amount * rate : amount * (otherRates[c] ?? 0);
+  };
   const studioEur = studio.reduce((s, i) => s + toEur(Number(i.total), i.currency), 0);
   const stripeEur = stripe.reduce((s, i) => s + toEur(Number(i.amount), i.currency), 0);
   const totalEur = Math.round((studioEur + stripeEur) * 100) / 100;

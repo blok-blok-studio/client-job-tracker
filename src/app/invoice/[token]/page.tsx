@@ -78,6 +78,7 @@ export default function PublicInvoicePage() {
   const isCard = inv.paymentMethod === "STRIPE" && !!inv.paymentUrl;
   const eur = inv.currency === "EUR" ? inv.seller.eur : null;
   const usd = inv.currency === "USD" ? inv.seller.usd : null;
+  const other = inv.currency !== "EUR" && inv.currency !== "USD" ? inv.seller.otherBanks?.find((b) => b.currency === inv.currency) || null : null;
   const rows: Array<[string, string, boolean]> = [];
   if (isCard) rows.push([L.cardHint, inv.paymentUrl!, true]);
   else if (eur) {
@@ -85,6 +86,10 @@ export default function PublicInvoicePage() {
     if (eur.iban) rows.push([L.iban, eur.iban.replace(/(.{4})/g, "$1 ").trim(), true]);
     if (eur.bic) rows.push([L.bic, eur.bic, true]);
     if (eur.bank) rows.push([L.bank, eur.bank, false]);
+  } else if (other) {
+    rows.push([L.holder, other.holder || inv.seller.sellerName, true]);
+    if (other.bank) rows.push([L.bank, other.bank, false]);
+    for (const l of other.lines) rows.push([l.label, l.value, true]);
   } else if (usd) {
     rows.push([L.holder, usd.holder || inv.seller.sellerName, true]);
     if (usd.bank) rows.push([L.bank, usd.bank, false]);
@@ -125,7 +130,7 @@ export default function PublicInvoicePage() {
             <ExternalLink size={15} /> {lang === "de" ? "Per Karte bezahlen" : "Pay by card"}
           </a>
         )}
-        {!isCard && usd && inv.seller.wisePayLink && !isPaid && !isVoid && (
+        {!isCard && (usd || other) && inv.seller.wisePayLink && !isPaid && !isVoid && (
           <a href={inv.seller.wisePayLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-neutral-700 text-white text-sm hover:border-neutral-400">
             <ExternalLink size={15} /> {lang === "de" ? "Mit Wise bezahlen" : "Pay with Wise"}
           </a>

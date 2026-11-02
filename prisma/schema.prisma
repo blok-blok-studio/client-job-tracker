@@ -111,6 +111,7 @@ model Client {
   tasks            Task[]
   invoices         Invoice[]
   studioInvoices   StudioInvoice[]
+  recurringPlans   RecurringPlan[]
   contacts         Contact[]
   activityLogs     ActivityLog[]
   checklistItems   ChecklistItem[]
@@ -617,6 +618,12 @@ model StudioInvoice {
 
   contentHash String? // sha256 of the issued content; re-checked on read, exposes tampering
 
+  // Recurring billing + dunning
+  planId        String?
+  plan          RecurringPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  reminderStage Int       @default(0) // 0 none · 1 due soon · 2 overdue · 3 second · 4 final notice (Mahnung)
+  lastReminderAt DateTime?
+
   // Sales-partner attribution: drafted from the partner portal by an approved closer
   partnerId    String?
   partner      Partner?    @relation(fields: [partnerId], references: [id], onDelete: SetNull)
@@ -673,6 +680,42 @@ model PartnerStatement {
   @@unique([year, sequence])
   @@index([partnerId])
   @@index([issueDate])
+}
+
+// Monthly (or quarterly / yearly) billing by bank transfer: the cron issues
+// and emails a numbered invoice on the chosen day. No payment data stored.
+model RecurringPlan {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String // "Website care plan"
+  status    String   @default("ACTIVE") // ACTIVE | PAUSED | ENDED
+  interval  String   @default("MONTHLY") // MONTHLY | QUARTERLY | YEARLY
+  dayOfMonth Int     @default(1) // 1..28
+  startDate DateTime
+  endDate   DateTime?
+  nextRunAt DateTime
+  lastRunAt DateTime?
+  runs      Int      @default(0)
+
+  template      String  @default("US")
+  language      String  @default("en")
+  currency      String  @default("EUR")
+  vatOverride   String?
+  dueDays       Int     @default(14)
+  items         Json // [{ description, qty, unitPrice }]; "{month}" / "{year}" in a description are filled in per run
+  notes         String? @db.Text
+  autoSend      Boolean @default(true)
+  paymentMethod String  @default("BANK") // BANK | STRIPE (card link pasted) | DIRECT_DEBIT (Stripe mandate on file)
+  paymentUrl    String?
+
+  invoices  StudioInvoice[]
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status, nextRunAt])
 }
 
 enum StudioInvoiceStatus {

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Save, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
-import { DEFAULT_INVOICE_SETTINGS, isValidIban, type InvoiceSettings } from "@/lib/invoicing/settings-core";
+import { DEFAULT_INVOICE_SETTINGS, isValidIban, CURRENCY_OPTIONS, type InvoiceSettings, type OtherBank } from "@/lib/invoicing/settings-core";
+import { Plus, Trash2 } from "lucide-react";
 import { inputCls, labelCls, btnPrimary, readJsonSafe } from "./shared";
 
 /**
@@ -54,6 +55,9 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
   const setEur = (k: keyof InvoiceSettings["eur"], v: string) => setS((p) => ({ ...p, eur: { ...p.eur, [k]: v } }));
   const setUsd = (k: keyof InvoiceSettings["usd"], v: string) => setS((p) => ({ ...p, usd: { ...p.usd, [k]: v } }));
   const ibanOk = s.eur.iban ? isValidIban(s.eur.iban) : null;
+  const setOther = (i: number, patch: Partial<OtherBank>) => setS((p) => ({ ...p, otherBanks: p.otherBanks.map((b, j) => (j === i ? { ...b, ...patch } : b)) }));
+  const setOtherLine = (i: number, li: number, patch: Partial<{ label: string; value: string }>) =>
+    setS((p) => ({ ...p, otherBanks: p.otherBanks.map((b, j) => (j === i ? { ...b, lines: b.lines.map((l, k) => (k === li ? { ...l, ...patch } : l)) } : b)) }));
 
   if (loading) return <div className="text-sm text-bb-dim py-8">Loading settings…</div>;
 
@@ -143,6 +147,53 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
             <input className={inputCls} placeholder="https://wise.com/pay/…" value={s.wisePayLink} onChange={(e) => set("wisePayLink", e.target.value)} />
           </Field>
         </div>
+      </Section>
+
+      <Section title="Other currencies (GBP, CHF, CAD, AUD, … via Wise)">
+        <p className="text-xs text-bb-dim mb-3">One receiving account per currency. Copy the fields exactly as Wise shows them (for GBP: sort code + account number; AUD: BSB + account; CAD: institution + transit + account). Invoices in that currency print these lines; the QR opens your Wise link.</p>
+        <div className="space-y-3">
+          {s.otherBanks.map((b, i) => (
+            <div key={i} className="rounded-lg border border-bb-border p-3 space-y-2">
+              <div className="grid grid-cols-[90px_1fr_1fr_auto] gap-2 items-end">
+                <Field label="Currency">
+                  <select className={inputCls} value={b.currency} onChange={(e) => setOther(i, { currency: e.target.value })}>
+                    {CURRENCY_OPTIONS.filter((c) => c !== "EUR" && c !== "USD").map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Account holder"><input className={inputCls} value={b.holder} onChange={(e) => setOther(i, { holder: e.target.value })} /></Field>
+                <Field label="Bank"><input className={inputCls} value={b.bank} onChange={(e) => setOther(i, { bank: e.target.value })} /></Field>
+                <button type="button" aria-label="Remove currency" className="p-2 text-bb-dim hover:text-red-400" onClick={() => set("otherBanks", s.otherBanks.filter((_, j) => j !== i))}><Trash2 size={14} /></button>
+              </div>
+              {b.lines.map((l, li) => (
+                <div key={li} className="grid grid-cols-[1fr_2fr_auto] gap-2">
+                  <input className={inputCls} placeholder="Label (e.g. Sort code)" value={l.label} onChange={(e) => setOtherLine(i, li, { label: e.target.value })} />
+                  <input className={`${inputCls} font-mono`} placeholder="Value" value={l.value} onChange={(e) => setOtherLine(i, li, { value: e.target.value })} />
+                  <button type="button" aria-label="Remove line" className="p-2 text-bb-dim hover:text-red-400" onClick={() => setOther(i, { lines: b.lines.filter((_, j) => j !== li) })}><Trash2 size={14} /></button>
+                </div>
+              ))}
+              <button type="button" className="text-xs text-bb-orange hover:underline inline-flex items-center gap-1" onClick={() => setOther(i, { lines: [...b.lines, { label: "", value: "" }] })}><Plus size={12} /> Add line</button>
+            </div>
+          ))}
+          <button type="button" className="text-xs text-bb-orange hover:underline inline-flex items-center gap-1" onClick={() => set("otherBanks", [...s.otherBanks, { currency: "GBP", holder: s.eur.holder || s.sellerName, bank: "Wise", lines: [{ label: "", value: "" }] }])}><Plus size={12} /> Add a currency</button>
+        </div>
+      </Section>
+
+      <Section title="Payment reminders (dunning)">
+        <label className="flex items-center gap-2 text-sm text-bb-muted">
+          <input type="checkbox" checked={s.reminders.enabled} onChange={(e) => set("reminders", { ...s.reminders, enabled: e.target.checked })} />
+          Email reminders automatically: due soon, then overdue steps, the last one being the final notice (Mahnung)
+        </label>
+        <div className="grid sm:grid-cols-2 gap-3 mt-3">
+          <Field label="Days before due date (0 = off)">
+            <input type="number" min={0} max={14} className={inputCls} value={s.reminders.beforeDueDays} onChange={(e) => set("reminders", { ...s.reminders, beforeDueDays: Number(e.target.value) })} />
+          </Field>
+          <Field label="Days after due date, comma separated (last = final notice)">
+            <input className={inputCls} value={s.reminders.overdueDays.join(", ")} onChange={(e) => set("reminders", { ...s.reminders, overdueDays: e.target.value.split(",").map((x) => Number(x.trim())).filter((n) => Number.isInteger(n) && n > 0) })} />
+          </Field>
+        </div>
+        <p className="text-xs text-bb-dim mt-2">Reminders stop the moment the client presses &quot;I have paid&quot; on the pay page (you get asked to confirm instead) or the invoice is marked paid.</p>
       </Section>
 
       <Section title="Numbering, terms and VAT dates">

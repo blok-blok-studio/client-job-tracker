@@ -28,6 +28,7 @@ export function snapshotSeller(s: InvoiceSettings): SellerSnapshot {
     ustIdNr: s.ustIdNr,
     eur: { ...s.eur },
     usd: { ...s.usd },
+    otherBanks: s.otherBanks.map((b) => ({ ...b, lines: b.lines.map((l) => ({ ...l })) })),
     wisePayLink: s.wisePayLink,
   };
 }
@@ -111,7 +112,7 @@ export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings):
     } catch {
       qrPayload = null;
     }
-  } else if (currency === "USD") {
+  } else if (currency !== "EUR") {
     qrPayload = seller.wisePayLink || url;
     qrKind = "URL";
   }

@@ -418,10 +418,26 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       console.error("[Cron] Invoice reminders error:", err);
     }
+    // Recurring invoice plans (monthly / quarterly / yearly bank-transfer billing)
+    let recurringInvoices: unknown[] = [];
+    try {
+      const { runDueRecurringPlans } = await import("@/lib/invoicing/recurring");
+      recurringInvoices = await runDueRecurringPlans(new Date());
+    } catch (err) {
+      console.error("[Cron] Recurring plans error:", err);
+    }
+    // Dunning: due-soon, overdue, final notice
+    let paymentReminders: unknown[] = [];
+    try {
+      const { runPaymentReminders } = await import("@/lib/invoicing/reminders");
+      paymentReminders = await runPaymentReminders(new Date());
+    } catch (err) {
+      console.error("[Cron] Payment reminders error:", err);
+    }
 
     return NextResponse.json({
       success: true,
-      data: { invoiceReminders, recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, reviewRemindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, postConnectionWarnings, thumbnailsGenerated, playbacksGenerated, digestSent, taxRemindersSent: taxReminders.sent.length, taxRemindersPending: taxReminders.wouldSend.length },
+      data: { invoiceReminders, recurringInvoices, paymentReminders, recurringTasksCreated: recurringCreated, staleBlockedAlerts: staleBlocked.length, contractsExpired: expiredContracts.length, remindersSent, reviewRemindersSent, tokensRefreshed, tokenRefreshFailed, postsPublished, postsFailed, postConnectionWarnings, thumbnailsGenerated, playbacksGenerated, digestSent, taxRemindersSent: taxReminders.sent.length, taxRemindersPending: taxReminders.wouldSend.length },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Cron job failed";
