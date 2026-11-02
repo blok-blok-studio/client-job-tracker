@@ -27,6 +27,7 @@ const LIST_SELECT = {
   paymentMethod: true,
   createdAt: true,
   client: { select: { id: true, name: true, company: true } },
+  partner: { select: { id: true, name: true } },
 } as const;
 
 // GET — every studio invoice + the tiles (outstanding / overdue / paid this month) + the § 19 watch

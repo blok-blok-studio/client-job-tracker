@@ -223,6 +223,17 @@ export async function runPayout(partnerId: string, by: string, note?: string) {
     }),
   ]);
 
+  // The agreement promises a statement with every payout: issue the
+  // self-billing credit note now (best effort; "Generate missing statements"
+  // on the partner page catches any that fail here)
+  let statementNumber: string | null = null;
+  try {
+    const { createStatementForPayout } = await import("@/lib/invoicing/partner-statement");
+    statementNumber = (await createStatementForPayout(payout.id, by)).number;
+  } catch (err) {
+    console.error("[partner-payout] statement not issued:", err instanceof Error ? err.message : err);
+  }
+
   await prisma.activityLog.create({
     data: {
       actor: by,
@@ -235,5 +246,5 @@ export async function runPayout(partnerId: string, by: string, note?: string) {
     `:money_with_wings: *Partner payout sent* to *${partner.name}* (${preview.rows.length} items).\n${APP_URL}/partners/${partner.id}`
   ).catch(() => {});
 
-  return { payoutId: payout.id, transferId: transfer.id, amount: preview.net, items: preview.rows.length };
+  return { payoutId: payout.id, transferId: transfer.id, amount: preview.net, items: preview.rows.length, statementNumber };
 }

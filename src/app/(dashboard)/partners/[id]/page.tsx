@@ -68,6 +68,9 @@ interface Partner {
   id: string;
   name: string;
   legalName: string | null;
+  billingAddress?: string | null;
+  taxId?: string | null;
+  chargesVat?: boolean;
   contactName: string | null;
   email: string | null;
   phone: string | null;
@@ -87,6 +90,7 @@ interface Partner {
   deals: Deal[];
   totals: { payable: number; paid: number; lifetime: number };
   payouts: Array<{ id: string; amount: number; stripeTransferId: string | null; note: string | null; createdAt: string; createdBy: string | null; items: number }>;
+  statements?: Array<{ id: string; number: string; payoutId: string; issueDate: string; net: number; vatAmount: number; currency: string }>;
   signer: { name: string; hasSignature: boolean };
 }
 
@@ -746,10 +750,37 @@ function CommissionsTab({
                     {p.note ? ` · ${p.note}` : ""}
                   </p>
                 </div>
-                {p.stripeTransferId && <span className="font-mono text-xs text-bb-muted">{p.stripeTransferId}</span>}
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const st = (partner.statements || []).find((x) => x.payoutId === p.id);
+                    return st ? (
+                      <a href={`/api/partners/${partnerId}/statements/${st.id}/pdf?inline=1`} target="_blank" rel="noreferrer" className="text-xs text-bb-orange hover:underline whitespace-nowrap">
+                        Statement {st.number}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-yellow-400">no statement</span>
+                    );
+                  })()}
+                  {p.stripeTransferId && <span className="font-mono text-xs text-bb-muted">{p.stripeTransferId}</span>}
+                </div>
               </div>
             ))}
           </div>
+          {partner.payouts.some((p) => !(partner.statements || []).find((x) => x.payoutId === p.id)) && (
+            <button
+              onClick={async () => {
+                const res = await fetch(`/api/partners/${partnerId}/statements/backfill`, { method: "POST" });
+                const r = await readJson<{ data: { created: number } }>(res);
+                if (!r.ok || !r.data) return toast(r.error || "Could not generate statements", "error");
+                toast(`${r.data.data.created} statement${r.data.data.created === 1 ? "" : "s"} issued`, "success");
+                await onChanged();
+              }}
+              className="mt-2 text-xs text-bb-orange hover:underline"
+            >
+              Generate missing statements (self-billing credit notes)
+            </button>
+          )}
+          <p className="text-[11px] text-bb-dim mt-2">Every payout gets a numbered commission statement (BBS-PS-…), the self-billing credit note the agreement promises. Partners download theirs in the portal; the monthly pack on Invoices includes them.</p>
         </div>
       )}
 
@@ -822,6 +853,7 @@ function SettingsTab({ partner, onSave }: { partner: Partner; onSave: (body: Rec
   const [bookingLink, setBookingLink] = useState(partner.bookingLink || "");
   const [signerName, setSignerName] = useState(partner.signer.name);
   const [signature, setSignature] = useState<string | null>(null);
+  const [billing, setBilling] = useState({ billingAddress: partner.billingAddress || "", taxId: partner.taxId || "", chargesVat: !!partner.chargesVat, country: partner.country || "US" });
   const [details, setDetails] = useState({
     name: partner.name,
     legalName: partner.legalName || "",
@@ -929,6 +961,30 @@ function SettingsTab({ partner, onSave }: { partner: Partner; onSave: (body: Rec
             <textarea value={details.notes} onChange={(e) => setDetails({ ...details, notes: e.target.value })} className={`${inputClass} min-h-[70px]`} />
           </label>
         </div>
+        <h3 className="text-white font-medium">Billing identity (printed on commission statements)</h3>
+        <p className="text-xs text-bb-muted">The partner admin can also fill these in from their portal. Country decides the VAT wording: US = non-EU (no VAT shown, § 13b note), DE = § 19 unless they charge VAT, other EU = reverse charge.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block col-span-2">
+            <span className="block text-xs text-bb-muted mb-1">Billing address (one line per row)</span>
+            <textarea value={billing.billingAddress} onChange={(e) => setBilling({ ...billing, billingAddress: e.target.value })} className={`${inputClass} min-h-[70px]`} placeholder={"123 Main St\nRichmond, VA 23220\nUSA"} />
+          </label>
+          <label className="block">
+            <span className="block text-xs text-bb-muted mb-1">Tax ID (EIN / VAT ID)</span>
+            <input value={billing.taxId} onChange={(e) => setBilling({ ...billing, taxId: e.target.value })} className={inputClass} />
+          </label>
+          <label className="block">
+            <span className="block text-xs text-bb-muted mb-1">Country (ISO)</span>
+            <input value={billing.country} maxLength={2} onChange={(e) => setBilling({ ...billing, country: e.target.value.toUpperCase() })} className={inputClass} />
+          </label>
+          <label className="flex items-center gap-2 col-span-2 text-sm text-bb-muted">
+            <input type="checkbox" checked={billing.chargesVat} onChange={(e) => setBilling({ ...billing, chargesVat: e.target.checked })} />
+            German partner that charges 19% USt (not a Kleinunternehmer)
+          </label>
+        </div>
+        <SaveButton
+          saving={saving === "billing"}
+          onClick={() => save("billing", { billingAddress: billing.billingAddress || null, taxId: billing.taxId || null, chargesVat: billing.chargesVat, ...(billing.country.length === 2 ? { country: billing.country } : {}) })}
+        />
         <div className="flex items-center justify-between">
           <SaveButton
             saving={saving === "details"}

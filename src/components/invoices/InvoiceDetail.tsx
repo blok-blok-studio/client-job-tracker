@@ -17,6 +17,8 @@ type Detail = InvoiceView & {
   activity: Array<{ id: string; action: string; actor: string; details: string | null; createdAt: string }>;
   contentHash: string | null;
   integrity: "ok" | "mismatch" | "none";
+  partnerContext: { partner: { id: string; name: string }; closedBy: string | null; commissions: Array<{ id: string; kind: string; amount: number; status: string }> } | null;
+  draftedBy: string | null;
 };
 
 interface Props {
@@ -37,6 +39,7 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
   const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10));
   const [paidMethod, setPaidMethod] = useState<"bank" | "wise" | "stripe" | "paypal" | "cash" | "other">("bank");
   const [paidNote, setPaidNote] = useState("");
+  const [commissionKind, setCommissionKind] = useState<"PROJECT" | "BRAND_GUIDE" | "PLAN" | "NONE">("PROJECT");
   const [voidReason, setVoidReason] = useState("");
   const [confirm, setConfirm] = useState<null | "issue" | "delete" | "unpaid" | "rotate">(null);
   const [note, setNote] = useState("");
@@ -127,6 +130,13 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
               </div>
               <p className="text-white font-medium mt-2">{inv.client.company || inv.client.name}</p>
               <p className="text-xs text-bb-dim">{inv.billTo.email || inv.client.email || "no email on file"}</p>
+              {inv.draftedBy && <p className="text-xs text-amber-300 mt-1">Drafted in the partner portal by {inv.draftedBy}. Check the items, then issue.</p>}
+              {inv.partnerContext && (
+                <p className="text-xs text-bb-dim mt-1">
+                  Partner deal: {inv.partnerContext.partner.name}
+                  {inv.partnerContext.commissions.length > 0 && ` · commission ${inv.partnerContext.commissions.map((c) => `${c.kind.toLowerCase()} ${c.status.toLowerCase()}`).join(", ")}`}
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-2xl font-display font-bold text-white">{fmt(inv.total)}</p>
@@ -224,9 +234,21 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
                 </div>
               </div>
               <input className={inputCls} placeholder="Note (bank reference, partial payment, …)" value={paidNote} onChange={(e) => setPaidNote(e.target.value)} />
+              {inv.partnerContext && (
+                <div>
+                  <label className={labelCls}>Partner commission for {inv.partnerContext.partner.name} (this payment was for)</label>
+                  <select className={inputCls} value={commissionKind} onChange={(e) => setCommissionKind(e.target.value as typeof commissionKind)}>
+                    <option value="PROJECT">A project (website) deposit or balance</option>
+                    <option value="BRAND_GUIDE">A brand strategy guide</option>
+                    <option value="PLAN">A monthly plan month</option>
+                    <option value="NONE">No commission on this payment</option>
+                  </select>
+                  <p className="text-[11px] text-bb-dim mt-1">Same rates and banding as Stripe payments; the row lands on the partner ledger as payable.</p>
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <button className={btnGhost} onClick={() => setPanel(null)}>Cancel</button>
-                <button className={btnPrimary} disabled={busy} onClick={async () => { if (await act("/paid", jsonInit("POST", { paidAt, method: paidMethod, note: paidNote || null }), "Marked as paid")) setPanel(null); }}>
+                <button className={btnPrimary} disabled={busy} onClick={async () => { if (await act("/paid", jsonInit("POST", { paidAt, method: paidMethod, note: paidNote || null, commissionKind: inv.partnerContext ? commissionKind : "NONE" }), "Marked as paid")) setPanel(null); }}>
                   Mark paid
                 </button>
               </div>

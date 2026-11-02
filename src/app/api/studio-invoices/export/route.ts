@@ -6,6 +6,7 @@ import { requireOwner, handleError } from "../_shared";
 import { loadInvoiceSettings } from "@/lib/invoicing/settings";
 import { buildInvoiceView } from "@/lib/invoicing/view";
 import { renderInvoicePdf } from "@/lib/invoicing/invoice-pdf";
+import { buildStatementView, renderStatementPdf } from "@/lib/invoicing/partner-statement";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -95,6 +96,17 @@ export async function GET(request: NextRequest) {
       const pdf = await renderInvoicePdf(view);
       const who = (r.client.company || r.client.name).replace(/[^\w.-]+/g, "_").slice(0, 40);
       files[`${r.number}_${who}${r.status === "VOID" ? "_VOID" : ""}.pdf`] = pdf;
+    }
+    // Partner commission statements (self-billing credit notes) of the same period
+    const statements = await prisma.partnerStatement.findMany({ where: { issueDate: { gte: from, lt: to } }, orderBy: [{ year: "asc" }, { sequence: "asc" }] });
+    if (statements.length) {
+      const sLines = ["number,partner,net_usd,vat_rate,vat_usd,currency,issue_date,stripe_transfer,content_hash"];
+      for (const st of statements) {
+        const v = buildStatementView(st);
+        sLines.push([v.number, v.partner.legalName || v.partner.name, v.net.toFixed(2), v.vatRate.toFixed(2), v.vatAmount.toFixed(2), v.currency, v.issueDate, v.stripeTransferId || "", v.contentHash || ""].map(csvCell).join(","));
+        files[`partner-statements/${v.number}_${(v.partner.legalName || v.partner.name).replace(/[^\w.-]+/g, "_").slice(0, 40)}.pdf`] = await renderStatementPdf(v);
+      }
+      files[`partner-statements-${label}.csv`] = strToU8("\uFEFF" + sLines.join("\n") + "\n");
     }
     const zipped = zipSync(files, { level: 0 });
     return new NextResponse(Buffer.from(zipped), {

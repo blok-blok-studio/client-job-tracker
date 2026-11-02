@@ -7,6 +7,7 @@ import { decideVat, defaultsForTemplate, guessCountry, templateForCountry, type 
 import { addDays, computeTotals, parseDateOnly } from "./money";
 import { clientToBillTo, snapshotSeller, invoiceContentHash } from "./view";
 import { sealBank } from "./bank-vault";
+import { recordCommissionForStudioInvoice, voidCommissionsForStudioInvoice } from "./partner-commission";
 import type { BillTo } from "./types";
 import { assignInvoiceNumber, withNumberRetry } from "./numbering";
 
@@ -275,7 +276,7 @@ export async function issueInvoice(id: string, actor: string, meta?: { ipAddress
   return issued;
 }
 
-export async function markPaid(id: string, actor: string, input: { paidAt?: string | null; method?: string | null; note?: string | null }) {
+export async function markPaid(id: string, actor: string, input: { paidAt?: string | null; method?: string | null; note?: string | null; commissionKind?: "PROJECT" | "BRAND_GUIDE" | "PLAN" | "NONE" | null }) {
   const existing = await prisma.studioInvoice.findUnique({ where: { id } });
   if (!existing) throw new InvoiceError("Invoice not found", 404);
   if (!["ISSUED", "SENT"].includes(existing.status)) throw new InvoiceError(`Cannot mark a ${existing.status.toLowerCase()} invoice as paid.`, 409);
@@ -286,7 +287,14 @@ export async function markPaid(id: string, actor: string, input: { paidAt?: stri
     data: { status: "PAID", paidAt, paidMethod: input.method || "bank", paidNote: input.note || null },
   });
   await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_paid", details: `Invoice ${invoice.number} marked paid (${invoice.paidMethod})` });
-  return invoice;
+  let commission: Awaited<ReturnType<typeof recordCommissionForStudioInvoice>> | null = null;
+  if (input.commissionKind && input.commissionKind !== "NONE") {
+    commission = await recordCommissionForStudioInvoice(id, input.commissionKind, actor).catch((err) => {
+      console.error("[invoicing] commission on paid invoice failed:", err);
+      return { recorded: false, reason: "error" };
+    });
+  }
+  return Object.assign(invoice, { commission });
 }
 
 export async function markUnpaid(id: string, actor: string) {
@@ -298,6 +306,7 @@ export async function markUnpaid(id: string, actor: string) {
     data: { status: existing.sentAt ? "SENT" : "ISSUED", paidAt: null, paidMethod: null, paidNote: null },
   });
   await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_unpaid", details: `Invoice ${invoice.number} reopened (payment undone)` });
+  await voidCommissionsForStudioInvoice(id, actor).catch(() => {});
   return invoice;
 }
 

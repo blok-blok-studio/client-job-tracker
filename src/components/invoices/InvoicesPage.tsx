@@ -29,6 +29,7 @@ interface Row {
   paymentMethod: string;
   createdAt: string;
   client: { id: string; name: string; company: string | null };
+  partner?: { id: string; name: string } | null;
 }
 
 interface Summary {
@@ -232,6 +233,7 @@ export default function InvoicesPage() {
                         <td className="px-4 py-3">
                           <p className="text-white">{r.client.company || r.client.name}</p>
                           {r.client.company && <p className="text-xs text-bb-dim">{r.client.name}</p>}
+                          {r.partner && <p className="text-[10px] text-amber-300">via {r.partner.name}</p>}
                         </td>
                         <td className="px-4 py-3 text-right text-white whitespace-nowrap">{money(r.total, r.currency)}</td>
                         <td className="px-4 py-3 text-bb-muted hidden md:table-cell whitespace-nowrap">{shortDate(r.issueDate)}</td>

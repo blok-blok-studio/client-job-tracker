@@ -5,6 +5,7 @@ import { deleteDraft, draftSchema, updateDraft, InvoiceError, integrityOf } from
 import { loadInvoiceSettings } from "@/lib/invoicing/settings";
 import { buildInvoiceView } from "@/lib/invoicing/view";
 import { qrDataUrl } from "@/lib/invoicing/epc-qr";
+import { partnerContextForInvoice } from "@/lib/invoicing/partner-commission";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,9 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
       take: 30,
       select: { id: true, action: true, actor: true, details: true, createdAt: true },
     });
-    return NextResponse.json({ success: true, data: { ...view, client: invoice.client, internalNote: invoice.internalNote, qrDataUrl: qr, activity, contentHash: invoice.contentHash, integrity: integrityOf(invoice) } });
+    const partnerContext = await partnerContextForInvoice(invoice.id);
+    const origin = invoice.partnerRepId ? await prisma.partnerRep.findUnique({ where: { id: invoice.partnerRepId }, select: { name: true, partner: { select: { name: true } } } }).catch(() => null) : null;
+    return NextResponse.json({ success: true, data: { ...view, client: invoice.client, internalNote: invoice.internalNote, qrDataUrl: qr, activity, contentHash: invoice.contentHash, integrity: integrityOf(invoice), partnerContext, draftedBy: origin ? `${origin.name} (${origin.partner.name})` : null } });
   } catch (err) {
     return handleError(err, "Failed to load invoice");
   }

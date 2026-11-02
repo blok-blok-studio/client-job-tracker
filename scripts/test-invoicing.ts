@@ -12,6 +12,7 @@ import { formatInvoiceNumber, nextSequenceFor } from "../src/lib/invoicing/numbe
 import { isValidIban, normalizeInvoiceSettings, missingBankFields, DEFAULT_INVOICE_SETTINGS, isPlausibleVatId, settingsWarnings } from "../src/lib/invoicing/settings-core";
 import { renderInvoicePdf } from "../src/lib/invoicing/invoice-pdf";
 import type { InvoiceView } from "../src/lib/invoicing/types";
+import { statementVat, renderStatementPdf, statementNumber, type StatementView } from "../src/lib/invoicing/partner-statement";
 
 let pass = 0;
 let fail = 0;
@@ -94,6 +95,13 @@ check("ustIdNr normalised", normalizeInvoiceSettings({ ustIdNr: "de 123456789" }
 check("bad ustIdNr warns", settingsWarnings({ ...DEFAULT_INVOICE_SETTINGS, ustIdNr: "DE1" }).some((w) => w.includes("USt-IdNr")));
 check("wise link must be wise.com", normalizeInvoiceSettings({ wisePayLink: "https://evil.example/pay" }).wisePayLink === "");
 
+// Partner statements
+check("statement US = drittland, 0%", statementVat({ country: "US", chargesVat: false }).scheme === "DRITTLAND" && statementVat({ country: "US", chargesVat: false }).rate === 0);
+check("statement DE no vat", statementVat({ country: "DE", chargesVat: false }).scheme === "KLEINUNTERNEHMER_PARTNER");
+check("statement DE vat 19", statementVat({ country: "DE", chargesVat: true }).rate === 19);
+check("statement AT reverse charge", statementVat({ country: "AT", chargesVat: false }).scheme === "REVERSE_CHARGE");
+check("statement number", statementNumber(2026, 3) === "BBS-PS-2026-003");
+
 // Sample PDFs (dummy bank details: this is a render test, nothing real)
 const outDir = process.argv[2] || path.join(process.cwd(), ".invoice-samples");
 fs.mkdirSync(outDir, { recursive: true });
@@ -146,6 +154,21 @@ const de27View: InvoiceView = {
     fs.writeFileSync(path.join(outDir, name), bytes);
     check(`pdf ${name}`, bytes.length > 5000, bytes.length);
   }
+  const st: StatementView = {
+    id: "s", number: "BBS-PS-2026-001", payoutId: "p", issueDate: "2026-12-05", periodFrom: "2026-11-12", periodTo: "2026-11-28", currency: "USD",
+    partner: { name: "MBMedSolutions", legalName: "MBMedSolutions LLC", contactName: "Eric Mbualungu", email: "eric@example.test", addressLines: ["123 Main St", "Richmond, VA 23220", "USA"], country: "US", taxId: "12-3456789" },
+    seller: { sellerName: seller.sellerName, contactName: seller.contactName, email: seller.email, website: seller.website, addressLines: seller.addressLines, steuernummer: seller.steuernummer, ustIdNr: "" },
+    lines: [
+      { description: "Project commission (handoff) on $6,500", client: "Smile Dental", kind: "PROJECT", eventAt: "2026-11-12T00:00:00Z", basisAmount: 6500, rate: 9, amount: 585 },
+      { description: "Plan commission on $1,200 — Growth plan", client: "Smile Dental", kind: "PLAN", eventAt: "2026-11-20T00:00:00Z", basisAmount: 1200, rate: 15, amount: 180 },
+      { description: "Refund clawback: Brand guide", client: "Oak Family Practice", kind: "BRAND_GUIDE", eventAt: "2026-11-28T00:00:00Z", basisAmount: 1000, rate: 5, amount: -50 },
+    ],
+    gross: 765, clawbacks: -50, net: 715, vatScheme: "DRITTLAND", vatRate: 0, vatAmount: 0,
+    vatNotes: statementVat({ country: "US", chargesVat: false }).notes, total: 715, stripeTransferId: "tr_test_123", contentHash: "a".repeat(64), createdAt: new Date().toISOString(),
+  };
+  const sb = await renderStatementPdf(st);
+  fs.writeFileSync(path.join(outDir, "sample-partner-statement.pdf"), sb);
+  check("statement pdf", sb.length > 5000);
   console.log(`\n${pass} passed, ${fail} failed. PDFs in ${outDir}`);
   process.exit(fail ? 1 : 0);
 })();

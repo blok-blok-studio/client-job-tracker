@@ -609,6 +609,13 @@ model StudioInvoice {
 
   contentHash String? // sha256 of the issued content; re-checked on read, exposes tampering
 
+  // Sales-partner attribution: drafted from the partner portal by an approved closer
+  partnerId    String?
+  partner      Partner?    @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  partnerRepId String?
+  partnerRep   PartnerRep? @relation(fields: [partnerRepId], references: [id], onDelete: SetNull)
+  commissions  Commission[]
+
   createdBy String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -618,6 +625,46 @@ model StudioInvoice {
   @@index([status])
   @@index([issueDate])
   @@index([dueDate])
+}
+
+// Commission statement = self-billing credit note (Gutschrift) for one payout.
+// Numbered BBS-PS-YYYY-###, frozen snapshots of both parties and the ledger
+// rows it covers. Partners read theirs in the portal; the owner's monthly pack
+// includes them. Never deleted.
+model PartnerStatement {
+  id        String           @id @default(cuid())
+  number    String           @unique
+  year      Int
+  sequence  Int
+  partnerId String
+  partner   Partner          @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  payoutId  String           @unique
+  payout    CommissionPayout @relation(fields: [payoutId], references: [id], onDelete: Restrict)
+
+  issueDate  DateTime
+  periodFrom DateTime?
+  periodTo   DateTime?
+  currency   String   @default("USD")
+
+  partnerSnapshot Json // legal name, address lines, country, tax id, email
+  sellerSnapshot  Json // Blok Blok block (no bank details needed: money already went out)
+  lines           Json // [{ description, client, kind, eventAt, basisAmount, rate, amount }]
+  gross           Decimal @db.Decimal(12, 2)
+  clawbacks       Decimal @db.Decimal(12, 2)
+  net             Decimal @db.Decimal(12, 2)
+  vatScheme       String // DRITTLAND | KLEINUNTERNEHMER_PARTNER | REGULAR | REVERSE_CHARGE
+  vatRate         Decimal @default(0) @db.Decimal(5, 2)
+  vatAmount       Decimal @default(0) @db.Decimal(12, 2)
+  vatNote         String? @db.Text
+  stripeTransferId String?
+  contentHash     String?
+
+  createdBy String
+  createdAt DateTime @default(now())
+
+  @@unique([year, sequence])
+  @@index([partnerId])
+  @@index([issueDate])
 }
 
 enum StudioInvoiceStatus {
@@ -1902,6 +1949,11 @@ model Partner {
   // Where this partner's reps book sales calls with us (shown in the portal and the kit)
   bookingLink           String?
 
+  // Billing identity printed on commission statements (self-billing credit notes)
+  billingAddress String? @db.Text // street, zip city, country — one line per row
+  taxId          String? // EIN (US) / USt-IdNr. (EU) / Steuernummer
+  chargesVat     Boolean @default(false) // German partner that is NOT a Kleinunternehmer: 19% USt added to the statement
+
   // Paperwork + payout rail
   w9ReceivedAt           DateTime?
   stripeConnectAccountId String?   @unique // Stripe Connect Express account (acct_...)
@@ -1915,6 +1967,8 @@ model Partner {
   clients     Client[]
   commissions Commission[]
   payouts     CommissionPayout[]
+  statements  PartnerStatement[]
+  studioInvoices StudioInvoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1935,6 +1989,7 @@ model PartnerRep {
 
   clients     Client[]
   commissions Commission[]
+  studioInvoices StudioInvoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1995,6 +2050,10 @@ model Commission {
   payout   CommissionPayout? @relation(fields: [payoutId], references: [id], onDelete: SetNull)
   paidAt   DateTime?
 
+  // Bank-transfer invoices (StudioInvoice) marked paid earn commission too
+  studioInvoiceId String?
+  studioInvoice   StudioInvoice? @relation(fields: [studioInvoiceId], references: [id], onDelete: SetNull)
+
   createdBy String? // owner name for manual adjustments; "stripe" for webhook rows
 
   createdAt DateTime @default(now())
@@ -2004,6 +2063,7 @@ model Commission {
   @@unique([paymentLinkId, kind])
   @@unique([stripeInvoiceId, kind])
   @@unique([stripeRefundId, reversesId])
+  @@index([studioInvoiceId]) // no unique here: adding one on a live table fails the Vercel build; idempotency is enforced in code
   @@index([partnerId, status])
   @@index([clientId])
   @@index([eventAt])
@@ -2021,6 +2081,7 @@ model CommissionPayout {
   createdBy        String?
 
   commissions Commission[]
+  statement   PartnerStatement?
 
   createdAt DateTime @default(now())
 

@@ -20,6 +20,7 @@ export async function GET(
     return NextResponse.json({ success: false, error: "Partner not found" }, { status: 404 });
   }
 
+  const statements = await prisma.partnerStatement.findMany({ where: { partnerId: partner.id }, orderBy: { issueDate: "desc" }, select: { id: true, number: true, payoutId: true, issueDate: true, net: true, vatAmount: true, currency: true } });
   const [reps, agreements, taxDocs, deals, totals, payouts, signerName, hasSignature] = await Promise.all([
     prisma.partnerRep.findMany({ where: { partnerId: partner.id }, orderBy: [{ isAdmin: "desc" }, { createdAt: "asc" }] }),
     partner.contractorId
@@ -52,6 +53,9 @@ export async function GET(
       email: partner.email,
       phone: partner.phone,
       country: partner.country,
+      billingAddress: partner.billingAddress,
+      taxId: partner.taxId,
+      chargesVat: partner.chargesVat,
       isActive: partner.isActive,
       notes: partner.notes,
       qualificationCriteria: partner.qualificationCriteria,
@@ -84,6 +88,7 @@ export async function GET(
       deals,
       totals,
       payouts,
+      statements: statements.map((st) => ({ ...st, net: Number(st.net), vatAmount: Number(st.vatAmount) })),
       signer: { name: signerName, hasSignature },
       createdAt: partner.createdAt,
     },
@@ -93,6 +98,10 @@ export async function GET(
 const patchSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   legalName: z.string().max(200).nullable().optional(),
+  billingAddress: z.string().max(600).nullable().optional(),
+  taxId: z.string().max(40).nullable().optional(),
+  chargesVat: z.boolean().optional(),
+  country: z.string().length(2).toUpperCase().optional(),
   contactName: z.string().max(120).nullable().optional(),
   email: z.string().email().max(254).nullable().optional(),
   phone: z.string().max(40).nullable().optional(),
@@ -147,6 +156,10 @@ export async function PATCH(
     data: {
       ...(d.name !== undefined ? { name: d.name.trim() } : {}),
       ...(d.legalName !== undefined ? { legalName: d.legalName?.trim() || null } : {}),
+      ...(d.billingAddress !== undefined ? { billingAddress: d.billingAddress?.trim() || null } : {}),
+      ...(d.taxId !== undefined ? { taxId: d.taxId?.trim() || null } : {}),
+      ...(d.chargesVat !== undefined ? { chargesVat: d.chargesVat } : {}),
+      ...(d.country !== undefined ? { country: d.country } : {}),
       ...(d.contactName !== undefined ? { contactName: d.contactName?.trim() || null } : {}),
       ...(d.email !== undefined ? { email: d.email?.trim().toLowerCase() || null } : {}),
       ...(d.phone !== undefined ? { phone: d.phone?.trim() || null } : {}),

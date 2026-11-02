@@ -76,6 +76,7 @@ interface PortalData {
     bookingLink?: string | null;
     connectOnboarded?: boolean;
     w9ReceivedAt?: string | null;
+    billing?: { legalName: string | null; billingAddress: string | null; taxId: string | null; email: string | null; country: string };
     rates?: { projectHandoff: number; projectClose: number; brandGuideHandoff: number; brandGuideClose: number; plan: number; planMonths: number; payoutDays: number };
   };
   catalog: CatalogItem[];
@@ -304,6 +305,10 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
             </div>
           )}
         </div>
+      )}
+
+      {tab === "deals" && (data.rep.canClose || data.rep.isAdmin) && (
+        <PortalInvoices token={token} deals={data.deals} catalog={data.catalog} canClose={data.rep.canClose} notify={notify} />
       )}
 
       {tab === "prices" && <PriceList catalog={data.catalog} />}
@@ -751,6 +756,15 @@ function StatementTab({
   totals: { payable: number; paid: number; lifetime: number };
 }) {
   const r = partner.rates;
+  const [statements, setStatements] = useState<Array<{ id: string; number: string; payoutId: string }>>([]);
+  useEffect(() => {
+    fetch(`/api/partner/${token}/statements`)
+      .then((res) => readJson<{ data: Array<{ id: string; number: string; payoutId: string }> }>(res))
+      .then((res) => {
+        if (res.ok && res.data) setStatements(res.data.data);
+      })
+      .catch(() => {});
+  }, [token, payouts.length]);
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-3 gap-2">
@@ -774,6 +788,7 @@ function StatementTab({
             : "Takes about five minutes on Stripe: company details, a bank account for payouts, and an ID check. Commissions are transferred there."}
         </p>
         <p className={partner.w9ReceivedAt ? "text-green-400" : "text-yellow-400"}>{partner.w9ReceivedAt ? "W-9: received" : "W-9: send Chase a completed W-9 before the first payout"}</p>
+        <BillingForm token={token} billing={partner.billing} />
         {r && (
           <p className="text-gray-400 pt-1">
             Projects {r.projectHandoff}% handoff / {r.projectClose}% team close (first $15k) · brand guide {r.brandGuideHandoff}% / {r.brandGuideClose}% · plans {r.plan}% for {r.planMonths} months · paid within {r.payoutDays} days of the client payment.
@@ -812,9 +827,10 @@ function StatementTab({
       {payouts.length > 0 && (
         <div>
           <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Payouts</p>
+          <p className="text-xs text-gray-500 mb-2">Each payout comes with a numbered commission statement. It is issued on your behalf as a self-billing credit note and is the invoice for that commission: keep it for your books, no invoice to send us.</p>
           <div className="space-y-2">
             {payouts.map((p) => (
-              <div key={p.id} className="bg-white/[0.03] border border-white/10 rounded-xl p-3 flex items-center justify-between text-sm">
+              <div key={p.id} className="bg-white/[0.03] border border-white/10 rounded-xl p-3 flex items-center justify-between gap-3 text-sm">
                 <div>
                   <p className="text-white">{usd2(p.amount)}</p>
                   <p className="text-xs text-gray-500">
@@ -822,10 +838,205 @@ function StatementTab({
                     {p.note ? ` · ${p.note}` : ""}
                   </p>
                 </div>
-                {p.stripeTransferId && <span className="font-mono text-[11px] text-gray-500">{p.stripeTransferId}</span>}
+                <div className="flex items-center gap-3">
+                  {statements.find((st) => st.payoutId === p.id) ? (
+                    <a href={`/api/partner/${token}/statements/${statements.find((st) => st.payoutId === p.id)!.id}/pdf`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-orange-300 hover:underline whitespace-nowrap">
+                      <Download size={12} /> Statement {statements.find((st) => st.payoutId === p.id)!.number}
+                    </a>
+                  ) : (
+                    <span className="text-[11px] text-gray-500">statement coming</span>
+                  )}
+                  {p.stripeTransferId && <span className="font-mono text-[11px] text-gray-500 hidden sm:inline">{p.stripeTransferId}</span>}
+                </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BillingForm({ token, billing }: { token: string; billing?: PortalData["partner"]["billing"] }) {
+  const [open, setOpen] = useState(!billing?.billingAddress);
+  const [form, setForm] = useState({ legalName: billing?.legalName || "", billingAddress: billing?.billingAddress || "", taxId: billing?.taxId || "", email: billing?.email || "" });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/partner/${token}/billing`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const r = await readJson(res);
+      if (!r.ok) throw new Error(r.error || "Could not save");
+      setMsg("Saved. New statements will print these details.");
+      setOpen(false);
+    } catch (err) {
+      setMsg(friendlyError(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <div className="pt-2 border-t border-white/10 mt-2">
+      <div className="flex items-center justify-between">
+        <p className={billing?.billingAddress ? "text-green-400" : "text-yellow-400"}>{billing?.billingAddress ? "Billing details: on file" : "Billing details: add your legal name, address and tax ID (printed on your commission statements)"}</p>
+        <button onClick={() => setOpen((v) => !v)} className="text-xs text-orange-300 hover:underline">{open ? "Hide" : "Edit"}</button>
+      </div>
+      {open && (
+        <div className="grid sm:grid-cols-2 gap-2 mt-3">
+          <input className={inputClass} placeholder="Legal entity (e.g. MBMedSolutions LLC)" value={form.legalName} onChange={(e) => setForm({ ...form, legalName: e.target.value })} />
+          <input className={inputClass} placeholder="EIN / tax ID" value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} />
+          <textarea className={`${inputClass} sm:col-span-2 min-h-[70px]`} placeholder={"Street\nCity, State ZIP\nCountry"} value={form.billingAddress} onChange={(e) => setForm({ ...form, billingAddress: e.target.value })} />
+          <input className={inputClass} placeholder="Billing email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <button onClick={save} disabled={saving} className="px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium disabled:opacity-50">{saving ? "Saving…" : "Save billing details"}</button>
+        </div>
+      )}
+      {msg && <p className="text-xs text-gray-400 mt-2">{msg}</p>}
+    </div>
+  );
+}
+
+interface PortalInvoiceRow {
+  id: string;
+  number: string | null;
+  status: "DRAFT" | "ISSUED" | "SENT" | "PAID" | "VOID";
+  total: number;
+  currency: string;
+  dueDate: string | null;
+  paidAt: string | null;
+  clientId: string;
+  createdAt: string;
+  summary: string;
+  payUrl: string | null;
+}
+
+function PortalInvoices({ token, deals, catalog, canClose, notify }: { token: string; deals: Deal[]; catalog: CatalogItem[]; canClose: boolean; notify: (t: string, k?: "ok" | "err") => void }) {
+  const [rows, setRows] = useState<PortalInvoiceRow[]>([]);
+  const [formOpen, setFormOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState<{ clientId: string; websiteId: string; brandGuide: boolean; planId: string; milestone: "deposit" | "balance" | "full" }>({ clientId: "", websiteId: "", brandGuide: false, planId: "", milestone: "deposit" });
+  const websites = catalog.filter((c) => !c.recurring && c.id.includes("website"));
+  const plans = catalog.filter((c) => c.recurring);
+  const brand = catalog.find((c) => c.id.includes("brand"));
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/partner/${token}/invoices`);
+    const r = await readJson<{ data: PortalInvoiceRow[] }>(res);
+    if (r.ok && r.data) setRows(r.data.data);
+  }, [token]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const dealName = (id: string) => {
+    const d = deals.find((x) => x.id === id);
+    return d ? `${d.name}${d.company ? ` · ${d.company}` : ""}` : "Practice";
+  };
+  const preview = (() => {
+    const share = form.milestone === "full" ? 1 : 0.5;
+    let total = 0;
+    if (form.websiteId) total += (websites.find((w) => w.id === form.websiteId)?.price || 0) * share;
+    if (form.brandGuide && brand) total += brand.price * share;
+    if (form.planId) total += plans.find((p) => p.id === form.planId)?.price || 0;
+    return total;
+  })();
+  async function submit() {
+    if (!form.clientId) return notify("Pick the practice", "err");
+    if (!form.websiteId && !form.brandGuide && !form.planId) return notify("Pick at least one package", "err");
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/partner/${token}/invoices`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: form.clientId, websiteId: form.websiteId || null, brandGuide: form.brandGuide, planId: form.planId || null, milestone: form.milestone }),
+      });
+      const r = await readJson(res);
+      if (!r.ok) throw new Error(r.error || "Could not create the invoice");
+      notify("Draft sent to Chase. You will see the pay link here once it is issued.");
+      setFormOpen(false);
+      setForm({ clientId: "", websiteId: "", brandGuide: false, planId: "", milestone: "deposit" });
+      await load();
+    } catch (err) {
+      notify(friendlyError(err), "err");
+    } finally {
+      setBusy(false);
+    }
+  }
+  const statusColor: Record<PortalInvoiceRow["status"], string> = { DRAFT: "text-gray-400", ISSUED: "text-yellow-400", SENT: "text-blue-400", PAID: "text-green-400", VOID: "text-red-400" };
+  const statusLabel: Record<PortalInvoiceRow["status"], string> = { DRAFT: "waiting for Chase to issue", ISSUED: "issued, awaiting payment", SENT: "sent to the practice", PAID: "paid", VOID: "void" };
+  return (
+    <div className="mt-8">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-gray-500">Bank-transfer invoices</p>
+          <p className="text-xs text-gray-500 mt-0.5">For practices that prefer ACH or wire over the card link. You draft it from the price list; Chase issues the number and the pay link appears here.</p>
+        </div>
+        {canClose && (
+          <button onClick={() => setFormOpen((v) => !v)} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 text-sm whitespace-nowrap">
+            <Plus size={14} /> New invoice
+          </button>
+        )}
+      </div>
+      {formOpen && (
+        <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 space-y-3 mb-3">
+          <select className={inputClass} value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}>
+            <option value="">Which practice?</option>
+            {deals.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}{d.company ? ` · ${d.company}` : ""}</option>
+            ))}
+          </select>
+          <div className="grid sm:grid-cols-2 gap-2">
+            <select className={inputClass} value={form.websiteId} onChange={(e) => setForm({ ...form, websiteId: e.target.value })}>
+              <option value="">No website package</option>
+              {websites.map((w) => (
+                <option key={w.id} value={w.id}>{w.name} · {usd(w.price)}</option>
+              ))}
+            </select>
+            <select className={inputClass} value={form.planId} onChange={(e) => setForm({ ...form, planId: e.target.value })}>
+              <option value="">No monthly plan</option>
+              {plans.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} · {usd(p.price)}/mo</option>
+              ))}
+            </select>
+          </div>
+          {brand && (
+            <label className="flex items-center gap-2 text-sm text-gray-300">
+              <input type="checkbox" checked={form.brandGuide} onChange={(e) => setForm({ ...form, brandGuide: e.target.checked })} /> Add {brand.name} ({usd(brand.price)})
+            </label>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {(["deposit", "balance", "full"] as const).map((m) => (
+              <button key={m} onClick={() => setForm({ ...form, milestone: m })} className={`px-3 py-1.5 rounded-lg text-sm border ${form.milestone === m ? "border-orange-400 text-orange-300 bg-orange-500/10" : "border-white/10 text-gray-400"}`}>
+                {m === "deposit" ? "50% deposit" : m === "balance" ? "50% balance" : "Full amount"}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-white">Invoice total: {usd2(preview)}</p>
+            <button onClick={submit} disabled={busy} className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium disabled:opacity-50">{busy ? "Sending…" : "Send draft to Chase"}</button>
+          </div>
+        </div>
+      )}
+      {rows.length === 0 ? (
+        <p className="text-sm text-gray-500">No bank-transfer invoices yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {rows.map((r) => (
+            <div key={r.id} className="bg-white/[0.03] border border-white/10 rounded-xl p-3 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-white truncate">{dealName(r.clientId)}</p>
+                  <p className="text-xs text-gray-500 truncate">{r.number || "Draft"} · {r.summary}</p>
+                  <p className={`text-[11px] mt-0.5 ${statusColor[r.status]}`}>{statusLabel[r.status]}{r.dueDate && r.status !== "PAID" && r.status !== "DRAFT" ? ` · due ${fmtDate(r.dueDate)}` : ""}{r.paidAt ? ` ${fmtDate(r.paidAt)}` : ""}</p>
+                </div>
+                <p className="text-white font-semibold whitespace-nowrap">{usd2(r.total)}</p>
+              </div>
+              {r.payUrl && (
+                <div className="mt-2 text-xs">
+                  <CopyLink label="Pay link (bank details + QR + PDF)" url={r.payUrl} onCopied={() => notify("Copied")} />
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -60,6 +60,7 @@ export async function GET(
         ...base.partner,
         connectOnboarded: partner.connectOnboarded,
         w9ReceivedAt: partner.w9ReceivedAt,
+        billing: { legalName: partner.legalName, billingAddress: partner.billingAddress, taxId: partner.taxId, email: partner.email, country: partner.country },
         rates: {
           projectHandoff: Number(partner.rateProjectHandoff),
           projectClose: Number(partner.rateProjectClose),
