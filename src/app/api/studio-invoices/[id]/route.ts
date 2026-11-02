@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireOwner, handleError } from "../_shared";
-import { deleteDraft, draftSchema, updateDraft, InvoiceError } from "@/lib/invoicing/service";
+import { deleteDraft, draftSchema, updateDraft, InvoiceError, integrityOf } from "@/lib/invoicing/service";
 import { loadInvoiceSettings } from "@/lib/invoicing/settings";
 import { buildInvoiceView } from "@/lib/invoicing/view";
 import { qrDataUrl } from "@/lib/invoicing/epc-qr";
@@ -26,7 +26,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
       take: 30,
       select: { id: true, action: true, actor: true, details: true, createdAt: true },
     });
-    return NextResponse.json({ success: true, data: { ...view, client: invoice.client, internalNote: invoice.internalNote, qrDataUrl: qr, activity } });
+    return NextResponse.json({ success: true, data: { ...view, client: invoice.client, internalNote: invoice.internalNote, qrDataUrl: qr, activity, contentHash: invoice.contentHash, integrity: integrityOf(invoice) } });
   } catch (err) {
     return handleError(err, "Failed to load invoice");
   }

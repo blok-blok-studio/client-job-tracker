@@ -90,7 +90,7 @@ export function normalizeInvoiceSettings(raw: unknown): InvoiceSettings {
       ? r.addressLines.filter((l): l is string => typeof l === "string").map((l) => l.trim()).filter(Boolean)
       : d.addressLines,
     steuernummer: str(r.steuernummer, d.steuernummer),
-    ustIdNr: str(r.ustIdNr, d.ustIdNr),
+    ustIdNr: str(r.ustIdNr, d.ustIdNr).replace(/\s+/g, "").toUpperCase(),
     eur: {
       holder: str(eur.holder, d.eur.holder),
       iban: str(eur.iban, "").replace(/\s+/g, "").toUpperCase(),
@@ -149,8 +149,16 @@ export function missingBankFields(settings: InvoiceSettings, currency: "EUR" | "
 }
 
 /** Non-blocking advice shown on the settings card. */
+/** EU VAT id shape: country prefix + 8-12 alphanumerics (DE = 9 digits). */
+export function isPlausibleVatId(v: string): boolean {
+  const x = v.replace(/\s+/g, "").toUpperCase();
+  if (/^DE/.test(x)) return /^DE\d{9}$/.test(x);
+  return /^[A-Z]{2}[A-Z0-9]{8,12}$/.test(x);
+}
+
 export function settingsWarnings(settings: InvoiceSettings): string[] {
   const w: string[] = [];
+  if (settings.ustIdNr && !isPlausibleVatId(settings.ustIdNr)) w.push("The USt-IdNr. does not look right (German ids are DE followed by 9 digits).");
   if (settings.eur.iban && !isValidIban(settings.eur.iban)) w.push("The IBAN does not pass the checksum. Re-check it before issuing EUR invoices.");
   if (!settings.eur.iban) w.push("EUR bank details are empty. EUR invoices cannot be issued until the IBAN is in.");
   if (!settings.usd.routing || !settings.usd.account) w.push("USD (Wise) account details are empty. USD invoices cannot be issued until they are in.");

@@ -1,4 +1,5 @@
 import type { StudioInvoice } from "@prisma/client";
+import { createHash } from "crypto";
 import type { InvoiceSettings } from "./settings";
 import type { BillTo, InvoiceView, SellerSnapshot, PaymentMethod, StudioInvoiceStatus } from "./types";
 import type { InvoiceCurrency, InvoiceLanguage, InvoiceTemplate, VatScheme } from "./vat";
@@ -6,6 +7,7 @@ import type { LineItem } from "./money";
 import { computeTotals, toDateOnly } from "./money";
 import { buildEpcPayload } from "./epc-qr";
 import { guessCountry } from "./vat";
+import { openBank, type SealedBank } from "./bank-vault";
 
 export function appUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL || "https://app.blokblokstudio.com").replace(/\/$/, "");
@@ -61,7 +63,8 @@ function asItems(raw: unknown): LineItem[] {
 
 function asSeller(raw: unknown, fallback: InvoiceSettings): SellerSnapshot {
   if (!raw || typeof raw !== "object") return snapshotSeller(fallback);
-  const r = raw as Partial<SellerSnapshot>;
+  const { bankVault: _vault, ...r } = openBank(raw as Partial<SellerSnapshot> & SealedBank);
+  void _vault; // ciphertext never leaves the server, not even to the owner's browser
   const base = snapshotSeller(fallback);
   return {
     ...base,
@@ -155,7 +158,49 @@ export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings):
 export function publicInvoiceView(view: InvoiceView): Omit<InvoiceView, "id"> {
   const { id: _id, ...rest } = view;
   void _id;
-  return rest;
+  const settled = view.status === "PAID" || view.status === "VOID";
+  if (!settled) return rest;
+  // Once paid or voided there is nothing left to pay: the link still shows the
+  // invoice, but no account numbers, no QR, no card link.
+  return {
+    ...rest,
+    seller: { ...rest.seller, eur: null, usd: null, wisePayLink: "" },
+    paymentUrl: null,
+    qrPayload: null,
+    qrKind: null,
+  };
+}
+
+/** SHA-256 over the parts of an issued invoice that must never change. Stored at issue, re-checked on read. */
+export function invoiceContentHash(inv: {
+  number: string | null;
+  issueDate: Date | null;
+  dueDate: Date | null;
+  currency: string;
+  vatScheme: string;
+  vatRate: unknown;
+  billTo: unknown;
+  items: unknown;
+  subtotal: unknown;
+  vatAmount: unknown;
+  total: unknown;
+  sellerSnapshot: unknown;
+}): string {
+  const canon = JSON.stringify({
+    number: inv.number,
+    issueDate: inv.issueDate?.toISOString() ?? null,
+    dueDate: inv.dueDate?.toISOString() ?? null,
+    currency: inv.currency,
+    vatScheme: inv.vatScheme,
+    vatRate: Number(inv.vatRate),
+    billTo: inv.billTo,
+    items: inv.items,
+    subtotal: Number(inv.subtotal),
+    vatAmount: Number(inv.vatAmount),
+    total: Number(inv.total),
+    sellerSnapshot: inv.sellerSnapshot,
+  });
+  return createHash("sha256").update(canon).digest("hex");
 }
 
 export function clientToBillTo(client: {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Download, Send, Link2, CheckCircle2, Ban, Pencil, Trash2, Undo2, ExternalLink } from "lucide-react";
+import { Download, Send, Link2, CheckCircle2, Ban, Pencil, Trash2, Undo2, ExternalLink, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { useToast } from "@/components/shared/Toast";
@@ -15,6 +15,8 @@ type Detail = InvoiceView & {
   internalNote: string | null;
   qrDataUrl: string | null;
   activity: Array<{ id: string; action: string; actor: string; details: string | null; createdAt: string }>;
+  contentHash: string | null;
+  integrity: "ok" | "mismatch" | "none";
 };
 
 interface Props {
@@ -36,7 +38,7 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
   const [paidMethod, setPaidMethod] = useState<"bank" | "wise" | "stripe" | "paypal" | "cash" | "other">("bank");
   const [paidNote, setPaidNote] = useState("");
   const [voidReason, setVoidReason] = useState("");
-  const [confirm, setConfirm] = useState<null | "issue" | "delete" | "unpaid">(null);
+  const [confirm, setConfirm] = useState<null | "issue" | "delete" | "unpaid" | "rotate">(null);
   const [note, setNote] = useState("");
 
   const load = useCallback(async () => {
@@ -167,6 +169,7 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
               <>
                 <button className={`${btnGhost} inline-flex items-center gap-1.5`} onClick={copyLink}><Link2 size={14} /> Copy pay link</button>
                 <a href={inv.publicUrl} target="_blank" rel="noreferrer" className={`${btnGhost} inline-flex items-center gap-1.5`}><ExternalLink size={14} /> Open</a>
+                <button className={`${btnGhost} inline-flex items-center gap-1.5`} disabled={busy} onClick={() => setConfirm("rotate")} title="Replace the pay link; the old one stops working"><RefreshCw size={14} /> New link</button>
               </>
             )}
             {canVoid && (
@@ -302,6 +305,14 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
             )}
           </div>
 
+          {inv.integrity !== "none" && (
+            <p className={`text-xs inline-flex items-center gap-1.5 ${inv.integrity === "ok" ? "text-bb-dim" : "text-red-400"}`}>
+              {inv.integrity === "ok" ? <ShieldCheck size={13} /> : <ShieldAlert size={13} />}
+              {inv.integrity === "ok" ? "Record unchanged since issue" : "RECORD CHANGED SINCE ISSUE. The stored content no longer matches its hash."}
+              {inv.contentHash && <span className="font-mono text-[10px] opacity-70">{inv.contentHash.slice(0, 16)}…</span>}
+            </p>
+          )}
+
           {/* Internal note */}
           <div>
             <label className={labelCls}>Internal note (never printed)</label>
@@ -341,6 +352,16 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
         message="Drafts have no number, so nothing is lost from the sequence."
         confirmLabel="Delete"
         confirmVariant="danger"
+        loading={busy}
+      />
+      <ConfirmDialog
+        open={confirm === "rotate"}
+        onClose={() => setConfirm(null)}
+        onConfirm={async () => { setConfirm(null); await act("/rotate-link", { method: "POST" }, "New pay link created. The old link is dead."); }}
+        title="Replace the pay link?"
+        message="A new link is generated and the one already sent stops working. Send the new one to the client afterwards."
+        confirmLabel="Replace link"
+        confirmVariant="warning"
         loading={busy}
       />
       <ConfirmDialog

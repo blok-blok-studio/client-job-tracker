@@ -114,8 +114,8 @@ export default function PublicInvoicePage() {
         )}
       </div>
 
-      {/* Payment block */}
-      {!isVoid && (
+      {/* Payment block: only while there is something to pay */}
+      {!isVoid && !isPaid && (
         <section className="mt-8 rounded-xl border border-neutral-800 bg-neutral-950 p-5">
           <h2 className="text-sm font-semibold text-white uppercase tracking-wide">{isCard ? L.paymentTitleCard : L.paymentTitle}</h2>
           <div className="mt-4 grid sm:grid-cols-[1fr_auto] gap-6">

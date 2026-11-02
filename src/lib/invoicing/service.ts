@@ -5,7 +5,8 @@ import type { Prisma, StudioInvoice } from "@prisma/client";
 import { loadInvoiceSettings, missingBankFields, type InvoiceSettings } from "./settings";
 import { decideVat, defaultsForTemplate, guessCountry, templateForCountry, type InvoiceTemplate } from "./vat";
 import { addDays, computeTotals, parseDateOnly } from "./money";
-import { clientToBillTo, snapshotSeller } from "./view";
+import { clientToBillTo, snapshotSeller, invoiceContentHash } from "./view";
+import { sealBank } from "./bank-vault";
 import type { BillTo } from "./types";
 import { assignInvoiceNumber, withNumberRetry } from "./numbering";
 
@@ -239,7 +240,7 @@ export async function issueInvoice(id: string, actor: string, meta?: { ipAddress
     unitPrice: Number(i.unitPrice),
   }));
   const totals = computeTotals(items, vat.rate);
-  const seller = snapshotSeller(settings);
+  const seller = sealBank(snapshotSeller(settings));
 
   const issued = await withNumberRetry(async (tx) => {
     await tx.studioInvoice.update({
@@ -259,6 +260,8 @@ export async function issueInvoice(id: string, actor: string, meta?: { ipAddress
       },
     });
     await assignInvoiceNumber(tx, id, issueDate.getUTCFullYear(), settings);
+    const row = await tx.studioInvoice.findUniqueOrThrow({ where: { id } });
+    await tx.studioInvoice.update({ where: { id }, data: { contentHash: invoiceContentHash(row) } });
     return tx.studioInvoice.findUniqueOrThrow({ where: { id }, include: { client: { select: { id: true, name: true, company: true } } } });
   });
 
@@ -325,4 +328,19 @@ export async function recordSent(id: string, to: string, emailId: string | null,
   });
   await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_sent", details: `Invoice ${invoice.number} emailed to ${to}${emailId ? ` (email ${emailId})` : ""}` });
   return invoice;
+}
+
+/** New public token: the old pay link stops working immediately (use when a link leaked or went to the wrong inbox). */
+export async function rotateInvoiceLink(id: string, actor: string) {
+  const existing = await prisma.studioInvoice.findUnique({ where: { id }, select: { id: true, clientId: true, number: true } });
+  if (!existing) throw new InvoiceError("Invoice not found", 404);
+  const invoice = await prisma.studioInvoice.update({ where: { id }, data: { token: randomBytes(16).toString("base64url") } });
+  await logInvoiceActivity({ clientId: existing.clientId, actor, action: "invoice_link_rotated", details: `Pay link for ${existing.number || "draft"} replaced; the old link is dead` });
+  return invoice;
+}
+
+/** Re-derive the hash and compare: "ok", "mismatch" (row changed since issue) or "none" (draft). */
+export function integrityOf(inv: Parameters<typeof invoiceContentHash>[0] & { contentHash: string | null; status: string }): "ok" | "mismatch" | "none" {
+  if (inv.status === "DRAFT" || !inv.contentHash) return "none";
+  return invoiceContentHash(inv) === inv.contentHash ? "ok" : "mismatch";
 }

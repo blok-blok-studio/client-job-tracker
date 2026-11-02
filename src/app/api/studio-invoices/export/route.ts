@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       orderBy: [{ year: "asc" }, { sequence: "asc" }],
     })) as unknown as Array<StudioInvoice & { client: { name: string; company: string | null } }>;
 
-    const header = ["number", "client", "company", "amount", "currency", "net", "vat_rate", "vat_amount", "vat_scheme", "issue_date", "due_date", "paid_date", "method", "status", "template", "sent_at", "sent_to"];
+    const header = ["number", "client", "company", "amount", "currency", "net", "vat_rate", "vat_amount", "vat_scheme", "issue_date", "due_date", "paid_date", "method", "status", "template", "sent_at", "sent_to", "content_hash"];
     const lines = [header.join(",")];
     for (const r of rows) {
       lines.push(
@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
           r.template,
           r.sentAt?.toISOString() || "",
           r.sentTo || "",
+          r.contentHash || "",
         ]
           .map(csvCell)
           .join(",")

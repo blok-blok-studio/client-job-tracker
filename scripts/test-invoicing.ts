@@ -9,7 +9,7 @@ import { computeTotals, formatMoneyPdf, formatMoney } from "../src/lib/invoicing
 import { decideVat, templateForCountry, guessCountry, defaultsForTemplate } from "../src/lib/invoicing/vat";
 import { buildEpcPayload } from "../src/lib/invoicing/epc-qr";
 import { formatInvoiceNumber, nextSequenceFor } from "../src/lib/invoicing/numbering";
-import { isValidIban, normalizeInvoiceSettings, missingBankFields, DEFAULT_INVOICE_SETTINGS } from "../src/lib/invoicing/settings";
+import { isValidIban, normalizeInvoiceSettings, missingBankFields, DEFAULT_INVOICE_SETTINGS, isPlausibleVatId, settingsWarnings } from "../src/lib/invoicing/settings-core";
 import { renderInvoicePdf } from "../src/lib/invoicing/invoice-pdf";
 import type { InvoiceView } from "../src/lib/invoicing/types";
 
@@ -86,6 +86,13 @@ check("defaults keep seller", norm.sellerName === "Blok Blok Studio LLC" && norm
 check("missing eur bank", missingBankFields(DEFAULT_INVOICE_SETTINGS, "EUR").includes("IBAN"));
 check("missing usd bank", missingBankFields(DEFAULT_INVOICE_SETTINGS, "USD").includes("ACH routing number"));
 check("complete eur", missingBankFields({ ...DEFAULT_INVOICE_SETTINGS, eur: { holder: "x", iban: "DE89370400440532013000", bic: "", bank: "N26" } }, "EUR").length === 0);
+
+check("vat id DE ok", isPlausibleVatId("DE 123 456 789"));
+check("vat id DE bad", !isPlausibleVatId("DE12345678"));
+check("vat id AT ok", isPlausibleVatId("ATU12345678"));
+check("ustIdNr normalised", normalizeInvoiceSettings({ ustIdNr: "de 123456789" }).ustIdNr === "DE123456789");
+check("bad ustIdNr warns", settingsWarnings({ ...DEFAULT_INVOICE_SETTINGS, ustIdNr: "DE1" }).some((w) => w.includes("USt-IdNr")));
+check("wise link must be wise.com", normalizeInvoiceSettings({ wisePayLink: "https://evil.example/pay" }).wisePayLink === "");
 
 // Sample PDFs (dummy bank details: this is a render test, nothing real)
 const outDir = process.argv[2] || path.join(process.cwd(), ".invoice-samples");

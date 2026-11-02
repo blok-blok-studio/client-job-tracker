@@ -65,6 +65,7 @@ const RATE_LIMIT_WINDOW = 60_000; // 1 minute
 // Uploads: high enough that a folder drop (1 request per file) doesn't trip it
 const UPLOAD_RATE_LIMIT_MAX = 120;
 const BULK_RATE_LIMIT_MAX = 5;
+const PUBLIC_INVOICE_RATE_LIMIT_MAX = 30; // per IP per minute on /api/invoice/<token>
 
 function checkRateLimit(ip: string, max: number = RATE_LIMIT_MAX, prefix = "api"): boolean {
   const key = `${prefix}:${ip}`;
@@ -193,6 +194,14 @@ export async function middleware(request: NextRequest) {
             { error: "Bulk import rate limit exceeded." },
             { status: 429, headers: { "Retry-After": "60" } }
           )
+        );
+      }
+    }
+    // Public invoice JSON/PDF: token-scoped and unauthenticated, keep guessing + PDF rendering cheap to refuse
+    else if (pathname.startsWith("/api/invoice/")) {
+      if (!checkRateLimit(ip, PUBLIC_INVOICE_RATE_LIMIT_MAX, "pubinv")) {
+        return addSecurityHeaders(
+          NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429, headers: { "Retry-After": "60" } })
         );
       }
     }
