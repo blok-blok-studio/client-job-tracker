@@ -232,4 +232,12 @@ export function settingsWarnings(settings: InvoiceSettings): string[] {
 }
 
 /** Currencies offered in the invoice form. Anything ISO 4217 works; these are the ones with ECB rates for EUR booking. */
-export const CURRENCY_OPTIONS = ["EUR", "USD", "GBP", "CHF", "CAD", "AUD", "NZD", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF", "JPY", "SGD", "HKD", "MXN", "BRL", "ZAR", "INR", "TRY", "ILS", "KRW", "CNY", "AED"] as const;
+export const CURRENCY_OPTIONS = ["EUR", "USD", "CNY", "PHP", "GBP", "CHF", "CAD", "AUD", "NZD", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF", "JPY", "SGD", "HKD", "MXN", "BRL", "ZAR", "INR", "TRY", "ILS", "KRW", "AED"] as const;
+
+/** The four main billing currencies, shown as buttons. RMB's ISO code is CNY, which is what invoices print. */
+export const MAIN_CURRENCIES: Array<{ code: string; label: string }> = [
+  { code: "EUR", label: "EUR" },
+  { code: "USD", label: "USD" },
+  { code: "CNY", label: "RMB" },
+  { code: "PHP", label: "PHP" },
+];

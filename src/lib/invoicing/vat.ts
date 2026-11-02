@@ -17,7 +17,7 @@ export const EU_COUNTRIES = [
 
 export const COUNTRY_CURRENCY: Record<string, string> = {
   GB: "GBP", CH: "CHF", CA: "CAD", AU: "AUD", NZ: "NZD", SE: "SEK", NO: "NOK", DK: "DKK", PL: "PLN", CZ: "CZK", HU: "HUF",
-  JP: "JPY", SG: "SGD", HK: "HKD", MX: "MXN", BR: "BRL", ZA: "ZAR", IN: "INR", TR: "TRY", IL: "ILS", KR: "KRW", CN: "CNY", AE: "AED",
+  PH: "PHP", JP: "JPY", SG: "SGD", HK: "HKD", MX: "MXN", BR: "BRL", ZA: "ZAR", IN: "INR", TR: "TRY", IL: "ILS", KR: "KRW", CN: "CNY", AE: "AED",
 };
 
 const COUNTRY_WORDS: Array<[RegExp, string]> = [
@@ -31,6 +31,8 @@ const COUNTRY_WORDS: Array<[RegExp, string]> = [
   [/\b(italia|italy|italien)\b/i, "IT"],
   [/\b(united kingdom|england|uk|great britain)\b/i, "GB"],
   [/\b(canada|kanada)\b/i, "CA"],
+  [/\b(china|prc)\b/i, "CN"],
+  [/\b(philippines|pilipinas|manila|cebu)\b/i, "PH"],
   [/\b(australia)\b/i, "AU"],
 ];
 

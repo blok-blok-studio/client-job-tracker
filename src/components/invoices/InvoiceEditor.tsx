@@ -8,7 +8,7 @@ import { computeTotals, formatMoney } from "@/lib/invoicing/money";
 import { decideVat, defaultsForTemplate, VAT_SCHEME_LABELS, VAT_OVERRIDE_OPTIONS, type InvoiceTemplate, type InvoiceLanguage, type InvoiceCurrency, type VatOverride } from "@/lib/invoicing/vat";
 import type { BillTo } from "@/lib/invoicing/types";
 import { inputCls, labelCls, chipCls, btnPrimary, btnGhost, readJsonSafe, money } from "./shared";
-import { CURRENCY_OPTIONS } from "@/lib/invoicing/settings-core";
+import { CURRENCY_OPTIONS, MAIN_CURRENCIES } from "@/lib/invoicing/settings-core";
 
 interface ClientOption {
   id: string;
@@ -298,14 +298,14 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
               <div>
                 <label className={labelCls}>Currency</label>
                 <div className="flex gap-1.5 items-center">
-                  {(["EUR", "USD"] as const).map((c) => (
-                    <button key={c} type="button" className={chipCls(currency === c)} onClick={() => setCurrency(c)}>
-                      {c}
+                  {MAIN_CURRENCIES.map((c) => (
+                    <button key={c.code} type="button" className={chipCls(currency === c.code)} onClick={() => setCurrency(c.code)} title={c.code === "CNY" ? "Chinese yuan, printed as CNY on the invoice" : undefined}>
+                      {c.label}
                     </button>
                   ))}
-                  <select className={`${inputCls} w-auto py-1.5`} value={currency === "EUR" || currency === "USD" ? "" : currency} onChange={(e) => e.target.value && setCurrency(e.target.value)} aria-label="Other currency">
+                  <select className={`${inputCls} w-auto py-1.5`} value={MAIN_CURRENCIES.some((c) => c.code === currency) ? "" : currency} onChange={(e) => e.target.value && setCurrency(e.target.value)} aria-label="Other currency">
                     <option value="">Other…</option>
-                    {CURRENCY_OPTIONS.filter((c) => c !== "EUR" && c !== "USD").map((c) => (
+                    {CURRENCY_OPTIONS.filter((c) => !MAIN_CURRENCIES.some((m) => m.code === c)).map((c) => (
                       <option key={c} value={c}>{c}{prep.configuredCurrencies.includes(c) ? " ✓" : ""}</option>
                     ))}
                   </select>

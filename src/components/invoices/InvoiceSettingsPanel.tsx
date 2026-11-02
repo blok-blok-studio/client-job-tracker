@@ -149,8 +149,8 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
         </div>
       </Section>
 
-      <Section title="Other currencies (GBP, CHF, CAD, AUD, … via Wise)">
-        <p className="text-xs text-bb-dim mb-3">One receiving account per currency. Copy the fields exactly as Wise shows them (for GBP: sort code + account number; AUD: BSB + account; CAD: institution + transit + account). Invoices in that currency print these lines; the QR opens your Wise link.</p>
+      <Section title="Other currencies (RMB, PHP, GBP, … via Wise)">
+        <p className="text-xs text-bb-dim mb-3">One receiving account per currency. Copy the fields exactly as Wise shows them (for GBP: sort code + account number; AUD: BSB + account; RMB and PHP: whatever your Wise account lists). Invoices in that currency print these lines; the QR opens your Wise link.</p>
         <div className="space-y-3">
           {s.otherBanks.map((b, i) => (
             <div key={i} className="rounded-lg border border-bb-border p-3 space-y-2">
@@ -176,7 +176,17 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
               <button type="button" className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1" onClick={() => setOther(i, { lines: [...b.lines, { label: "", value: "" }] })}><Plus size={12} /> Add line</button>
             </div>
           ))}
-          <button type="button" className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1" onClick={() => set("otherBanks", [...s.otherBanks, { currency: "GBP", holder: s.eur.holder || s.sellerName, bank: "Wise", lines: [{ label: "", value: "" }] }])}><Plus size={12} /> Add a currency</button>
+          <div className="flex flex-wrap gap-4">
+            {[
+              { currency: "CNY", text: "Add RMB (CNY) account", labels: ["Account number", "SWIFT / BIC"] },
+              { currency: "PHP", text: "Add PHP account", labels: ["Account number"] },
+            ]
+              .filter((q) => !s.otherBanks.some((b) => b.currency === q.currency))
+              .map((q) => (
+                <button key={q.currency} type="button" className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1" onClick={() => set("otherBanks", [...s.otherBanks, { currency: q.currency, holder: s.eur.holder || s.sellerName, bank: "", lines: q.labels.map((label) => ({ label, value: "" })) }])}><Plus size={12} /> {q.text}</button>
+              ))}
+            <button type="button" className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1" onClick={() => set("otherBanks", [...s.otherBanks, { currency: "GBP", holder: s.eur.holder || s.sellerName, bank: "Wise", lines: [{ label: "", value: "" }] }])}><Plus size={12} /> Add another currency</button>
+          </div>
         </div>
       </Section>
 

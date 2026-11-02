@@ -6,10 +6,10 @@
 import fs from "fs";
 import path from "path";
 import { computeTotals, formatMoneyPdf, formatMoney } from "../src/lib/invoicing/money";
-import { decideVat, templateForCountry, guessCountry, defaultsForTemplate } from "../src/lib/invoicing/vat";
+import { decideVat, templateForCountry, guessCountry, defaultsForTemplate, COUNTRY_CURRENCY } from "../src/lib/invoicing/vat";
 import { buildEpcPayload } from "../src/lib/invoicing/epc-qr";
 import { formatInvoiceNumber, nextSequenceFor } from "../src/lib/invoicing/numbering";
-import { isValidIban, normalizeInvoiceSettings, missingBankFields, DEFAULT_INVOICE_SETTINGS, isPlausibleVatId, settingsWarnings } from "../src/lib/invoicing/settings-core";
+import { isValidIban, normalizeInvoiceSettings, missingBankFields, DEFAULT_INVOICE_SETTINGS, isPlausibleVatId, settingsWarnings, MAIN_CURRENCIES } from "../src/lib/invoicing/settings-core";
 import { renderInvoicePdf } from "../src/lib/invoicing/invoice-pdf";
 import type { InvoiceView } from "../src/lib/invoicing/types";
 import { statementVat, renderStatementPdf, statementNumber, type StatementView } from "../src/lib/invoicing/partner-statement";
@@ -157,6 +157,14 @@ check("datev 116 columns", dl[1].split(";").length === 116, dl[1].split(";").len
 check("datev row: amount, S, debtor, 8195", dl[2].startsWith('5800,00;"S";"EUR";;;;10000;8195;;0211;"BBS-2026-005"'), dl[2]);
 check("datev correction is H", dl[3].startsWith('119,00;"H";"EUR";;;;10000;8400;;0511;"BBS-2026-009"'), dl[3]);
 check("datev skr04 default", normalizeDatev({ skr: "SKR04" }).accounts.REGULAR === "4400");
+
+check("CN + PH map to their currency", COUNTRY_CURRENCY.CN === "CNY" && COUNTRY_CURRENCY.PH === "PHP");
+check("china text -> CN, non-EU template", guessCountry({ companyCountry: "China" }) === "CN" && templateForCountry("CN") === "US");
+check("philippines text -> PH, non-EU template", guessCountry({ companyCountry: "Philippines" }) === "PH" && templateForCountry("PH") === "US");
+check("cny pdf money", formatMoneyPdf(12345.5, "CNY", "en") === "CNY 12,345.50", formatMoneyPdf(12345.5, "CNY", "en"));
+check("php pdf money", formatMoneyPdf(12345.5, "PHP", "en") === "PHP 12,345.50", formatMoneyPdf(12345.5, "PHP", "en"));
+check("main currencies", MAIN_CURRENCIES.map((c) => c.label).join() === "EUR,USD,RMB,PHP");
+check("cny needs an account", missingBankFields(DEFAULT_INVOICE_SETTINGS, "CNY").some((m) => m.includes("CNY")));
 
 // Partner statements
 check("statement US = drittland, 0%", statementVat({ country: "US", chargesVat: false }).scheme === "DRITTLAND" && statementVat({ country: "US", chargesVat: false }).rate === 0);

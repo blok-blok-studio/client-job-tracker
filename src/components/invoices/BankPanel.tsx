@@ -98,7 +98,7 @@ export default function BankPanel({ onChanged }: { onChanged: () => void }) {
           <input ref={fileRef} type="file" accept=".csv,text/csv,text/plain" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
           <button className={`${btnGhost} inline-flex items-center gap-1.5`} onClick={() => fileRef.current?.click()}><Upload size={14} /> Choose CSV</button>
           <select className={`${inputCls} w-auto py-1.5`} value={currency} onChange={(e) => setCurrency(e.target.value)} title="Currency when the file has no currency column">
-            {["EUR", "USD", "GBP", "CHF"].map((c) => <option key={c} value={c}>{c} default</option>)}
+            {["EUR", "USD", "CNY", "PHP", "GBP", "CHF"].map((c) => <option key={c} value={c}>{c} default</option>)}
           </select>
           <button className={btnPrimary} disabled={busy || csv.trim().length < 10} onClick={doImport}>{busy ? "Importing…" : "Import and match"}</button>
         </div>
