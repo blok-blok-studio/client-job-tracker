@@ -177,6 +177,7 @@ export function quoteView(q: Quote, settings: Awaited<ReturnType<typeof loadInvo
     publicUrl: publicQuoteUrl(q.token),
     qrPayload: null,
     qrKind: null,
+    qrs: [],
     createdAt: q.createdAt.toISOString(),
     validUntil: q.validUntil.toISOString().slice(0, 10),
     schedule: (q.schedule as unknown as Array<{ label: string; percent: number }> | null) || null,

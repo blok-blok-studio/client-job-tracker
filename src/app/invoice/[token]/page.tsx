@@ -8,7 +8,7 @@ import type { InvoiceView } from "@/lib/invoicing/types";
 import { LABELS } from "@/lib/invoicing/types";
 import { formatDate, formatMoney, formatQty } from "@/lib/invoicing/money";
 
-type PublicInvoice = Omit<InvoiceView, "id"> & { qrDataUrl: string | null };
+type PublicInvoice = Omit<InvoiceView, "id" | "qrs"> & { qrs: Array<{ kind: "EPC" | "WISE" | "PAGE" | "CARD"; dataUrl: string | null }> };
 
 // Client-facing pay page: the invoice, the bank details with copy buttons,
 // the QR code and the PDF. Black and white, like the printed invoice.
@@ -160,11 +160,18 @@ export default function PublicInvoicePage() {
               ))}
               {inv.dueDate && !isPaid && <p className="text-xs text-neutral-500 pt-1">{L.payBy} {formatDate(inv.dueDate, lang)}.</p>}
             </dl>
-            {inv.qrDataUrl && !isPaid && (
-              <div className="text-center sm:w-44">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={inv.qrDataUrl} alt="QR" width={176} height={176} className="rounded-lg bg-white p-2 mx-auto" />
-                <p className="text-[11px] text-neutral-500 mt-2 leading-snug">{inv.qrKind === "EPC" ? L.qrCaption : L.qrCaptionUrl}</p>
+            {inv.qrs.length > 0 && !isPaid && (
+              <div className="flex gap-4 justify-center">
+                {inv.qrs.map((q) =>
+                  q.dataUrl ? (
+                    <div key={q.kind} className="text-center w-36">
+                      <p className={`text-xs font-semibold mb-2 ${q.kind === "WISE" ? "text-bb-accent" : "text-white"}`}>{q.kind === "EPC" ? L.qrEpcTitle : q.kind === "WISE" ? L.qrWiseTitle : q.kind === "CARD" ? L.qrCardTitle : L.qrPageTitle}</p>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={q.dataUrl} alt={q.kind === "WISE" ? "Wise QR code" : "Bank transfer QR code"} width={144} height={144} className={`rounded-lg bg-white p-2 mx-auto ${q.kind === "WISE" ? "ring-2 ring-bb-blue" : ""}`} />
+                      <p className="text-[11px] text-neutral-500 mt-2 leading-snug">{q.kind === "EPC" ? L.qrEpcHint : q.kind === "WISE" ? L.qrWiseHint : L.qrPageHint}</p>
+                    </div>
+                  ) : null
+                )}
               </div>
             )}
           </div>

@@ -265,7 +265,7 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
   y -= 10;
   rule(totLabelX, cTotR, y, 1, BLUE1);
   y -= 15;
-  text(docType === "INVOICE" ? L.totalDue : L.total, totLabelX, y, 11, bold, BLUE2);
+  text(docType === "INVOICE" && view.status !== "PAID" && view.status !== "VOID" ? L.totalDue : L.total, totLabelX, y, 11, bold, BLUE2);
   textRight(money(view.total), cTotR, y, 12, bold, BLUE2);
   y -= 20;
 
@@ -324,7 +324,6 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
     rows.push([L.holder, b.holder || view.seller.sellerName, false]);
     if (b.bank) rows.push([L.bank, b.bank, false]);
     for (const l of b.lines) rows.push([l.label, l.value, /\d/.test(l.value)]);
-    if (view.seller.wisePayLink) rows.push(["Wise", view.seller.wisePayLink, true]);
   } else if (view.seller.usd) {
     const b = view.seller.usd;
     rows.push([L.holder, b.holder || view.seller.sellerName, false]);
@@ -333,15 +332,18 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
     if (b.account) rows.push([L.account, b.account, true]);
     if (b.swift) rows.push([L.swift, b.swift, true]);
     if (b.bankAddress) rows.push(["", b.bankAddress, false]);
-    if (view.seller.wisePayLink) rows.push(["Wise", view.seller.wisePayLink, true]);
   }
   rows.push([L.reference, view.number || "-", false]);
 
-  if (docType === "INVOICE") {
-  const qrSize = view.qrPayload ? 108 : 0;
+  // Nothing left to pay: a paid or voided invoice stops printing account numbers and QR codes
+  if (docType === "INVOICE" && view.status !== "PAID" && view.status !== "VOID") {
+  const qrCount = Math.min(view.qrs.length, 2);
+  const qrSize = qrCount === 2 ? 92 : qrCount ? 108 : 0;
+  const qrGap = 16;
+  const qrBlockW = qrCount ? qrCount * qrSize + (qrCount - 1) * qrGap : 0;
   const panelPad = 14;
   const rowH = 12.5;
-  const panelH = Math.max(panelPad * 2 + 20 + rows.length * rowH + (view.dueDate ? 16 : 0), qrSize ? qrSize + panelPad * 2 + 22 : 0);
+  const panelH = Math.max(panelPad * 2 + 20 + rows.length * rowH + (view.dueDate ? 16 : 0), qrSize ? qrSize + panelPad * 2 + 34 : 0);
   ensure(panelH + 10);
   const panelTop = y;
   page.drawRectangle({ x: M, y: panelTop - panelH, width: CW, height: panelH, color: PANEL, borderColor: RULE, borderWidth: 0.5 });
@@ -349,8 +351,9 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
   let py = panelTop - panelPad - 8;
   text((isCard ? L.paymentTitleCard : L.paymentTitle).toUpperCase(), M + panelPad, py, 7.5, bold, BLUE2);
   py -= 16;
-  const valX = M + panelPad + 112;
-  const textMaxW = (qrSize ? CW - qrSize - panelPad * 3 : CW - panelPad * 2) - 112;
+  const labelW = 84;
+  const valX = M + panelPad + labelW;
+  const textMaxW = (qrSize ? CW - qrBlockW - panelPad * 3 : CW - panelPad * 2) - labelW;
   for (const [k, v, isMono] of rows) {
     if (k) text(k, M + panelPad, py, 8, font, MUTED);
     const f = isMono ? mono : k === L.reference ? bold : font;
@@ -363,17 +366,22 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
     text(`${L.payBy} ${formatDate(view.dueDate, lang)}.`, M + panelPad, py, 8, font, INK);
   }
 
-  if (view.qrPayload && qrSize) {
+  for (let i = 0; i < qrCount; i++) {
+    const q = view.qrs[i];
+    const qx = PAGE_W - M - panelPad - qrBlockW + i * (qrSize + qrGap);
+    const qy = panelTop - panelPad - 10 - qrSize;
+    const title = q.kind === "EPC" ? L.qrEpcTitle : q.kind === "WISE" ? L.qrWiseTitle : q.kind === "CARD" ? L.qrCardTitle : L.qrPageTitle;
+    const hint = q.kind === "EPC" ? L.qrEpcHint : q.kind === "WISE" ? L.qrWiseHint : L.qrPageHint;
+    const cx = qx + qrSize / 2;
+    const tw = width(title, 6.5, bold);
+    text(title, cx - tw / 2, qy + qrSize + 3, 6.5, bold, q.kind === "WISE" ? BLUE1 : BLUE2);
     try {
-      const png = await pdf.embedPng(await qrPng(view.qrPayload, 512));
-      const qx = PAGE_W - M - panelPad - qrSize;
-      const qy = panelTop - panelPad - qrSize;
+      const png = await pdf.embedPng(await qrPng(q.payload, 512));
       page.drawImage(png, { x: qx, y: qy, width: qrSize, height: qrSize });
-      const cap = view.qrKind === "EPC" ? L.qrCaption : L.qrCaptionUrl;
-      const capLines = wrap(cap, 6.5, font, qrSize + 30);
-      capLines.forEach((l, i) => textRight(l, qx + qrSize, qy - 9 - i * 8, 6.5, font, MUTED));
+      const hw = width(hint, 6, font);
+      text(hint, cx - hw / 2, qy - 8, 6, font, MUTED);
     } catch {
-      // QR failed — the bank details above still carry the payment
+      // QR failed: the bank details beside it still carry the payment
     }
   }
   y = panelTop - panelH - 16;

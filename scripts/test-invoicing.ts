@@ -188,7 +188,7 @@ const seller = {
   usd: { holder: "Blok Blok Studio LLC", bank: "Wise US Inc. (TEST)", routing: "000000000", account: "0000000000", swift: "TESTUS00", bankAddress: "30 W. 26th Street, New York NY 10010" },
   wisePayLink: "https://wise.com/pay/business/example",
 };
-const base: Omit<InvoiceView, "language" | "currency" | "template" | "vatScheme" | "vatNotes" | "billTo" | "qrPayload" | "qrKind"> = {
+const base: Omit<InvoiceView, "language" | "currency" | "template" | "vatScheme" | "vatNotes" | "billTo" | "qrPayload" | "qrKind" | "qrs"> = {
   id: "x", token: "sampletoken", number: "BBS-2026-007", kind: "INVOICE", corrects: null, milestone: null, status: "ISSUED", vatRate: 0,
   issueDate: "2026-11-02", serviceDateFrom: "2026-10-01", serviceDateTo: "2026-10-31", dueDate: "2026-11-16", dueDays: 14,
   seller, items: computeTotals([
@@ -206,6 +206,7 @@ const deView: InvoiceView = {
   vatNotes: ["Gemäß § 19 UStG wird keine Umsatzsteuer berechnet."],
   billTo: { name: "Max Mustermann", company: "Musterfirma GmbH", addressLines: ["Beispielstraße 1", "10115 Berlin", "Deutschland"], email: "max@musterfirma.de", vatId: null, country: "DE" },
   qrPayload: buildEpcPayload({ name: seller.eur.holder, iban: seller.eur.iban, bic: seller.eur.bic, amount: 6025, reference: "BBS-2026-007" }), qrKind: "EPC",
+  qrs: [{ kind: "EPC", payload: buildEpcPayload({ name: seller.eur.holder, iban: seller.eur.iban, bic: seller.eur.bic, amount: 6025, reference: "BBS-2026-007" }) }, { kind: "WISE", payload: seller.wisePayLink }],
 };
 const usView: InvoiceView = {
   ...base, number: "BBS-2026-008", language: "en", currency: "USD", template: "US", vatScheme: "DRITTLAND",
@@ -213,6 +214,7 @@ const usView: InvoiceView = {
   billTo: { name: "Jane Doe", company: "Bronco Plumbing DFW", addressLines: ["123 Main St", "Dallas, TX 75201", "USA"], email: "jane@example.com", vatId: null, country: "US" },
   notes: "Payment by ACH or wire. Card payments available on request (processing fee applies).",
   qrPayload: seller.wisePayLink, qrKind: "URL",
+  qrs: [{ kind: "PAGE", payload: "https://app.blokblokstudio.com/b/sampletoken" }, { kind: "WISE", payload: seller.wisePayLink }],
 };
 const de27View: InvoiceView = {
   ...deView, number: "BBS-2027-001", issueDate: "2027-01-05", dueDate: "2027-01-19", vatScheme: "REGULAR", vatRate: 19, vatNotes: [],
@@ -221,7 +223,7 @@ const de27View: InvoiceView = {
   qrPayload: buildEpcPayload({ name: seller.eur.holder, iban: seller.eur.iban, bic: seller.eur.bic, amount: 7169.75, reference: "BBS-2027-001" }), qrKind: "EPC",
 };
 (async () => {
-  const corrView: InvoiceView = { ...deView, number: "BBS-2026-009", kind: "CORRECTION", corrects: { number: "BBS-2026-007", issueDate: "2026-11-02" }, status: "PAID", paidAt: "2026-11-05T00:00:00Z", eurAmount: -6025, items: deView.items.map((i) => ({ ...i, unitPrice: -i.unitPrice, lineTotal: -i.lineTotal })), subtotal: -6025, total: -6025, notes: "Falsche Leistungsperiode", qrPayload: null, qrKind: null };
+  const corrView: InvoiceView = { ...deView, number: "BBS-2026-009", kind: "CORRECTION", corrects: { number: "BBS-2026-007", issueDate: "2026-11-02" }, status: "PAID", paidAt: "2026-11-05T00:00:00Z", eurAmount: -6025, items: deView.items.map((i) => ({ ...i, unitPrice: -i.unitPrice, lineTotal: -i.lineTotal })), subtotal: -6025, total: -6025, notes: "Falsche Leistungsperiode", qrPayload: null, qrKind: null, qrs: [] };
   const xml = buildCiiXml(deView);
   check("xml: en16931 profile", xml.includes("urn:cen.eu:en16931:2017"));
   check("xml: § 19 is category E", xml.includes("<ram:CategoryCode>E</ram:CategoryCode>") && xml.includes("§ 19 UStG"));

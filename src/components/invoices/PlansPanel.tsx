@@ -30,6 +30,8 @@ interface Plan {
   notes: string | null;
   autoSend: boolean;
   amount: number;
+  stripeSubscriptionId?: string | null;
+  stripeSubStatus?: string | null;
   client: { id: string; name: string; company: string | null };
 }
 
@@ -131,6 +133,11 @@ export default function PlansPanel({ onInvoiceIssued }: { onInvoiceIssued: () =>
                 <p className="text-white text-sm">
                   {p.name} <span className="text-bb-dim">· {p.client.company || p.client.name}</span>
                 </p>
+                {p.stripeSubscriptionId && p.status === "PAUSED" && (
+                  <p className={`text-xs ${["canceled", "incomplete_expired"].includes(p.stripeSubStatus || "") ? "text-green-400" : "text-amber-300"}`}>
+                    {["canceled", "incomplete_expired"].includes(p.stripeSubStatus || "") ? "Cancelled in Stripe. Check it, then resume to start billing." : `Draft. Still ${p.stripeSubStatus} in Stripe, so it cannot start. Cancel it there, then sync.`}
+                  </p>
+                )}
                 <p className="text-xs text-bb-dim">
                   {money(p.amount, p.currency)} {INTERVAL_LABEL[p.interval].toLowerCase()} on day {p.dayOfMonth} · {p.status === "ACTIVE" ? `next ${shortDate(p.nextRunAt)}` : p.status.toLowerCase()} · {p.runs} issued{p.endDate ? ` · ends ${shortDate(p.endDate)}` : ""}{p.autoSend ? "" : " · issued without email"}
                 </p>

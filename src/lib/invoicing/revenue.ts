@@ -118,7 +118,10 @@ export async function yearRevenueEur(year: number): Promise<YearRevenue> {
     where: { status: { in: ["ISSUED", "SENT", "PAID"] }, kind: "INVOICE", issueDate: { gte: from, lt: to } },
     select: { total: true, currency: true },
   });
-  const stripe = await prisma.invoice.findMany({
+  // Once the ledger is synced it is the complete record; the Invoice mirror misses one-off Checkouts and refunds
+  const ledgerRows = await prisma.stripePayment.findMany({ where: { taxYear: year }, select: { eurNet: true, amount: true, refunded: true, currency: true } });
+  const ledgerSynced = !!(await prisma.setting.findUnique({ where: { key: "stripe_ledger_full_at" }, select: { key: true } }));
+  const stripe = ledgerSynced ? [] : await prisma.invoice.findMany({
     where: { status: "PAID", OR: [{ paidAt: { gte: from, lt: to } }, { paidAt: null, createdAt: { gte: from, lt: to } }] },
     select: { amount: true, currency: true },
   });
@@ -130,7 +133,9 @@ export async function yearRevenueEur(year: number): Promise<YearRevenue> {
     return c === "EUR" ? amount : c === "USD" ? amount * rate : amount * (otherRates[c] ?? 0);
   };
   const studioEur = studio.reduce((s, i) => s + toEur(Number(i.total), i.currency), 0);
-  const stripeEur = stripe.reduce((s, i) => s + toEur(Number(i.amount), i.currency), 0);
+  const stripeEur = ledgerSynced
+    ? ledgerRows.reduce((s, i) => s + (i.eurNet != null ? Number(i.eurNet) : toEur(Number(i.amount) - Number(i.refunded), i.currency)), 0)
+    : stripe.reduce((s, i) => s + toEur(Number(i.amount), i.currency), 0);
   const totalEur = Math.round((studioEur + stripeEur) * 100) / 100;
   const ceilingEur = settings.revenueCeilingEur || 100000;
   return {

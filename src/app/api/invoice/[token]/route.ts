@@ -24,6 +24,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     await prisma.activityLog.create({ data: { clientId: invoice.clientId, actor: "client", action: "invoice_viewed", details, ipAddress, userAgent } }).catch(() => {});
   });
   const view = publicInvoiceView(buildInvoiceView(invoice, await loadInvoiceSettings(), { corrects: invoice.correctsId ? await prisma.studioInvoice.findUnique({ where: { id: invoice.correctsId }, select: { number: true, issueDate: true } }) : null }));
-  const qr = view.qrPayload ? await qrDataUrl(view.qrPayload).catch(() => null) : null;
-  return NextResponse.json({ success: true, data: { ...view, qrDataUrl: qr } }, { headers: { "Cache-Control": "no-store" } });
+  const qrs = await Promise.all(view.qrs.map(async (q) => ({ kind: q.kind, dataUrl: await qrDataUrl(q.payload).catch(() => null) })));
+  return NextResponse.json({ success: true, data: { ...view, qrs } }, { headers: { "Cache-Control": "no-store" } });
 }

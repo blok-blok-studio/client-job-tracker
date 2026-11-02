@@ -118,6 +118,7 @@ model Client {
   tasks            Task[]
   invoices         Invoice[]
   studioInvoices   StudioInvoice[]
+  stripePayments   StripePayment[]
   recurringPlans   RecurringPlan[]
   quotes           Quote[]
   contacts         Contact[]
@@ -735,6 +736,10 @@ model RecurringPlan {
 
   contractId String? // started by this service agreement
 
+  // Drafted from a Stripe subscription. While that subscription is live here, the plan cannot start.
+  stripeSubscriptionId String?
+  stripeSubStatus      String?
+
   invoices  StudioInvoice[]
   createdBy String
   createdAt DateTime @default(now())
@@ -810,6 +815,39 @@ model BankTransaction {
   @@index([status])
   @@index([bookedAt])
   @@index([invoiceId])
+}
+
+// Every Stripe charge, mirrored read-only. This is the complete record of
+// Stripe money: Checkout, invoices and subscriptions all end in a charge.
+model StripePayment {
+  id             String    @id @default(cuid())
+  stripeChargeId String    @unique
+  customerId     String?
+  clientId       String?
+  client         Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  paymentIntentId String?
+  stripeInvoiceId String?
+  amount         Decimal   @db.Decimal(12, 2) // gross, charge currency
+  refunded       Decimal   @default(0) @db.Decimal(12, 2)
+  currency       String
+  fee            Decimal?  @db.Decimal(12, 2) // Stripe fee in settlement currency
+  settledCurrency String?
+  settledAmount  Decimal?  @db.Decimal(12, 2) // gross as settled to the balance
+  eurGross       Decimal?  @db.Decimal(12, 2) // gross in EUR: Stripe's own conversion when settled in EUR, else ECB rate of the day
+  eurNet         Decimal?  @db.Decimal(12, 2) // eurGross less refunds, before Stripe fees
+  paidAt         DateTime
+  taxYear        Int
+  description    String?   @db.Text
+  billingName    String?
+  billingEmail   String?
+  receiptUrl     String?   @db.Text
+  disputed       Boolean   @default(false)
+  syncedAt       DateTime  @default(now())
+
+  @@index([taxYear])
+  @@index([clientId])
+  @@index([customerId])
+  @@index([paidAt])
 }
 
 enum StudioInvoiceStatus {

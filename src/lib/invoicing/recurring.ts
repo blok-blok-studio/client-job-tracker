@@ -62,6 +62,15 @@ export function fillPeriod(text: string, runAt: Date, interval: string, language
   return text.replace(/\{month\}/gi, month).replace(/\{year\}/gi, year).replace(/\{period\}/gi, period);
 }
 
+const STRIPE_LIVE = ["active", "trialing", "past_due", "unpaid", "paused", "incomplete"];
+
+/** A plan drafted from a subscription stays locked while Stripe could still charge that client. */
+export function assertNotLiveInStripe(plan: { stripeSubscriptionId: string | null; stripeSubStatus: string | null }) {
+  if (plan.stripeSubscriptionId && STRIPE_LIVE.includes(plan.stripeSubStatus || "")) {
+    throw new InvoiceError("This subscription is still live in Stripe, so starting this plan would bill the client twice. Cancel it in Stripe, then run the sync.", 409);
+  }
+}
+
 export async function createPlan(input: PlanInput, actor: string): Promise<RecurringPlan> {
   const client = await prisma.client.findUnique({ where: { id: input.clientId }, select: { id: true, name: true } });
   if (!client) throw new InvoiceError("Client not found", 404);
@@ -95,6 +104,7 @@ export async function createPlan(input: PlanInput, actor: string): Promise<Recur
 export async function updatePlan(id: string, input: Partial<PlanInput> & { status?: "ACTIVE" | "PAUSED" | "ENDED" }, actor: string): Promise<RecurringPlan> {
   const existing = await prisma.recurringPlan.findUnique({ where: { id } });
   if (!existing) throw new InvoiceError("Plan not found", 404);
+  if (input.status === "ACTIVE") assertNotLiveInStripe(existing);
   const dayOfMonth = input.dayOfMonth ?? existing.dayOfMonth;
   const interval = input.interval ?? existing.interval;
   let nextRunAt = existing.nextRunAt;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireOwner, handleError } from "../../../_shared";
-import { runPlanOnce, advanceRun } from "@/lib/invoicing/recurring";
+import { runPlanOnce, advanceRun, assertNotLiveInStripe } from "@/lib/invoicing/recurring";
 import { InvoiceError } from "@/lib/invoicing/service";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +16,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     const plan = await prisma.recurringPlan.findUnique({ where: { id } });
     if (!plan) throw new InvoiceError("Plan not found", 404);
     if (plan.status === "ENDED") throw new InvoiceError("This plan has ended.", 409);
+    assertNotLiveInStripe(plan);
     const now = new Date();
     const runAt = plan.nextRunAt <= now ? plan.nextRunAt : now;
     const r = await runPlanOnce(plan, runAt, session.name);

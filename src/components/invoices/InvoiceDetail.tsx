@@ -10,10 +10,10 @@ import { VAT_SCHEME_LABELS } from "@/lib/invoicing/vat";
 import { formatMoney } from "@/lib/invoicing/money";
 import { StatusBadge, isOverdue, shortDate, inputCls, labelCls, btnPrimary, btnGhost, readJsonSafe } from "./shared";
 
-type Detail = InvoiceView & {
+type Detail = Omit<InvoiceView, "qrs"> & {
+  qrs: Array<{ kind: string; dataUrl: string | null }>;
   client: { id: string; name: string; company: string | null; email: string | null };
   internalNote: string | null;
-  qrDataUrl: string | null;
   activity: Array<{ id: string; action: string; actor: string; details: string | null; createdAt: string }>;
   contentHash: string | null;
   integrity: "ok" | "mismatch" | "none";
@@ -360,11 +360,17 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
               <p>Reference: <span className="text-white font-medium">{inv.number || "(assigned on issue)"}</span></p>
               {inv.status !== "DRAFT" && <p className="break-all">Pay page: {inv.publicUrl}</p>}
             </div>
-            {inv.qrDataUrl && (
-              <div className="text-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={inv.qrDataUrl} alt="Payment QR code" width={112} height={112} className="rounded bg-white p-1" />
-                <p className="text-[10px] text-bb-dim mt-1">{inv.qrKind === "EPC" ? "GiroCode" : "Opens pay link"}</p>
+            {inv.qrs.length > 0 && (
+              <div className="flex gap-3">
+                {inv.qrs.map((q) =>
+                  q.dataUrl ? (
+                    <div key={q.kind} className="text-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={q.dataUrl} alt="Payment QR code" width={112} height={112} className="rounded bg-white p-1" />
+                      <p className="text-[10px] text-bb-dim mt-1">{q.kind === "EPC" ? "GiroCode (EU)" : q.kind === "WISE" ? "Wise (international)" : q.kind === "CARD" ? "Card link" : "Pay page"}</p>
+                    </div>
+                  ) : null
+                )}
               </div>
             )}
           </div>

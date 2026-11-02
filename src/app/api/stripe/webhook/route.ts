@@ -72,7 +72,7 @@ async function upsertClientFromStripeCustomer(customer: Stripe.Customer) {
         phone: customer.phone || null,
         stripeCustomerId: customer.id,
         source: "Stripe",
-        type: "ACTIVE",
+        type: "PAST",
       },
     });
     await prisma.activityLog.create({

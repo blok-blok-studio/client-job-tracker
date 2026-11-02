@@ -8,6 +8,7 @@ import { buildInvoiceView } from "@/lib/invoicing/view";
 import { renderInvoicePdf } from "@/lib/invoicing/invoice-pdf";
 import { buildStatementView, renderStatementPdf } from "@/lib/invoicing/partner-statement";
 import { buildDatevCsv } from "@/lib/invoicing/datev";
+import { costRows, summarizeYears, trackerRows } from "@/lib/invoicing/tracker";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -118,8 +119,28 @@ export async function GET(request: NextRequest) {
       }
       files[`partner-statements-${label}.csv`] = strToU8("\uFEFF" + sLines.join("\n") + "\n");
     }
+    // Whole-year tax pack: everything that moved, one place
+    if (!month) {
+      const [all, costs] = await Promise.all([trackerRows(), costRows()]);
+      const yr = all.filter((r) => r.year === year);
+      const cs = costs.filter((c) => c.year === year);
+      const head = "date,source,reference,client,description,currency,amount,refunded,eur_counted,stripe_fee,status,method,vat,vat_amount";
+      files[`money-in-${year}.csv`] = strToU8("\uFEFF" + [head, ...yr.map((r) => [r.date, r.source, r.reference, r.client, r.description, r.currency, r.amount.toFixed(2), r.refunded.toFixed(2), r.eur?.toFixed(2) ?? "", r.fee?.toFixed(2) ?? "", r.status, r.method, r.vat, r.vatAmount.toFixed(2)].map(csvCell).join(","))].join("\n") + "\n");
+      files[`money-out-${year}.csv`] = strToU8("\uFEFF" + ["date,type,payee,reference,currency,amount", ...cs.map((c) => [c.date, c.kind, c.payee, c.reference, c.currency, c.amount.toFixed(2)].map(csvCell).join(","))].join("\n") + "\n");
+      const sum = summarizeYears(yr, cs)[0];
+      files[`summary-${year}.txt`] = strToU8([`Blok Blok Studio LLC, tax year ${year}`, `Generated ${new Date().toISOString().slice(0, 10)}`, "", `Income counted (EUR, by date received): ${sum?.incomeEur.toFixed(2) ?? "0.00"}`, `  Bank and Wise invoices: ${sum?.invoiceEur.toFixed(2) ?? "0.00"}`, `  Stripe, net of refunds: ${sum?.stripeEur.toFixed(2) ?? "0.00"}`, `Stripe fees: ${sum?.stripeFees.toFixed(2) ?? "0.00"}`, `Received with no EUR amount yet: ${sum?.missingEur ?? 0} (check these)`, `Money out: ${Object.entries(sum?.costs || {}).map(([c, v]) => `${c} ${v.toFixed(2)}`).join(", ") || "none recorded"}`, "", "Foreign currency: the amount Stripe settled in EUR where available, otherwise the ECB rate of the day received.", "Other business expenses are not in this system. Add them from your bank statements."].join("\n") + "\n");
+      const datevRows = rows.filter((r) => r.status !== "VOID" || r.voidReason?.startsWith("Corrected by")).map((r) => Object.assign(r, { clientLabel: r.client.company || r.client.name }));
+      files[`EXTF_Buchungsstapel_${year}.csv`] = strToU8("\uFEFF" + buildDatevCsv(datevRows, { from, to, year }, settings.datev));
+    }
     const zipped = zipSync(files, { level: 0 });
-    return new NextResponse(Buffer.from(zipped), {
+    // Streamed: a plain response over 4.5 MB is rejected by Vercel
+    const stream = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < zipped.length; i += 1024 * 1024) controller.enqueue(zipped.subarray(i, i + 1024 * 1024));
+        controller.close();
+      },
+    });
+    return new NextResponse(stream, {
       headers: {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="blokblok-invoices-${label}.zip"`,

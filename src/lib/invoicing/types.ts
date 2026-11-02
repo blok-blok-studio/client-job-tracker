@@ -73,7 +73,14 @@ export interface InvoiceView {
   /** What the QR encodes: an EPC payload (EUR bank) or a URL (Wise / Stripe / the invoice page) */
   qrPayload: string | null;
   qrKind: "EPC" | "URL" | null;
+  /** Up to two labelled codes: a local one (GiroCode or pay page) and Wise for international payers */
+  qrs: QrCode[];
   createdAt: string;
+}
+
+export interface QrCode {
+  kind: "EPC" | "WISE" | "PAGE" | "CARD";
+  payload: string;
 }
 
 export const LABELS: Record<InvoiceLanguage, Record<string, string>> = {
@@ -127,6 +134,13 @@ export const LABELS: Record<InvoiceLanguage, Record<string, string>> = {
     reportPaidDone: "Danke! Wir prüfen den Zahlungseingang und schicken Ihnen eine Bestätigung.",
     reportPaidDate: "Überwiesen am",
     reportPaidRef: "Referenz / Hinweis (optional)",
+    qrEpcTitle: "EU-Überweisung (SEPA)",
+    qrEpcHint: "In der Banking-App scannen",
+    qrWiseTitle: "International (Wise)",
+    qrWiseHint: "Mit der Handykamera scannen",
+    qrPageTitle: "Zahlungsdetails",
+    qrPageHint: "Mit der Handykamera scannen",
+    qrCardTitle: "Zahlung per Karte",
     correction: "STORNORECHNUNG",
     correctionOf: "Storniert die Rechnung",
     correctionNote: "Diese Stornorechnung hebt die genannte Rechnung vollständig auf. Es ist keine Zahlung fällig.",
@@ -188,6 +202,13 @@ export const LABELS: Record<InvoiceLanguage, Record<string, string>> = {
     reportPaidDone: "Thank you! We will check the account and send you a confirmation.",
     reportPaidDate: "Paid on",
     reportPaidRef: "Reference / note (optional)",
+    qrEpcTitle: "EU bank transfer (SEPA)",
+    qrEpcHint: "Scan in your banking app",
+    qrWiseTitle: "International (Wise)",
+    qrWiseHint: "Scan with your phone camera",
+    qrPageTitle: "Payment details",
+    qrPageHint: "Scan with your phone camera",
+    qrCardTitle: "Pay by card",
     correction: "CORRECTION INVOICE",
     correctionOf: "Cancels invoice",
     correctionNote: "This correction invoice cancels the invoice named above in full. No payment is due.",

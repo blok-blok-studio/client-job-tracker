@@ -119,6 +119,12 @@ export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings, 
     qrKind = "URL";
   }
 
+  const qrs: InvoiceView["qrs"] = [];
+  if (inv.kind !== "CORRECTION" && qrPayload) {
+    qrs.push({ kind: qrKind === "EPC" ? "EPC" : paymentMethod === "STRIPE" ? "CARD" : "PAGE", payload: qrKind === "EPC" || paymentMethod === "STRIPE" ? qrPayload : url });
+    if (paymentMethod !== "STRIPE" && seller.wisePayLink) qrs.push({ kind: "WISE", payload: seller.wisePayLink });
+  }
+
   return {
     id: inv.id,
     token,
@@ -161,6 +167,7 @@ export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings, 
     publicUrl: url,
     qrPayload,
     qrKind,
+    qrs,
     createdAt: inv.createdAt.toISOString(),
   };
 }
@@ -181,6 +188,7 @@ export function publicInvoiceView(view: InvoiceView): Omit<InvoiceView, "id"> {
     paymentUrl: null,
     qrPayload: null,
     qrKind: null,
+    qrs: [],
   };
 }
 

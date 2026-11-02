@@ -31,6 +31,14 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
       .catch(() => setRows([]));
   }, [clientId]);
 
+  const [years, setYears] = useState<Array<{ year: number; incomeEur: number }>>([]);
+  useEffect(() => {
+    fetch(`/api/studio-invoices/tracker?clientId=${encodeURIComponent(clientId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setYears(j?.success ? j.data.years.filter((y: { incomeEur: number }) => y.incomeEur !== 0) : []))
+      .catch(() => {});
+  }, [clientId]);
+
   const open = rows?.filter((r) => r.status === "ISSUED" || r.status === "SENT") || [];
   const overdue = open.filter((r) => r.dueDate && new Date(r.dueDate).getTime() < Date.now());
 
@@ -45,6 +53,13 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
           <Plus size={14} /> New
         </button>
       </div>
+      {years.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-xs text-bb-muted">
+          {years.map((y) => (
+            <span key={y.year}>{y.year}: <span className="text-white">{money(y.incomeEur, "EUR")}</span></span>
+          ))}
+        </div>
+      )}
       {rows === null ? (
         <p className="text-xs text-bb-dim">Loading…</p>
       ) : rows.length === 0 ? (
