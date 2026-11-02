@@ -32,7 +32,7 @@ interface Track {
 }
 
 const field =
-  "w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange";
+  "w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue";
 
 function formatDuration(seconds: number) {
   if (!seconds) return "";
@@ -169,7 +169,7 @@ function TrendingSounds({ clients }: { clients: { id: string; name: string }[] }
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-1.5 text-sm font-medium text-white">
-            <TrendingUp size={15} className="text-bb-orange" /> Trending sounds
+            <TrendingUp size={15} className="text-bb-accent" /> Trending sounds
           </h2>
           <p className="text-xs text-bb-dim mt-1 max-w-xl">
             Save sounds you spot in Instagram or TikTok, then pick one on a post in the composer. Instagram and TikTok only let their sounds be added inside the app, so
@@ -180,7 +180,7 @@ function TrendingSounds({ clients }: { clients: { id: string; name: string }[] }
           <button
             type="button"
             onClick={() => setFormOpen(true)}
-            className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange-light transition-colors cursor-pointer"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-bb-blue text-white rounded-lg text-sm font-medium hover:bg-bb-blue-light transition-colors cursor-pointer"
           >
             <Plus size={15} /> Add sound
           </button>
@@ -266,7 +266,7 @@ function TrendingSounds({ clients }: { clients: { id: string; name: string }[] }
               type="button"
               onClick={save}
               disabled={saving}
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg bg-bb-orange text-white text-sm font-medium hover:bg-bb-orange-light transition-colors cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg bg-bb-blue text-white text-sm font-medium hover:bg-bb-blue-light transition-colors cursor-pointer disabled:opacity-50"
             >
               {saving && <Loader2 size={14} className="animate-spin" />} Save sound
             </button>
@@ -282,7 +282,7 @@ function TrendingSounds({ clients }: { clients: { id: string; name: string }[] }
             onClick={() => setPlatform(p)}
             className={cn(
               "px-3 py-1.5 rounded-full border text-xs transition-colors cursor-pointer",
-              platform === p ? "border-bb-orange/60 bg-bb-orange/10 text-white" : "border-bb-border text-bb-muted hover:text-white"
+              platform === p ? "border-bb-blue/60 bg-bb-blue/10 text-white" : "border-bb-border text-bb-muted hover:text-white"
             )}
           >
             {p ? getPlatformLabel(p) : "All"}
@@ -322,7 +322,7 @@ function TrendingSounds({ clients }: { clients: { id: string; name: string }[] }
                 </p>
               </div>
               <div className="flex items-center shrink-0">
-                <a href={s.url} target="_blank" rel="noopener noreferrer" title="Open the sound" aria-label={`Open ${s.name}`} className="p-2.5 sm:p-2 text-bb-muted hover:text-bb-orange transition-colors">
+                <a href={s.url} target="_blank" rel="noopener noreferrer" title="Open the sound" aria-label={`Open ${s.name}`} className="p-2.5 sm:p-2 text-bb-muted hover:text-bb-accent transition-colors">
                   <ExternalLink size={15} />
                 </a>
                 <button
@@ -441,7 +441,7 @@ function UploadedTracks() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-1.5 text-sm font-medium text-white">
-            <Music size={15} className="text-bb-orange" /> Uploaded MP3s
+            <Music size={15} className="text-bb-accent" /> Uploaded MP3s
           </h2>
           <p className="text-xs text-bb-dim mt-1 max-w-xl">
             Audio files the team can put on any client&apos;s post. In the composer, add a video and choose &ldquo;Add an MP3 to this video&rdquo;, or add photos and choose
@@ -451,7 +451,7 @@ function UploadedTracks() {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange-light transition-colors cursor-pointer"
+          className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-bb-blue text-white rounded-lg text-sm font-medium hover:bg-bb-blue-light transition-colors cursor-pointer"
         >
           <Upload size={15} /> Upload
         </button>
@@ -479,11 +479,11 @@ function UploadedTracks() {
           setDragOver(false);
           if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
         }}
-        className={cn("rounded-lg border transition-colors", dragOver ? "border-bb-orange/60 bg-bb-orange/5" : "border-bb-border")}
+        className={cn("rounded-lg border transition-colors", dragOver ? "border-bb-blue/60 bg-bb-blue/5" : "border-bb-border")}
       >
         {uploads.map((u) => (
           <div key={u.name} className="flex items-center gap-2 p-3 border-b border-bb-border text-xs text-bb-muted">
-            <Loader2 size={13} className="animate-spin text-bb-orange shrink-0" />
+            <Loader2 size={13} className="animate-spin text-bb-accent shrink-0" />
             <span className="truncate flex-1">{u.name}</span>
             <span className="font-mono text-bb-dim">{u.pct}%</span>
           </div>

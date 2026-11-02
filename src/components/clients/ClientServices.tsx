@@ -103,7 +103,7 @@ export default function ClientServices({ clientId }: { clientId: string }) {
         <h3 className="font-display font-semibold">Services</h3>
         <button
           onClick={() => setShowAdd(true)}
-          className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1"
+          className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1"
         >
           <Plus size={14} /> Add
         </button>

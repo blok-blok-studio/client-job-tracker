@@ -44,7 +44,7 @@ export interface TaskReorderUpdate {
 
 export const PRIORITY_COLORS: Record<Priority, string> = {
   URGENT: "#EF4444",
-  HIGH: "#FF6B00",
+  HIGH: "#2561D8",
   MEDIUM: "#3B82F6",
   LOW: "#666666",
 };

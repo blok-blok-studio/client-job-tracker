@@ -114,7 +114,7 @@ export default function AnalyticsTab({ clients }: { clients: { id: string; name:
   }, [data, sort]);
 
   const selectClass =
-    "bg-bb-elevated border border-bb-border rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-bb-orange/60 cursor-pointer";
+    "bg-bb-elevated border border-bb-border rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-bb-blue/60 cursor-pointer";
 
   const empty = data && data.postsWithStats === 0;
 

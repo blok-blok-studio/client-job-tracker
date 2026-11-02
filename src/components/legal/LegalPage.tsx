@@ -12,7 +12,7 @@ export function LegalPage({ title, updated, children }: { title: string; updated
         </Link>
         <h1 className="text-3xl sm:text-4xl font-bold mb-2">{title}</h1>
         {updated ? <p className="text-sm text-bb-muted mb-10">Last updated {updated}</p> : <div className="mb-10" />}
-        <div className="space-y-8 text-[15px] leading-relaxed text-gray-300 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_a]:text-bb-orange [&_a]:underline">
+        <div className="space-y-8 text-[15px] leading-relaxed text-gray-300 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_a]:text-bb-accent [&_a]:underline">
           {children}
         </div>
         <nav className="mt-14 pt-6 border-t border-bb-border flex flex-wrap gap-x-6 gap-y-2 text-sm text-bb-muted">

@@ -392,7 +392,7 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className={labelCls}>Line items</label>
-                <button type="button" className="text-xs text-bb-orange hover:underline inline-flex items-center gap-1" onClick={() => setItems((p) => [...p, { description: "", qty: "1", unitPrice: "" }])}>
+                <button type="button" className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1" onClick={() => setItems((p) => [...p, { description: "", qty: "1", unitPrice: "" }])}>
                   <Plus size={12} /> Add line
                 </button>
               </div>
@@ -417,7 +417,7 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
 
             {/* Bill to */}
             <div>
-              <button type="button" className="text-xs text-bb-orange hover:underline" onClick={() => setShowBillTo((v) => !v)}>
+              <button type="button" className="text-xs text-bb-accent hover:underline" onClick={() => setShowBillTo((v) => !v)}>
                 {showBillTo ? "Hide" : "Edit"} bill-to block ({billTo.company || billTo.name || "empty"}{billTo.addressLines.length ? "" : ", no address"})
               </button>
               {showBillTo && (

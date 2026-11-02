@@ -143,7 +143,7 @@ export default function PeopleInput({
     >
       <div
         className={cn(
-          "flex flex-wrap items-center gap-1.5 bg-bb-elevated border border-bb-border rounded-lg px-2 py-1.5 focus-within:border-bb-orange/60 transition-colors",
+          "flex flex-wrap items-center gap-1.5 bg-bb-elevated border border-bb-border rounded-lg px-2 py-1.5 focus-within:border-bb-blue/60 transition-colors",
           disabled && "opacity-50"
         )}
         onClick={() => inputRef.current?.focus()}
@@ -269,13 +269,13 @@ export default function PeopleInput({
                     }
                   }}
                   placeholder="Their name (optional)"
-                  className="flex-1 min-w-0 bg-bb-elevated border border-bb-border rounded-md px-2 py-1 text-xs text-white placeholder:text-bb-dim outline-none focus:border-bb-orange/60"
+                  className="flex-1 min-w-0 bg-bb-elevated border border-bb-border rounded-md px-2 py-1 text-xs text-white placeholder:text-bb-dim outline-none focus:border-bb-blue/60"
                 />
                 <button
                   type="button"
                   onClick={saveAndAdd}
                   disabled={saving}
-                  className="inline-flex items-center gap-1 rounded-md bg-bb-orange px-2.5 py-1 text-xs font-medium text-white hover:bg-bb-orange-light disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center gap-1 rounded-md bg-bb-blue px-2.5 py-1 text-xs font-medium text-white hover:bg-bb-blue-light disabled:opacity-50 cursor-pointer"
                 >
                   {saving && <Loader2 size={11} className="animate-spin" />}
                   Add

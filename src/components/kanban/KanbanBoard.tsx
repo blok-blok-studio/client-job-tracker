@@ -320,7 +320,7 @@ export default function KanbanBoard() {
     fetchTasks();
   }
 
-  const inputClass = "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
+  const inputClass = "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
   return (
     <>
@@ -333,7 +333,7 @@ export default function KanbanBoard() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search tasks..."
-              className="w-full pl-8 pr-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              className="w-full pl-8 pr-3 py-1.5 bg-bb-surface border border-bb-border rounded-md text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
             />
           </div>
           <div className="flex rounded-md border border-bb-border overflow-hidden shrink-0">
@@ -346,7 +346,7 @@ export default function KanbanBoard() {
                 onClick={() => setView(key)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
                   view === key
-                    ? "bg-bb-orange text-white"
+                    ? "bg-bb-blue text-white"
                     : "bg-bb-surface text-bb-dim hover:text-white"
                 }`}
               >
@@ -382,7 +382,7 @@ export default function KanbanBoard() {
               title={`Show only cards assigned to ${me}`}
               className={`shrink-0 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
                 filterAssignee.toLowerCase() === me.toLowerCase()
-                  ? "bg-bb-orange text-white border-bb-orange"
+                  ? "bg-bb-blue text-white border-bb-blue"
                   : "bg-bb-surface text-bb-muted border-bb-border hover:text-white"
               }`}
             >
@@ -453,7 +453,7 @@ export default function KanbanBoard() {
             createPortal(
               <DragOverlay>
                 {activeTask && (
-                  <div className="bg-bb-surface border border-bb-orange rounded-lg p-3 shadow-modal opacity-90 w-[280px]">
+                  <div className="bg-bb-surface border border-bb-blue rounded-lg p-3 shadow-modal opacity-90 w-[280px]">
                     <p className="text-sm font-medium">{activeTask.title}</p>
                     <Badge variant="default" size="sm">{activeTask.priority}</Badge>
                   </div>
@@ -541,7 +541,7 @@ export default function KanbanBoard() {
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => setAddModalStatus(null)} className="px-4 py-2 text-sm text-bb-muted hover:text-white">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md">Add Task</button>
+            <button type="submit" className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md">Add Task</button>
           </div>
         </form>
       </Modal>

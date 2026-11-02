@@ -65,7 +65,7 @@ function getFileIcon(fileType: string, size: number) {
   if (fileType === "IMAGE") return <ImageIcon size={size} className="text-blue-400" />;
   if (fileType === "VIDEO") return <Film size={size} className="text-purple-400" />;
   if (fileType === "AUDIO") return <Music size={size} className="text-green-400" />;
-  return <FileText size={size} className="text-orange-400" />;
+  return <FileText size={size} className="text-bb-accent" />;
 }
 
 export default function MediaManager({
@@ -527,7 +527,7 @@ export default function MediaManager({
   const gridCls = `grid gap-2 ${selectedId && !selectMode ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-3 lg:grid-cols-4"}`;
   const folderPillCls = (active: boolean) =>
     `text-[10px] px-2 py-0.5 rounded-full transition-colors max-w-[160px] truncate ${
-      active ? "bg-bb-orange/20 text-bb-orange" : "bg-bb-elevated text-bb-dim hover:text-white"
+      active ? "bg-bb-blue/20 text-bb-accent" : "bg-bb-elevated text-bb-dim hover:text-white"
     }`;
 
   const renderTile = (media: MediaFile, idx: number) => {
@@ -549,9 +549,9 @@ export default function MediaManager({
         }}
         className={`group relative rounded-lg overflow-hidden bg-bb-black border aspect-square cursor-pointer transition-all ${
           selectMode && isSelected
-            ? "border-bb-orange ring-1 ring-bb-orange/30"
+            ? "border-bb-blue ring-1 ring-bb-blue/30"
             : selectedId === media.id
-            ? "border-bb-orange ring-1 ring-bb-orange/30"
+            ? "border-bb-blue ring-1 ring-bb-blue/30"
             : "border-bb-border hover:border-bb-muted"
         }`}
       >
@@ -567,8 +567,8 @@ export default function MediaManager({
             <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
           </div>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-orange-500/10 to-transparent">
-            <FileText size={28} className="text-orange-400 mb-2" />
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-bb-blue/10 to-transparent">
+            <FileText size={28} className="text-bb-accent mb-2" />
             <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
           </div>
         )}
@@ -585,7 +585,7 @@ export default function MediaManager({
         {selectMode && (
           <div className="absolute top-1.5 left-1.5 z-10">
             {isSelected ? (
-              <CheckSquare size={18} className="text-bb-orange drop-shadow-md" />
+              <CheckSquare size={18} className="text-bb-accent drop-shadow-md" />
             ) : (
               <Square size={18} className="text-white/60 drop-shadow-md" />
             )}
@@ -594,14 +594,14 @@ export default function MediaManager({
 
         {/* Label badge */}
         {media.label && !selectMode && (
-          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-bb-orange/80 text-[9px] text-white font-medium truncate max-w-[80%]">
+          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-bb-blue/80 text-[9px] text-white font-medium truncate max-w-[80%]">
             {media.label}
           </div>
         )}
 
         {/* Event/folder chip — only when a specific event isn't already the active view */}
         {media.folder && !selectMode && !media.label && folderFilter !== media.folder && (
-          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-bb-orange font-medium truncate max-w-[80%] flex items-center gap-0.5">
+          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-bb-accent font-medium truncate max-w-[80%] flex items-center gap-0.5">
             <Folder size={9} /> {media.folder}
           </div>
         )}
@@ -664,7 +664,7 @@ export default function MediaManager({
 
         {/* Select mode dim overlay for selected items */}
         {selectMode && isSelected && (
-          <div className="absolute inset-0 bg-bb-orange/10 pointer-events-none" />
+          <div className="absolute inset-0 bg-bb-blue/10 pointer-events-none" />
         )}
       </div>
     );
@@ -680,11 +680,11 @@ export default function MediaManager({
       </datalist>
       {/* Drag overlay */}
       {dragOver && (
-        <div className="absolute inset-0 z-50 rounded-xl border-2 border-dashed border-bb-orange bg-bb-orange/5 flex flex-col items-center justify-center pointer-events-none">
-          <div className="p-4 rounded-full bg-bb-orange/10 mb-3">
-            <Upload size={32} className="text-bb-orange" />
+        <div className="absolute inset-0 z-50 rounded-xl border-2 border-dashed border-bb-blue bg-bb-blue/5 flex flex-col items-center justify-center pointer-events-none">
+          <div className="p-4 rounded-full bg-bb-blue/10 mb-3">
+            <Upload size={32} className="text-bb-accent" />
           </div>
-          <p className="text-sm font-medium text-bb-orange">Drop files to upload</p>
+          <p className="text-sm font-medium text-bb-accent">Drop files to upload</p>
           <p className="text-xs text-bb-dim mt-1">Photos, videos, audio, and documents</p>
         </div>
       )}
@@ -702,7 +702,7 @@ export default function MediaManager({
                   onClick={() => setFilter(t)}
                   className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
                     filter === t
-                      ? "bg-bb-orange/20 text-bb-orange"
+                      ? "bg-bb-blue/20 text-bb-accent"
                       : "bg-bb-elevated text-bb-dim hover:text-white"
                   }`}
                 >
@@ -766,7 +766,7 @@ export default function MediaManager({
               </>
             )
           )}
-          <label className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1 cursor-pointer px-2 py-2 -my-2 sm:p-0 sm:m-0">
+          <label className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1 cursor-pointer px-2 py-2 -my-2 sm:p-0 sm:m-0">
             <Upload size={14} />
             {uploadingMedia ? (uploadProgress ? `Uploading ${uploadProgress.done} of ${uploadProgress.total}` : "Uploading...") : "Upload"}
             <input
@@ -822,7 +822,7 @@ export default function MediaManager({
                   <div key={g.name || UNFILED}>
                     <div className="flex items-center gap-1.5 mb-2">
                       {g.name ? (
-                        <Folder size={13} className="text-bb-orange shrink-0" />
+                        <Folder size={13} className="text-bb-accent shrink-0" />
                       ) : (
                         <FileText size={13} className="text-bb-dim shrink-0" />
                       )}
@@ -879,7 +879,7 @@ export default function MediaManager({
                     <input
                       value={labelValue}
                       onChange={(e) => setLabelValue(e.target.value)}
-                      className="flex-1 text-xs bg-bb-surface border border-bb-border rounded px-2 py-1 text-white focus:outline-none focus:border-bb-orange"
+                      className="flex-1 text-xs bg-bb-surface border border-bb-border rounded px-2 py-1 text-white focus:outline-none focus:border-bb-blue"
                       placeholder="e.g. Logo, Headshot..."
                       autoFocus
                       onKeyDown={(e) => { if (e.key === "Enter") saveLabel(); if (e.key === "Escape") setEditingLabel(false); }}
@@ -914,7 +914,7 @@ export default function MediaManager({
                       value={folderValue}
                       onChange={(e) => setFolderValue(e.target.value)}
                       list="mm-event-folders"
-                      className="flex-1 min-w-0 text-xs bg-bb-surface border border-bb-border rounded px-2 py-1 text-white focus:outline-none focus:border-bb-orange"
+                      className="flex-1 min-w-0 text-xs bg-bb-surface border border-bb-border rounded px-2 py-1 text-white focus:outline-none focus:border-bb-blue"
                       placeholder="e.g. Smith Wedding..."
                       autoFocus
                       onKeyDown={(e) => { if (e.key === "Enter") saveFolder(); if (e.key === "Escape") setEditingFolder(false); }}
@@ -931,7 +931,7 @@ export default function MediaManager({
                     onClick={() => setEditingFolder(true)}
                     className="text-xs flex items-center gap-1 w-full text-left hover:text-white"
                   >
-                    <span className={selectedMedia.folder ? "text-bb-orange truncate" : "text-bb-muted"}>
+                    <span className={selectedMedia.folder ? "text-bb-accent truncate" : "text-bb-muted"}>
                       {selectedMedia.folder || "Assign to event..."}
                     </span>
                     <Edit2 size={10} className="ml-auto shrink-0 text-bb-dim" />
@@ -951,12 +951,12 @@ export default function MediaManager({
                       value={notesValue}
                       onChange={(e) => setNotesValue(e.target.value)}
                       rows={3}
-                      className="w-full text-xs bg-bb-surface border border-bb-border rounded px-2 py-1 text-white focus:outline-none focus:border-bb-orange resize-none"
+                      className="w-full text-xs bg-bb-surface border border-bb-border rounded px-2 py-1 text-white focus:outline-none focus:border-bb-blue resize-none"
                       placeholder="Add notes..."
                       autoFocus
                     />
                     <div className="flex gap-1 justify-end">
-                      <button onClick={saveNotes} disabled={saving} className="text-[10px] px-2 py-0.5 rounded bg-bb-orange text-white hover:bg-bb-orange-light">
+                      <button onClick={saveNotes} disabled={saving} className="text-[10px] px-2 py-0.5 rounded bg-bb-blue text-white hover:bg-bb-blue-light">
                         Save
                       </button>
                       <button onClick={() => setEditingNotes(false)} className="text-[10px] px-2 py-0.5 rounded bg-bb-elevated text-bb-dim hover:text-white">
@@ -1066,14 +1066,14 @@ export default function MediaManager({
                     list="mm-event-folders"
                     placeholder="Event name…"
                     disabled={assigning}
-                    className="w-40 text-xs bg-bb-black border border-bb-border rounded-lg pl-7 pr-2 py-2 text-white focus:outline-none focus:border-bb-orange"
+                    className="w-40 text-xs bg-bb-black border border-bb-border rounded-lg pl-7 pr-2 py-2 text-white focus:outline-none focus:border-bb-blue"
                     onKeyDown={(e) => { if (e.key === "Enter" && batchFolderInput.trim()) applyBatchFolder(); }}
                   />
                 </div>
                 <button
                   onClick={applyBatchFolder}
                   disabled={assigning || !batchFolderInput.trim()}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-bb-orange text-white text-sm font-medium hover:bg-bb-orange-light transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-bb-blue text-white text-sm font-medium hover:bg-bb-blue-light transition-colors disabled:opacity-50"
                   title="Move selected files to this event"
                 >
                   {assigning ? <Loader2 size={14} className="animate-spin" /> : <FolderInput size={14} />}
@@ -1128,7 +1128,7 @@ export default function MediaManager({
       {/* Marquee rectangle while drag-selecting */}
       {marquee && (
         <div
-          className="fixed z-[150] border border-bb-orange bg-bb-orange/10 rounded-sm pointer-events-none"
+          className="fixed z-[150] border border-bb-blue bg-bb-blue/10 rounded-sm pointer-events-none"
           style={{ left: marquee.x1, top: marquee.y1, width: marquee.x2 - marquee.x1, height: marquee.y2 - marquee.y1 }}
         />
       )}
@@ -1261,7 +1261,7 @@ export default function MediaManager({
               ) : (
                 <div className="flex flex-col items-center gap-4">
                   <div className="w-32 h-32 rounded-2xl bg-white/5 flex items-center justify-center">
-                    <FileText size={48} className="text-orange-400" />
+                    <FileText size={48} className="text-bb-accent" />
                   </div>
                   <p className="text-white font-medium">{media.filename}</p>
                   <p className="text-sm text-bb-dim">{formatSize(media.fileSize)} &middot; {media.mimeType}</p>
@@ -1292,7 +1292,7 @@ export default function MediaManager({
                     key={thumb.id}
                     onClick={() => setViewerIndex(i)}
                     className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
-                      i === viewerIndex ? "border-bb-orange scale-110" : "border-transparent opacity-50 hover:opacity-100"
+                      i === viewerIndex ? "border-bb-blue scale-110" : "border-transparent opacity-50 hover:opacity-100"
                     }`}
                   >
                     {thumb.fileType === "IMAGE" ? (
@@ -1306,7 +1306,7 @@ export default function MediaManager({
                       </div>
                     ) : (
                       <div className="w-full h-full bg-bb-surface flex items-center justify-center">
-                        <FileText size={14} className="text-orange-400" />
+                        <FileText size={14} className="text-bb-accent" />
                       </div>
                     )}
                   </button>

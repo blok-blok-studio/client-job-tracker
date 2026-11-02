@@ -287,6 +287,8 @@ const MUTED = rgb(0.42, 0.42, 0.42);
 const FAINT = rgb(0.62, 0.62, 0.62);
 const RULE = rgb(0.82, 0.82, 0.82);
 const PANEL = rgb(0.965, 0.965, 0.965);
+const BLUE1 = rgb(0.145, 0.38, 0.847); // #2561D8
+const BLUE2 = rgb(0.008, 0.031, 0.529); // #020887
 const BLACK = rgb(0, 0, 0);
 
 function safe(text: string): string {
@@ -335,6 +337,8 @@ export async function renderStatementPdf(v: StatementView): Promise<Uint8Array> 
   function newPage() {
     page = pdf.addPage([PAGE_W, PAGE_H]);
     pageNo++;
+    page.drawRectangle({ x: 0, y: PAGE_H - 8, width: PAGE_W, height: 8, color: BLUE2 });
+    page.drawRectangle({ x: 0, y: PAGE_H - 8, width: PAGE_W * 0.34, height: 8, color: BLUE1 });
     if (pageNo > 1) {
       text(v.seller.sellerName.toUpperCase(), M, PAGE_H - 36, 7.5, bold, MUTED);
       textRight(`COMMISSION STATEMENT ${v.number}`, PAGE_W - M, PAGE_H - 36, 7.5, font, MUTED);
@@ -347,21 +351,21 @@ export async function renderStatementPdf(v: StatementView): Promise<Uint8Array> 
   };
   newPage();
 
-  const headTop = PAGE_H - 44;
+  const headTop = PAGE_H - 34;
   let logoBottom = headTop - 40;
   try {
     const logo = await pdf.embedPng(fs.readFileSync(path.join(process.cwd(), "public", "bb_logo_wordmark_subhead_BLK_PNG.png")));
-    const h = 52;
+    const h = 76;
     page.drawImage(logo, { x: M - 4, y: headTop - h + 6, width: (logo.width / logo.height) * h, height: h });
     logoBottom = headTop - h + 6;
   } catch {
     text("BLOK BLOK STUDIO", M, headTop - 18, 16, bold, BLACK);
   }
-  textRight("COMMISSION STATEMENT", PAGE_W - M, headTop - 16, 17, bold, BLACK);
+  textRight("COMMISSION STATEMENT", PAGE_W - M, headTop - 16, 17, bold, BLUE2);
   textRight("Self-billing credit note / Gutschrift", PAGE_W - M, headTop - 30, 8.5, font, MUTED);
   textRight(v.number, PAGE_W - M, headTop - 44, 10.5, font, INK);
   y = Math.min(logoBottom, headTop - 56) - 16;
-  rule(M, PAGE_W - M, y, 1, BLACK);
+  rule(M, PAGE_W - M, y, 1.5, BLUE2);
   y -= 20;
 
   // Parties
@@ -423,7 +427,7 @@ export async function renderStatementPdf(v: StatementView): Promise<Uint8Array> 
     textRight("Rate", cRateR, y, 7.5, bold, MUTED);
     textRight("Amount", cAmtR, y, 7.5, bold, MUTED);
     y -= 6;
-    rule(M, PAGE_W - M, y, 0.8, BLACK);
+    rule(M, PAGE_W - M, y, 1, BLUE1);
     y -= 14;
   }
   header();

@@ -6,10 +6,12 @@ import { LABELS } from "./types";
 import { formatDate, formatMoneyPdf, formatQty } from "./money";
 import { qrPng } from "./epc-qr";
 
-// Studio invoice PDF. Black and white only (brand rule for invoices): the
-// wordmark, grey rules, and one QR code. German invoices come out on A4 in
+// Studio invoice PDF: the big wordmark, the brand blues on band and rules, and
+// one QR code that stays black on white so banking apps can read it. German invoices come out on A4 in
 // German, US invoices on Letter in English, EU invoices on A4 in English.
 
+const BLUE1 = rgb(0.145, 0.38, 0.847); // #2561D8
+const BLUE2 = rgb(0.008, 0.031, 0.529); // #020887
 const BLACK = rgb(0, 0, 0);
 const INK = rgb(0.1, 0.1, 0.1);
 const MUTED = rgb(0.42, 0.42, 0.42);
@@ -107,6 +109,8 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
   function newPage() {
     page = pdf.addPage([PAGE_W, PAGE_H]);
     pageNo++;
+    page.drawRectangle({ x: 0, y: PAGE_H - 8, width: PAGE_W, height: 8, color: BLUE2 });
+    page.drawRectangle({ x: 0, y: PAGE_H - 8, width: PAGE_W * 0.34, height: 8, color: BLUE1 });
     if (pageNo > 1) {
       text(view.seller.sellerName.toUpperCase(), M, PAGE_H - 36, 7.5, bold, MUTED);
       textRight(`${TITLE} ${view.number || L.draft}`, PAGE_W - M, PAGE_H - 36, 7.5, font, MUTED);
@@ -123,12 +127,12 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
   newPage();
 
   // ── Letterhead ─────────────────────────────────────────────────
-  const headTop = PAGE_H - 44;
+  const headTop = PAGE_H - 34;
   let logoBottom = headTop - 40;
   try {
     const logoBytes = fs.readFileSync(path.join(process.cwd(), "public", "bb_logo_wordmark_subhead_BLK_PNG.png"));
     const logo = await pdf.embedPng(logoBytes);
-    const h = 52;
+    const h = 76;
     const w = (logo.width / logo.height) * h;
     page.drawImage(logo, { x: M - 4, y: headTop - h + 6, width: w, height: h });
     logoBottom = headTop - h + 6;
@@ -139,14 +143,14 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
 
   // Title + number on the right
   const titleSize = TITLE.length > 14 ? 16 : 22;
-  textRight(TITLE, PAGE_W - M, headTop - 18, titleSize, bold, BLACK);
+  textRight(TITLE, PAGE_W - M, headTop - 18, titleSize, bold, BLUE2);
   textRight(view.number || L.draft, PAGE_W - M, headTop - 34, 10.5, font, INK);
   if (view.status === "PAID" && view.paidAt && docType === "INVOICE") {
     textRight(`${L.paid} · ${formatDate(view.paidAt, lang)}`, PAGE_W - M, headTop - 48, 8, bold, MUTED);
   }
 
-  y = Math.min(logoBottom, headTop - 56) - 16;
-  rule(M, PAGE_W - M, y, 1, BLACK);
+  y = Math.min(logoBottom, headTop - 56) - 12;
+  rule(M, PAGE_W - M, y, 1.5, BLUE2);
   y -= 20;
 
   // ── Addresses + meta ───────────────────────────────────────────
@@ -226,7 +230,7 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
     textRight(L.unitPrice, cUnitR, y, 7.5, bold, MUTED);
     textRight(L.lineTotal, cTotR, y, 7.5, bold, MUTED);
     y -= 6;
-    rule(M, PAGE_W - M, y, 0.8, BLACK);
+    rule(M, PAGE_W - M, y, 1, BLUE1);
     y -= 14;
   }
   tableHeader();
@@ -259,10 +263,10 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
   text(vatLabel, totLabelX, y, 9, font, MUTED);
   textRight(money(view.vatAmount), cTotR, y, 9, font, INK);
   y -= 10;
-  rule(totLabelX, cTotR, y, 0.8, BLACK);
+  rule(totLabelX, cTotR, y, 1, BLUE1);
   y -= 15;
-  text(docType === "INVOICE" ? L.totalDue : L.total, totLabelX, y, 11, bold, BLACK);
-  textRight(money(view.total), cTotR, y, 12, bold, BLACK);
+  text(docType === "INVOICE" ? L.totalDue : L.total, totLabelX, y, 11, bold, BLUE2);
+  textRight(money(view.total), cTotR, y, 12, bold, BLUE2);
   y -= 20;
 
   for (const n of view.vatNotes) {
@@ -343,7 +347,7 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
   page.drawRectangle({ x: M, y: panelTop - panelH, width: CW, height: panelH, color: PANEL, borderColor: RULE, borderWidth: 0.5 });
 
   let py = panelTop - panelPad - 8;
-  text((isCard ? L.paymentTitleCard : L.paymentTitle).toUpperCase(), M + panelPad, py, 7.5, bold, BLACK);
+  text((isCard ? L.paymentTitleCard : L.paymentTitle).toUpperCase(), M + panelPad, py, 7.5, bold, BLUE2);
   py -= 16;
   const valX = M + panelPad + 112;
   const textMaxW = (qrSize ? CW - qrSize - panelPad * 3 : CW - panelPad * 2) - 112;

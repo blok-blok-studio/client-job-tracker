@@ -21,7 +21,7 @@ interface ClientTask {
 const STATUS_STYLE: Record<TaskStatus, string> = {
   BACKLOG: "bg-bb-elevated text-bb-dim",
   TODO: "bg-blue-500/15 text-blue-400",
-  IN_PROGRESS: "bg-bb-orange/15 text-bb-orange",
+  IN_PROGRESS: "bg-bb-blue/15 text-bb-accent",
   IN_REVIEW: "bg-purple-500/15 text-purple-400",
   DONE: "bg-emerald-500/15 text-emerald-400",
   BLOCKED: "bg-red-500/15 text-red-400",
@@ -29,7 +29,7 @@ const STATUS_STYLE: Record<TaskStatus, string> = {
 
 const PRIORITY_DOT: Record<Priority, string> = {
   URGENT: "bg-red-500",
-  HIGH: "bg-bb-orange",
+  HIGH: "bg-bb-blue",
   MEDIUM: "bg-blue-500",
   LOW: "bg-bb-dim",
 };
@@ -143,7 +143,7 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
     <div className="bg-bb-surface border border-bb-border rounded-lg">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-bb-border">
         <div className="flex items-center gap-2">
-          <ClipboardList size={15} className="text-bb-orange" />
+          <ClipboardList size={15} className="text-bb-accent" />
           <h3 className="text-sm font-display font-semibold text-white">Tasks & Work Updates</h3>
           <span className="text-xs bg-bb-elevated px-1.5 py-0.5 rounded text-bb-dim">{open.length} open</span>
         </div>
@@ -162,7 +162,7 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
               onClick={() => setTemplateOpen((v) => !v)}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bb-elevated hover:bg-bb-border text-xs font-semibold text-bb-muted hover:text-white transition-colors"
             >
-              <Rocket size={12} className="text-bb-orange" /> Start project
+              <Rocket size={12} className="text-bb-accent" /> Start project
             </button>
             {templateOpen && (
               <>
@@ -176,7 +176,7 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
                       className="w-full text-left px-3 py-2.5 border-b border-bb-border last:border-b-0 hover:bg-bb-elevated transition-colors disabled:opacity-50"
                     >
                       <p className="text-xs font-semibold text-white flex items-center gap-1.5">
-                        {applyingTemplate === tpl.key && <Loader2 size={11} className="animate-spin text-bb-orange" />}
+                        {applyingTemplate === tpl.key && <Loader2 size={11} className="animate-spin text-bb-accent" />}
                         {tpl.name}
                         <span className="ml-auto text-[10px] text-bb-dim font-normal">{tpl.tasks.length} tasks</span>
                       </p>
@@ -196,13 +196,13 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="Add a task for this client..."
-            className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+            className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
           />
           <select
             value={newAssignee}
             onChange={(e) => setNewAssignee(e.target.value)}
             title="Who is doing this?"
-            className="px-2 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-bb-muted focus:outline-none focus:ring-2 focus:ring-bb-orange/50 [color-scheme:dark] max-w-[110px]"
+            className="px-2 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-bb-muted focus:outline-none focus:ring-2 focus:ring-bb-blue/50 [color-scheme:dark] max-w-[110px]"
           >
             <option value="">Anyone</option>
             {team.map((u) => (
@@ -212,7 +212,7 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
           <button
             type="submit"
             disabled={!newTitle.trim() || adding}
-            className="flex items-center gap-1.5 px-3 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors shrink-0"
           >
             {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
             <span className="hidden sm:inline">Add</span>
@@ -232,7 +232,7 @@ export default function ClientTasks({ clientId }: { clientId: string }) {
             <button
               key={t.id}
               onClick={() => setDetailTaskId(t.id)}
-              className="w-full flex items-center gap-2.5 rounded-lg border border-bb-border bg-bb-black px-3 py-2.5 text-left hover:border-bb-orange/40 transition-colors"
+              className="w-full flex items-center gap-2.5 rounded-lg border border-bb-border bg-bb-black px-3 py-2.5 text-left hover:border-bb-blue/40 transition-colors"
             >
               <span className={`h-2 w-2 rounded-full shrink-0 ${PRIORITY_DOT[t.priority]}`} />
               <span className={`flex-1 min-w-0 truncate text-sm ${t.status === "DONE" ? "text-bb-dim line-through" : "text-white"}`}>

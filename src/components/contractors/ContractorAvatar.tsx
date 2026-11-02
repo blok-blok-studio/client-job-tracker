@@ -5,7 +5,7 @@
 // so a contractor without a selfie still reads as a person rather than a blank.
 
 const FALLBACK_GRADIENTS = [
-  "linear-gradient(135deg, #f97316, #ec4899)",
+  "linear-gradient(135deg, #2561D8, #ec4899)",
   "linear-gradient(135deg, #6366f1, #06b6d4)",
   "linear-gradient(135deg, #22c55e, #84cc16)",
   "linear-gradient(135deg, #a855f7, #f43f5e)",
@@ -49,7 +49,7 @@ export default function ContractorAvatar({
   return (
     <span
       className={`relative inline-flex shrink-0 rounded-full overflow-hidden ${
-        ring ? "ring-2 ring-bb-orange/40 ring-offset-2 ring-offset-bb-surface" : ""
+        ring ? "ring-2 ring-bb-blue/40 ring-offset-2 ring-offset-bb-surface" : ""
       } ${className}`}
       style={{ width: size, height: size, background }}
       title={contractor.name}

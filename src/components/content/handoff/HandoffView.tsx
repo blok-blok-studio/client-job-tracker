@@ -225,7 +225,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
   const [viewing, setViewing] = useState<HandoffMedia | null>(null);
 
   useEffect(() => {
-    QRCode.toDataURL(window.location.href, { margin: 1, width: 180, color: { dark: "#0A0A0A", light: "#FFFFFF" } })
+    QRCode.toDataURL(window.location.href, { margin: 1, width: 180, color: { dark: "#000000", light: "#FFFFFF" } })
       .then(setQr)
       .catch(() => {});
   }, []);
@@ -373,7 +373,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
       case "PUBLISHED":
         return { label: "Posted", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" };
       case "ACTION_NEEDED":
-        return { label: "Ready to post", cls: "bg-bb-orange/15 text-bb-orange border-bb-orange/30" };
+        return { label: "Ready to post", cls: "bg-bb-blue/15 text-bb-accent border-bb-blue/30" };
       case "SCHEDULED":
         return { label: "Scheduled", cls: "bg-bb-elevated text-bb-muted border-bb-border" };
       case "DRAFT":
@@ -425,7 +425,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
           <div className="text-sm">
             <p className="text-white font-medium">Marked as posted</p>
             {post.externalUrl || postUrl ? (
-              <a href={post.externalUrl || postUrl} target="_blank" rel="noopener noreferrer" className="text-bb-orange hover:text-bb-orange-light inline-flex items-center gap-1 text-xs mt-1">
+              <a href={post.externalUrl || postUrl} target="_blank" rel="noopener noreferrer" className="text-bb-accent hover:text-bb-accent-light inline-flex items-center gap-1 text-xs mt-1">
                 View the post <ExternalLink size={11} />
               </a>
             ) : (
@@ -466,8 +466,8 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
       )}
 
       {inDrafts && !done && (
-        <div className="bg-bb-orange/5 border border-bb-orange/30 rounded-xl p-4 flex items-start gap-3">
-          <Smartphone size={18} className="text-bb-orange shrink-0 mt-0.5" />
+        <div className="bg-bb-blue/5 border border-bb-blue/30 rounded-xl p-4 flex items-start gap-3">
+          <Smartphone size={18} className="text-bb-accent shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="text-white font-medium">This is already in TikTok as a draft</p>
             <p className="text-bb-muted text-xs mt-1">
@@ -531,7 +531,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
                     onClick={() => (state === "ready" && prep[i].file ? saveFiles([prep[i].file!]) : prepare([i]))}
                     className={`w-full flex items-center justify-center gap-1 py-1.5 rounded-md text-[11px] font-medium border transition-colors disabled:opacity-60 ${
                       state === "ready"
-                        ? "bg-bb-orange border-bb-orange text-white hover:bg-bb-orange-light"
+                        ? "bg-bb-blue border-bb-blue text-white hover:bg-bb-blue-light"
                         : state === "error"
                           ? "bg-red-500/10 border-red-500/30 text-red-400"
                           : "bg-bb-elevated border-bb-border text-bb-muted hover:text-white"
@@ -550,7 +550,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
               <button
                 type="button"
                 onClick={() => saveFiles(post.media.map((_, i) => prep[i].file!))}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium transition-colors"
               >
                 <Share2 size={15} /> Save all {post.media.length} to phone
               </button>
@@ -559,7 +559,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
                 type="button"
                 disabled={anyPreparing}
                 onClick={() => prepare(post.media.map((_, i) => i))}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-bb-elevated border border-bb-border text-white text-sm font-medium hover:border-bb-orange transition-colors disabled:opacity-60"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-bb-elevated border border-bb-border text-white text-sm font-medium hover:border-bb-blue transition-colors disabled:opacity-60"
               >
                 {anyPreparing ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
                 {anyPreparing ? "Getting files ready" : "Get all files ready"}
@@ -645,9 +645,9 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
       <section className="bg-bb-surface border border-bb-border rounded-xl p-4 space-y-3">
         <h2 className="text-sm font-medium text-white">3. Post it</h2>
         {sound && (
-          <div className="rounded-lg border border-bb-orange/30 bg-bb-orange/5 p-3 space-y-2">
+          <div className="rounded-lg border border-bb-blue/30 bg-bb-blue/5 p-3 space-y-2">
             <p className="flex items-center gap-1.5 text-xs text-bb-dim uppercase tracking-wide">
-              <TrendingUp size={12} className="text-bb-orange" /> Trending sound for this post
+              <TrendingUp size={12} className="text-bb-accent" /> Trending sound for this post
             </p>
             <p className="text-sm text-white">
               {sound.name}
@@ -658,7 +658,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => tick("sound")}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-semibold transition-colors"
             >
               <PlatformIcon platform={sound.platform} size={16} className="text-white" />
               Open the sound in {getPlatformLabel(sound.platform)}
@@ -676,7 +676,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
             type="button"
             onClick={openApp}
             className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white text-sm font-semibold transition-colors ${
-              post.platform === "REDNOTE" ? "bg-rose-600 hover:bg-rose-500" : "bg-bb-elevated border border-bb-border hover:border-bb-orange"
+              post.platform === "REDNOTE" ? "bg-rose-600 hover:bg-rose-500" : "bg-bb-elevated border border-bb-border hover:border-bb-blue"
             }`}
           >
             <PlatformIcon platform={post.platform} size={16} className={post.platform === "REDNOTE" ? "text-white" : undefined} />
@@ -687,7 +687,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
           <ul className="space-y-1.5">
             {tips.map((tip) => (
               <li key={tip} className="text-xs text-bb-muted flex gap-2">
-                <span className="text-bb-orange">•</span>
+                <span className="text-bb-accent">•</span>
                 {tip}
               </li>
             ))}
@@ -701,7 +701,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
                 type="checkbox"
                 checked={!!checks[item.key] || (item.key === "posted" && done)}
                 onChange={(e) => setChecks((c) => ({ ...c, [item.key]: e.target.checked }))}
-                className="w-4 h-4 accent-[#FF6B00]"
+                className="w-4 h-4 accent-[#2561D8]"
               />
               <span className={checks[item.key] ? "line-through text-bb-dim" : ""}>{item.label}</span>
             </label>
@@ -711,7 +711,7 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
 
       {/* Step 4: record it */}
       {canMarkPosted && (
-        <section className="bg-bb-surface border border-bb-orange/30 rounded-xl p-4 space-y-3">
+        <section className="bg-bb-surface border border-bb-blue/30 rounded-xl p-4 space-y-3">
           <h2 className="text-sm font-medium text-white">4. Mark it as posted</h2>
           <input
             type="url"
@@ -719,13 +719,13 @@ export default function HandoffView({ post }: { post: HandoffPost }) {
             value={postUrl}
             onChange={(e) => setPostUrl(e.target.value)}
             placeholder="Paste the post link (optional)"
-            className="w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange"
+            className="w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue"
           />
           <button
             type="button"
             onClick={markPosted}
             disabled={busy !== null || heldByClient}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-semibold transition-colors disabled:opacity-50"
           >
             {busy === "posted" ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
             Mark as posted

@@ -15,9 +15,9 @@ interface NotificationRow {
 }
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
-  task_assigned: <UserPlus size={13} className="text-bb-orange" />,
-  mention: <AtSign size={13} className="text-bb-orange" />,
-  task_comment: <MessageSquare size={13} className="text-bb-orange" />,
+  task_assigned: <UserPlus size={13} className="text-bb-accent" />,
+  mention: <AtSign size={13} className="text-bb-accent" />,
+  task_comment: <MessageSquare size={13} className="text-bb-accent" />,
 };
 
 function ago(dateStr: string): string {
@@ -102,7 +102,7 @@ export default function NotificationBell() {
       >
         <Bell size={20} />
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-bb-orange text-[9px] font-bold text-white flex items-center justify-center">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-bb-blue text-[9px] font-bold text-white flex items-center justify-center">
             {unread > 99 ? "99+" : unread}
           </span>
         )}
@@ -115,7 +115,7 @@ export default function NotificationBell() {
             {unread > 0 && (
               <button
                 onClick={markAll}
-                className="flex items-center gap-1 text-[10px] text-bb-dim hover:text-bb-orange transition-colors"
+                className="flex items-center gap-1 text-[10px] text-bb-dim hover:text-bb-accent transition-colors"
               >
                 <CheckCheck size={11} /> Mark all read
               </button>
@@ -140,7 +140,7 @@ export default function NotificationBell() {
                     {n.body && <p className="mt-0.5 text-[11px] text-bb-dim leading-snug line-clamp-2">{n.body}</p>}
                   </div>
                   <span className="text-[10px] text-bb-dim shrink-0">{ago(n.createdAt)}</span>
-                  {!n.readAt && <span className="mt-1 w-1.5 h-1.5 rounded-full bg-bb-orange shrink-0" />}
+                  {!n.readAt && <span className="mt-1 w-1.5 h-1.5 rounded-full bg-bb-blue shrink-0" />}
                 </div>
               </button>
             ))}

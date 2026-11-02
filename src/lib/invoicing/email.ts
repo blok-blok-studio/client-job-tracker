@@ -60,15 +60,13 @@ export async function sendStudioInvoiceEmail(params: {
 
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;color:#111;">
-      <div style="margin-bottom:28px;">
-        <h2 style="margin:0;font-size:18px;letter-spacing:0.02em;">Blok Blok Studio</h2>
-      </div>
+      <img src="https://app.blokblokstudio.com/bb_logo_wordmark_subhead_BLK_PNG.png" alt="Blok Blok Studio" width="170" style="display:block;width:170px;height:auto;margin:0 0 28px;border:0;" />
       <p style="font-size:15px;line-height:1.6;">${esc(greeting)}</p>
       <p style="font-size:15px;line-height:1.6;">${intro}</p>
       ${custom}
       ${isCorrection ? "" : `<p style="font-size:15px;line-height:1.6;">${payLine}<br/>${refLine}</p>`}
       <div style="margin:28px 0;">
-        <a href="${esc(v.publicUrl)}" style="display:inline-block;background:#111;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">${esc(button)}</a>
+        <a href="${esc(v.publicUrl)}" style="display:inline-block;background:#2561D8;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">${esc(button)}</a>
       </div>
       <p style="font-size:15px;line-height:1.6;">${esc(closing)}<br/>${esc(v.seller.contactName)}</p>
       <hr style="border:none;border-top:1px solid #e5e5e5;margin:32px 0;"/>
@@ -103,7 +101,7 @@ export async function sendPaymentReceiptEmail(params: { to: string; view: Invoic
   const subject = de ? `Zahlungsbestätigung: Rechnung ${number}` : `Payment received: invoice ${number}`;
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;color:#111;">
-      <h2 style="margin:0 0 28px;font-size:18px;letter-spacing:0.02em;">Blok Blok Studio</h2>
+      <img src="https://app.blokblokstudio.com/bb_logo_wordmark_subhead_BLK_PNG.png" alt="Blok Blok Studio" width="170" style="display:block;width:170px;height:auto;margin:0 0 28px;border:0;" />
       <p style="font-size:15px;line-height:1.6;">${esc(de ? `Hallo ${first},` : `Hi ${first},`)}</p>
       <p style="font-size:15px;line-height:1.6;">${de ? `vielen Dank, Ihre Zahlung über <strong>${esc(amount)}</strong> zur Rechnung <strong>${esc(number)}</strong> ist am ${esc(paid)} bei uns eingegangen. Die Rechnung ist damit vollständig beglichen.` : `thank you, your payment of <strong>${esc(amount)}</strong> for invoice <strong>${esc(number)}</strong> was received on ${esc(paid)}. The invoice is settled in full.`}</p>
       <p style="font-size:15px;line-height:1.6;">${de ? "Die als bezahlt gekennzeichnete Rechnung ist als PDF angehängt." : "The invoice marked as paid is attached as a PDF for your records."}</p>

@@ -78,7 +78,7 @@ export default function SupportPage() {
               className={cn(
                 "px-3 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap",
                 activeTab === tab.key
-                  ? "bg-bb-orange text-white"
+                  ? "bg-bb-blue text-white"
                   : "text-bb-muted hover:text-white"
               )}
             >

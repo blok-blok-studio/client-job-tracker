@@ -359,9 +359,9 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                 value={titleDraft}
                 onChange={(e) => setTitleDraft(e.target.value)}
                 onBlur={() => setEditingTitle(false)}
-                className="flex-1 px-3 py-2 bg-bb-black border border-bb-orange/50 rounded-lg text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                className="flex-1 px-3 py-2 bg-bb-black border border-bb-blue/50 rounded-lg text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
               />
-              <button type="submit" onMouseDown={(e) => e.preventDefault()} className="p-2 rounded-lg bg-bb-orange text-white"><Check size={13} /></button>
+              <button type="submit" onMouseDown={(e) => e.preventDefault()} className="p-2 rounded-lg bg-bb-blue text-white"><Check size={13} /></button>
             </form>
           ) : (
             <button
@@ -388,7 +388,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                 value={descDraft}
                 onChange={(e) => setDescDraft(e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 bg-bb-black border border-bb-orange/50 rounded-lg text-sm text-bb-muted focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                className="w-full px-3 py-2 bg-bb-black border border-bb-blue/50 rounded-lg text-sm text-bb-muted focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
               />
               <div className="flex justify-end gap-2 mt-1">
                 <button onClick={() => setEditingDesc(false)} className="px-2 py-1 text-xs text-bb-dim hover:text-white">Cancel</button>
@@ -397,7 +397,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                     if (descDraft.trim() !== (task.description || "")) patchTask({ description: descDraft.trim() || "" });
                     setEditingDesc(false);
                   }}
-                  className="px-3 py-1 bg-bb-orange text-white text-xs font-semibold rounded-md"
+                  className="px-3 py-1 bg-bb-blue text-white text-xs font-semibold rounded-md"
                 >
                   Save
                 </button>
@@ -430,7 +430,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   onClick={() => col.key !== task.status && patchTask({ status: col.key })}
                   className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                     task.status === col.key
-                      ? "bg-bb-orange text-white"
+                      ? "bg-bb-blue text-white"
                       : "bg-bb-elevated text-bb-dim hover:bg-bb-border hover:text-white"
                   }`}
                 >
@@ -479,7 +479,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                     className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs border ${
                       b.status === "DONE"
                         ? "bg-green-500/10 border-green-500/30 text-green-400"
-                        : "bg-bb-orange/10 border-bb-orange/30 text-bb-orange"
+                        : "bg-bb-blue/10 border-bb-blue/30 text-bb-accent"
                     }`}
                   >
                     {b.status === "DONE" ? <Check size={11} /> : <Timer size={11} />}
@@ -504,7 +504,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                 value={depQuery}
                 onChange={(e) => setDepQuery(e.target.value)}
                 placeholder="Link a task that must finish first…"
-                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
               />
               {depResults.length > 0 && (
                 <div className="absolute z-10 mt-1 w-full bg-bb-elevated border border-bb-border rounded-lg shadow-modal overflow-hidden">
@@ -555,7 +555,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                     task.priority === p.key
                       ? p.key === "URGENT" ? "bg-red-600 text-white"
-                        : p.key === "HIGH" ? "bg-bb-orange text-white"
+                        : p.key === "HIGH" ? "bg-bb-blue text-white"
                         : p.key === "MEDIUM" ? "bg-blue-600 text-white"
                         : "bg-bb-border text-white"
                       : "bg-bb-elevated text-bb-dim hover:bg-bb-border hover:text-white"
@@ -577,7 +577,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   type="date"
                   value={task.dueDate ? task.dueDate.slice(0, 10) : ""}
                   onChange={(e) => patchTask({ dueDate: e.target.value || null })}
-                  className="w-full px-2 py-1.5 bg-bb-black border border-bb-border rounded-md text-xs text-white focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                  className="w-full px-2 py-1.5 bg-bb-black border border-bb-border rounded-md text-xs text-white focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
                 />
               </div>
             </div>
@@ -588,7 +588,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   onClick={() => task.assignedTo && patchTask({ assignedTo: null })}
                   className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                     !task.assignedTo
-                      ? "bg-bb-orange text-white"
+                      ? "bg-bb-blue text-white"
                       : "bg-bb-elevated text-bb-dim hover:bg-bb-border hover:text-white"
                   }`}
                 >
@@ -614,7 +614,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                         selected
                           ? a.color
                             ? ""
-                            : "bg-bb-orange text-white"
+                            : "bg-bb-blue text-white"
                           : "bg-bb-elevated text-bb-dim hover:bg-bb-border hover:text-white"
                       }`}
                       style={selected && a.color ? { backgroundColor: a.color, color: contrastText(a.color) } : undefined}
@@ -638,7 +638,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   const v = e.target.value;
                   patchTask({ isRecurring: !!v, recurPattern: v || null });
                 }}
-                className="w-full px-2 py-1.5 bg-bb-black border border-bb-border rounded-md text-xs text-white focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                className="w-full px-2 py-1.5 bg-bb-black border border-bb-border rounded-md text-xs text-white focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
               >
                 <option value="">Never</option>
                 <option value="daily">Daily</option>
@@ -653,7 +653,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
               <select
                 value={task.category}
                 onChange={(e) => patchTask({ category: e.target.value as TaskCategory })}
-                className="w-full px-2 py-1.5 bg-bb-black border border-bb-border rounded-md text-xs text-white focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                className="w-full px-2 py-1.5 bg-bb-black border border-bb-border rounded-md text-xs text-white focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
               >
                 {TASK_CATEGORIES.map((c) => (
                   <option key={c.key} value={c.key}>{c.label}</option>
@@ -673,7 +673,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   <button
                     onClick={() => toggleItem(item)}
                     className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                      item.checked ? "bg-bb-orange border-bb-orange" : "border-bb-dim hover:border-bb-orange"
+                      item.checked ? "bg-bb-blue border-bb-blue" : "border-bb-dim hover:border-bb-blue"
                     }`}
                   >
                     {item.checked && <Check size={11} className="text-white" />}
@@ -694,12 +694,12 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   value={newItem}
                   onChange={(e) => setNewItem(e.target.value)}
                   placeholder="Add checklist item..."
-                  className="flex-1 px-2.5 py-1.5 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                  className="flex-1 px-2.5 py-1.5 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
                 />
                 <button
                   type="submit"
                   disabled={!newItem.trim()}
-                  className="p-1.5 rounded-lg bg-bb-elevated text-bb-dim hover:text-bb-orange disabled:opacity-40 transition-colors"
+                  className="p-1.5 rounded-lg bg-bb-elevated text-bb-dim hover:text-bb-accent disabled:opacity-40 transition-colors"
                 >
                   <Plus size={14} />
                 </button>
@@ -710,7 +710,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
           {/* Time tracking */}
           <div>
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-bb-dim">
-              Time logged {totalMinutes > 0 && <span className="text-bb-orange normal-case">· {fmtMinutes(totalMinutes)}</span>}
+              Time logged {totalMinutes > 0 && <span className="text-bb-accent normal-case">· {fmtMinutes(totalMinutes)}</span>}
             </p>
             <div className="flex flex-wrap items-center gap-1.5">
               {timerStart ? (
@@ -753,12 +753,12 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                   onChange={(e) => setCustomMins(e.target.value.replace(/[^0-9]/g, ""))}
                   placeholder="min"
                   inputMode="numeric"
-                  className="w-14 px-2 py-1.5 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                  className="w-14 px-2 py-1.5 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
                 />
                 <button
                   type="submit"
                   disabled={!customMins}
-                  className="rounded-lg bg-bb-elevated px-2 py-1.5 text-xs text-bb-dim hover:text-bb-orange disabled:opacity-40 transition-colors"
+                  className="rounded-lg bg-bb-elevated px-2 py-1.5 text-xs text-bb-dim hover:text-bb-accent disabled:opacity-40 transition-colors"
                 >
                   <Plus size={12} />
                 </button>
@@ -769,7 +769,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
           {/* Comments — team discussion; @mentions ping Slack + the inbox */}
           <div>
             <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-bb-dim">
-              <MessageSquare size={11} /> Comments {comments.length > 0 && <span className="text-bb-orange normal-case">· {comments.length}</span>}
+              <MessageSquare size={11} /> Comments {comments.length > 0 && <span className="text-bb-accent normal-case">· {comments.length}</span>}
             </p>
             {comments.length > 0 && (
               <div className="space-y-1.5 mb-2 max-h-56 overflow-y-auto rounded-xl border border-bb-border bg-bb-black p-3">
@@ -782,7 +782,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                     <p className="mt-0.5 text-xs text-white leading-snug whitespace-pre-wrap">
                       {c.body.split(/(@[A-Za-zÀ-ÿ0-9._-]+)/g).map((part, i) =>
                         part.startsWith("@") ? (
-                          <span key={i} className="text-bb-orange font-semibold">{part}</span>
+                          <span key={i} className="text-bb-accent font-semibold">{part}</span>
                         ) : (
                           part
                         )
@@ -798,7 +798,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                 onChange={(e) => setCommentBody(e.target.value)}
                 placeholder="Write a comment — @ someone to pull them in..."
                 rows={2}
-                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 resize-y"
+                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 resize-y"
               />
               <div className="flex flex-wrap items-center gap-1.5">
                 <AtSign size={11} className="text-bb-dim" />
@@ -815,7 +815,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                 <button
                   type="submit"
                   disabled={!commentBody.trim() || postingComment}
-                  className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors"
+                  className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors"
                 >
                   {postingComment ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
                   Comment
@@ -832,12 +832,12 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                 value={update}
                 onChange={(e) => setUpdate(e.target.value)}
                 placeholder={task.client ? `Log an update on ${task.client.name}...` : "Log an update..."}
-                className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-xs text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
               />
               <button
                 type="submit"
                 disabled={!update.trim() || posting}
-                className="flex items-center gap-1 px-3 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors"
+                className="flex items-center gap-1 px-3 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors"
               >
                 {posting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
                 Post
@@ -851,7 +851,7 @@ export default function TaskDetailModal({ taskId, onClose, onChanged, onDelete }
                 <div key={log.id} className="rounded-lg bg-bb-surface border border-bb-border px-3 py-2">
                   <div className="flex items-center gap-1.5 text-[10px] text-bb-dim">
                     <span className="font-semibold text-bb-muted capitalize">{log.actor}</span>
-                    {log.action === "moved_task" && <ArrowRight size={10} className="text-bb-orange" />}
+                    {log.action === "moved_task" && <ArrowRight size={10} className="text-bb-accent" />}
                     <span className="ml-auto">{formatTimestamp(log.createdAt)}</span>
                   </div>
                   {log.details && <p className="mt-0.5 text-xs text-white leading-snug">{log.details}</p>}

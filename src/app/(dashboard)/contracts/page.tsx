@@ -21,7 +21,7 @@ interface ContractItem {
 const STATUS_STYLES: Record<ContractItem["status"], string> = {
   SIGNED: "bg-green-500/10 text-green-400",
   EXPIRED: "bg-red-500/10 text-red-400",
-  DRAFT: "bg-bb-orange/10 text-bb-orange",
+  DRAFT: "bg-bb-blue/10 text-bb-accent",
   PENDING: "bg-yellow-500/10 text-yellow-400",
 };
 
@@ -92,7 +92,7 @@ export default function ContractsPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search client, company, or signer..."
-              className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-bb-surface border border-bb-border text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange/50"
+              className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-bb-surface border border-bb-border text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue/50"
             />
           </div>
           {(["all", "SIGNED", "PENDING", "DRAFT", "EXPIRED"] as const).map((s) => (
@@ -101,8 +101,8 @@ export default function ContractsPage() {
               onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                 statusFilter === s
-                  ? "bg-bb-orange/10 text-bb-orange border border-bb-orange/30"
-                  : "bg-bb-surface text-bb-muted border border-bb-border hover:border-bb-orange/20"
+                  ? "bg-bb-blue/10 text-bb-accent border border-bb-blue/30"
+                  : "bg-bb-surface text-bb-muted border border-bb-border hover:border-bb-blue/20"
               }`}
             >
               {s === "all" ? "All" : STATUS_LABELS[s]}
@@ -111,7 +111,7 @@ export default function ContractsPage() {
           <select
             value={yearFilter}
             onChange={(e) => setYearFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
-            className="px-3 py-1.5 rounded-lg bg-bb-surface border border-bb-border text-sm text-bb-muted focus:outline-none focus:border-bb-orange/50"
+            className="px-3 py-1.5 rounded-lg bg-bb-surface border border-bb-border text-sm text-bb-muted focus:outline-none focus:border-bb-blue/50"
           >
             <option value="all">All years</option>
             {years.map((y) => (
@@ -143,7 +143,7 @@ export default function ContractsPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <button
                       onClick={() => router.push(`/clients/${c.client.id}`)}
-                      className="text-sm font-medium text-white hover:text-bb-orange transition-colors"
+                      className="text-sm font-medium text-white hover:text-bb-accent transition-colors"
                     >
                       {c.client.name}
                     </button>
@@ -167,20 +167,20 @@ export default function ContractsPage() {
                 <div className="flex items-center gap-3 shrink-0">
                   <button
                     onClick={() => window.open(`/c/${c.token}`, "_blank")}
-                    className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                    className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
                   >
                     <Eye size={12} /> View
                   </button>
                   <button
                     onClick={() => window.open(`/api/contract/${c.token}/pdf`, "_blank")}
-                    className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                    className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
                   >
                     <Download size={12} /> PDF
                   </button>
                   {c.status === "SIGNED" && (
                     <button
                       onClick={() => window.open(`/api/contract/${c.token}/certificate`, "_blank")}
-                      className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                      className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
                     >
                       <ShieldCheck size={12} /> Certificate
                     </button>

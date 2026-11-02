@@ -79,7 +79,7 @@ export default function ConnectSocialAccount({ clientId }: { clientId: string })
       <button
         ref={buttonRef}
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+        className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-bb-blue to-pink-500 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
       >
         <Link2 size={14} />
         Connect Account

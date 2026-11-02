@@ -67,7 +67,7 @@ export async function PATCH(
   if (body.color !== undefined) {
     const c = typeof body.color === "string" ? body.color.trim() : "";
     if (c && !/^#[0-9a-fA-F]{6}$/.test(c))
-      return NextResponse.json({ error: "Color must be a hex value like #FF6B00" }, { status: 400 });
+      return NextResponse.json({ error: "Color must be a hex value like #2561D8" }, { status: 400 });
     data.color = c || null;
   }
 

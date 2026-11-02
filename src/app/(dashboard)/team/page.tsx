@@ -168,7 +168,7 @@ export default function TeamPage() {
         <div className="flex justify-end">
           <button
             onClick={() => setAddOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors"
           >
             <Plus size={16} /> Add member
           </button>
@@ -188,7 +188,7 @@ export default function TeamPage() {
                   }`}
                 >
                   <label
-                    className="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 cursor-pointer ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow overflow-hidden"
+                    className="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 cursor-pointer ring-1 ring-white/10 hover:ring-bb-blue/60 transition-shadow overflow-hidden"
                     style={{ backgroundColor: u.color || "#1E1E1E" }}
                     title="Set profile color"
                   >
@@ -196,15 +196,15 @@ export default function TeamPage() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={u.avatarUrl} alt={u.name} className="absolute inset-0 w-full h-full object-cover" />
                     ) : u.role === "OWNER" ? (
-                      <Shield size={16} className={u.color ? "text-black/70" : "text-bb-orange"} />
+                      <Shield size={16} className={u.color ? "text-black/70" : "text-bb-accent"} />
                     ) : (
                       <UserIcon size={16} className={u.color ? "text-black/70" : "text-bb-muted"} />
                     )}
                     <input
                       type="color"
-                      defaultValue={u.color || "#FF6B00"}
+                      defaultValue={u.color || "#2561D8"}
                       onBlur={(e) => {
-                        if (e.target.value !== (u.color || "#FF6B00")) {
+                        if (e.target.value !== (u.color || "#2561D8")) {
                           patchUser(u, { color: e.target.value }, "Color updated");
                         }
                       }}
@@ -219,7 +219,7 @@ export default function TeamPage() {
                         {u.role}
                       </span>
                       {teamRoleLabel(u.jobRole) && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-bb-orange/10 text-bb-orange">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-bb-blue/10 text-bb-accent">
                           {teamRoleLabel(u.jobRole)}
                         </span>
                       )}
@@ -281,7 +281,7 @@ export default function TeamPage() {
                           setTabsSel(u.allowedPages || []);
                         }}
                         className={`p-2 rounded-md hover:bg-bb-elevated transition-colors ${
-                          (u.allowedPages?.length || 0) > 0 ? "text-bb-orange hover:text-bb-orange-light" : "text-bb-muted hover:text-white"
+                          (u.allowedPages?.length || 0) > 0 ? "text-bb-accent hover:text-bb-accent-light" : "text-bb-muted hover:text-white"
                         }`}
                         title={(u.allowedPages?.length || 0) > 0 ? `Limited to ${u.allowedPages!.length} tabs` : "Restrict which tabs they can open"}
                       >
@@ -295,7 +295,7 @@ export default function TeamPage() {
                         setSlackId(u.slackUserId || "");
                       }}
                       className={`p-2 rounded-md hover:bg-bb-elevated transition-colors ${
-                        u.slackUserId ? "text-bb-orange hover:text-bb-orange-light" : "text-bb-muted hover:text-white"
+                        u.slackUserId ? "text-bb-accent hover:text-bb-accent-light" : "text-bb-muted hover:text-white"
                       }`}
                       title={u.slackUserId ? `Slack: ${u.slackUserId}` : "Link Slack account for @-mentions"}
                     >
@@ -352,7 +352,7 @@ export default function TeamPage() {
             placeholder="Full name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange"
+            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue"
             required
           />
           <input
@@ -360,7 +360,7 @@ export default function TeamPage() {
             placeholder="Email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange"
+            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue"
             required
           />
           <input
@@ -368,14 +368,14 @@ export default function TeamPage() {
             placeholder="Temporary password (min 8 chars)"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange font-mono"
+            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue font-mono"
             minLength={8}
             required
           />
           <select
             value={form.role}
             onChange={(e) => setForm({ ...form, role: e.target.value })}
-            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-bb-orange"
+            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-bb-blue"
           >
             <option value="MEMBER">Member — full app access</option>
             <option value="OWNER">Owner — can also manage the team</option>
@@ -384,7 +384,7 @@ export default function TeamPage() {
             <select
               value={form.jobRole}
               onChange={(e) => setForm({ ...form, jobRole: e.target.value })}
-              className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-bb-orange"
+              className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-bb-blue"
             >
               <option value="">What do they do? (optional)</option>
               {TEAM_ROLES.map((r) => (
@@ -401,7 +401,7 @@ export default function TeamPage() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white font-medium rounded-md transition-colors disabled:opacity-50"
+            className="w-full py-2.5 bg-bb-blue hover:bg-bb-blue-light text-white font-medium rounded-md transition-colors disabled:opacity-50"
           >
             {saving ? "Adding..." : "Add member"}
           </button>
@@ -416,14 +416,14 @@ export default function TeamPage() {
             placeholder="New password (min 8 chars)"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange font-mono"
+            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue font-mono"
             minLength={8}
             required
           />
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white font-medium rounded-md transition-colors disabled:opacity-50"
+            className="w-full py-2.5 bg-bb-blue hover:bg-bb-blue-light text-white font-medium rounded-md transition-colors disabled:opacity-50"
           >
             {saving ? "Saving..." : "Set new password"}
           </button>
@@ -452,12 +452,12 @@ export default function TeamPage() {
             placeholder="U0123ABCDEF"
             value={slackId}
             onChange={(e) => setSlackId(e.target.value.trim())}
-            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange font-mono"
+            className="w-full px-3 py-2 bg-bb-elevated border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue font-mono"
           />
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white font-medium rounded-md transition-colors disabled:opacity-50"
+            className="w-full py-2.5 bg-bb-blue hover:bg-bb-blue-light text-white font-medium rounded-md transition-colors disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -496,10 +496,10 @@ export default function TeamPage() {
                     setTabsSel((prev) => (on ? prev.filter((k) => k !== pg.key) : [...prev, pg.key]))
                   }
                   className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-left transition-colors ${
-                    on ? "bg-bb-orange/15 text-bb-orange ring-1 ring-bb-orange/40" : "bg-bb-elevated text-bb-dim hover:text-white"
+                    on ? "bg-bb-blue/15 text-bb-accent ring-1 ring-bb-blue/40" : "bg-bb-elevated text-bb-dim hover:text-white"
                   }`}
                 >
-                  <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${on ? "bg-bb-orange border-bb-orange" : "border-bb-dim"}`}>
+                  <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${on ? "bg-bb-blue border-bb-blue" : "border-bb-dim"}`}>
                     {on && <span className="text-[9px] text-white leading-none">✓</span>}
                   </span>
                   {pg.label}
@@ -518,7 +518,7 @@ export default function TeamPage() {
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save access"}
             </button>

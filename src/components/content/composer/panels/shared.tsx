@@ -55,7 +55,7 @@ export function ImageChoice({
             onClick={() => onChange(value === url ? "" : url)}
             className={cn(
               "relative w-14 h-14 rounded-md overflow-hidden border-2 cursor-pointer transition-colors disabled:cursor-not-allowed",
-              value === url ? "border-bb-orange" : "border-bb-border hover:border-bb-muted"
+              value === url ? "border-bb-blue" : "border-bb-border hover:border-bb-muted"
             )}
             aria-pressed={value === url}
           >
@@ -72,7 +72,7 @@ export function ImageChoice({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="w-14 h-14 rounded-md border border-dashed border-bb-border flex items-center justify-center text-bb-dim hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors"
+            className="w-14 h-14 rounded-md border border-dashed border-bb-border flex items-center justify-center text-bb-dim hover:text-white hover:border-bb-blue/50 cursor-pointer transition-colors"
             aria-label={`Upload ${label.toLowerCase()}`}
           >
             {uploading ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}

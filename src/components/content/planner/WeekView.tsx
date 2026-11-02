@@ -48,7 +48,7 @@ function DayColumn({
   return (
     <div
       ref={setNodeRef}
-      className={cn("relative border-l border-bb-border", isOver && "bg-bb-orange/5")}
+      className={cn("relative border-l border-bb-border", isOver && "bg-bb-blue/5")}
       style={{ height: HOUR_PX * 24 }}
       onClick={(e) => {
         // Empty-slot click: new post at that time, snapped to 15 minutes
@@ -90,8 +90,8 @@ function NowLine() {
   const top = ((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR_PX;
   return (
     <div className="absolute inset-x-0 z-10 pointer-events-none" style={{ top }}>
-      <div className="h-px bg-bb-orange" />
-      <div className="absolute -left-1 -top-1 w-2 h-2 rounded-full bg-bb-orange" />
+      <div className="h-px bg-bb-blue" />
+      <div className="absolute -left-1 -top-1 w-2 h-2 rounded-full bg-bb-blue" />
     </div>
   );
 }
@@ -130,7 +130,7 @@ export default function WeekView({
                 <div
                   className={cn(
                     "mx-auto mt-0.5 w-7 h-7 rounded-full flex items-center justify-center text-sm tabular-nums",
-                    isToday(day) ? "bg-bb-orange text-white font-semibold" : "text-white"
+                    isToday(day) ? "bg-bb-blue text-white font-semibold" : "text-white"
                   )}
                 >
                   {format(day, "d")}

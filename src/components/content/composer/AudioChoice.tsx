@@ -118,7 +118,7 @@ export default function AudioChoice({ id, clientId, value, disabled, onChange, o
           type="button"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
-          className="shrink-0 inline-flex items-center gap-1.5 px-3 rounded-lg border border-dashed border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors disabled:opacity-40"
+          className="shrink-0 inline-flex items-center gap-1.5 px-3 rounded-lg border border-dashed border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-blue/50 cursor-pointer transition-colors disabled:opacity-40"
         >
           {uploadPct !== null ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
           {uploadPct !== null ? `${uploadPct}%` : "Upload"}

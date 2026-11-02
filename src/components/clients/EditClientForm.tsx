@@ -134,7 +134,7 @@ function FilterableSelect({
             <li
               key={opt}
               onMouseDown={() => { setValue(opt); setOpen(false); }}
-              className="px-3 py-2 text-sm text-white hover:bg-bb-orange/20 cursor-pointer"
+              className="px-3 py-2 text-sm text-white hover:bg-bb-blue/20 cursor-pointer"
             >
               {opt}
             </li>
@@ -177,7 +177,7 @@ export default function EditClientForm({
   }
 
   const inputClass =
-    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 focus:border-bb-orange text-sm";
+    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 focus:border-bb-blue text-sm";
   const labelClass = "block text-sm text-bb-muted mb-1";
 
   return (
@@ -276,7 +276,7 @@ export default function EditClientForm({
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors">
           Cancel
         </button>
-        <button type="submit" disabled={loading} className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50">
+        <button type="submit" disabled={loading} className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50">
           {loading ? "Saving..." : submitLabel}
         </button>
       </div>

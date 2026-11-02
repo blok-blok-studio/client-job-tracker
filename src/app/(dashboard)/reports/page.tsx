@@ -33,7 +33,7 @@ function fmtHours(mins: number): string {
 const STATUS_BAR: Record<string, string> = {
   BACKLOG: "bg-bb-dim",
   TODO: "bg-blue-500",
-  IN_PROGRESS: "bg-bb-orange",
+  IN_PROGRESS: "bg-bb-blue",
   IN_REVIEW: "bg-purple-500",
   DONE: "bg-emerald-500",
   BLOCKED: "bg-red-500",
@@ -64,7 +64,7 @@ function BarList({ rows, unit }: { rows: Array<{ label: string; value: number; d
           </div>
           <div className="h-1.5 rounded-full bg-bb-elevated overflow-hidden">
             <div
-              className={`h-full rounded-full ${r.color || "bg-bb-orange"}`}
+              className={`h-full rounded-full ${r.color || "bg-bb-blue"}`}
               style={{ width: `${Math.max(4, (r.value / max) * 100)}%` }}
             />
           </div>
@@ -105,7 +105,7 @@ export default function ReportsPage() {
               <StatTile icon={<ClipboardList size={13} />} label="Open tasks" value={openTasks} />
               <StatTile icon={<Flame size={13} />} label="Overdue" value={data.tasks.overdue} accent={data.tasks.overdue > 0 ? "text-red-400" : "text-emerald-400"} />
               <StatTile icon={<CheckCircle2 size={13} />} label="Done · 30 days" value={data.tasks.completed30d} accent="text-emerald-400" />
-              <StatTile icon={<Clock size={13} />} label="Hours this month" value={fmtHours(data.time.thisMonthMinutes)} accent="text-bb-orange" />
+              <StatTile icon={<Clock size={13} />} label="Hours this month" value={fmtHours(data.time.thisMonthMinutes)} accent="text-bb-accent" />
               <StatTile icon={<Users size={13} />} label="Active clients" value={data.activeClients} />
               <StatTile icon={<Mail size={13} />} label="Newsletter list" value={data.newsletterCount} />
               <StatTile icon={<LifeBuoy size={13} />} label="Open tickets" value={data.openTickets} />

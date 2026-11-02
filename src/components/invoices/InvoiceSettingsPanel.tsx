@@ -173,10 +173,10 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
                   <button type="button" aria-label="Remove line" className="p-2 text-bb-dim hover:text-red-400" onClick={() => setOther(i, { lines: b.lines.filter((_, j) => j !== li) })}><Trash2 size={14} /></button>
                 </div>
               ))}
-              <button type="button" className="text-xs text-bb-orange hover:underline inline-flex items-center gap-1" onClick={() => setOther(i, { lines: [...b.lines, { label: "", value: "" }] })}><Plus size={12} /> Add line</button>
+              <button type="button" className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1" onClick={() => setOther(i, { lines: [...b.lines, { label: "", value: "" }] })}><Plus size={12} /> Add line</button>
             </div>
           ))}
-          <button type="button" className="text-xs text-bb-orange hover:underline inline-flex items-center gap-1" onClick={() => set("otherBanks", [...s.otherBanks, { currency: "GBP", holder: s.eur.holder || s.sellerName, bank: "Wise", lines: [{ label: "", value: "" }] }])}><Plus size={12} /> Add a currency</button>
+          <button type="button" className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1" onClick={() => set("otherBanks", [...s.otherBanks, { currency: "GBP", holder: s.eur.holder || s.sellerName, bank: "Wise", lines: [{ label: "", value: "" }] }])}><Plus size={12} /> Add a currency</button>
         </div>
       </Section>
 

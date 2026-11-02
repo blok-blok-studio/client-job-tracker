@@ -12,7 +12,7 @@ import { getSetting } from "@/lib/lifecycle/settings";
  * between Blok Blok and the partner, and the partner pays its reps its own way.
  */
 
-const ORANGE = rgb(0.976, 0.451, 0.086);
+const BLUE = rgb(0.145, 0.38, 0.847); // #2561D8 brand Blue 1
 const DARK = rgb(0.09, 0.09, 0.09);
 const BODY = rgb(0.2, 0.2, 0.2);
 const MUTED = rgb(0.45, 0.45, 0.45);
@@ -81,7 +81,7 @@ export async function renderPartnerKit(partnerId: string): Promise<Uint8Array> {
   function newPage() {
     page = pdf.addPage([W, H]);
     pages++;
-    page.drawRectangle({ x: 0, y: H - 5, width: W, height: 5, color: ORANGE });
+    page.drawRectangle({ x: 0, y: H - 5, width: W, height: 5, color: BLUE });
     y = H - 64;
     footer();
   }
@@ -117,7 +117,7 @@ export async function renderPartnerKit(partnerId: string): Promise<Uint8Array> {
 
   function h1(t: string) {
     ensure(40);
-    page.drawText(t.toUpperCase(), { x: M, y, size: 9, font: bold, color: ORANGE });
+    page.drawText(t.toUpperCase(), { x: M, y, size: 9, font: bold, color: BLUE });
     y -= 22;
   }
 
@@ -132,7 +132,7 @@ export async function renderPartnerKit(partnerId: string): Promise<Uint8Array> {
     const lh = 14;
     const lines = wrap(t, size, font, CW - 16);
     ensure(lh * lines.length);
-    page.drawCircle({ x: M + 4, y: y + 3.5, size: 1.6, color: ORANGE });
+    page.drawCircle({ x: M + 4, y: y + 3.5, size: 1.6, color: BLUE });
     lines.forEach((line, i) => {
       page.drawText(line, { x: M + 16, y, size, font, color: BODY });
       y -= lh;
@@ -150,7 +150,7 @@ export async function renderPartnerKit(partnerId: string): Promise<Uint8Array> {
     page.drawText(name, { x: M + 10, y: y + 6, size: 10.5, font: bold, color: DARK });
     page.drawText(note, { x: M + 10, y: y - 5, size: 8.5, font, color: MUTED });
     const pw = bold.widthOfTextAtSize(price, 11);
-    page.drawText(price, { x: W - M - 10 - pw, y: y + 2, size: 11, font: bold, color: ORANGE });
+    page.drawText(price, { x: W - M - 10 - pw, y: y + 2, size: 11, font: bold, color: BLUE });
     y -= 36;
   }
 
@@ -164,7 +164,7 @@ export async function renderPartnerKit(partnerId: string): Promise<Uint8Array> {
     page.drawImage(logo, { x: M, y: H - 80 - lh, width: lw, height: lh });
     y = H - 110 - lh;
   }
-  page.drawText("PARTNER KIT", { x: M, y, size: 9, font: bold, color: ORANGE });
+  page.drawText("PARTNER KIT", { x: M, y, size: 9, font: bold, color: BLUE });
   y -= 30;
   page.drawText("Selling Blok Blok Studio", { x: M, y, size: 28, font: bold, color: DARK });
   y -= 36;

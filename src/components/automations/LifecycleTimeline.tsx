@@ -140,7 +140,7 @@ export default function LifecycleTimeline({
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md transition-colors",
               paused
-                ? "bg-bb-orange/15 text-bb-orange hover:bg-bb-orange/25"
+                ? "bg-bb-blue/15 text-bb-accent hover:bg-bb-blue/25"
                 : "bg-bb-elevated text-bb-dim hover:text-bb-muted"
             )}
           >
@@ -175,7 +175,7 @@ export default function LifecycleTimeline({
               <button
                 onClick={() => setViewing(s)}
                 title="View content"
-                className="text-bb-dim hover:text-bb-orange transition-colors"
+                className="text-bb-dim hover:text-bb-accent transition-colors"
               >
                 <Eye size={13} />
               </button>
@@ -197,7 +197,7 @@ export default function LifecycleTimeline({
                   setDraftBody(s.renderedBody || "");
                 }}
                 title="Fill and send this draft"
-                className="flex items-center gap-1 text-bb-orange hover:text-bb-orange-light transition-colors"
+                className="flex items-center gap-1 text-bb-accent hover:text-bb-accent-light transition-colors"
               >
                 <Send size={12} /> Fill &amp; send
               </button>
@@ -245,18 +245,18 @@ export default function LifecycleTimeline({
             <input
               value={draftSubject}
               onChange={(e) => setDraftSubject(e.target.value)}
-              className="w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm focus:border-bb-orange outline-none"
+              className="w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm focus:border-bb-blue outline-none"
             />
             <textarea
               value={draftBody}
               onChange={(e) => setDraftBody(e.target.value)}
               rows={12}
-              className="w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm leading-relaxed focus:border-bb-orange outline-none resize-y"
+              className="w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm leading-relaxed focus:border-bb-blue outline-none resize-y"
             />
             <button
               onClick={sendDraft}
               disabled={busy}
-              className="flex items-center gap-1.5 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors"
             >
               <Send size={13} /> {busy ? "Sending…" : "Send now"}
             </button>

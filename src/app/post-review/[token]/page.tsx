@@ -57,7 +57,7 @@ export default function PostReviewPage() {
   if (!review) {
     return (
       <div className="min-h-screen bg-bb-black flex items-center justify-center">
-        <Loader2 className="animate-spin text-bb-orange" size={28} />
+        <Loader2 className="animate-spin text-bb-accent" size={28} />
       </div>
     );
   }
@@ -138,15 +138,15 @@ export default function PostReviewPage() {
         {(allDone || justSubmitted) && (
           <div
             className={`border rounded-xl p-6 mb-8 text-center space-y-3 ${
-              changesCount > 0 ? "bg-bb-orange/5 border-bb-orange/30" : "bg-emerald-500/5 border-emerald-500/30"
+              changesCount > 0 ? "bg-bb-blue/5 border-bb-blue/30" : "bg-emerald-500/5 border-emerald-500/30"
             }`}
           >
             <div
               className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto ${
-                changesCount > 0 ? "bg-bb-orange/10" : "bg-emerald-500/10"
+                changesCount > 0 ? "bg-bb-blue/10" : "bg-emerald-500/10"
               }`}
             >
-              {changesCount > 0 ? <Pencil className="text-bb-orange" size={24} /> : <Check className="text-emerald-400" size={28} />}
+              {changesCount > 0 ? <Pencil className="text-bb-accent" size={24} /> : <Check className="text-emerald-400" size={28} />}
             </div>
             <h2 className="text-xl font-display font-semibold text-white">Thanks, we got your review</h2>
             <p className="text-bb-muted text-sm max-w-md mx-auto">
@@ -170,7 +170,7 @@ export default function PostReviewPage() {
             <div className="bg-bb-surface/95 backdrop-blur border border-bb-border rounded-full pl-4 pr-2 py-1.5 flex items-center justify-between gap-3 shadow-lg">
               <span className="text-xs text-bb-muted">
                 {decidedHere} of {open.length} marked
-                {changes.length > 0 && <span className="text-bb-orange"> · {changes.length} for changes</span>}
+                {changes.length > 0 && <span className="text-bb-accent"> · {changes.length} for changes</span>}
               </span>
               <button
                 type="button"
@@ -205,7 +205,7 @@ export default function PostReviewPage() {
         </div>
 
         {!allDone && (
-          <div className="bg-bb-surface border border-bb-orange/30 rounded-xl p-6 space-y-4">
+          <div className="bg-bb-surface border border-bb-blue/30 rounded-xl p-6 space-y-4">
             <h2 className="text-lg font-display font-semibold text-white">Send your review</h2>
             <p className="text-sm text-bb-muted">
               {decidedHere === 0
@@ -227,7 +227,7 @@ export default function PostReviewPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={`e.g. ${firstName}`}
-                className="w-full px-4 py-3 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange text-sm"
+                className="w-full px-4 py-3 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue text-sm"
               />
             </div>
             {error && <p className="text-red-400 text-sm">{error}</p>}
@@ -236,7 +236,7 @@ export default function PostReviewPage() {
               onClick={submit}
               disabled={submitting || decidedHere === 0 || missingNotes > 0}
               className={`w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base text-white ${
-                changes.length > 0 ? "bg-bb-orange hover:bg-bb-orange-light" : "bg-emerald-600 hover:bg-emerald-500"
+                changes.length > 0 ? "bg-bb-blue hover:bg-bb-blue-light" : "bg-emerald-600 hover:bg-emerald-500"
               }`}
             >
               {submitting ? <Loader2 className="animate-spin" size={18} /> : changes.length > 0 ? <Pencil size={16} /> : <ThumbsUp size={18} />}

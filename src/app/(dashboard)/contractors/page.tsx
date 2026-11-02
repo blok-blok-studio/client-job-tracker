@@ -664,7 +664,7 @@ export default function ContractorsPage() {
               onClick={() => setView(t.key)}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors",
-                view === t.key ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white"
+                view === t.key ? "bg-bb-blue text-white" : "text-bb-muted hover:text-white"
               )}
             >
               <t.icon size={14} />
@@ -699,7 +699,7 @@ export default function ContractorsPage() {
               ]
           ).map((tile) => (
             <div key={tile.label} className="bg-bb-surface border border-bb-border rounded-lg p-4 flex items-center gap-3">
-              <tile.icon size={18} className="text-bb-orange shrink-0" />
+              <tile.icon size={18} className="text-bb-accent shrink-0" />
               <div className="min-w-0">
                 <p className="text-lg font-semibold text-white truncate">{tile.value}</p>
                 <p className="text-xs text-bb-dim truncate">{tile.label}</p>
@@ -713,12 +713,12 @@ export default function ContractorsPage() {
         <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-              <HardHat size={15} className="text-bb-orange" />
+              <HardHat size={15} className="text-bb-accent" />
               Contractors
             </h2>
             <button
               onClick={() => setShowAdd(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors"
             >
               <Plus size={14} />
               Add Contractor
@@ -744,7 +744,7 @@ export default function ContractorsPage() {
                     title="Open profile"
                   >
                     <ContractorAvatar contractor={c} size={26} />
-                    <span className="text-sm text-white group-hover:text-bb-orange transition-colors">
+                    <span className="text-sm text-white group-hover:text-bb-accent transition-colors">
                       {c.name}
                     </span>
                   </a>
@@ -758,14 +758,14 @@ export default function ContractorsPage() {
                   </span>
                   <button
                     onClick={() => setManaging(c)}
-                    className="p-1 rounded text-bb-dim hover:text-bb-orange transition-colors"
+                    className="p-1 rounded text-bb-dim hover:text-bb-accent transition-colors"
                     title="Manage contractor"
                   >
                     <User size={13} />
                   </button>
                   <button
                     onClick={() => copyLink(c.uploadToken)}
-                    className="p-1 rounded text-bb-dim hover:text-bb-orange transition-colors"
+                    className="p-1 rounded text-bb-dim hover:text-bb-accent transition-colors"
                     title="Copy upload link"
                   >
                     {copiedToken === c.uploadToken ? <Check size={13} className="text-green-400" /> : <Link2 size={13} />}
@@ -787,7 +787,7 @@ export default function ContractorsPage() {
                 className={cn(
                   "px-3 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap",
                   (view === "invoices" ? statusTab : hoursTab) === tab.key
-                    ? "bg-bb-orange text-white"
+                    ? "bg-bb-blue text-white"
                     : "text-bb-muted hover:text-white"
                 )}
               >
@@ -800,7 +800,7 @@ export default function ContractorsPage() {
             <select
               value={hoursClientFilter}
               onChange={(e) => setHoursClientFilter(e.target.value)}
-              className="px-3 py-2 bg-bb-surface border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 [color-scheme:dark]"
+              className="px-3 py-2 bg-bb-surface border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50 [color-scheme:dark]"
             >
               <option value="ALL">All clients</option>
               <option value="GENERAL">General / internal</option>
@@ -822,7 +822,7 @@ export default function ContractorsPage() {
                   ? "Search contractors, clients, work descriptions..."
                   : "Search agreements by contractor, title, or signer..."
               }
-              className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
             />
           </div>
         </div>
@@ -849,11 +849,11 @@ export default function ContractorsPage() {
                     key={h.id}
                     onClick={() => setSelectedHoursId(h.id)}
                     className={cn(
-                      "w-full flex items-center gap-3 p-3 bg-bb-surface border border-bb-border hover:border-bb-orange/50 rounded-lg transition-colors text-left",
+                      "w-full flex items-center gap-3 p-3 bg-bb-surface border border-bb-border hover:border-bb-blue/50 rounded-lg transition-colors text-left",
                       corrected && "opacity-50"
                     )}
                   >
-                    <Timer size={18} className="text-bb-orange shrink-0" />
+                    <Timer size={18} className="text-bb-accent shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-white truncate">
                         <span className="font-medium">{h.contractorName}</span>
@@ -912,9 +912,9 @@ export default function ContractorsPage() {
               <button
                 key={inv.id}
                 onClick={() => setSelectedId(inv.id)}
-                className="w-full flex items-center gap-3 p-3 bg-bb-surface border border-bb-border hover:border-bb-orange/50 rounded-lg transition-colors text-left"
+                className="w-full flex items-center gap-3 p-3 bg-bb-surface border border-bb-border hover:border-bb-blue/50 rounded-lg transition-colors text-left"
               >
-                <FileText size={18} className="text-bb-orange shrink-0" />
+                <FileText size={18} className="text-bb-accent shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white truncate">
                     <span className="font-medium">{inv.contractorName}</span>
@@ -969,7 +969,7 @@ export default function ContractorsPage() {
                 value={form[f.key]}
                 onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))}
                 placeholder={f.placeholder}
-                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
               />
             </div>
           ))}
@@ -978,7 +978,7 @@ export default function ContractorsPage() {
             <select
               value={form.country}
               onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
-              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 [color-scheme:dark]"
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50 [color-scheme:dark]"
             >
               <option value="">Not set</option>
               <option value="US">United States</option>
@@ -1003,7 +1003,7 @@ export default function ContractorsPage() {
               onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
               rows={2}
               placeholder="What they do for us, agreed rates..."
-              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 resize-none"
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50 resize-none"
             />
           </div>
           <label
@@ -1017,7 +1017,7 @@ export default function ContractorsPage() {
               checked={form.sendWelcomeEmail && !!form.email.trim()}
               disabled={!form.email.trim()}
               onChange={(e) => setForm((p) => ({ ...p, sendWelcomeEmail: e.target.checked }))}
-              className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
+              className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-blue"
             />
             <div>
               <span className="text-sm font-medium text-white">Email them their portal link now</span>
@@ -1040,7 +1040,7 @@ export default function ContractorsPage() {
             <button
               type="submit"
               disabled={!form.name.trim() || saving}
-              className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {saving ? "Adding..." : form.sendWelcomeEmail && form.email.trim() ? "Add & Send Link" : "Add & Create Link"}
             </button>
@@ -1061,7 +1061,7 @@ export default function ContractorsPage() {
           <div className="space-y-4">
             <a
               href={`/contractors/${managing.id}`}
-              className="flex items-center gap-3 p-2.5 rounded-lg bg-bb-black border border-bb-border hover:border-bb-orange/50 transition-colors"
+              className="flex items-center gap-3 p-2.5 rounded-lg bg-bb-black border border-bb-border hover:border-bb-blue/50 transition-colors"
             >
               <ContractorAvatar contractor={managing} size={34} />
               <span className="flex-1 min-w-0">
@@ -1070,7 +1070,7 @@ export default function ContractorsPage() {
                   Photo, skills, agreements, hours, and paperwork in one place
                 </span>
               </span>
-              <User size={14} className="text-bb-orange shrink-0" />
+              <User size={14} className="text-bb-accent shrink-0" />
             </a>
             <div className="text-xs text-bb-dim space-y-0.5">
               {managing.company && <p>{managing.company}</p>}
@@ -1082,7 +1082,7 @@ export default function ContractorsPage() {
                 const t = typicalHours(managing.hoursEntries || []);
                 return t ? (
                   <p className="text-bb-muted pt-1 flex items-center gap-1">
-                    <Timer size={11} className="text-bb-orange" />
+                    <Timer size={11} className="text-bb-accent" />
                     Typically works {t.start}–{t.end} ({t.zone}, last {t.sample} entries)
                   </p>
                 ) : null;
@@ -1091,7 +1091,7 @@ export default function ContractorsPage() {
 
             <div className="bg-bb-black border border-bb-border rounded-lg p-3 space-y-2">
               <p className="text-xs text-bb-muted flex items-center gap-1.5">
-                <Send size={12} className="text-bb-orange" />
+                <Send size={12} className="text-bb-accent" />
                 Private upload link — send this to {managing.name.split(" ")[0]}
               </p>
               <div className="flex items-center gap-2">
@@ -1100,7 +1100,7 @@ export default function ContractorsPage() {
                 </code>
                 <button
                   onClick={() => copyLink(managing.uploadToken)}
-                  className="p-1.5 rounded text-bb-dim hover:text-bb-orange transition-colors shrink-0"
+                  className="p-1.5 rounded text-bb-dim hover:text-bb-accent transition-colors shrink-0"
                   title="Copy link"
                 >
                   {copiedToken === managing.uploadToken ? (
@@ -1130,7 +1130,7 @@ export default function ContractorsPage() {
             {/* Client assignments — which clients this contractor can log hours against */}
             <div className="bg-bb-black border border-bb-border rounded-lg p-3 space-y-2">
               <p className="text-xs text-bb-muted flex items-center gap-1.5">
-                <Timer size={12} className="text-bb-orange" />
+                <Timer size={12} className="text-bb-accent" />
                 Hours log — clients {managing.name.split(" ")[0]} can log time against
               </p>
               {clientOptions.length === 0 ? (
@@ -1144,7 +1144,7 @@ export default function ContractorsPage() {
                     return (
                       <label
                         key={c.id}
-                        className="flex items-center gap-2 text-xs text-white cursor-pointer hover:text-bb-orange transition-colors"
+                        className="flex items-center gap-2 text-xs text-white cursor-pointer hover:text-bb-accent transition-colors"
                       >
                         <input
                           type="checkbox"
@@ -1155,7 +1155,7 @@ export default function ContractorsPage() {
                             else next.add(c.id);
                             setAssignDraft(next);
                           }}
-                          className="accent-orange-500"
+                          className="accent-bb-blue"
                         />
                         {c.name}
                       </label>
@@ -1171,7 +1171,7 @@ export default function ContractorsPage() {
                     )
                   }
                   disabled={busy}
-                  className="px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                  className="px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   Save assignments
                 </button>
@@ -1411,13 +1411,13 @@ export default function ContractorsPage() {
                   value={paymentRef}
                   onChange={(e) => setPaymentRef(e.target.value)}
                   placeholder="Wise transfer #, Zelle, bank ref..."
-                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
                 />
                 {paymentRef !== (selected.paymentRef || "") && (
                   <button
                     onClick={() => patchInvoice(selected.id, { paymentRef }, "Payment reference saved")}
                     disabled={busy}
-                    className="px-3 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                    className="px-3 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
                   >
                     Save
                   </button>
@@ -1448,12 +1448,12 @@ export default function ContractorsPage() {
                   onChange={(e) => setNoteDraft(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addNote()}
                   placeholder="Add a note..."
-                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
                 />
                 <button
                   onClick={addNote}
                   disabled={!noteDraft.trim() || busy}
-                  className="px-3 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                  className="px-3 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   Add
                 </button>
@@ -1466,7 +1466,7 @@ export default function ContractorsPage() {
                 onClick={() => setShowAudit((s) => !s)}
                 className="flex items-center gap-1.5 text-xs text-bb-dim hover:text-white transition-colors"
               >
-                <ShieldCheck size={13} className="text-bb-orange" />
+                <ShieldCheck size={13} className="text-bb-accent" />
                 Audit trail ({selected.audits.length} event{selected.audits.length === 1 ? "" : "s"})
               </button>
               {showAudit && (
@@ -1602,7 +1602,7 @@ export default function ContractorsPage() {
                   {selectedHours.clientName || "General / internal"}
                   <button
                     onClick={() => setRetagId(retagId === null ? selectedHours.clientId || "" : null)}
-                    className="text-bb-dim hover:text-bb-orange transition-colors"
+                    className="text-bb-dim hover:text-bb-accent transition-colors"
                     title="Change client tag (audited)"
                   >
                     <RefreshCw size={10} />
@@ -1633,7 +1633,7 @@ export default function ContractorsPage() {
                 <select
                   value={retagId}
                   onChange={(e) => setRetagId(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 [color-scheme:dark]"
+                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50 [color-scheme:dark]"
                 >
                   <option value="">General / internal</option>
                   {clientOptions.map((c) => (
@@ -1645,7 +1645,7 @@ export default function ContractorsPage() {
                     patchHours(selectedHours.id, { clientId: retagId || null }, "Client tag updated")
                   }
                   disabled={busy || (retagId || null) === selectedHours.clientId}
-                  className="px-3 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                  className="px-3 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   Save
                 </button>
@@ -1692,12 +1692,12 @@ export default function ContractorsPage() {
                   onChange={(e) => setHoursNoteDraft(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addHoursNote()}
                   placeholder="Add a note..."
-                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
                 />
                 <button
                   onClick={addHoursNote}
                   disabled={!hoursNoteDraft.trim() || busy}
-                  className="px-3 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                  className="px-3 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   Add
                 </button>
@@ -1710,7 +1710,7 @@ export default function ContractorsPage() {
                 onClick={() => setShowHoursAudit((s) => !s)}
                 className="flex items-center gap-1.5 text-xs text-bb-dim hover:text-white transition-colors"
               >
-                <ShieldCheck size={13} className="text-bb-orange" />
+                <ShieldCheck size={13} className="text-bb-accent" />
                 Audit trail ({selectedHours.audits.length} event{selectedHours.audits.length === 1 ? "" : "s"})
               </button>
               {showHoursAudit && (

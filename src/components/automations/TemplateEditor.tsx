@@ -143,9 +143,9 @@ export default function TemplateEditor({
     <Modal open onClose={onClose} title={detail.name} className="max-w-5xl">
       <div className="space-y-3">
         {/* Fixed copy-rules note */}
-        <div className="flex items-start gap-2 bg-bb-orange/10 border border-bb-orange/30 rounded-lg px-3 py-2">
-          <AlertTriangle size={14} className="text-bb-orange shrink-0 mt-0.5" />
-          <p className="text-xs text-bb-orange">{COPY_RULES} Merge fields use {"{{token}}"} syntax.</p>
+        <div className="flex items-start gap-2 bg-bb-blue/10 border border-bb-blue/30 rounded-lg px-3 py-2">
+          <AlertTriangle size={14} className="text-bb-accent shrink-0 mt-0.5" />
+          <p className="text-xs text-bb-accent">{COPY_RULES} Merge fields use {"{{token}}"} syntax.</p>
         </div>
 
         {errors.length > 0 && (
@@ -163,18 +163,18 @@ export default function TemplateEditor({
             <input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              className="w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm focus:border-bb-orange outline-none"
+              className="w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm focus:border-bb-blue outline-none"
             />
             <label className="text-xs text-bb-dim uppercase tracking-wide">Body</label>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={18}
-              className="w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm font-mono leading-relaxed focus:border-bb-orange outline-none resize-y"
+              className="w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm font-mono leading-relaxed focus:border-bb-blue outline-none resize-y"
             />
             <button
               onClick={() => setShowTokens((v) => !v)}
-              className="text-xs text-bb-dim hover:text-bb-orange transition-colors"
+              className="text-xs text-bb-dim hover:text-bb-accent transition-colors"
             >
               {showTokens ? "Hide" : "Show"} available merge fields
             </button>
@@ -182,7 +182,7 @@ export default function TemplateEditor({
               <div className="max-h-48 overflow-y-auto bg-bb-black border border-bb-border rounded-lg p-2 space-y-1">
                 {detail.tokens.map((t) => (
                   <div key={t.name} className="flex items-start gap-2 text-xs">
-                    <code className="text-bb-orange shrink-0">{`{{${t.name}}}`}</code>
+                    <code className="text-bb-accent shrink-0">{`{{${t.name}}}`}</code>
                     <span className="text-bb-dim">
                       {t.description}
                       {t.manual ? " (human fills before sending)" : ""}
@@ -236,7 +236,7 @@ export default function TemplateEditor({
                 </div>
                 <button
                   onClick={() => action({ action: "revert", versionId: v.id }, "Reverted to version")}
-                  className="text-bb-dim hover:text-bb-orange transition-colors shrink-0"
+                  className="text-bb-dim hover:text-bb-accent transition-colors shrink-0"
                 >
                   Revert to this
                 </button>
@@ -253,7 +253,7 @@ export default function TemplateEditor({
             className={cn(
               "px-4 py-2 text-sm font-medium rounded-md transition-colors",
               dirty && errors.length === 0
-                ? "bg-bb-orange hover:bg-bb-orange-light text-white"
+                ? "bg-bb-blue hover:bg-bb-blue-light text-white"
                 : "bg-bb-elevated text-bb-dim cursor-not-allowed"
             )}
           >

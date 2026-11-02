@@ -148,7 +148,7 @@ export default function CommandPalette() {
     return [
       ...results.clients.map((c) => ({
         key: `client-${c.id}`,
-        icon: <Users size={15} className="text-bb-orange" />,
+        icon: <Users size={15} className="text-bb-accent" />,
         title: c.name,
         subtitle: c.company || c.type.toLowerCase(),
         href: `/clients/${c.id}`,

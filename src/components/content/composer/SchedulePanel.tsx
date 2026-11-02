@@ -146,7 +146,7 @@ export default function SchedulePanel({ clientId, timeZone, clientTimeZone, onTi
       {bestTimes.length > 0 && !disabled && (
         <div>
           <p className="flex items-center gap-1 text-[11px] text-bb-dim mb-1.5">
-            <Sparkles size={11} className="text-bb-orange" />
+            <Sparkles size={11} className="text-bb-accent" />
             {bestTimes[0].source === "historical" ? "Times that worked before" : "Good times"} for {platformName(platform || "")}
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -157,7 +157,7 @@ export default function SchedulePanel({ clientId, timeZone, clientTimeZone, onTi
                   key={`${t.day}-${t.hour}`}
                   type="button"
                   onClick={() => onChange(slot)}
-                  className="px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-md border border-bb-border bg-bb-elevated text-[11px] text-bb-muted hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors"
+                  className="px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-md border border-bb-border bg-bb-elevated text-[11px] text-bb-muted hover:text-white hover:border-bb-blue/50 cursor-pointer transition-colors"
                 >
                   {formatInZone(slot, timeZone, { month: undefined, day: undefined })}
                 </button>

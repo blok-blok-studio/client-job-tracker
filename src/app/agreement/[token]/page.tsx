@@ -75,7 +75,7 @@ function AgreementRenderer({ body }: { body: string }) {
         if (/^[-•]\s+/.test(trimmed)) {
           return (
             <p key={i} className="text-sm text-bb-muted leading-relaxed pl-5 relative">
-              <span className="absolute left-0 text-bb-orange">•</span>
+              <span className="absolute left-0 text-bb-accent">•</span>
               {trimmed.replace(/^[-•]\s+/, "")}
             </p>
           );
@@ -154,12 +154,12 @@ export default function AgreementSignPage() {
   }
 
   const inputClass =
-    "w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 focus:border-bb-orange text-sm transition-colors";
+    "w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 focus:border-bb-blue text-sm transition-colors";
 
   if (loading) {
     return (
       <div className="min-h-screen bg-bb-black flex items-center justify-center">
-        <Loader2 className="animate-spin text-bb-orange" size={32} />
+        <Loader2 className="animate-spin text-bb-accent" size={32} />
       </div>
     );
   }
@@ -182,7 +182,7 @@ export default function AgreementSignPage() {
           <p className="text-bb-muted text-sm">{error}</p>
           <p className="text-bb-dim text-xs">
             If you think this is a mistake, email{" "}
-            <a href="mailto:chase@blokblokstudio.com" className="text-bb-orange hover:underline">
+            <a href="mailto:chase@blokblokstudio.com" className="text-bb-accent hover:underline">
               chase@blokblokstudio.com
             </a>
           </p>
@@ -215,7 +215,7 @@ export default function AgreementSignPage() {
             </p>
             <a
               href={`/api/agreement/${token}/pdf`}
-              className="inline-flex items-center gap-2 mt-4 px-6 py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white font-semibold rounded-lg transition-colors text-sm"
+              className="inline-flex items-center gap-2 mt-4 px-6 py-2.5 bg-bb-blue hover:bg-bb-blue-light text-white font-semibold rounded-lg transition-colors text-sm"
             >
               <Download size={16} />
               Download PDF
@@ -373,9 +373,9 @@ export default function AgreementSignPage() {
         )}
 
         <form onSubmit={handleSign} className="space-y-6">
-          <div className="bg-bb-surface border border-bb-orange/30 rounded-xl p-6 space-y-4">
+          <div className="bg-bb-surface border border-bb-blue/30 rounded-xl p-6 space-y-4">
             <div className="flex items-center gap-2">
-              <Shield size={18} className="text-bb-orange" />
+              <Shield size={18} className="text-bb-accent" />
               <h2 className="text-lg font-display font-semibold text-white">Digital Signature</h2>
             </div>
             <p className="text-xs text-bb-dim">
@@ -440,7 +440,7 @@ export default function AgreementSignPage() {
                 type="checkbox"
                 checked={agreed}
                 onChange={(e) => setAgreed(e.target.checked)}
-                className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
+                className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-blue"
               />
               <span className="text-sm text-bb-muted">
                 I have read and agree to this agreement, and I am signing it on my own behalf (or with
@@ -457,7 +457,7 @@ export default function AgreementSignPage() {
             disabled={
               submitting || !agreed || !signedName.trim() || (signatureMode === "draw" && !signatureData)
             }
-            className="w-full py-3 bg-bb-orange hover:bg-bb-orange-light text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
+            className="w-full py-3 bg-bb-blue hover:bg-bb-blue-light text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
           >
             {submitting ? (
               <span className="flex items-center justify-center gap-2">

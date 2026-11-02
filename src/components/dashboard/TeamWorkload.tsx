@@ -65,12 +65,12 @@ export default function TeamWorkload({
     <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-          <Users size={15} className="text-bb-orange" />
+          <Users size={15} className="text-bb-accent" />
           Who&apos;s carrying what
         </h2>
         <Link
           href="/kanban"
-          className="flex items-center gap-1 text-xs text-bb-muted hover:text-bb-orange transition-colors"
+          className="flex items-center gap-1 text-xs text-bb-muted hover:text-bb-accent transition-colors"
         >
           Board <ArrowRight size={12} />
         </Link>
@@ -109,7 +109,7 @@ export default function TeamWorkload({
                     className="h-full rounded-full"
                     style={{
                       width: `${(m.open / rows.max) * 100}%`,
-                      backgroundColor: m.overdue > 0 ? "#ef4444" : m.color || "#FF6B00",
+                      backgroundColor: m.overdue > 0 ? "#ef4444" : m.color || "#2561D8",
                     }}
                   />
                 </div>
@@ -121,7 +121,7 @@ export default function TeamWorkload({
         {rows.unassigned > 0 && (
           <Link
             href="/kanban"
-            className="block pt-2 mt-1 border-t border-bb-border/50 text-[11px] text-bb-dim hover:text-bb-orange transition-colors"
+            className="block pt-2 mt-1 border-t border-bb-border/50 text-[11px] text-bb-dim hover:text-bb-accent transition-colors"
           >
             {rows.unassigned} open task{rows.unassigned === 1 ? "" : "s"} with nobody on them →
           </Link>

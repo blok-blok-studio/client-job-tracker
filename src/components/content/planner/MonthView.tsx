@@ -44,17 +44,17 @@ function DayCell({
         }
       }}
       className={cn(
-        "group/day relative bg-bb-surface min-h-[64px] sm:min-h-[92px] lg:min-h-[112px] p-1 flex flex-col gap-0.5 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-bb-orange",
+        "group/day relative bg-bb-surface min-h-[64px] sm:min-h-[92px] lg:min-h-[112px] p-1 flex flex-col gap-0.5 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-bb-blue",
         !isSameMonth(day, month) && "bg-bb-black/60",
-        selected && "ring-1 ring-inset ring-bb-orange",
-        isOver && "bg-bb-orange/10 ring-1 ring-inset ring-bb-orange/60"
+        selected && "ring-1 ring-inset ring-bb-blue",
+        isOver && "bg-bb-blue/10 ring-1 ring-inset ring-bb-blue/60"
       )}
     >
       <div className="flex items-center justify-between">
         <span
           className={cn(
             "inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-xs tabular-nums",
-            isToday(day) ? "bg-bb-orange text-white font-semibold" : isSameMonth(day, month) ? "text-bb-muted" : "text-bb-dim/70"
+            isToday(day) ? "bg-bb-blue text-white font-semibold" : isSameMonth(day, month) ? "text-bb-muted" : "text-bb-dim/70"
           )}
         >
           {format(day, "d")}
@@ -66,7 +66,7 @@ function DayCell({
             e.stopPropagation();
             onCreate(day);
           }}
-          className="w-5 h-5 rounded-full hidden sm:flex items-center justify-center text-bb-dim hover:text-bb-orange hover:bg-bb-orange/10 opacity-0 group-hover/day:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer"
+          className="w-5 h-5 rounded-full hidden sm:flex items-center justify-center text-bb-dim hover:text-bb-accent hover:bg-bb-blue/10 opacity-0 group-hover/day:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer"
         >
           <Plus size={12} />
         </button>

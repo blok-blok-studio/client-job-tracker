@@ -51,7 +51,7 @@ export default function ClientForm({
   }
 
   const inputClass =
-    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 focus:border-bb-orange text-sm";
+    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 focus:border-bb-blue text-sm";
   const labelClass = "block text-sm text-bb-muted mb-1";
 
   const chips: Array<{ key: "person" | "company"; label: string; icon: typeof User; on: boolean }> = [
@@ -84,7 +84,7 @@ export default function ClientForm({
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full border transition-colors",
               c.on
-                ? "bg-bb-orange/15 border-bb-orange/40 text-bb-orange"
+                ? "bg-bb-blue/15 border-bb-blue/40 text-bb-accent"
                 : "bg-bb-black border-bb-border text-bb-muted hover:text-white"
             )}
           >
@@ -126,7 +126,7 @@ export default function ClientForm({
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors">
           Cancel
         </button>
-        <button type="submit" disabled={loading} className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50">
+        <button type="submit" disabled={loading} className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50">
           {loading ? "Saving..." : submitLabel}
         </button>
       </div>

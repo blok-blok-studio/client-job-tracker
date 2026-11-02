@@ -62,7 +62,7 @@ export const STATUS_META: Record<StatusKey, { label: string; dot: string; badge:
   DRAFT: { label: "Draft", dot: "bg-bb-dim", badge: "bg-bb-elevated text-bb-muted border-bb-border", text: "text-bb-muted" },
   SCHEDULED: { label: "Scheduled", dot: "bg-blue-400", badge: "bg-blue-500/10 text-blue-300 border-blue-500/25", text: "text-blue-300" },
   PUBLISHING: { label: "Publishing", dot: "bg-yellow-400 animate-pulse", badge: "bg-yellow-500/10 text-yellow-300 border-yellow-500/25", text: "text-yellow-300" },
-  ACTION_NEEDED: { label: "Needs posting", dot: "bg-bb-orange", badge: "bg-bb-orange/10 text-bb-orange border-bb-orange/30", text: "text-bb-orange" },
+  ACTION_NEEDED: { label: "Needs posting", dot: "bg-bb-blue", badge: "bg-bb-blue/10 text-bb-accent border-bb-blue/30", text: "text-bb-accent" },
   PUBLISHED: { label: "Published", dot: "bg-emerald-400", badge: "bg-emerald-500/10 text-emerald-300 border-emerald-500/25", text: "text-emerald-300" },
   FAILED: { label: "Failed", dot: "bg-red-500", badge: "bg-red-500/10 text-red-300 border-red-500/25", text: "text-red-300" },
   AWAITING_APPROVAL: { label: "Awaiting approval", dot: "bg-purple-400", badge: "bg-purple-500/10 text-purple-300 border-purple-500/25", text: "text-purple-300" },

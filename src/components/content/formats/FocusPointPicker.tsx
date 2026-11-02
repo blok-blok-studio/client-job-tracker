@@ -59,10 +59,10 @@ export default function FocusPointPicker({ value, onChange, className = "" }: Pr
       onPointerMove={(e) => dragging.current && pointFromEvent(e)}
       onPointerUp={() => (dragging.current = false)}
       onPointerCancel={() => (dragging.current = false)}
-      className={`absolute inset-0 cursor-crosshair touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-bb-orange ${className}`}
+      className={`absolute inset-0 cursor-crosshair touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-bb-blue ${className}`}
     >
       <span
-        className="pointer-events-none absolute w-6 h-6 -ml-3 -mt-3 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.6)] bg-bb-orange/40"
+        className="pointer-events-none absolute w-6 h-6 -ml-3 -mt-3 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.6)] bg-bb-blue/40"
         style={{ left: `${value.x * 100}%`, top: `${value.y * 100}%` }}
       />
     </div>

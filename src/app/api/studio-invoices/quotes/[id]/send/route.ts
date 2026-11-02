@@ -33,12 +33,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const first = (v.billTo.name || "").split(" ")[0] || "";
     const html = `
       <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;color:#111;">
-        <h2 style="margin:0 0 28px;font-size:18px;">Blok Blok Studio</h2>
+        <img src="https://app.blokblokstudio.com/bb_logo_wordmark_subhead_BLK_PNG.png" alt="Blok Blok Studio" width="170" style="display:block;width:170px;height:auto;margin:0 0 28px;border:0;" />
         <p style="font-size:15px;line-height:1.6;">${esc(de ? `Hallo ${first},` : `Hi ${first},`)}</p>
         <p style="font-size:15px;line-height:1.6;">${de ? `anbei unser Angebot <strong>${esc(v.number || "")}</strong> über <strong>${esc(formatMoney(v.total, v.currency, "de"))}</strong>, gültig bis ${esc(formatDate(v.validUntil, "de"))}.` : `please find our quote <strong>${esc(v.number || "")}</strong> for <strong>${esc(formatMoney(v.total, v.currency, "en"))}</strong>, valid until ${esc(formatDate(v.validUntil, "en"))}.`}</p>
         ${body.message ? `<p style="font-size:15px;line-height:1.6;white-space:pre-wrap;">${esc(body.message)}</p>` : ""}
         <p style="font-size:15px;line-height:1.6;">${de ? "Sie können das Angebot online ansehen und mit einem Klick annehmen:" : "You can review and accept it online with one click:"}</p>
-        <div style="margin:24px 0;"><a href="${esc(v.acceptUrl)}" style="display:inline-block;background:#111;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">${de ? "Angebot ansehen" : "View quote"}</a></div>
+        <div style="margin:24px 0;"><a href="${esc(v.acceptUrl)}" style="display:inline-block;background:#2561D8;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">${de ? "Angebot ansehen" : "View quote"}</a></div>
         <p style="font-size:15px;line-height:1.6;">${esc(de ? "Beste Grüße" : "Best regards")}<br/>${esc(v.seller.contactName)}</p>
       </div>`;
     const resend = new Resend(process.env.RESEND_API_KEY);

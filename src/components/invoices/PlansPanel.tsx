@@ -302,7 +302,7 @@ function PlanEditor({ plan, onClose, onSaved }: { plan: Plan | null; onClose: ()
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className={labelCls}>Line items · write {"{month}"}, {"{period}"} or {"{year}"} to print the billing period</label>
-            <button type="button" className="text-xs text-bb-orange hover:underline inline-flex items-center gap-1" onClick={() => setF({ ...f, items: [...f.items, { description: "", qty: "1", unitPrice: "" }] })}><Plus size={12} /> Add line</button>
+            <button type="button" className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1" onClick={() => setF({ ...f, items: [...f.items, { description: "", qty: "1", unitPrice: "" }] })}><Plus size={12} /> Add line</button>
           </div>
           <div className="space-y-2">
             {f.items.map((row, i) => (

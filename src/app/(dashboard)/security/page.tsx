@@ -40,7 +40,7 @@ interface Profile {
 }
 
 const inputClass =
-  "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
+  "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
 export default function SecurityPage() {
   const [status, setStatus] = useState<SecurityStatus | null>(null);
@@ -311,14 +311,14 @@ export default function SecurityPage() {
         {/* Profile */}
         <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-4">
           <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <UserRound size={15} className="text-bb-orange" />
+            <UserRound size={15} className="text-bb-accent" />
             Profile
           </h2>
 
           <div className="flex items-center gap-4">
             {/* Photo — click to upload */}
             <label
-              className="relative w-16 h-16 rounded-full shrink-0 cursor-pointer overflow-hidden ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow flex items-center justify-center group"
+              className="relative w-16 h-16 rounded-full shrink-0 cursor-pointer overflow-hidden ring-1 ring-white/10 hover:ring-bb-blue/60 transition-shadow flex items-center justify-center group"
               style={{ backgroundColor: profile?.color || "#1E1E1E" }}
               title="Change profile photo"
             >
@@ -357,13 +357,13 @@ export default function SecurityPage() {
               <div className="flex items-center gap-2">
                 {/* Accent color */}
                 <label
-                  className="relative w-6 h-6 rounded-md cursor-pointer ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow"
-                  style={{ backgroundColor: profile?.color || "#FF6B00" }}
+                  className="relative w-6 h-6 rounded-md cursor-pointer ring-1 ring-white/10 hover:ring-bb-blue/60 transition-shadow"
+                  style={{ backgroundColor: profile?.color || "#2561D8" }}
                   title="Profile color"
                 >
                   <input
                     type="color"
-                    value={profile?.color || "#FF6B00"}
+                    value={profile?.color || "#2561D8"}
                     onChange={(e) => saveColor(e.target.value)}
                     className="absolute inset-0 opacity-0 cursor-pointer"
                     aria-label="Profile color"
@@ -397,7 +397,7 @@ export default function SecurityPage() {
             <button
               onClick={saveName}
               disabled={busy || !nameDraft.trim() || nameDraft.trim() === profile?.name}
-              className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               Save
             </button>
@@ -407,7 +407,7 @@ export default function SecurityPage() {
         {/* Login email */}
         <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-3">
           <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Mail size={15} className="text-bb-orange" />
+            <Mail size={15} className="text-bb-accent" />
             Login email
           </h2>
           <div className="flex flex-wrap items-center gap-2">
@@ -457,7 +457,7 @@ export default function SecurityPage() {
                 <button
                   onClick={changeEmail}
                   disabled={busy || !emailDraft || !emailPassword || (status?.totpEnabled ? !emailCode.trim() : false)}
-                  className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   Update email
                 </button>
@@ -469,7 +469,7 @@ export default function SecurityPage() {
         {/* Change password */}
         <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-3">
           <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <KeyRound size={15} className="text-bb-orange" />
+            <KeyRound size={15} className="text-bb-accent" />
             Change password
           </h2>
           <div className="grid sm:grid-cols-3 gap-2">
@@ -516,7 +516,7 @@ export default function SecurityPage() {
           <button
             onClick={changePassword}
             disabled={busy || !pwCurrent || pwNew.length < 8 || !pwConfirm || (status?.totpEnabled ? !pwCode.trim() : false)}
-            className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
           >
             Change password
           </button>
@@ -549,9 +549,9 @@ export default function SecurityPage() {
 
         {/* One-time backup codes display */}
         {backupCodes && (
-          <div className="bg-bb-surface border border-bb-orange/40 rounded-lg p-4 space-y-3">
+          <div className="bg-bb-surface border border-bb-blue/40 rounded-lg p-4 space-y-3">
             <p className="text-sm font-medium text-white flex items-center gap-2">
-              <AlertTriangle size={15} className="text-bb-orange" />
+              <AlertTriangle size={15} className="text-bb-accent" />
               Save these backup codes now — they are shown only once
             </p>
             <p className="text-xs text-bb-dim">
@@ -575,7 +575,7 @@ export default function SecurityPage() {
         {/* Authenticator (TOTP) */}
         <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-3">
           <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Smartphone size={15} className="text-bb-orange" />
+            <Smartphone size={15} className="text-bb-accent" />
             Authenticator app (2FA)
           </h2>
 
@@ -607,7 +607,7 @@ export default function SecurityPage() {
               {/* On this phone: one tap adds the account to the authenticator app */}
               <a
                 href={qr.uri}
-                className="sm:hidden flex items-center justify-center gap-2 w-full py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold rounded-md transition-colors"
+                className="sm:hidden flex items-center justify-center gap-2 w-full py-2.5 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-semibold rounded-md transition-colors"
               >
                 <ExternalLink size={15} />
                 Add to my authenticator app
@@ -654,7 +654,7 @@ export default function SecurityPage() {
                 <button
                   onClick={confirmEnable}
                   disabled={busy || enableCode.length < 6}
-                  className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   Verify & turn on
                 </button>
@@ -675,7 +675,7 @@ export default function SecurityPage() {
                 <button
                   onClick={startSetup}
                   disabled={busy || !setupPassword}
-                  className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   Set up
                 </button>
@@ -687,7 +687,7 @@ export default function SecurityPage() {
         {/* PIN */}
         <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-3">
           <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <KeyRound size={15} className="text-bb-orange" />
+            <KeyRound size={15} className="text-bb-accent" />
             Login PIN {status?.pinSet && <span className="text-[10px] text-green-400">· set</span>}
           </h2>
           <p className="text-xs text-bb-muted">
@@ -714,7 +714,7 @@ export default function SecurityPage() {
             <button
               onClick={setPin}
               disabled={busy || !pinPassword || pinValue.length < 4}
-              className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {status?.pinSet ? "Change PIN" : "Set PIN"}
             </button>

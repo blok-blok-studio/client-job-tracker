@@ -164,7 +164,7 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
                 : "Already published. Changes here won't reach the platform; duplicate the post to publish again."}
             </p>
             {draft.externalUrl && (
-              <a href={draft.externalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-bb-orange hover:text-bb-orange-light">
+              <a href={draft.externalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-bb-accent hover:text-bb-accent-light">
                 View on {platformName(draft.platform)} <ExternalLink size={11} />
               </a>
             )}
@@ -202,7 +202,7 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
           <span className="flex items-center gap-1.5">
             <Hand size={13} /> This post is waiting to be posted by hand.
           </span>
-          <span className="inline-flex items-center gap-1 text-bb-orange">
+          <span className="inline-flex items-center gap-1 text-bb-accent">
             Open handoff <ExternalLink size={11} />
           </span>
         </a>
@@ -212,7 +212,7 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
         (handOpen ? (
           <div className="rounded-lg border border-bb-border bg-bb-elevated px-3 py-3 space-y-2">
             <p className="flex items-center gap-1.5 text-sm text-white">
-              <Hand size={14} className="text-bb-orange" /> Posted this yourself?
+              <Hand size={14} className="text-bb-accent" /> Posted this yourself?
             </p>
             <p className="text-[11px] text-bb-dim">
               Marks it as published on {platformName(draft.platform)} for everyone on the calendar. The scheduler won&apos;t post it again.
@@ -270,7 +270,7 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
       <Card title="Publishing" icon={<Settings2 size={13} />}>
         {manualOnly ? (
           <p className="flex items-center gap-1.5 text-xs text-bb-muted">
-            <Hand size={13} className="text-bb-orange" /> Posted by hand from a phone at the scheduled time.
+            <Hand size={13} className="text-bb-accent" /> Posted by hand from a phone at the scheduled time.
           </p>
         ) : draft.platform === "TIKTOK" ? (
           <SegmentedControl
@@ -346,7 +346,7 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
                   )
                 ) : (
                   <span className="inline-flex items-center gap-1">
-                    <Sparkles size={10} className="text-bb-orange" /> Picked from your media
+                    <Sparkles size={10} className="text-bb-accent" /> Picked from your media
                   </span>
                 )
               }
@@ -393,7 +393,7 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
                   : { overrideCaption: false }
               )
             }
-            className="accent-bb-orange w-4 h-4"
+            className="accent-bb-blue w-4 h-4"
           />
           Different caption
         </label>
@@ -424,7 +424,7 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
                 checked={draft.overrideMedia}
                 disabled={disabled}
                 onChange={(e) => onDraft(e.target.checked ? { overrideMedia: true, mediaUrls: [...shared.mediaUrls] } : { overrideMedia: false })}
-                className="accent-bb-orange w-4 h-4"
+                className="accent-bb-blue w-4 h-4"
               />
               Use only some of the media
             </label>
@@ -442,7 +442,7 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
                       onClick={() => onDraft({ mediaUrls: on ? draft.mediaUrls.filter((u) => u !== url) : [...draft.mediaUrls, url] })}
                       className={cn(
                         "relative aspect-square rounded-md overflow-hidden border-2 cursor-pointer transition-all",
-                        on ? "border-bb-orange" : "border-bb-border opacity-40 hover:opacity-70"
+                        on ? "border-bb-blue" : "border-bb-border opacity-40 hover:opacity-70"
                       )}
                       aria-pressed={on}
                       aria-label={`Media ${i + 1}`}
@@ -453,7 +453,7 @@ export default function AccountTab({ account, draft, shared, meta, team, issues,
                       ) : (
                         <span className="w-full h-full flex items-center justify-center bg-bb-elevated text-[10px] text-bb-dim">Video</span>
                       )}
-                      {on && <CheckCircle2 size={12} className="absolute top-0.5 right-0.5 text-bb-orange bg-black/60 rounded-full" />}
+                      {on && <CheckCircle2 size={12} className="absolute top-0.5 right-0.5 text-bb-accent bg-black/60 rounded-full" />}
                     </button>
                   );
                 })}

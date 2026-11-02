@@ -161,7 +161,7 @@ export default function PostReviewCard({
   return (
     <article
       className={`bg-bb-surface border rounded-xl overflow-hidden ${
-        current === "APPROVED" ? "border-emerald-500/40" : current === "CHANGES_REQUESTED" ? "border-bb-orange/50" : "border-bb-border"
+        current === "APPROVED" ? "border-emerald-500/40" : current === "CHANGES_REQUESTED" ? "border-bb-blue/50" : "border-bb-border"
       }`}
     >
       <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-bb-border">
@@ -188,7 +188,7 @@ export default function PostReviewCard({
           <p className="text-sm text-bb-muted whitespace-pre-wrap leading-relaxed">
             {post.body}
             {post.body && hashtags ? "\n\n" : ""}
-            {hashtags && <span className="text-bb-orange/90">{hashtags}</span>}
+            {hashtags && <span className="text-bb-accent/90">{hashtags}</span>}
           </p>
         )}
         {post.firstComment && (
@@ -208,7 +208,7 @@ export default function PostReviewCard({
               </span>
             ) : post.decision === "CHANGES_REQUESTED" ? (
               <div className="space-y-1.5">
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-bb-orange/15 text-bb-orange border border-bb-orange/30">
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-bb-blue/15 text-bb-accent border border-bb-blue/30">
                   <Pencil size={11} /> Changes requested
                 </span>
                 {post.note && <p className="text-xs text-bb-muted whitespace-pre-wrap">&ldquo;{post.note}&rdquo;</p>}
@@ -236,8 +236,8 @@ export default function PostReviewCard({
                 }
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
                   current === "CHANGES_REQUESTED"
-                    ? "bg-bb-orange border-bb-orange text-white"
-                    : "bg-bb-black border-bb-border text-bb-muted hover:text-white hover:border-bb-orange/60"
+                    ? "bg-bb-blue border-bb-blue text-white"
+                    : "bg-bb-black border-bb-border text-bb-muted hover:text-white hover:border-bb-blue/60"
                 }`}
               >
                 <Pencil size={14} /> Request changes
@@ -250,7 +250,7 @@ export default function PostReviewCard({
                 rows={3}
                 autoFocus
                 placeholder="What should we change?"
-                className="w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange"
+                className="w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue"
               />
             )}
           </div>

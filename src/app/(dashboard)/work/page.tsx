@@ -84,7 +84,7 @@ function iconFor(r: WorkRow) {
     case "IMAGE": return <FileImage size={16} className="text-purple-400 shrink-0" />;
     case "VIDEO": return <FileVideo size={16} className="text-purple-400 shrink-0" />;
     case "AUDIO": return <FileAudio size={16} className="text-green-400 shrink-0" />;
-    case "PDF": return <FileText size={16} className="text-bb-orange shrink-0" />;
+    case "PDF": return <FileText size={16} className="text-bb-accent shrink-0" />;
     default: return <FileIcon size={16} className="text-bb-muted shrink-0" />;
   }
 }
@@ -159,7 +159,7 @@ function PreviewPane({ row, onDownload }: { row: WorkRow; onDownload: () => void
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="w-32 h-32 rounded-2xl bg-white/5 flex items-center justify-center">
-        <FileText size={48} className="text-orange-400" />
+        <FileText size={48} className="text-bb-accent" />
       </div>
       <p className="text-white font-medium text-center px-4">{row.filename}</p>
       <p className="text-sm text-bb-dim">
@@ -384,7 +384,7 @@ export default function WorkPage() {
               key={tile.label}
               className="bg-bb-surface border border-bb-border rounded-lg p-4 flex items-center gap-3"
             >
-              <tile.icon size={18} className="text-bb-orange shrink-0" />
+              <tile.icon size={18} className="text-bb-accent shrink-0" />
               <div className="min-w-0">
                 <p className="text-lg font-semibold text-white truncate">{tile.value}</p>
                 <p className="text-xs text-bb-dim truncate">{tile.label}</p>
@@ -410,11 +410,11 @@ export default function WorkPage() {
             className={cn(
               "flex items-center justify-center gap-3 py-6 rounded-lg border-2 border-dashed cursor-pointer transition-all",
               dragOver
-                ? "border-bb-orange bg-bb-orange/5"
-                : "border-bb-border hover:border-bb-orange/50"
+                ? "border-bb-blue bg-bb-blue/5"
+                : "border-bb-border hover:border-bb-blue/50"
             )}
           >
-            <FolderUp size={20} className={dragOver ? "text-bb-orange" : "text-bb-dim"} />
+            <FolderUp size={20} className={dragOver ? "text-bb-accent" : "text-bb-dim"} />
             <p className="text-sm text-bb-muted">
               Drop finished files here or <span className="text-white font-medium">browse</span>
               <span className="text-bb-dim"> · any type · originals kept as-is, never compressed</span>
@@ -440,7 +440,7 @@ export default function WorkPage() {
                     key={`${f.name}-${f.size}-${i}`}
                     className="flex items-center gap-2 px-3 py-2 bg-bb-black border border-bb-border rounded-md"
                   >
-                    <FileText size={14} className="text-bb-orange shrink-0" />
+                    <FileText size={14} className="text-bb-accent shrink-0" />
                     <span className="text-sm text-white truncate flex-1">{f.name}</span>
                     <span className="text-[10px] text-bb-dim shrink-0">{fmtBytes(f.size)}</span>
                     <button
@@ -458,8 +458,8 @@ export default function WorkPage() {
                   value={uploadClientId}
                   onChange={(e) => setUploadClientId(e.target.value)}
                   className={cn(
-                    "px-3 py-2 bg-bb-black border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 sm:w-56 [color-scheme:dark]",
-                    uploadClientId ? "border-bb-border text-white" : "border-bb-orange/60 text-bb-dim"
+                    "px-3 py-2 bg-bb-black border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50 sm:w-56 [color-scheme:dark]",
+                    uploadClientId ? "border-bb-border text-white" : "border-bb-blue/60 text-bb-dim"
                   )}
                 >
                   <option value="" disabled>
@@ -477,13 +477,13 @@ export default function WorkPage() {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Note (optional) — what's in this delivery"
-                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                  className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
                 />
                 <button
                   type="button"
                   onClick={handleSubmit}
                   disabled={uploading || !uploadClientId}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50 shrink-0"
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50 shrink-0"
                 >
                   {uploading ? (
                     <>
@@ -516,13 +516,13 @@ export default function WorkPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search files, clients, uploaders, notes…"
-              className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
             />
           </div>
           <select
             value={clientFilter}
             onChange={(e) => setClientFilter(e.target.value)}
-            className="px-3 py-2 bg-bb-surface border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 sm:w-56 [color-scheme:dark]"
+            className="px-3 py-2 bg-bb-surface border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50 sm:w-56 [color-scheme:dark]"
           >
             <option value="">All clients</option>
             {clients.map((c) => (
@@ -558,7 +558,7 @@ export default function WorkPage() {
                     <button
                       type="button"
                       onClick={() => setViewerIndex(idx)}
-                      className="hover:text-bb-orange transition-colors text-left"
+                      className="hover:text-bb-accent transition-colors text-left"
                       title="Preview"
                     >
                       {r.filename}

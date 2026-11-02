@@ -27,7 +27,7 @@ export default function Error({
         </p>
         <button
           onClick={reset}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-lg transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-lg transition-colors"
         >
           <RotateCcw size={14} /> Reload page
         </button>

@@ -98,7 +98,7 @@ export default function VideoAudioMaker({ clientId, videoUrl, onCreated }: Props
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors"
+        className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-blue/50 cursor-pointer transition-colors"
       >
         <Music size={14} /> Add an MP3 to this video
       </button>
@@ -110,7 +110,7 @@ export default function VideoAudioMaker({ clientId, videoUrl, onCreated }: Props
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="flex items-center gap-1.5 text-sm text-white">
-            <Music size={14} className="text-bb-orange" /> Add an MP3 to this video
+            <Music size={14} className="text-bb-accent" /> Add an MP3 to this video
           </p>
           <p className="text-[11px] text-bb-dim mt-1">
             The track is baked into the video, so it still publishes automatically. The picture isn&apos;t touched. Use audio you have the rights to. It posts as
@@ -140,7 +140,7 @@ export default function VideoAudioMaker({ clientId, videoUrl, onCreated }: Props
               onClick={() => setKeepOriginal(o.value)}
               className={cn(
                 "px-3 py-2 rounded-lg border text-left text-xs cursor-pointer transition-colors",
-                keepOriginal === o.value ? "border-bb-orange/60 text-white bg-bb-orange/10" : "border-bb-border text-bb-muted hover:text-white"
+                keepOriginal === o.value ? "border-bb-blue/60 text-white bg-bb-blue/10" : "border-bb-border text-bb-muted hover:text-white"
               )}
             >
               {o.label}
@@ -165,7 +165,7 @@ export default function VideoAudioMaker({ clientId, videoUrl, onCreated }: Props
               value={trackVolume}
               disabled={rendering}
               onChange={(e) => setTrackVolume(Number(e.target.value))}
-              className="w-full h-9 accent-bb-orange cursor-pointer"
+              className="w-full h-9 accent-bb-blue cursor-pointer"
             />
           </div>
         )}
@@ -181,7 +181,7 @@ export default function VideoAudioMaker({ clientId, videoUrl, onCreated }: Props
         type="button"
         disabled={!audio || rendering || uploading}
         onClick={create}
-        className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg bg-bb-orange text-white text-sm font-medium cursor-pointer transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg bg-bb-blue text-white text-sm font-medium cursor-pointer transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {rendering ? <Loader2 size={14} className="animate-spin" /> : <Music size={14} />}
         {rendering ? "Adding the audio, usually under a minute" : "Add the audio"}

@@ -154,11 +154,12 @@ export default function Sidebar() {
       <div className="p-4 flex items-center justify-between border-b border-bb-border">
         {!collapsed && (
           <Image
-            src="/bb_logo_wordmark_subhead_WHT_PNG.png"
-            alt="Blok Blok"
-            width={240}
-            height={129}
-            className="h-16 w-auto"
+            src="/logo-wordmark-white.svg"
+            alt="Blok Blok Studio"
+            width={1025}
+            height={550}
+            priority
+            className="h-20 w-auto"
           />
         )}
         {/* Desktop collapse button */}
@@ -193,7 +194,7 @@ export default function Sidebar() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-bb-orange/10 text-bb-orange shadow-[inset_2px_0_0_#FF6B00]"
+                  ? "bg-bb-blue/10 text-bb-accent shadow-[inset_2px_0_0_#2561D8]"
                   : "text-bb-muted hover:text-white hover:bg-bb-elevated"
               )}
               title={collapsed ? item.label : undefined}
@@ -215,7 +216,7 @@ export default function Sidebar() {
               <Link
                 href="/security"
                 title="Account settings"
-                className="w-7 h-7 rounded-full shrink-0 overflow-hidden ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow"
+                className="w-7 h-7 rounded-full shrink-0 overflow-hidden ring-1 ring-white/10 hover:ring-bb-blue/60 transition-shadow"
                 style={currentUser.color ? { boxShadow: `0 0 0 1.5px ${currentUser.color}` } : undefined}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -223,7 +224,7 @@ export default function Sidebar() {
               </Link>
             ) : (
             <label
-              className="relative w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 cursor-pointer ring-1 ring-white/10 hover:ring-bb-orange/60 transition-shadow"
+              className="relative w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 cursor-pointer ring-1 ring-white/10 hover:ring-bb-blue/60 transition-shadow"
               style={{ backgroundColor: currentUser.color || "#1E1E1E" }}
               title="Click to pick your profile color"
             >
@@ -232,7 +233,7 @@ export default function Sidebar() {
               </span>
               <input
                 type="color"
-                value={currentUser.color || "#FF6B00"}
+                value={currentUser.color || "#2561D8"}
                 onChange={(e) => {
                   const color = e.target.value;
                   setCurrentUser((prev) => (prev ? { ...prev, color } : prev));

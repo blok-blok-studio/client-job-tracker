@@ -49,7 +49,7 @@ export async function sendPaymentLinkEmail(params: {
         </p>
         <div style="text-align: center; margin: 32px 0;">
           <p style="font-size: 28px; font-weight: bold; color: #111; margin: 0 0 8px 0;">${params.amount}</p>
-          <a href="${params.paymentUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.paymentUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             Pay Now
           </a>
         </div>
@@ -100,7 +100,7 @@ export async function sendOnboardingLinkEmail(params: {
           We're excited to work with you! Please fill out our onboarding form so we can get started on your project.
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.onboardUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.onboardUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             Complete Onboarding
           </a>
         </div>
@@ -153,7 +153,7 @@ export async function sendOnboardingCompleteEmail(params: {
           Your onboarding is complete — we're excited to get started! If you have any photos, videos, brand assets, or documents to share, you can upload them anytime using the button below.
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.uploadUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.uploadUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             Upload Files
           </a>
         </div>
@@ -163,8 +163,8 @@ export async function sendOnboardingCompleteEmail(params: {
         ${params.contractUrl ? `
         <div style="background: #f9f9f9; border-radius: 8px; padding: 16px; margin: 24px 0; text-align: center;">
           <p style="color: #666; font-size: 13px; margin: 0 0 12px 0;">Your signed agreement</p>
-          <a href="${params.contractUrl}" style="color: #FF6B00; text-decoration: underline; font-size: 14px; font-weight: 500;">View Contract</a>
-          ${params.pdfUrl ? `<span style="color: #ccc; margin: 0 8px;">·</span><a href="${params.pdfUrl}" style="color: #FF6B00; text-decoration: underline; font-size: 14px; font-weight: 500;">Download PDF</a>` : ""}
+          <a href="${params.contractUrl}" style="color: #2561D8; text-decoration: underline; font-size: 14px; font-weight: 500;">View Contract</a>
+          ${params.pdfUrl ? `<span style="color: #ccc; margin: 0 8px;">·</span><a href="${params.pdfUrl}" style="color: #2561D8; text-decoration: underline; font-size: 14px; font-weight: 500;">Download PDF</a>` : ""}
         </div>
         ` : ""}
         <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
@@ -215,7 +215,7 @@ export async function sendContractSigningEmail(params: {
           Your ${docName} is ready for review and signature. Please click the button below to review the terms and sign electronically.
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.contractUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.contractUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             Review & Sign Agreement
           </a>
         </div>
@@ -266,7 +266,7 @@ export async function sendContractEmail(params: {
           Thank you for completing your onboarding! Here's a copy of your signed service agreement for your records.
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.contractUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.contractUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             View Signed Agreement
           </a>
         </div>
@@ -376,12 +376,12 @@ export async function sendContractSignedClientEmail(params: {
           <p style="color: #111; font-size: 15px; font-weight: 600; margin: 0;">${dateFormatted}</p>
         </div>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.contractUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.contractUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             View Signed Agreement
           </a>
         </div>
         <div style="text-align: center; margin: 0 0 32px 0;">
-          <a href="${params.pdfUrl}" style="display: inline-block; background-color: #ffffff; color: #FF6B00; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; border: 2px solid #FF6B00;">
+          <a href="${params.pdfUrl}" style="display: inline-block; background-color: #ffffff; color: #2561D8; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; border: 2px solid #2561D8;">
             Download PDF
           </a>
         </div>
@@ -453,7 +453,7 @@ export async function sendPaymentReceivedEmail(params: {
         </div>
         ${params.invoiceUrl ? `
         <div style="text-align: center; margin: 24px 0;">
-          <a href="${params.invoiceUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.invoiceUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             View Invoice & Receipt
           </a>
         </div>
@@ -593,7 +593,7 @@ export async function sendPaymentReminderEmail(params: {
         </p>
         <div style="text-align: center; margin: 32px 0;">
           <p style="font-size: 28px; font-weight: bold; color: #111; margin: 0 0 8px 0;">${params.amount}</p>
-          <a href="${params.paymentUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.paymentUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             Pay Now
           </a>
         </div>
@@ -678,7 +678,7 @@ export async function sendContractSignedAdminEmail(params: {
           </tr>` : ""}
         </table>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.contractUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+          <a href="${params.contractUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
             View Contract
           </a>
         </div>
@@ -733,7 +733,7 @@ export async function sendDeliverableReviewEmail(params: {
           ${intro}
         </p>
         ${params.message ? `
-        <div style="background: #f9f9f9; border-left: 4px solid #FF6B00; border-radius: 0 8px 8px 0; padding: 14px 16px; margin: 20px 0;">
+        <div style="background: #f9f9f9; border-left: 4px solid #2561D8; border-radius: 0 8px 8px 0; padding: 14px 16px; margin: 20px 0;">
           <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${esc(params.message)}</p>
         </div>
         ` : ""}
@@ -741,7 +741,7 @@ export async function sendDeliverableReviewEmail(params: {
           Watch or view everything right on the page, then hit <strong>Approve</strong> if you love it — or <strong>Request changes</strong> and tell us what to adjust.
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             Review Your Work
           </a>
         </div>
@@ -797,7 +797,7 @@ export async function sendDeliverableReviewReminderEmail(params: {
           Just a friendly nudge — <strong>${esc(params.title)}</strong> has been ready for your review for ${params.daysPending} days. Once you approve, we can wrap it up (and if anything needs adjusting, mark just those items and we'll get on it).
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             Review Your Work
           </a>
         </div>
@@ -853,11 +853,11 @@ export async function sendDeliverableReplyEmail(params: {
         <p style="color: #333; font-size: 16px; line-height: 1.6;">
           We replied to your feedback${params.itemLabel ? ` on <strong>${esc(params.itemLabel)}</strong>` : ""} in <strong>${esc(params.title)}</strong>:
         </p>
-        <div style="background: #f9f9f9; border-left: 4px solid #FF6B00; border-radius: 0 8px 8px 0; padding: 14px 16px; margin: 20px 0;">
+        <div style="background: #f9f9f9; border-left: 4px solid #2561D8; border-radius: 0 8px 8px 0; padding: 14px 16px; margin: 20px 0;">
           <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${esc(params.body)}</p>
         </div>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             View &amp; Respond
           </a>
         </div>
@@ -920,7 +920,7 @@ export async function sendDeliverableResponseAdminEmail(params: {
         </div>
         ${!params.approved && params.notes ? `
         <p style="color: #666; font-size: 13px; margin: 0 0 6px;">What they asked for:</p>
-        <div style="background: #f9f9f9; border-left: 4px solid #FF6B00; border-radius: 0 8px 8px 0; padding: 14px 16px; margin: 0 0 24px;">
+        <div style="background: #f9f9f9; border-left: 4px solid #2561D8; border-radius: 0 8px 8px 0; padding: 14px 16px; margin: 0 0 24px;">
           <p style="color: #333; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${esc(params.notes)}</p>
         </div>
         <p style="color: #666; font-size: 14px; line-height: 1.6;">
@@ -928,11 +928,11 @@ export async function sendDeliverableResponseAdminEmail(params: {
         </p>
         ` : ""}
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.clientUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+          <a href="${params.clientUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
             Open Client
           </a>
           <span style="display: inline-block; width: 8px;"></span>
-          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #ffffff; color: #FF6B00; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; border: 2px solid #FF6B00;">
+          <a href="${params.reviewUrl}" style="display: inline-block; background-color: #ffffff; color: #2561D8; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; border: 2px solid #2561D8;">
             View Deliverable
           </a>
         </div>
@@ -1045,7 +1045,7 @@ export async function sendClientReportEmail(params: {
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff;">
         <!-- Brand header: black block, logo, orange rule -->
-        <div style="background: #0A0A0A; padding: 28px 24px; text-align: center; border-bottom: 4px solid #FF6B00;">
+        <div style="background: #000000; padding: 28px 24px; text-align: center; border-bottom: 4px solid #2561D8;">
           <img src="https://blokblokstudio-clients.vercel.app/bb_logo_wordmark_subhead_WHT_PNG.png" alt="Blok Blok Studio" width="180" style="max-width: 180px; height: auto;" />
         </div>
 
@@ -1129,7 +1129,7 @@ export async function sendContractorAgreementEmail(params: {
           Your ${params.title.toLowerCase()} is ready. Have a read through and sign it electronically — it takes a minute, and it needs to be on file before we can pay invoices.
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.agreementUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.agreementUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             Review &amp; Sign
           </a>
         </div>
@@ -1176,7 +1176,7 @@ export async function sendContractorAgreementSignedEmail(params: {
           Thanks for signing the ${params.title.toLowerCase()}. Both signatures are on file. Keep this link — your copy lives there for good.
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.agreementUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.agreementUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             View &amp; download PDF
           </a>
         </div>
@@ -1224,7 +1224,7 @@ export async function sendPasswordResetEmail(params: {
           Someone asked to reset the password for your Command Center login. Use the button below to pick a new one.
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.resetUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.resetUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             Reset password
           </a>
         </div>
@@ -1288,7 +1288,7 @@ export async function sendContractorPortalEmail(params: {
           }
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.portalUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.portalUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             Open your portal
           </a>
         </div>
@@ -1359,7 +1359,7 @@ export async function sendPartnerPortalEmail(params: {
           }
         </p>
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${params.portalUrl}" style="display: inline-block; background-color: #FF6B00; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+          <a href="${params.portalUrl}" style="display: inline-block; background-color: #2561D8; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             Open your portal
           </a>
         </div>

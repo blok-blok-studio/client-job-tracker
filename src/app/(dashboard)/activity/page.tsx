@@ -132,8 +132,8 @@ export default function ActivityPage() {
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                 filter === f
-                  ? "bg-bb-orange/10 text-bb-orange border border-bb-orange/30"
-                  : "bg-bb-surface text-bb-muted border border-bb-border hover:border-bb-orange/20"
+                  ? "bg-bb-blue/10 text-bb-accent border border-bb-blue/30"
+                  : "bg-bb-surface text-bb-muted border border-bb-border hover:border-bb-blue/20"
               }`}
             >
               {f === "all" ? "All Activity" : f.charAt(0).toUpperCase() + f.slice(1)}
@@ -199,7 +199,7 @@ export default function ActivityPage() {
                           {activity.clientName && (
                             <button
                               onClick={() => router.push(`/clients/${activity.clientId}`)}
-                              className="text-sm text-bb-orange hover:underline"
+                              className="text-sm text-bb-accent hover:underline"
                             >
                               {activity.clientName}
                             </button>
@@ -207,7 +207,7 @@ export default function ActivityPage() {
                           {activity.action.startsWith("contractor") && (
                             <button
                               onClick={() => router.push("/contractors")}
-                              className="text-sm text-bb-orange hover:underline"
+                              className="text-sm text-bb-accent hover:underline"
                             >
                               Contractors →
                             </button>

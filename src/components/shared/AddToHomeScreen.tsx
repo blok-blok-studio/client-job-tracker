@@ -105,7 +105,7 @@ export default function AddToHomeScreen({
   return (
     <div className="mt-8 rounded-xl border border-white/10 bg-white/[0.03] p-4">
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center shrink-0">
+        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-bb-blue to-pink-500 flex items-center justify-center shrink-0">
           <Smartphone size={16} className="text-white" />
         </div>
         <div className="flex-1 min-w-0">
@@ -141,7 +141,7 @@ export default function AddToHomeScreen({
                 <button
                   type="button"
                   onClick={handleInstall}
-                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
+                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-bb-blue to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
                 >
                   <Download size={13} />
                   Add to home screen

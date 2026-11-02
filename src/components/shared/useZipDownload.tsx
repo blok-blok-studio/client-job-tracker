@@ -40,7 +40,7 @@ export function useZipDownload() {
     <div className="fixed inset-x-3 z-[250] bottom-[max(1rem,env(safe-area-inset-bottom))] mx-auto max-w-sm flex items-center gap-3 rounded-xl border border-bb-border bg-bb-surface px-4 py-3 shadow-modal">
       {state.status === "preparing" ? (
         <>
-          <Loader2 size={16} className="animate-spin text-bb-orange shrink-0" />
+          <Loader2 size={16} className="animate-spin text-bb-accent shrink-0" />
           <span className="text-sm text-white flex-1">Preparing {state.count} files…</span>
         </>
       ) : (
@@ -51,7 +51,7 @@ export function useZipDownload() {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setState(null)}
-            className="flex items-center gap-1.5 rounded-lg bg-bb-orange px-3 py-2 text-sm font-medium text-white"
+            className="flex items-center gap-1.5 rounded-lg bg-bb-blue px-3 py-2 text-sm font-medium text-white"
           >
             <Download size={14} /> Download
           </a>

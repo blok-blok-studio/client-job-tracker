@@ -807,7 +807,7 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
                             onClick={() => setActiveKey(d.key)}
                             className={cn(
                               "flex items-center gap-1.5 shrink-0 rounded-lg px-3 py-2 sm:px-2.5 sm:py-1.5 text-xs border cursor-pointer transition-colors",
-                              isActive ? "bg-bb-elevated border-bb-orange/60 text-white" : "border-transparent text-bb-muted hover:text-white hover:bg-bb-elevated"
+                              isActive ? "bg-bb-elevated border-bb-blue/60 text-white" : "border-transparent text-bb-muted hover:text-white hover:bg-bb-elevated"
                             )}
                           >
                             <AccountIcon platform={d.platform} size={12} />
@@ -910,7 +910,7 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
                   >
                     {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Copied" : "Copy"}
                   </button>
-                  <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg bg-bb-orange hover:bg-bb-orange-light text-xs text-white cursor-pointer transition-colors">
+                  <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg bg-bb-blue hover:bg-bb-blue-light text-xs text-white cursor-pointer transition-colors">
                     Done
                   </button>
                 </div>
@@ -937,7 +937,7 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
                     type="button"
                     disabled={!!saving || globalIssues.length > 0 || editableCount === 0}
                     onClick={() => requestSave("approval")}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bb-orange hover:bg-bb-orange-light text-xs text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bb-blue hover:bg-bb-blue-light text-xs text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     {saving === "approval" ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />} Save and create link
                   </button>
@@ -1043,7 +1043,7 @@ export default function PostComposer({ open, onClose, onSaved, defaultClientId, 
                   title={scheduleBlocked ? "Fix the issues first" : undefined}
                   className={cn(
                     "inline-flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium text-white cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                    scheduleBlocked ? "bg-bb-orange/40" : "bg-bb-orange hover:bg-bb-orange-light"
+                    scheduleBlocked ? "bg-bb-blue/40" : "bg-bb-blue hover:bg-bb-blue-light"
                   )}
                 >
                   {saving === "schedule" ? <Loader2 size={14} className="animate-spin" /> : <CalendarCheck2 size={14} />}

@@ -131,7 +131,7 @@ export default function TicketDetailPage() {
                       ? "bg-bb-elevated text-white"
                       : msg.sender === "bot"
                         ? "bg-bb-border/50 text-bb-muted italic"
-                        : "bg-bb-orange/20 text-white"
+                        : "bg-bb-blue/20 text-white"
                   )}
                 >
                   <div className="flex items-center gap-2 mb-1">
@@ -157,12 +157,12 @@ export default function TicketDetailPage() {
               value={reply}
               onChange={(e) => setReply(e.target.value)}
               placeholder="Type a reply..."
-              className="flex-1 px-4 py-2.5 bg-bb-surface border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              className="flex-1 px-4 py-2.5 bg-bb-surface border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
             />
             <button
               type="submit"
               disabled={!reply.trim() || sending}
-              className="px-4 py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2.5 bg-bb-blue hover:bg-bb-blue-light text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <Send size={16} />
               <span className="hidden sm:inline text-sm font-medium">Send</span>

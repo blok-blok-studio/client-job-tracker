@@ -20,7 +20,7 @@ export default function MandatoryMfaEnroll({ email }: { email: string }) {
   const [copiedKey, setCopiedKey] = useState(false);
 
   const inputClass =
-    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
+    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
   async function startSetup(e: React.FormEvent) {
     e.preventDefault();
@@ -91,7 +91,7 @@ export default function MandatoryMfaEnroll({ email }: { email: string }) {
     <div className="min-h-screen bg-bb-black flex items-center justify-center px-4">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <ShieldCheck size={32} className="text-bb-orange mx-auto" />
+          <ShieldCheck size={32} className="text-bb-accent mx-auto" />
           <h1 className="text-xl font-semibold text-white">Two-factor authentication required</h1>
           <p className="text-sm text-bb-dim">
             Every account must have an authenticator app before using the Command Center. This takes about a
@@ -117,7 +117,7 @@ export default function MandatoryMfaEnroll({ email }: { email: string }) {
               <button
                 type="submit"
                 disabled={busy || !password}
-                className="w-full py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold rounded-md transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-semibold rounded-md transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {busy ? <Loader2 size={15} className="animate-spin" /> : <Smartphone size={15} />}
                 Begin setup
@@ -130,7 +130,7 @@ export default function MandatoryMfaEnroll({ email }: { email: string }) {
               {/* On this phone: one tap adds the account to the authenticator app */}
               <a
                 href={qr.uri}
-                className="sm:hidden flex items-center justify-center gap-2 w-full py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold rounded-md transition-colors"
+                className="sm:hidden flex items-center justify-center gap-2 w-full py-2.5 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-semibold rounded-md transition-colors"
               >
                 <ExternalLink size={15} />
                 Add to my authenticator app
@@ -181,7 +181,7 @@ export default function MandatoryMfaEnroll({ email }: { email: string }) {
               <button
                 type="submit"
                 disabled={busy || code.length < 6}
-                className="w-full py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold rounded-md transition-colors disabled:opacity-50"
+                className="w-full py-2.5 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-semibold rounded-md transition-colors disabled:opacity-50"
               >
                 {busy ? "Verifying..." : "Verify & turn on"}
               </button>
@@ -191,7 +191,7 @@ export default function MandatoryMfaEnroll({ email }: { email: string }) {
           {step === "backup" && (
             <div className="space-y-3">
               <p className="text-sm font-medium text-white flex items-center gap-2">
-                <AlertTriangle size={15} className="text-bb-orange" />
+                <AlertTriangle size={15} className="text-bb-accent" />
                 Save your backup codes
               </p>
               <p className="text-xs text-bb-dim">
@@ -212,7 +212,7 @@ export default function MandatoryMfaEnroll({ email }: { email: string }) {
               </button>
               <button
                 onClick={() => router.refresh()}
-                className="w-full py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold rounded-md transition-colors"
+                className="w-full py-2.5 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-semibold rounded-md transition-colors"
               >
                 I&apos;ve saved them — enter the Command Center
               </button>

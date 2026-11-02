@@ -118,7 +118,7 @@ export default function SharedEditor({ shared, platforms, clientId, disabled, on
               type="button"
               onClick={suggest}
               disabled={disabled || suggesting || (!shared.body && !shared.title)}
-              className="inline-flex items-center gap-1 text-bb-orange hover:text-bb-orange-light cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center gap-1 text-bb-accent hover:text-bb-accent-light cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {suggesting ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />} Suggest
             </button>

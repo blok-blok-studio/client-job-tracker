@@ -73,7 +73,7 @@ const patchSchema = z.object({
   skills: z.array(z.string().min(1).max(40)).max(20).optional(),
   accentColor: z
     .string()
-    .regex(/^#[0-9a-fA-F]{6}$/, "Use a hex colour like #f97316")
+    .regex(/^#[0-9a-fA-F]{6}$/, "Use a hex colour like #2561D8")
     .nullable()
     .optional()
     .or(z.literal("")),

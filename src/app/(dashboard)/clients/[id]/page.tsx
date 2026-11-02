@@ -760,7 +760,7 @@ export default function ClientDetailPage() {
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display font-semibold">Contacts</h3>
-                <button onClick={() => setNewContact(true)} className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1"><Plus size={14} /> Add</button>
+                <button onClick={() => setNewContact(true)} className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1"><Plus size={14} /> Add</button>
               </div>
               {newContact && (
                 <div className="mb-4 p-3 bg-bb-black rounded-lg space-y-2">
@@ -772,7 +772,7 @@ export default function ClientDetailPage() {
                   </div>
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => setNewContact(false)} className="p-1 text-bb-dim hover:text-white"><X size={16} /></button>
-                    <button onClick={handleAddContact} disabled={!contactForm.name} className="p-1 text-bb-orange hover:text-bb-orange-light disabled:opacity-50"><Check size={16} /></button>
+                    <button onClick={handleAddContact} disabled={!contactForm.name} className="p-1 text-bb-accent hover:text-bb-accent-light disabled:opacity-50"><Check size={16} /></button>
                   </div>
                 </div>
               )}
@@ -794,7 +794,7 @@ export default function ClientDetailPage() {
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display font-semibold">Tasks</h3>
-                <Link href={`/kanban?clientId=${id}`} className="text-bb-orange hover:text-bb-orange-light text-sm">View in Kanban</Link>
+                <Link href={`/kanban?clientId=${id}`} className="text-bb-accent hover:text-bb-accent-light text-sm">View in Kanban</Link>
               </div>
               <div className="space-y-2">
                 {client.tasks.map((t) => (
@@ -889,7 +889,7 @@ export default function ClientDetailPage() {
                                 : isWaiting
                                 ? "bg-bb-black border-bb-border text-bb-dim opacity-50"
                                 : isActive
-                                ? "bg-bb-orange/20 border-bb-orange text-bb-orange animate-pulse"
+                                ? "bg-bb-blue/20 border-bb-blue text-bb-accent animate-pulse"
                                 : "bg-bb-black border-bb-border text-bb-dim"
                             }`}
                           >
@@ -912,7 +912,7 @@ export default function ClientDetailPage() {
                             <span className={`ml-2 text-xs font-medium ${
                               badge === "Waiting" ? "text-bb-dim" :
                               badge === "Either order" ? "text-blue-400" :
-                              "text-bb-orange"
+                              "text-bb-accent"
                             }`}>
                               {badge}
                             </span>
@@ -932,7 +932,7 @@ export default function ClientDetailPage() {
                 <div className="mt-3 pt-3 border-t border-bb-border">
                   <div className="flex items-center justify-between text-xs text-bb-dim">
                     <span>{client.checklistItems.filter(i => i.checked).length} of {client.checklistItems.length} complete</span>
-                    <span className="font-medium text-bb-orange">
+                    <span className="font-medium text-bb-accent">
                       {client.checklistItems.every(i => i.checked) ? "Fully onboarded" :
                        `${client.checklistItems.filter(i => !i.checked).length} remaining`}
                     </span>
@@ -941,9 +941,9 @@ export default function ClientDetailPage() {
               )}
             </div>
 
-            <div className="bg-bb-surface border border-bb-orange/30 rounded-lg p-5">
+            <div className="bg-bb-surface border border-bb-blue/30 rounded-lg p-5">
               <div className="flex items-center gap-2 mb-3">
-                <Link2 size={16} className="text-bb-orange" />
+                <Link2 size={16} className="text-bb-accent" />
                 <h3 className="font-display font-semibold">Onboarding Link</h3>
               </div>
               {client.onboardToken ? (
@@ -972,7 +972,7 @@ export default function ClientDetailPage() {
                   <button
                     onClick={handleRegenerateToken}
                     disabled={regenerating}
-                    className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                    className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
                   >
                     {regenerating ? "Generating..." : "Generate New Link"}
                   </button>
@@ -983,7 +983,7 @@ export default function ClientDetailPage() {
             {/* Upload Portal Link */}
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center gap-2 mb-3">
-                <Upload size={16} className="text-bb-orange" />
+                <Upload size={16} className="text-bb-accent" />
                 <h3 className="font-display font-semibold">File Upload Portal</h3>
               </div>
               {client.uploadToken ? (
@@ -1031,7 +1031,7 @@ export default function ClientDetailPage() {
                   <button
                     onClick={handleGenerateUploadToken}
                     disabled={regenerating}
-                    className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                    className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
                   >
                     {regenerating ? "Generating..." : "Generate Upload Link"}
                   </button>
@@ -1044,20 +1044,20 @@ export default function ClientDetailPage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <h3 className="font-display font-semibold flex items-center gap-2">
-                    <CreditCard size={16} className="text-bb-orange" /> Payments
+                    <CreditCard size={16} className="text-bb-accent" /> Payments
                   </h3>
                   <a
                     href="https://dashboard.stripe.com/settings/payouts"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[10px] text-bb-dim hover:text-bb-orange flex items-center gap-0.5 transition-colors"
+                    className="text-[10px] text-bb-dim hover:text-bb-accent flex items-center gap-0.5 transition-colors"
                   >
                     <ExternalLink size={9} /> Payout settings
                   </a>
                 </div>
                 <button
                   onClick={() => setShowPaymentModal(true)}
-                  className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1"
+                  className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1"
                 >
                   <Plus size={14} /> New
                 </button>
@@ -1077,7 +1077,7 @@ export default function ClientDetailPage() {
                           {link.milestone && (
                             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ml-1 ${
                               link.milestone === "deposit"
-                                ? "bg-orange-500/10 text-orange-400"
+                                ? "bg-bb-blue/10 text-bb-accent"
                                 : link.milestone === "milestone"
                                 ? "bg-purple-500/10 text-purple-400"
                                 : "bg-blue-500/10 text-blue-400"
@@ -1105,7 +1105,7 @@ export default function ClientDetailPage() {
                                 setUpdatePriceProrate(true);
                                 setShowUpdatePriceModal(true);
                               }}
-                              className="p-1 text-bb-dim hover:text-bb-orange transition-colors"
+                              className="p-1 text-bb-dim hover:text-bb-accent transition-colors"
                               title="Update subscription price"
                             >
                               <Edit2 size={13} />
@@ -1145,7 +1145,7 @@ export default function ClientDetailPage() {
                                 }
                               } catch { alert("Failed to resend"); }
                             }}
-                            className="flex items-center gap-1 text-[10px] text-bb-dim hover:text-bb-orange transition-colors"
+                            className="flex items-center gap-1 text-[10px] text-bb-dim hover:text-bb-accent transition-colors"
                             title="Resend payment link email"
                           >
                             <Send size={10} /> Resend email
@@ -1203,7 +1203,7 @@ export default function ClientDetailPage() {
                     onClick={() => setAssetsTab(tab.key)}
                     className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors ${
                       assetsTab === tab.key
-                        ? "text-bb-orange border-b-2 border-bb-orange bg-bb-orange/5"
+                        ? "text-bb-accent border-b-2 border-bb-blue bg-bb-blue/5"
                         : "text-bb-muted hover:text-white hover:bg-bb-elevated"
                     }`}
                   >
@@ -1225,7 +1225,7 @@ export default function ClientDetailPage() {
                         <p className="text-xs text-bb-dim">Encrypted credentials for this client</p>
                         <ConnectSocialAccount clientId={id} />
                       </div>
-                      <button onClick={() => setShowAddCred(!showAddCred)} className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1">
+                      <button onClick={() => setShowAddCred(!showAddCred)} className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1">
                         <Plus size={14} /> Add Manual
                       </button>
                     </div>
@@ -1239,7 +1239,7 @@ export default function ClientDetailPage() {
                         <input placeholder="Notes (optional)" value={credForm.notes} onChange={(e) => setCredForm({ ...credForm, notes: e.target.value })} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
                         <div className="flex gap-2 justify-end">
                           <button onClick={() => { setShowAddCred(false); setCredForm({ platform: "", username: "", password: "", url: "", notes: "" }); }} className="p-1 text-bb-dim hover:text-white"><X size={16} /></button>
-                          <button onClick={handleAddCredential} disabled={savingCred || !credForm.platform || !credForm.username || !credForm.password} className="p-1 text-bb-orange hover:text-bb-orange-light disabled:opacity-50">
+                          <button onClick={handleAddCredential} disabled={savingCred || !credForm.platform || !credForm.username || !credForm.password} className="p-1 text-bb-accent hover:text-bb-accent-light disabled:opacity-50">
                             {savingCred ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                           </button>
                         </div>
@@ -1253,14 +1253,14 @@ export default function ClientDetailPage() {
                           <div key={cred.id} className="p-3 rounded-lg bg-bb-black border border-bb-border">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                <Lock size={12} className="text-bb-orange" />
+                                <Lock size={12} className="text-bb-accent" />
                                 <span className="text-sm font-medium text-white">{cred.platform}{cred.label ? <span className="text-bb-dim font-normal"> — {cred.label}</span> : null}</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 {!revealed ? (
                                   <button
                                     onClick={() => setRevealingCred(revealingCred === cred.id ? null : cred.id)}
-                                    className="p-1 text-bb-dim hover:text-bb-orange transition-colors"
+                                    className="p-1 text-bb-dim hover:text-bb-accent transition-colors"
                                     title="Reveal password"
                                   >
                                     <Eye size={14} />
@@ -1268,7 +1268,7 @@ export default function ClientDetailPage() {
                                 ) : (
                                   <button
                                     onClick={() => setRevealedCred((prev) => { const n = { ...prev }; delete n[cred.id]; return n; })}
-                                    className="p-1 text-bb-orange hover:text-bb-orange-light transition-colors"
+                                    className="p-1 text-bb-accent hover:text-bb-accent-light transition-colors"
                                     title="Hide password"
                                   >
                                     <EyeOff size={14} />
@@ -1308,7 +1308,7 @@ export default function ClientDetailPage() {
                                   className="flex-1 px-2 py-1.5 bg-bb-surface border border-bb-border rounded text-xs text-white"
                                   autoFocus
                                 />
-                                <button onClick={() => handleRevealCred(cred.id)} className="px-3 py-1.5 bg-bb-orange text-white text-xs rounded hover:bg-bb-orange-light">
+                                <button onClick={() => handleRevealCred(cred.id)} className="px-3 py-1.5 bg-bb-blue text-white text-xs rounded hover:bg-bb-blue-light">
                                   Reveal
                                 </button>
                               </div>
@@ -1322,7 +1322,7 @@ export default function ClientDetailPage() {
                         <div className="text-center py-6">
                           <Lock size={24} className="mx-auto text-bb-dim mb-2" />
                           <p className="text-sm text-bb-dim">No credentials stored</p>
-                          <button onClick={() => setShowAddCred(true)} className="text-xs text-bb-orange hover:text-bb-orange-light mt-1">Add first credential</button>
+                          <button onClick={() => setShowAddCred(true)} className="text-xs text-bb-accent hover:text-bb-accent-light mt-1">Add first credential</button>
                         </div>
                       )}
                     </div>
@@ -1371,7 +1371,7 @@ export default function ClientDetailPage() {
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-xs text-bb-dim">{client.contracts?.length || 0} contracts</p>
-                      <button onClick={() => setShowContractModal(true)} className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1">
+                      <button onClick={() => setShowContractModal(true)} className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1">
                         <Plus size={14} /> New
                       </button>
                     </div>
@@ -1391,7 +1391,7 @@ export default function ClientDetailPage() {
                                     : contract.status === "EXPIRED"
                                     ? "bg-red-500/10 text-red-400"
                                     : contract.status === "DRAFT"
-                                    ? "bg-bb-orange/10 text-bb-orange"
+                                    ? "bg-bb-blue/10 text-bb-accent"
                                     : "bg-yellow-500/10 text-yellow-400"
                                 }`}>
                                   {contract.status === "SIGNED" ? "Signed" : contract.status === "EXPIRED" ? "Expired" : contract.status === "DRAFT" ? "Draft" : "Pending"}
@@ -1422,19 +1422,19 @@ export default function ClientDetailPage() {
                                 <div className="flex items-center gap-3 shrink-0">
                                   <button
                                     onClick={() => window.open(`/c/${contract.token}`, "_blank")}
-                                    className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                                    className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
                                   >
                                     <Eye size={12} /> View
                                   </button>
                                   <button
                                     onClick={() => window.open(`/api/contract/${contract.token}/pdf`, "_blank")}
-                                    className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                                    className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
                                   >
                                     <Download size={12} /> PDF
                                   </button>
                                   <button
                                     onClick={() => window.open(`/api/contract/${contract.token}/certificate`, "_blank")}
-                                    className="text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                                    className="text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
                                   >
                                     Certificate
                                   </button>
@@ -1445,7 +1445,7 @@ export default function ClientDetailPage() {
                               <div className="flex items-center justify-end gap-3">
                                 <button
                                   onClick={() => window.open(`/api/contract/${contract.token}/pdf`, "_blank")}
-                                  className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                                  className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
                                 >
                                   <Download size={12} /> PDF
                                 </button>
@@ -1457,7 +1457,7 @@ export default function ClientDetailPage() {
                                 <button
                                   onClick={() => handleOpenReview(contract.id)}
                                   disabled={reviewLoading}
-                                  className="flex items-center gap-1.5 text-xs font-medium text-bb-orange hover:text-bb-orange-light transition-colors shrink-0 disabled:opacity-50"
+                                  className="flex items-center gap-1.5 text-xs font-medium text-bb-accent hover:text-bb-accent-light transition-colors shrink-0 disabled:opacity-50"
                                 >
                                   {reviewLoading ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />} Review &amp; Send
                                 </button>
@@ -1483,7 +1483,7 @@ export default function ClientDetailPage() {
                         <div className="text-center py-6">
                           <FileText size={24} className="mx-auto text-bb-dim mb-2" />
                           <p className="text-sm text-bb-dim">No contracts generated</p>
-                          <button onClick={() => setShowContractModal(true)} className="text-xs text-bb-orange hover:text-bb-orange-light mt-1">Create first contract</button>
+                          <button onClick={() => setShowContractModal(true)} className="text-xs text-bb-accent hover:text-bb-accent-light mt-1">Create first contract</button>
                         </div>
                       )}
                     </div>
@@ -1495,7 +1495,7 @@ export default function ClientDetailPage() {
             <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display font-semibold">Social Links</h3>
-                <button onClick={() => setNewSocial(true)} className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1"><Plus size={14} /> Add</button>
+                <button onClick={() => setNewSocial(true)} className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1"><Plus size={14} /> Add</button>
               </div>
               {newSocial && (
                 <div className="mb-4 p-3 bg-bb-black rounded-lg space-y-2">
@@ -1510,7 +1510,7 @@ export default function ClientDetailPage() {
                   <input placeholder="Handle (e.g. @username)" value={socialForm.handle} onChange={(e) => setSocialForm({ ...socialForm, handle: e.target.value })} className="w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => { setNewSocial(false); setSocialForm({ platform: "", url: "", handle: "" }); setCustomPlatform(""); }} className="p-1 text-bb-dim hover:text-white"><X size={16} /></button>
-                    <button onClick={handleAddSocial} disabled={!socialForm.platform || !socialForm.url || (socialForm.platform === "Other" && !customPlatform)} className="p-1 text-bb-orange hover:text-bb-orange-light disabled:opacity-50"><Check size={16} /></button>
+                    <button onClick={handleAddSocial} disabled={!socialForm.platform || !socialForm.url || (socialForm.platform === "Other" && !customPlatform)} className="p-1 text-bb-accent hover:text-bb-accent-light disabled:opacity-50"><Check size={16} /></button>
                   </div>
                 </div>
               )}
@@ -1518,9 +1518,9 @@ export default function ClientDetailPage() {
                 {client.socialLinks.map((link) => (
                   <div key={link.id} className="flex items-center justify-between p-2 rounded hover:bg-bb-elevated">
                     <a href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 min-w-0 group">
-                      <span className="text-sm font-medium text-white group-hover:text-bb-orange transition-colors shrink-0">{link.platform}</span>
+                      <span className="text-sm font-medium text-white group-hover:text-bb-accent transition-colors shrink-0">{link.platform}</span>
                       {link.handle && <span className="text-xs text-bb-dim truncate">{link.handle}</span>}
-                      <ExternalLink size={12} className="text-bb-dim group-hover:text-bb-orange transition-colors shrink-0" />
+                      <ExternalLink size={12} className="text-bb-dim group-hover:text-bb-accent transition-colors shrink-0" />
                     </a>
                     <button onClick={() => handleDeleteSocial(link.id)} className="p-1 text-bb-dim hover:text-red-400 shrink-0"><Trash2 size={14} /></button>
                   </div>
@@ -1596,7 +1596,7 @@ export default function ClientDetailPage() {
                   type="button"
                   onClick={() => pickContractKind(k.key)}
                   className={`text-left p-3 rounded-lg border transition-colors ${
-                    contractKind === k.key ? "border-bb-orange bg-bb-orange/10" : "border-bb-border bg-bb-black hover:border-bb-muted"
+                    contractKind === k.key ? "border-bb-blue bg-bb-blue/10" : "border-bb-border bg-bb-black hover:border-bb-muted"
                   }`}
                 >
                   <span className="block text-sm font-medium text-white">{k.label}</span>
@@ -1615,7 +1615,7 @@ export default function ClientDetailPage() {
                   value={clientDescriptor}
                   onChange={(e) => setClientDescriptor(e.target.value)}
                   maxLength={300}
-                  className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+                  className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 text-sm"
                   placeholder="an individual residing in Virginia"
                 />
                 <p className="text-[10px] text-bb-dim mt-1">
@@ -1639,7 +1639,7 @@ export default function ClientDetailPage() {
                         rows={rows}
                         maxLength={2000}
                         placeholder={placeholder}
-                        className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+                        className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 text-sm"
                       />
                     </div>
                   ))}
@@ -1650,7 +1650,7 @@ export default function ClientDetailPage() {
                       value={socialFields.monthlyFee}
                       onChange={(e) => setSocialFields((f) => ({ ...f, monthlyFee: e.target.value }))}
                       maxLength={100}
-                      className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+                      className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 text-sm"
                       placeholder="USD $200.00"
                     />
                     <p className="text-[10px] text-bb-dim mt-1">Written into the agreement exactly as typed, followed by &quot;per month&quot;.</p>
@@ -1670,14 +1670,14 @@ export default function ClientDetailPage() {
           {!isStandardDoc && (
           <div>
             <label className="block text-sm font-medium text-white mb-1.5">
-              Contract Prompt * <span className="text-[10px] px-1.5 py-0.5 rounded bg-bb-orange/10 text-bb-orange font-medium align-middle">AI</span>
+              Contract Prompt * <span className="text-[10px] px-1.5 py-0.5 rounded bg-bb-blue/10 text-bb-accent font-medium align-middle">AI</span>
             </label>
             <textarea
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
               rows={12}
               maxLength={200000}
-              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm font-mono"
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 text-sm font-mono"
               placeholder={"Describe the engagement: services, prices, timeline, and any special clauses — or paste a full contract template to base it on.\n\ne.g. Website design and build for $4,500 — 50% deposit, 50% on launch. Include a strict NDA and 6-month exclusivity clause...\n\nOr paste your entire template text here and add notes on what to change."}
             />
             <div className="flex items-start justify-between gap-2 mt-1">
@@ -1695,7 +1695,7 @@ export default function ClientDetailPage() {
               type="checkbox"
               checked={contractDraftMode}
               onChange={(e) => setContractDraftMode(e.target.checked)}
-              className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
+              className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-blue"
             />
             <div>
               <span className="text-sm font-medium text-white">Review before sending</span>
@@ -1712,7 +1712,7 @@ export default function ClientDetailPage() {
               type="text"
               value={providerSignedName}
               onChange={(e) => setProviderSignedName(e.target.value)}
-              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 text-sm"
               placeholder="Your full legal name"
             />
 
@@ -1826,7 +1826,7 @@ export default function ClientDetailPage() {
             <button
               onClick={handleGenerateContract}
               disabled={!contractFormReady || generatingContract || !providerSignedName.trim()}
-              className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {generatingContract ? (
                 <>
@@ -1903,7 +1903,7 @@ export default function ClientDetailPage() {
                 <button
                   onClick={() => handleSendContract(reviewContract.id)}
                   disabled={sendingContract}
-                  className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   {sendingContract ? (
                     <>
@@ -1976,7 +1976,7 @@ export default function ClientDetailPage() {
                       <label
                         className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
                           pmtSelected
-                            ? "border-bb-orange bg-bb-orange/5"
+                            ? "border-bb-blue bg-bb-blue/5"
                             : "border-bb-border bg-bb-black hover:border-bb-dim"
                         } ${pmtSelected && pmtExpanded ? "rounded-b-none" : ""}`}
                       >
@@ -1998,14 +1998,14 @@ export default function ClientDetailPage() {
                               recalcPaymentTotals(newPkgs, paymentSelectedAddons, paymentCustomizations);
                             }
                           }}
-                          className="w-3.5 h-3.5 rounded border-bb-border bg-bb-black accent-bb-orange shrink-0"
+                          className="w-3.5 h-3.5 rounded border-bb-border bg-bb-black accent-bb-blue shrink-0"
                         />
                         <div className="flex-1 min-w-0">
                           <span className="text-sm text-white font-medium">{pkg.name}</span>
                           {pmtHasOverride && <span className="text-[9px] ml-1.5 px-1 py-0.5 rounded bg-yellow-500/10 text-yellow-400">modified</span>}
                           <span className="text-xs text-bb-dim ml-2">{pkg.description}</span>
                         </div>
-                        <span className="text-sm font-mono text-bb-orange shrink-0">
+                        <span className="text-sm font-mono text-bb-accent shrink-0">
                           ${pmtPrice.toLocaleString()}{pkg.recurring ? "/mo" : ""}
                         </span>
                         {pmtSelected && (
@@ -2025,7 +2025,7 @@ export default function ClientDetailPage() {
                         )}
                       </label>
                       {pmtSelected && pmtExpanded && (
-                        <div className="border border-t-0 border-bb-orange bg-bb-black/50 rounded-b-lg p-3 space-y-3">
+                        <div className="border border-t-0 border-bb-blue bg-bb-black/50 rounded-b-lg p-3 space-y-3">
                           <div>
                             <label className="block text-[10px] uppercase tracking-wider text-bb-dim font-medium mb-1">Price Override</label>
                             <div className="relative w-36">
@@ -2068,7 +2068,7 @@ export default function ClientDetailPage() {
                                         setPaymentCustomizations(next);
                                         recalcPaymentTotals(paymentSelectedPkgs, paymentSelectedAddons, next);
                                       }}
-                                      className="w-3 h-3 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange shrink-0"
+                                      className="w-3 h-3 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-blue shrink-0"
                                     />
                                     <span className={`text-[11px] ${incl ? "text-bb-muted" : "text-bb-dim line-through"}`}>{d}</span>
                                   </label>
@@ -2097,7 +2097,7 @@ export default function ClientDetailPage() {
                       key={addon.id}
                       className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors mb-1 ${
                         paymentSelectedAddons.includes(addon.id)
-                          ? "border-bb-orange bg-bb-orange/5"
+                          ? "border-bb-blue bg-bb-blue/5"
                           : "border-bb-border bg-bb-black hover:border-bb-dim"
                       }`}
                     >
@@ -2127,13 +2127,13 @@ export default function ClientDetailPage() {
                             if (hasRec && !paymentRecurring) setPaymentRecurring(true);
                           }
                         }}
-                        className="w-3.5 h-3.5 rounded border-bb-border bg-bb-black accent-bb-orange shrink-0"
+                        className="w-3.5 h-3.5 rounded border-bb-border bg-bb-black accent-bb-blue shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <span className="text-sm text-white font-medium">{addon.name}</span>
                         {addonPmtCust?.priceOverride != null && <span className="text-[9px] ml-1 text-yellow-400">modified</span>}
                       </div>
-                      <span className="text-sm font-mono text-bb-orange shrink-0">
+                      <span className="text-sm font-mono text-bb-accent shrink-0">
                         ${addonPmtPrice.toLocaleString()}{addon.recurring ? "/mo" : ""}
                       </span>
                       {paymentSelectedAddons.includes(addon.id) && (
@@ -2180,7 +2180,7 @@ export default function ClientDetailPage() {
               type="text"
               value={paymentDescription}
               onChange={(e) => setPaymentDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 text-sm"
               placeholder="e.g. Single Agent Build, AI Operations Package"
             />
           </div>
@@ -2195,7 +2195,7 @@ export default function ClientDetailPage() {
                   const EU_COUNTRIES = ["DE", "AT", "NL", "BE", "FR", "IT", "ES", "PT", "IE", "FI", "SE", "DK", "PL", "CZ", "GR", "HU", "RO", "BG", "HR", "SK", "SI", "LT", "LV", "EE", "CY", "MT", "LU"];
                   setPaymentCurrency(EU_COUNTRIES.includes(country) ? "eur" : "usd");
                 }}
-                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
               >
                 <optgroup label="North America">
                   <option value="US">{"\uD83C\uDDFA\uD83C\uDDF8"} United States</option>
@@ -2278,7 +2278,7 @@ export default function ClientDetailPage() {
                 type="number"
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
-                className="w-full pl-7 pr-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+                className="w-full pl-7 pr-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 text-sm"
                 placeholder="5000"
                 min="0.01"
                 step="0.01"
@@ -2291,7 +2291,7 @@ export default function ClientDetailPage() {
                 type="checkbox"
                 checked={paymentRecurring}
                 onChange={(e) => setPaymentRecurring(e.target.checked)}
-                className="w-4 h-4 rounded border-bb-border bg-bb-black accent-bb-orange"
+                className="w-4 h-4 rounded border-bb-border bg-bb-black accent-bb-blue"
               />
               <span className="text-sm text-white font-medium">Recurring subscription</span>
             </label>
@@ -2302,8 +2302,8 @@ export default function ClientDetailPage() {
                   onClick={() => setPaymentInterval("month")}
                   className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors ${
                     paymentInterval === "month"
-                      ? "border-bb-orange bg-bb-orange/10 text-bb-orange"
-                      : "border-bb-border bg-bb-black text-bb-muted hover:border-bb-orange/30"
+                      ? "border-bb-blue bg-bb-blue/10 text-bb-accent"
+                      : "border-bb-border bg-bb-black text-bb-muted hover:border-bb-blue/30"
                   }`}
                 >
                   Monthly
@@ -2313,8 +2313,8 @@ export default function ClientDetailPage() {
                   onClick={() => setPaymentInterval("year")}
                   className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors ${
                     paymentInterval === "year"
-                      ? "border-bb-orange bg-bb-orange/10 text-bb-orange"
-                      : "border-bb-border bg-bb-black text-bb-muted hover:border-bb-orange/30"
+                      ? "border-bb-blue bg-bb-blue/10 text-bb-accent"
+                      : "border-bb-border bg-bb-black text-bb-muted hover:border-bb-blue/30"
                   }`}
                 >
                   Yearly
@@ -2343,7 +2343,7 @@ export default function ClientDetailPage() {
             <button
               onClick={handleGeneratePaymentLink}
               disabled={!paymentAmount || Number(paymentAmount) <= 0 || !paymentDescription.trim() || generatingPayment}
-              className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {generatingPayment ? (
                 <>
@@ -2383,7 +2383,7 @@ export default function ClientDetailPage() {
                     type="number"
                     value={updatePriceAmount}
                     onChange={(e) => setUpdatePriceAmount(e.target.value)}
-                    className="w-full pl-7 pr-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 text-sm"
+                    className="w-full pl-7 pr-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 text-sm"
                     placeholder="5000"
                     min="0.01"
                     step="0.01"
@@ -2395,7 +2395,7 @@ export default function ClientDetailPage() {
                   type="checkbox"
                   checked={updatePriceProrate}
                   onChange={(e) => setUpdatePriceProrate(e.target.checked)}
-                  className="w-4 h-4 rounded border-bb-border bg-bb-black text-bb-orange focus:ring-bb-orange/50 accent-bb-orange"
+                  className="w-4 h-4 rounded border-bb-border bg-bb-black text-bb-accent focus:ring-bb-blue/50 accent-bb-blue"
                 />
                 <div>
                   <span className="text-sm text-white">Prorate remaining billing period</span>
@@ -2451,7 +2451,7 @@ export default function ClientDetailPage() {
                     }
                   }}
                   disabled={!updatePriceAmount || Number(updatePriceAmount) <= 0 || Number(updatePriceAmount) * 100 === updatePriceLink.amount || updatingPrice}
-                  className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   {updatingPrice ? (
                     <>

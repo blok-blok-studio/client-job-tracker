@@ -267,7 +267,7 @@ export default function AudioPanel({ videoUrl, onAudioSelected, onMixComplete }:
           {/* Track list */}
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 size={18} className="text-bb-orange animate-spin" />
+              <Loader2 size={18} className="text-bb-accent animate-spin" />
             </div>
           ) : tracks.length === 0 ? (
             <div className="text-center py-8">
@@ -296,7 +296,7 @@ export default function AudioPanel({ videoUrl, onAudioSelected, onMixComplete }:
                     className="w-8 h-8 rounded-full bg-bb-surface border border-bb-border flex items-center justify-center shrink-0 hover:bg-bb-elevated transition-colors"
                   >
                     {playingId === track.id ? (
-                      <Pause size={12} className="text-bb-orange" />
+                      <Pause size={12} className="text-bb-accent" />
                     ) : (
                       <Play size={12} className="text-white ml-0.5" />
                     )}
@@ -347,7 +347,7 @@ export default function AudioPanel({ videoUrl, onAudioSelected, onMixComplete }:
             className="w-full flex flex-col items-center gap-2 py-8 border-2 border-dashed border-bb-border rounded-lg hover:border-bb-muted transition-colors"
           >
             {uploading ? (
-              <Loader2 size={24} className="text-bb-orange animate-spin" />
+              <Loader2 size={24} className="text-bb-accent animate-spin" />
             ) : (
               <>
                 <Upload size={24} className="text-bb-muted" />
@@ -408,7 +408,7 @@ export default function AudioPanel({ videoUrl, onAudioSelected, onMixComplete }:
                     step="0.05"
                     value={videoVolume}
                     onChange={(e) => setVideoVolume(Number(e.target.value))}
-                    className="w-full h-1.5 bg-bb-border rounded-full appearance-none cursor-pointer accent-bb-orange"
+                    className="w-full h-1.5 bg-bb-border rounded-full appearance-none cursor-pointer accent-bb-blue"
                   />
                 </div>
 

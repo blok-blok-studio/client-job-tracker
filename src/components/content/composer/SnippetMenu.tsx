@@ -152,21 +152,21 @@ export default function SnippetMenu({ kind, clientId, current, disabled, onInser
         <div className="space-y-2 border-t border-bb-border pt-2">
           <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} placeholder={`Name this ${noun}`} aria-label="Name" className={inputClass} />
           <label className={cn("flex items-center gap-2 text-xs text-bb-muted cursor-pointer", !clientId && "opacity-60")}>
-            <input type="checkbox" checked={allClients || !clientId} disabled={!clientId} onChange={(e) => setAllClients(e.target.checked)} className="accent-bb-orange w-4 h-4" />
+            <input type="checkbox" checked={allClients || !clientId} disabled={!clientId} onChange={(e) => setAllClients(e.target.checked)} className="accent-bb-blue w-4 h-4" />
             Use on every client, not just this one
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => setSaving(false)} disabled={busy} className="px-3 py-2.5 sm:py-2 rounded-lg border border-bb-border text-xs text-bb-muted hover:text-white cursor-pointer transition-colors">
               Cancel
             </button>
-            <button type="button" onClick={save} disabled={busy} className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-lg bg-bb-orange text-white text-xs font-medium cursor-pointer disabled:opacity-50">
+            <button type="button" onClick={save} disabled={busy} className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-lg bg-bb-blue text-white text-xs font-medium cursor-pointer disabled:opacity-50">
               {busy && <Loader2 size={12} className="animate-spin" />} Save
             </button>
           </div>
         </div>
       ) : (
         hasCurrent && (
-          <button type="button" onClick={() => setSaving(true)} className="inline-flex items-center gap-1.5 text-xs text-bb-orange hover:text-bb-orange-light cursor-pointer transition-colors">
+          <button type="button" onClick={() => setSaving(true)} className="inline-flex items-center gap-1.5 text-xs text-bb-accent hover:text-bb-accent-light cursor-pointer transition-colors">
             <BookmarkPlus size={13} /> Save the current {noun}
           </button>
         )

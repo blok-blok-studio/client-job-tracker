@@ -148,7 +148,7 @@ export default function NewsletterPage() {
           {/* Compose */}
           <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
             <h3 className="flex items-center gap-2 text-sm font-display font-semibold text-white mb-3">
-              <Send size={14} className="text-bb-orange" /> Send a campaign
+              <Send size={14} className="text-bb-accent" /> Send a campaign
             </h3>
             {isOwner ? (
               <div className="space-y-2.5">
@@ -156,20 +156,20 @@ export default function NewsletterPage() {
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Subject line"
-                  className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                  className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
                 />
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={7}
                   placeholder={"Write your update…\n\nBlank lines become paragraphs. Sent with the Blok Blok template and an unsubscribe link."}
-                  className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                  className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
                 />
                 <div className="flex justify-end">
                   <button
                     onClick={() => setConfirmSend(true)}
                     disabled={!subject.trim() || !message.trim() || active.length === 0 || sending}
-                    className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
                   >
                     {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                     Send to {active.length} subscriber{active.length !== 1 ? "s" : ""}
@@ -200,7 +200,7 @@ export default function NewsletterPage() {
           <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="flex items-center gap-2 text-sm font-display font-semibold text-white">
-                <Users size={14} className="text-bb-orange" /> Subscribers
+                <Users size={14} className="text-bb-accent" /> Subscribers
               </h3>
               {active.length > 0 && (
                 <button onClick={exportCsv} className="flex items-center gap-1 text-xs text-bb-dim hover:text-white transition-colors">
@@ -215,12 +215,12 @@ export default function NewsletterPage() {
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="Add an email…"
-                className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
               />
               <button
                 type="submit"
                 disabled={!newEmail.trim() || adding}
-                className="p-2 rounded-lg bg-bb-elevated text-bb-dim hover:text-bb-orange disabled:opacity-40 transition-colors"
+                className="p-2 rounded-lg bg-bb-elevated text-bb-dim hover:text-bb-accent disabled:opacity-40 transition-colors"
               >
                 {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               </button>

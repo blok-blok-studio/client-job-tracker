@@ -15,7 +15,7 @@ export function FieldLabel({ children, hint, htmlFor }: { children: React.ReactN
 
 // text-base below sm: iOS Safari zooms into any field under 16px
 export const inputClass =
-  "w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-base sm:text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange/60 focus:ring-2 focus:ring-bb-orange/20 transition-colors disabled:opacity-50";
+  "w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-base sm:text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue/60 focus:ring-2 focus:ring-bb-blue/20 transition-colors disabled:opacity-50";
 
 export function Toggle({
   checked,
@@ -50,8 +50,8 @@ export function Toggle({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(
-          "relative w-9 h-5 rounded-full shrink-0 mt-0.5 transition-colors cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bb-orange/50",
-          checked ? "bg-bb-orange" : "bg-bb-border"
+          "relative w-9 h-5 rounded-full shrink-0 mt-0.5 transition-colors cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bb-blue/50",
+          checked ? "bg-bb-blue" : "bg-bb-border"
         )}
       >
         <span
@@ -114,7 +114,7 @@ export function SegmentedControl<T extends string>({
           onClick={() => onChange(o.value)}
           className={cn(
             "flex-1 min-w-[72px] px-2.5 py-2 sm:py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
-            value === o.value ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white hover:bg-bb-surface"
+            value === o.value ? "bg-bb-blue text-white" : "text-bb-muted hover:text-white hover:bg-bb-surface"
           )}
         >
           {o.label}
@@ -159,7 +159,7 @@ export function ChipInput({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-1.5 bg-bb-elevated border border-bb-border rounded-lg px-2 py-1.5 focus-within:border-bb-orange/60 transition-colors",
+        "flex flex-wrap items-center gap-1.5 bg-bb-elevated border border-bb-border rounded-lg px-2 py-1.5 focus-within:border-bb-blue/60 transition-colors",
         disabled && "opacity-50"
       )}
     >

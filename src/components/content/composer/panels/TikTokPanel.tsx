@@ -193,7 +193,7 @@ export default function TikTokPanel({ draft, postType, disabled, onDraft, onSett
             />
             {labelNotice ? (
               <p className="flex items-start gap-1.5 text-[11px] text-bb-muted">
-                <Info size={12} className="mt-px shrink-0 text-bb-orange" /> {labelNotice}
+                <Info size={12} className="mt-px shrink-0 text-bb-accent" /> {labelNotice}
               </p>
             ) : (
               <p className="text-[11px] text-amber-300">Pick at least one to disclose.</p>

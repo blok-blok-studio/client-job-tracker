@@ -68,7 +68,7 @@ export default function AccountPicker({ clientId, accounts, selected, locked, lo
                   key={account.key}
                   className={cn(
                     "relative flex items-center gap-2.5 rounded-lg border px-2.5 py-2 transition-colors",
-                    isSelected ? "border-bb-orange/70 bg-bb-orange/10" : "border-bb-border bg-bb-elevated hover:border-bb-muted/40"
+                    isSelected ? "border-bb-blue/70 bg-bb-blue/10" : "border-bb-border bg-bb-elevated hover:border-bb-muted/40"
                   )}
                 >
                   <button
@@ -77,7 +77,7 @@ export default function AccountPicker({ clientId, accounts, selected, locked, lo
                     disabled={isLocked}
                     aria-pressed={isSelected}
                     title={isLocked ? "Already published or publishing; it can't be removed" : undefined}
-                    className="absolute inset-0 rounded-lg cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bb-orange/50"
+                    className="absolute inset-0 rounded-lg cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bb-blue/50"
                     aria-label={`${isSelected ? "Remove" : "Add"} ${platformName(account.platform)} ${account.label}`}
                   />
                   <div className="relative pointer-events-none">
@@ -106,7 +106,7 @@ export default function AccountPicker({ clientId, accounts, selected, locked, lo
                   <span
                     className={cn(
                       "pointer-events-none w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors",
-                      isSelected ? "bg-bb-orange border-bb-orange text-white" : "border-bb-border"
+                      isSelected ? "bg-bb-blue border-bb-blue text-white" : "border-bb-border"
                     )}
                   >
                     {isSelected && <Check size={12} />}
@@ -116,7 +116,7 @@ export default function AccountPicker({ clientId, accounts, selected, locked, lo
                       href={`/api/oauth/${account.reconnectProvider}/authorize?clientId=${clientId}&returnTo=${encodeURIComponent(`/clients/${clientId}`)}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="relative z-[1] inline-flex items-center gap-0.5 text-[11px] text-bb-orange hover:text-bb-orange-light"
+                      className="relative z-[1] inline-flex items-center gap-0.5 text-[11px] text-bb-accent hover:text-bb-accent-light"
                       title="Opens in a new tab. Come back and press Refresh."
                     >
                       Fix <ExternalLink size={10} />
@@ -131,7 +131,7 @@ export default function AccountPicker({ clientId, accounts, selected, locked, lo
               <AlertTriangle size={14} className="text-amber-400 mt-0.5 shrink-0" />
               <p className="text-xs text-bb-muted">
                 No social accounts connected for this client yet.{" "}
-                <a href={`/clients/${clientId}`} target="_blank" rel="noreferrer" className="text-bb-orange hover:text-bb-orange-light inline-flex items-center gap-0.5">
+                <a href={`/clients/${clientId}`} target="_blank" rel="noreferrer" className="text-bb-accent hover:text-bb-accent-light inline-flex items-center gap-0.5">
                   Connect one <Link2 size={10} />
                 </a>{" "}
                 then press Refresh. You can still plan RedNote posts.

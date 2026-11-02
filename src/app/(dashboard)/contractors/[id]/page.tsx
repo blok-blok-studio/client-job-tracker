@@ -106,7 +106,7 @@ interface Contractor {
   contracts: ContractSummary[];
 }
 
-const ACCENTS = ["#f97316", "#ec4899", "#8b5cf6", "#3b82f6", "#06b6d4", "#22c55e", "#eab308", "#ef4444"];
+const ACCENTS = ["#2561D8", "#ec4899", "#8b5cf6", "#3b82f6", "#06b6d4", "#22c55e", "#eab308", "#ef4444"];
 const EMOJI_CHOICES = ["🎬", "✂️", "🎨", "💻", "📸", "🎧", "✍️", "🚀", "🧠", "🛠️", "📈", "☕️"];
 
 function fmtDuration(minutes: number) {
@@ -276,7 +276,7 @@ export default function ContractorProfilePage() {
       <div>
         <TopBar title="Contractor" />
         <div className="flex justify-center py-20">
-          <Loader2 className="animate-spin text-bb-orange" size={28} />
+          <Loader2 className="animate-spin text-bb-accent" size={28} />
         </div>
       </div>
     );
@@ -303,7 +303,7 @@ export default function ContractorProfilePage() {
   };
 
   const inputClass =
-    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
+    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
   return (
     <div>
@@ -402,7 +402,7 @@ export default function ContractorProfilePage() {
                     <Globe size={12} /> {contractor.country}
                   </span>
                 )}
-                <button onClick={copyPortalLink} className="flex items-center gap-1.5 hover:text-bb-orange">
+                <button onClick={copyPortalLink} className="flex items-center gap-1.5 hover:text-bb-accent">
                   {copied ? <Check size={12} className="text-green-400" /> : <Link2 size={12} />}
                   Copy portal link
                 </button>
@@ -415,8 +415,8 @@ export default function ContractorProfilePage() {
                       key={s}
                       className="px-2 py-0.5 rounded-md text-[11px] text-white/90 border"
                       style={{
-                        borderColor: `${accent || "#f97316"}55`,
-                        background: `${accent || "#f97316"}18`,
+                        borderColor: `${accent || "#2561D8"}55`,
+                        background: `${accent || "#2561D8"}18`,
                       }}
                     >
                       {s}
@@ -428,7 +428,7 @@ export default function ContractorProfilePage() {
               {contractor.bio && <p className="text-sm text-bb-muted leading-relaxed">{contractor.bio}</p>}
               {contractor.funFact && (
                 <p className="text-xs text-bb-dim flex items-center gap-1.5">
-                  <Sparkles size={12} className="text-bb-orange" /> {contractor.funFact}
+                  <Sparkles size={12} className="text-bb-accent" /> {contractor.funFact}
                 </p>
               )}
             </div>
@@ -452,7 +452,7 @@ export default function ContractorProfilePage() {
               key={tile.label}
               className="bg-bb-surface border border-bb-border rounded-lg p-4 flex items-center gap-3"
             >
-              <tile.icon size={18} className="text-bb-orange shrink-0" />
+              <tile.icon size={18} className="text-bb-accent shrink-0" />
               <div className="min-w-0">
                 <p className="text-lg font-semibold text-white truncate">{tile.value}</p>
                 <p className="text-xs text-bb-dim truncate">{tile.label}</p>
@@ -629,7 +629,7 @@ export default function ContractorProfilePage() {
                       className={cn(
                         "w-8 h-8 rounded-lg border text-base transition-colors",
                         (edit.emoji || contractor.emoji) === e
-                          ? "border-bb-orange bg-bb-orange/10"
+                          ? "border-bb-blue bg-bb-blue/10"
                           : "border-bb-border bg-bb-black hover:border-bb-border/80"
                       )}
                     >
@@ -656,7 +656,7 @@ export default function ContractorProfilePage() {
                   )
                 }
                 disabled={saving || !dirty}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-40"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-40"
               >
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 Save profile
@@ -666,7 +666,7 @@ export default function ContractorProfilePage() {
             {/* Assigned clients */}
             <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
               <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3">
-                <Users size={15} className="text-bb-orange" />
+                <Users size={15} className="text-bb-accent" />
                 Assigned clients
               </h2>
               {contractor.clientAssignments.length === 0 ? (
@@ -679,7 +679,7 @@ export default function ContractorProfilePage() {
                     <a
                       key={a.id}
                       href={`/clients/${a.client.id}`}
-                      className="px-2.5 py-1 rounded-md text-xs bg-bb-black border border-bb-border text-bb-muted hover:text-white hover:border-bb-orange/50 transition-colors"
+                      className="px-2.5 py-1 rounded-md text-xs bg-bb-black border border-bb-border text-bb-muted hover:text-white hover:border-bb-blue/50 transition-colors"
                     >
                       {a.client.name}
                     </a>
@@ -691,7 +691,7 @@ export default function ContractorProfilePage() {
             {/* Compliance */}
             <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
               <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3">
-                <ShieldCheck size={15} className="text-bb-orange" />
+                <ShieldCheck size={15} className="text-bb-accent" />
                 Paperwork
               </h2>
               <div className="space-y-1.5">
@@ -718,7 +718,7 @@ export default function ContractorProfilePage() {
               </div>
               <a
                 href="/compliance"
-                className="inline-block mt-3 text-[11px] text-bb-dim hover:text-bb-orange transition-colors"
+                className="inline-block mt-3 text-[11px] text-bb-dim hover:text-bb-accent transition-colors"
               >
                 Manage in Compliance →
               </a>
@@ -729,7 +729,7 @@ export default function ContractorProfilePage() {
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
               <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3">
-                <FileSignature size={15} className="text-bb-orange" />
+                <FileSignature size={15} className="text-bb-accent" />
                 Agreements
               </h2>
               <ContractsView
@@ -743,7 +743,7 @@ export default function ContractorProfilePage() {
 
             <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
               <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3">
-                <Receipt size={15} className="text-bb-orange" />
+                <Receipt size={15} className="text-bb-accent" />
                 Recent invoices
               </h2>
               {contractor.invoices.length === 0 ? (
@@ -754,7 +754,7 @@ export default function ContractorProfilePage() {
                     <a
                       key={inv.id}
                       href={`/contractors?invoice=${inv.id}`}
-                      className="flex items-center gap-3 p-2 rounded-md bg-bb-black border border-bb-border hover:border-bb-orange/50 transition-colors"
+                      className="flex items-center gap-3 p-2 rounded-md bg-bb-black border border-bb-border hover:border-bb-blue/50 transition-colors"
                     >
                       <span className="text-xs text-white flex-1 truncate">
                         {inv.invoiceNumber ? `#${inv.invoiceNumber}` : inv.filename}
@@ -783,7 +783,7 @@ export default function ContractorProfilePage() {
 
             <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
               <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3">
-                <Timer size={15} className="text-bb-orange" />
+                <Timer size={15} className="text-bb-accent" />
                 Recent hours
               </h2>
               {contractor.hoursEntries.length === 0 ? (
@@ -795,7 +795,7 @@ export default function ContractorProfilePage() {
                       key={h.id}
                       href={`/contractors?hours=${h.id}`}
                       className={cn(
-                        "flex items-center gap-3 p-2 rounded-md bg-bb-black border border-bb-border hover:border-bb-orange/50 transition-colors",
+                        "flex items-center gap-3 p-2 rounded-md bg-bb-black border border-bb-border hover:border-bb-blue/50 transition-colors",
                         h.correctedBy && "opacity-50"
                       )}
                     >

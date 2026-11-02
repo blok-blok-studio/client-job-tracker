@@ -379,13 +379,13 @@ export default function OnboardPage() {
   }
 
   const inputClass =
-    "w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 focus:border-bb-orange text-sm transition-colors";
+    "w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 focus:border-bb-blue text-sm transition-colors";
   const labelClass = "block text-sm text-bb-muted mb-1.5 font-medium";
 
   if (loading) {
     return (
       <div className="min-h-screen bg-bb-black flex items-center justify-center">
-        <Loader2 className="animate-spin text-bb-orange" size={32} />
+        <Loader2 className="animate-spin text-bb-accent" size={32} />
       </div>
     );
   }
@@ -414,7 +414,7 @@ export default function OnboardPage() {
             If you think this is a mistake, please contact us at{" "}
             <a
               href="mailto:chase@blokblokstudio.com"
-              className="text-bb-orange hover:underline"
+              className="text-bb-accent hover:underline"
             >
               chase@blokblokstudio.com
             </a>
@@ -448,7 +448,7 @@ export default function OnboardPage() {
           {uploadUrl && (
             <div className="mt-6 p-4 rounded-lg bg-white/5 border border-white/10 space-y-3">
               <div className="flex items-center gap-2 justify-center">
-                <Upload size={18} className="text-bb-orange" />
+                <Upload size={18} className="text-bb-accent" />
                 <p className="text-white font-medium text-sm">Upload Files & Media</p>
               </div>
               <p className="text-bb-muted text-xs">
@@ -456,7 +456,7 @@ export default function OnboardPage() {
               </p>
               <a
                 href={uploadUrl}
-                className="inline-block bg-bb-orange text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-orange-600 transition-colors"
+                className="inline-block bg-bb-blue text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-bb-blue transition-colors"
               >
                 Upload Files
               </a>
@@ -500,7 +500,7 @@ export default function OnboardPage() {
               <button
                 type="button"
                 onClick={addContact}
-                className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
               >
                 <Plus size={14} /> Add Contact
               </button>
@@ -562,7 +562,7 @@ export default function OnboardPage() {
                       <select
                         value={contact.countryCode}
                         onChange={(e) => updateContact(i, "countryCode", e.target.value)}
-                        className="appearance-none pl-3 pr-8 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50 focus:border-bb-orange transition-colors min-w-[100px]"
+                        className="appearance-none pl-3 pr-8 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50 focus:border-bb-blue transition-colors min-w-[100px]"
                       >
                         {COUNTRY_CODES.map((c, idx) => (
                           <option key={`${c.code}-${c.name}-${idx}`} value={c.code}>
@@ -710,7 +710,7 @@ export default function OnboardPage() {
                         <li
                           key={opt}
                           onMouseDown={() => { setSource(opt); setSourceOpen(false); }}
-                          className="px-3 py-2 text-sm text-white hover:bg-bb-orange/20 cursor-pointer"
+                          className="px-3 py-2 text-sm text-white hover:bg-bb-blue/20 cursor-pointer"
                         >
                           {opt}
                         </li>
@@ -740,7 +740,7 @@ export default function OnboardPage() {
                         <li
                           key={opt}
                           onMouseDown={() => { setIndustry(opt); setIndustryOpen(false); }}
-                          className="px-3 py-2 text-sm text-white hover:bg-bb-orange/20 cursor-pointer"
+                          className="px-3 py-2 text-sm text-white hover:bg-bb-blue/20 cursor-pointer"
                         >
                           {opt}
                         </li>
@@ -761,7 +761,7 @@ export default function OnboardPage() {
               <button
                 type="button"
                 onClick={addSocialLink}
-                className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
               >
                 <Plus size={14} /> Add Profile
               </button>
@@ -828,7 +828,7 @@ export default function OnboardPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   { key: "meta", label: "Instagram & Facebook", color: "from-pink-500 to-purple-500" },
-                  { key: "instagram", label: "Instagram only", color: "from-pink-500 to-orange-400" },
+                  { key: "instagram", label: "Instagram only", color: "from-pink-500 to-bb-blue" },
                   { key: "tiktok", label: "TikTok", color: "from-gray-800 to-black" },
                   { key: "threads", label: "Threads", color: "from-gray-400 to-gray-600" },
                   { key: "twitter", label: "X (Twitter)", color: "from-gray-700 to-black" },
@@ -857,7 +857,7 @@ export default function OnboardPage() {
               <button
                 type="button"
                 onClick={addCredential}
-                className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
               >
                 <Plus size={14} /> Add Account
               </button>
@@ -1112,7 +1112,7 @@ export default function OnboardPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-3 bg-bb-orange hover:bg-bb-orange-light text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
+            className="w-full py-3 bg-bb-blue hover:bg-bb-blue-light text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
           >
             {submitting ? (
               <span className="flex items-center justify-center gap-2">

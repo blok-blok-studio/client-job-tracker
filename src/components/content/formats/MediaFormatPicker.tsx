@@ -71,14 +71,14 @@ export default function MediaFormatPicker({ platform, postType, value, onChange,
               title={preset ? `${preset.hint}, ${preset.width}×${preset.height}` : "Post the file as it is"}
               className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
                 selected
-                  ? "border-bb-orange bg-bb-orange/10 text-white"
+                  ? "border-bb-blue bg-bb-blue/10 text-white"
                   : "border-bb-border bg-bb-elevated text-bb-muted hover:text-white hover:border-bb-dim"
               }`}
             >
               <FrameIcon aspect={aspect} />
               <span className="font-mono">{preset ? preset.label : "Original"}</span>
               {recommended && (
-                <span className="text-[10px] leading-none rounded bg-bb-orange/20 text-bb-orange-light px-1 py-0.5">Best</span>
+                <span className="text-[10px] leading-none rounded bg-bb-blue/20 text-bb-accent-light px-1 py-0.5">Best</span>
               )}
             </button>
           );
@@ -102,7 +102,7 @@ export default function MediaFormatPicker({ platform, postType, value, onChange,
               onClick={() => onChange({ ...current, fit: fit.key })}
               title={fit.hint}
               className={`rounded px-2.5 py-1 text-xs transition-colors cursor-pointer disabled:cursor-not-allowed ${
-                selected && !isOriginal ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white"
+                selected && !isOriginal ? "bg-bb-blue text-white" : "text-bb-muted hover:text-white"
               }`}
             >
               {fit.label}

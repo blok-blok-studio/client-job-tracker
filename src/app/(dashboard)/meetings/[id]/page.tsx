@@ -204,7 +204,7 @@ export default function MeetingDetailPage() {
   }
 
   const inputCls =
-    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
+    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
   if (loading || !meeting) {
     return (
@@ -237,7 +237,7 @@ export default function MeetingDetailPage() {
                 {meeting.client && (
                   <>
                     {" · "}
-                    <Link href={`/clients/${meeting.client.id}`} className="text-bb-muted hover:text-bb-orange transition-colors">
+                    <Link href={`/clients/${meeting.client.id}`} className="text-bb-muted hover:text-bb-accent transition-colors">
                       {meeting.client.name}
                     </Link>
                   </>
@@ -254,7 +254,7 @@ export default function MeetingDetailPage() {
                 href={meeting.fathomUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors"
               >
                 <Video size={14} /> Watch recording <ExternalLink size={11} />
               </a>
@@ -358,11 +358,11 @@ export default function MeetingDetailPage() {
         {/* Tasks from this meeting */}
         <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <ClipboardList size={15} className="text-bb-orange" />
+            <ClipboardList size={15} className="text-bb-accent" />
             <h2 className="text-sm font-semibold text-white">Tasks from this meeting</h2>
             <button
               onClick={() => setShowTaskForm((s) => !s)}
-              className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors ml-auto"
+              className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors ml-auto"
             >
               <Plus size={13} /> Add task
             </button>
@@ -394,7 +394,7 @@ export default function MeetingDetailPage() {
                 <button
                   type="submit"
                   disabled={taskSaving || !taskTitle.trim()}
-                  className="px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light disabled:opacity-50 text-white text-xs font-medium rounded-md transition-colors"
+                  className="px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light disabled:opacity-50 text-white text-xs font-medium rounded-md transition-colors"
                 >
                   {taskSaving ? "Adding…" : "Add to board"}
                 </button>
@@ -412,7 +412,7 @@ export default function MeetingDetailPage() {
                 <Link
                   key={t.id}
                   href={`/kanban?task=${t.id}`}
-                  className="flex items-center gap-2 px-3 py-2 bg-bb-black border border-bb-border hover:border-bb-orange/50 rounded-md transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 bg-bb-black border border-bb-border hover:border-bb-blue/50 rounded-md transition-colors"
                 >
                   <span className="text-sm text-white flex-1 min-w-0 truncate">{t.title}</span>
                   {t.assignedTo && <span className="text-xs text-bb-dim shrink-0">{t.assignedTo}</span>}
@@ -431,7 +431,7 @@ export default function MeetingDetailPage() {
         {/* Comments */}
         <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
           <div className="flex items-center gap-2 mb-3">
-            <MessageSquare size={15} className="text-bb-orange" />
+            <MessageSquare size={15} className="text-bb-accent" />
             <h2 className="text-sm font-semibold text-white">Thread</h2>
             <span className="text-xs text-bb-dim">@-mention a teammate to ping them</span>
           </div>
@@ -467,7 +467,7 @@ export default function MeetingDetailPage() {
             <button
               type="submit"
               disabled={commentSaving || !comment.trim()}
-              className="px-3 py-2 bg-bb-orange hover:bg-bb-orange-light disabled:opacity-50 text-white rounded-md transition-colors shrink-0"
+              className="px-3 py-2 bg-bb-blue hover:bg-bb-blue-light disabled:opacity-50 text-white rounded-md transition-colors shrink-0"
               aria-label="Send comment"
             >
               <Send size={15} />

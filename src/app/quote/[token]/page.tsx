@@ -73,7 +73,7 @@ export default function PublicQuotePage() {
         </div>
       </div>
       <div className="flex flex-wrap gap-2 mt-5">
-        <a href={`/api/quote/${token}/pdf`} className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-white text-black text-sm font-medium hover:bg-neutral-200"><Download size={15} /> PDF</a>
+        <a href={`/api/quote/${token}/pdf`} className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-bb-blue text-white text-sm font-medium hover:bg-bb-blue-light"><Download size={15} /> PDF</a>
       </div>
 
       <section className="mt-8 rounded-xl border border-neutral-800 bg-neutral-950 p-5">
@@ -92,7 +92,7 @@ export default function PublicQuotePage() {
               {de ? `Ich nehme das Angebot ${q.number} im Namen von ${q.billTo.company || q.billTo.name} an. Mit der Annahme ist die erste Zahlung gemäß Zahlungsplan fällig.` : `I accept quote ${q.number} on behalf of ${q.billTo.company || q.billTo.name}. On acceptance the first payment per the schedule becomes due.`}
             </label>
             <div className="flex gap-2">
-              <button disabled={busy || !agree || name.trim().length < 2} onClick={() => act("accept")} className="px-4 py-2 rounded-md bg-white text-black text-sm font-medium hover:bg-neutral-200 disabled:opacity-50">{de ? "Annehmen" : "Accept"}</button>
+              <button disabled={busy || !agree || name.trim().length < 2} onClick={() => act("accept")} className="px-4 py-2 rounded-md bg-bb-blue text-white text-sm font-medium hover:bg-bb-blue-light disabled:opacity-50">{de ? "Annehmen" : "Accept"}</button>
               <button disabled={busy} onClick={() => act("decline")} className="px-3 py-2 rounded-md border border-neutral-700 text-neutral-300 text-sm">{de ? "Ablehnen" : "Decline"}</button>
             </div>
             {msg && <p className="text-xs text-red-400">{msg}</p>}
@@ -138,7 +138,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-screen bg-black text-white">
       <div className="max-w-2xl mx-auto px-5 py-10">
-        <Image src="/bb_logo_wordmark_subhead_WHT_PNG.png" alt="Blok Blok Studio" width={160} height={86} className="h-12 w-auto mb-8" priority />
+        <Image src="/logo-wordmark-white.svg" alt="Blok Blok Studio" width={1025} height={550} className="h-20 w-auto mb-8" priority />
         {children}
       </div>
     </main>

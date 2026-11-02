@@ -159,7 +159,7 @@ function SelectAccountsContent() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center mx-auto mb-4">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-bb-blue to-pink-500 flex items-center justify-center mx-auto mb-4">
           <Link2 size={24} className="text-white" />
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">Select Accounts</h1>
@@ -220,7 +220,7 @@ function SelectAccountsContent() {
         <button
           onClick={handleSave}
           disabled={selectedKeys.size === 0 || saving}
-          className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-40 transition-opacity flex items-center gap-2"
+          className="px-6 py-2.5 bg-gradient-to-r from-bb-blue to-pink-500 text-white text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-40 transition-opacity flex items-center gap-2"
         >
           {saving ? (
             <><Loader2 size={14} className="animate-spin" /> Connecting...</>
@@ -267,14 +267,14 @@ function AccountGroup({
                 takenElsewhere
                   ? "border-bb-border bg-bb-surface opacity-50 cursor-not-allowed"
                   : isSelected
-                    ? "border-bb-orange bg-bb-orange/5 ring-1 ring-bb-orange/20"
+                    ? "border-bb-blue bg-bb-blue/5 ring-1 ring-bb-blue/20"
                     : "border-bb-border bg-bb-surface hover:border-bb-muted"
               }`}
             >
               {/* Checkbox */}
               <div className="shrink-0">
                 {isSelected ? (
-                  <CheckSquare size={20} className="text-bb-orange" />
+                  <CheckSquare size={20} className="text-bb-accent" />
                 ) : (
                   <Square size={20} className="text-bb-dim" />
                 )}

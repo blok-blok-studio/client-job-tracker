@@ -31,7 +31,7 @@ export function renderEmailHtml(bodyText: string): string {
     .replace(/>/g, "&gt;");
   const linked = escaped.replace(
     /(https?:\/\/[^\s]+)/g,
-    '<a href="$1" style="color: #FF6B00; text-decoration: underline;">$1</a>'
+    '<a href="$1" style="color: #2561D8; text-decoration: underline;">$1</a>'
   );
   const paragraphs = linked
     .split(/\n\n+/)

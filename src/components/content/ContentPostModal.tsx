@@ -169,7 +169,7 @@ function Section({
           <Icon size={14} className="text-bb-muted" />
           <span className="text-sm font-medium text-bb-muted">{label}</span>
           {badge !== undefined && badge !== 0 && badge !== "" && (
-            <span className="text-[10px] bg-bb-orange/20 text-bb-orange px-1.5 py-0.5 rounded-full font-medium">
+            <span className="text-[10px] bg-bb-blue/20 text-bb-accent px-1.5 py-0.5 rounded-full font-medium">
               {badge}
             </span>
           )}
@@ -346,7 +346,7 @@ function CharCount({ current, max, label }: { current: number; max: number; labe
     <div className="flex items-center gap-2 mt-1">
       <div className="flex-1 h-1 bg-bb-border rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all ${over ? "bg-red-500" : pct > 80 ? "bg-yellow-500" : "bg-bb-orange"}`}
+          className={`h-full rounded-full transition-all ${over ? "bg-red-500" : pct > 80 ? "bg-yellow-500" : "bg-bb-blue"}`}
           style={{ width: `${Math.min(pct, 100)}%` }}
         />
       </div>
@@ -746,7 +746,7 @@ export default function ContentPostModal({
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.key
-                  ? "border-bb-orange text-white"
+                  ? "border-bb-blue text-white"
                   : "border-transparent text-bb-dim hover:text-bb-muted"
               }`}
             >
@@ -802,7 +802,7 @@ export default function ContentPostModal({
                     onClick={() => setPlatform(p)}
                     className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg text-xs transition-colors border ${
                       platform === p
-                        ? "border-bb-orange bg-bb-orange/10 text-white"
+                        ? "border-bb-blue bg-bb-blue/10 text-white"
                         : "border-bb-border bg-bb-elevated text-bb-dim hover:text-bb-muted"
                     }`}
                   >
@@ -1054,12 +1054,12 @@ export default function ContentPostModal({
                 onClick={() => fileInputRef.current?.click()}
                 className={`flex flex-col items-center justify-center gap-2 py-5 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
                   dragOver
-                    ? "border-bb-orange bg-bb-orange/5"
+                    ? "border-bb-blue bg-bb-blue/5"
                     : "border-bb-border hover:border-bb-muted bg-bb-elevated/50"
                 }`}
               >
                 {uploading ? (
-                  <Loader2 size={24} className="text-bb-orange animate-spin" />
+                  <Loader2 size={24} className="text-bb-accent animate-spin" />
                 ) : (
                   <>
                     <div className="flex items-center gap-2 text-bb-muted">
@@ -1398,7 +1398,7 @@ export default function ContentPostModal({
                       onClick={() => setVisibility(opt.value)}
                       className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm border transition-colors ${
                         visibility === opt.value
-                          ? "border-bb-orange bg-bb-orange/10 text-white"
+                          ? "border-bb-blue bg-bb-blue/10 text-white"
                           : "border-bb-border bg-bb-elevated text-bb-dim hover:text-bb-muted"
                       }`}
                     >
@@ -1427,7 +1427,7 @@ export default function ContentPostModal({
                 type="button"
                 onClick={() => setEnableComments(!enableComments)}
                 className={`relative w-10 h-5 rounded-full transition-colors ${
-                  enableComments ? "bg-bb-orange" : "bg-bb-border"
+                  enableComments ? "bg-bb-blue" : "bg-bb-border"
                 }`}
               >
                 <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
@@ -1578,7 +1578,7 @@ export default function ContentPostModal({
                     type="button"
                     onClick={() => updatePlatformSetting("madeForKids", !platformSettings.madeForKids)}
                     className={`relative w-10 h-5 rounded-full transition-colors ${
-                      platformSettings.madeForKids ? "bg-bb-orange" : "bg-bb-border"
+                      platformSettings.madeForKids ? "bg-bb-blue" : "bg-bb-border"
                     }`}
                   >
                     <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
@@ -1604,7 +1604,7 @@ export default function ContentPostModal({
                         updatePlatformSetting(setting.key, !(platformSettings[setting.key] ?? setting.default))
                       }
                       className={`relative w-10 h-5 rounded-full transition-colors ${
-                        (platformSettings[setting.key] ?? setting.default) ? "bg-bb-orange" : "bg-bb-border"
+                        (platformSettings[setting.key] ?? setting.default) ? "bg-bb-blue" : "bg-bb-border"
                       }`}
                     >
                       <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
@@ -1625,7 +1625,7 @@ export default function ContentPostModal({
                     type="button"
                     onClick={() => updatePlatformSetting("shareToFeed", !(platformSettings.shareToFeed ?? true))}
                     className={`relative w-10 h-5 rounded-full transition-colors ${
-                      (platformSettings.shareToFeed ?? true) ? "bg-bb-orange" : "bg-bb-border"
+                      (platformSettings.shareToFeed ?? true) ? "bg-bb-blue" : "bg-bb-border"
                     }`}
                   >
                     <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
@@ -1639,7 +1639,7 @@ export default function ContentPostModal({
                     type="button"
                     onClick={() => updatePlatformSetting("shareToStory", !platformSettings.shareToStory)}
                     className={`relative w-10 h-5 rounded-full transition-colors ${
-                      platformSettings.shareToStory ? "bg-bb-orange" : "bg-bb-border"
+                      platformSettings.shareToStory ? "bg-bb-blue" : "bg-bb-border"
                     }`}
                   >
                     <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
@@ -1694,7 +1694,7 @@ export default function ContentPostModal({
                     type="button"
                     onClick={() => updatePlatformSetting("articleMode", !platformSettings.articleMode)}
                     className={`relative w-10 h-5 rounded-full transition-colors ${
-                      platformSettings.articleMode ? "bg-bb-orange" : "bg-bb-border"
+                      platformSettings.articleMode ? "bg-bb-blue" : "bg-bb-border"
                     }`}
                   >
                     <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
@@ -1859,7 +1859,7 @@ export default function ContentPostModal({
               type="button"
               onClick={handleSubmit}
               disabled={!clientId || saving || uploading}
-              className="flex-1 sm:flex-initial px-4 sm:px-5 py-2 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+              className="flex-1 sm:flex-initial px-4 sm:px-5 py-2 bg-bb-blue text-white rounded-lg text-sm font-medium hover:bg-bb-blue/90 transition-colors disabled:opacity-50 whitespace-nowrap"
             >
               {saving ? "Saving..." : initialData?.id ? "Update" : "Create Post"}
             </button>

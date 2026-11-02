@@ -172,13 +172,13 @@ export default function MonthlyReportsPage() {
         <div className="space-y-4">
           <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-3">
             <h3 className="flex items-center gap-2 text-sm font-display font-semibold text-white">
-              <Sparkles size={14} className="text-bb-orange" /> Generate a report
+              <Sparkles size={14} className="text-bb-accent" /> Generate a report
             </h3>
             <div className="grid grid-cols-2 gap-2">
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                className="px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                className="px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
               >
                 <option value="">Select client…</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -187,7 +187,7 @@ export default function MonthlyReportsPage() {
                 type="month"
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
-                className="px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+                className="px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
               />
             </div>
             <textarea
@@ -195,7 +195,7 @@ export default function MonthlyReportsPage() {
               onChange={(e) => setRawData(e.target.value)}
               rows={7}
               placeholder={"Paste the analytics here — CSV exports, Meta Business Suite stats, TikTok analytics, or just copied numbers.\n\nInclude last month's numbers too if you want change percentages."}
-              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-xs font-mono text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-xs font-mono text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
             />
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -225,12 +225,12 @@ export default function MonthlyReportsPage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Optional context for the report (campaigns run, launches, anything notable)…"
-              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
             />
             <button
               onClick={generate}
               disabled={!clientId || !rawData.trim() || generating}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
             >
               {generating ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
               {generating ? "Analyzing… (can take a minute)" : "Generate report"}
@@ -240,7 +240,7 @@ export default function MonthlyReportsPage() {
           {/* History */}
           <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
             <h3 className="flex items-center gap-2 text-sm font-display font-semibold text-white mb-3">
-              <FileBarChart size={14} className="text-bb-orange" /> Past reports
+              <FileBarChart size={14} className="text-bb-accent" /> Past reports
             </h3>
             {reports.length === 0 ? (
               <p className="text-xs text-bb-dim py-3">No reports yet.</p>
@@ -250,14 +250,14 @@ export default function MonthlyReportsPage() {
                   <div
                     key={r.id}
                     className={`group flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
-                      selected?.id === r.id ? "border-bb-orange/60 bg-bb-black" : "border-bb-border bg-bb-black hover:border-bb-orange/30"
+                      selected?.id === r.id ? "border-bb-blue/60 bg-bb-black" : "border-bb-border bg-bb-black hover:border-bb-blue/30"
                     }`}
                     onClick={() => setSelected(r)}
                   >
                     <span className="flex-1 min-w-0 truncate text-sm text-white">{r.client.name}</span>
                     <span className="text-[11px] text-bb-muted shrink-0">{monthLabel(r.month)}</span>
                     <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold shrink-0 ${
-                      r.status === "SENT" ? "bg-emerald-500/15 text-emerald-400" : "bg-bb-orange/15 text-bb-orange"
+                      r.status === "SENT" ? "bg-emerald-500/15 text-emerald-400" : "bg-bb-blue/15 text-bb-accent"
                     }`}>
                       {r.status === "SENT" ? "Sent" : "Draft"}
                     </span>
@@ -291,7 +291,7 @@ export default function MonthlyReportsPage() {
                   <h2 className="text-lg font-display font-bold text-white">{monthLabel(selected.month)} Performance Report</h2>
                   <p className="text-xs text-bb-dim mt-0.5">
                     {selected.client.name}
-                    {selected.preparedBy && <span> · prepared by <span className="text-bb-orange">{selected.preparedBy}</span></span>}
+                    {selected.preparedBy && <span> · prepared by <span className="text-bb-accent">{selected.preparedBy}</span></span>}
                     {selected.status === "SENT" && selected.sentTo && (
                       <span className="text-emerald-400"> · sent to {selected.sentTo}</span>
                     )}
@@ -302,7 +302,7 @@ export default function MonthlyReportsPage() {
                     onClick={() => setConfirmSend(true)}
                     disabled={sending || !selected.client.email}
                     title={selected.client.email ? `Email to ${selected.client.email}` : "Client has no email on file"}
-                    className="flex items-center gap-1.5 px-3.5 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors shrink-0"
+                    className="flex items-center gap-1.5 px-3.5 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors shrink-0"
                   >
                     {sending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                     {selected.status === "SENT" ? "Re-send" : "Send to client"}
@@ -404,7 +404,7 @@ export default function MonthlyReportsPage() {
                   <ul className="space-y-1.5">
                     {body.recommendations.map((r, i) => (
                       <li key={i} className="flex gap-2 text-sm text-white leading-relaxed">
-                        <span className="text-bb-orange shrink-0">→</span> {r}
+                        <span className="text-bb-accent shrink-0">→</span> {r}
                       </li>
                     ))}
                   </ul>

@@ -99,7 +99,7 @@ export default function ListTab({
     <div className="space-y-3">
       {/* Bulk bar */}
       {selected.size > 0 && (
-        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 bg-bb-elevated border border-bb-orange/30 rounded-lg px-3 py-2 shadow-modal">
+        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 bg-bb-elevated border border-bb-blue/30 rounded-lg px-3 py-2 shadow-modal">
           <span className="text-sm text-white">{selected.size} selected</span>
           <div className="flex items-center gap-1.5">
             <input
@@ -119,7 +119,7 @@ export default function ListTab({
                 setBusy(false);
                 setSelected(new Set());
               }}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs text-white bg-bb-orange hover:bg-bb-orange-light disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs text-white bg-bb-blue hover:bg-bb-blue-light disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               <CalendarClock size={12} /> Move
             </button>
@@ -182,7 +182,7 @@ export default function ListTab({
               key={group.key}
               className={cn(
                 "bg-bb-surface border rounded-xl p-3 transition-colors",
-                isSel ? "border-bb-orange/50" : "border-bb-border hover:border-bb-border/80"
+                isSel ? "border-bb-blue/50" : "border-bb-border hover:border-bb-border/80"
               )}
             >
               <div className="flex gap-3">
@@ -193,7 +193,7 @@ export default function ListTab({
                   aria-pressed={isSel}
                   className="mt-0.5 text-bb-dim hover:text-white shrink-0 h-5 cursor-pointer"
                 >
-                  {isSel ? <CheckSquare size={16} className="text-bb-orange" /> : <Square size={16} />}
+                  {isSel ? <CheckSquare size={16} className="text-bb-accent" /> : <Square size={16} />}
                 </button>
                 <div className="flex-1 min-w-0 md:flex md:items-start md:gap-6">
                   <button type="button" onClick={() => onOpen(lead)} className="flex-1 min-w-0 text-left cursor-pointer">

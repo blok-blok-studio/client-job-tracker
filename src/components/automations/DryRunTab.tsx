@@ -60,7 +60,7 @@ export default function DryRunTab() {
             <button
               onClick={run}
               disabled={running}
-              className="flex items-center gap-1.5 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors"
             >
               <FlaskConical size={14} /> {running ? "Running…" : "Run dry run"}
             </button>
@@ -102,7 +102,7 @@ export default function DryRunTab() {
             <div className="space-y-0.5">
               {report.events.map((e, i) => (
                 <p key={i} className="text-xs text-bb-dim">
-                  <span className="text-bb-orange font-mono">day {String(e.day).padStart(3, " ")}</span>{" "}
+                  <span className="text-bb-accent font-mono">day {String(e.day).padStart(3, " ")}</span>{" "}
                   {e.action}
                 </p>
               ))}

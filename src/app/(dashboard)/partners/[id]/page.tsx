@@ -113,7 +113,7 @@ interface LedgerRow {
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const fmtDate = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
 const inputClass =
-  "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
+  "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
 const STAGE_VARIANT: Record<string, "gray" | "yellow" | "blue" | "green" | "orange" | "red"> = {
   registered: "gray",
@@ -320,7 +320,7 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={cn("px-4 py-2 text-sm border-b-2 -mb-px transition-colors", tab === key ? "border-bb-orange text-white" : "border-transparent text-bb-muted hover:text-white")}
+              className={cn("px-4 py-2 text-sm border-b-2 -mb-px transition-colors", tab === key ? "border-bb-blue text-white" : "border-transparent text-bb-muted hover:text-white")}
             >
               {label}
             </button>
@@ -353,7 +353,7 @@ function Tile({ label, value, accent }: { label: string; value: string; accent?:
   return (
     <div className="bg-bb-surface border border-bb-border rounded-xl p-4">
       <p className="text-[11px] uppercase tracking-wide text-bb-dim">{label}</p>
-      <p className={cn("text-xl font-display font-bold mt-1", accent ? "text-bb-orange" : "text-white")}>{value}</p>
+      <p className={cn("text-xl font-display font-bold mt-1", accent ? "text-bb-accent" : "text-white")}>{value}</p>
     </div>
   );
 }
@@ -377,7 +377,7 @@ function ActionButton({
       disabled={loading}
       className={cn(
         "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-60",
-        subtle ? "bg-bb-elevated hover:bg-bb-border text-white" : "bg-bb-orange hover:bg-bb-orange-light text-white"
+        subtle ? "bg-bb-elevated hover:bg-bb-border text-white" : "bg-bb-blue hover:bg-bb-blue-light text-white"
       )}
     >
       {loading ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />}
@@ -406,7 +406,7 @@ function DealsTab({ deals }: { deals: Deal[] }) {
           {deals.map((d) => (
             <tr key={d.id} className="border-b border-bb-border/60 hover:bg-bb-elevated/40">
               <td className="px-4 py-3">
-                <Link href={`/clients/${d.id}`} className="text-white hover:text-bb-orange">
+                <Link href={`/clients/${d.id}`} className="text-white hover:text-bb-accent">
                   {d.name}
                 </Link>
                 {d.company && <p className="text-xs text-bb-dim">{d.company}</p>}
@@ -540,7 +540,7 @@ function Toggle({ checked, disabled, onChange }: { checked: boolean; disabled?: 
       type="button"
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={cn("relative w-10 h-5 rounded-full transition-colors disabled:opacity-50", checked ? "bg-bb-orange" : "bg-bb-border")}
+      className={cn("relative w-10 h-5 rounded-full transition-colors disabled:opacity-50", checked ? "bg-bb-blue" : "bg-bb-border")}
       aria-pressed={checked}
     >
       <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all", checked ? "left-5" : "left-0.5")} />
@@ -643,7 +643,7 @@ function CommissionsTab({
           <button
             onClick={openPay}
             disabled={partner.totals.payable <= 0}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bb-orange hover:bg-bb-orange-light disabled:opacity-50 text-sm text-white"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bb-blue hover:bg-bb-blue-light disabled:opacity-50 text-sm text-white"
           >
             <Send size={14} /> Pay {usd(partner.totals.payable)} via Wise
           </button>
@@ -672,7 +672,7 @@ function CommissionsTab({
                 <tr key={r.id} className="border-b border-bb-border/60">
                   <td className="px-4 py-3 text-bb-muted whitespace-nowrap">{fmtDate(r.eventAt)}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/clients/${r.client.id}`} className="text-white hover:text-bb-orange">
+                    <Link href={`/clients/${r.client.id}`} className="text-white hover:text-bb-accent">
                       {r.client.name}
                     </Link>
                     {r.rep && <p className="text-xs text-bb-dim">{r.rep}</p>}
@@ -727,7 +727,7 @@ function CommissionsTab({
                   {(() => {
                     const st = (partner.statements || []).find((x) => x.payoutId === p.id);
                     return st ? (
-                      <a href={`/api/partners/${partnerId}/statements/${st.id}/pdf?inline=1`} target="_blank" rel="noreferrer" className="text-xs text-bb-orange hover:underline whitespace-nowrap">
+                      <a href={`/api/partners/${partnerId}/statements/${st.id}/pdf?inline=1`} target="_blank" rel="noreferrer" className="text-xs text-bb-accent hover:underline whitespace-nowrap">
                         Statement {st.number}
                       </a>
                     ) : (
@@ -748,7 +748,7 @@ function CommissionsTab({
                 toast(`${r.data.data.created} statement${r.data.data.created === 1 ? "" : "s"} issued`, "success");
                 await onChanged();
               }}
-              className="mt-2 text-xs text-bb-orange hover:underline"
+              className="mt-2 text-xs text-bb-accent hover:underline"
             >
               Generate missing statements (self-billing credit notes)
             </button>
@@ -780,7 +780,7 @@ function CommissionsTab({
             <input value={wiseId} onChange={(e) => setWiseId(e.target.value)} placeholder="Wise transfer ID" className={inputClass} />
             <div className="flex justify-end gap-2">
               <button onClick={() => setConfirmPay(false)} className="px-3 py-2 rounded-lg text-sm text-bb-muted hover:text-white">Cancel</button>
-              <button onClick={pay} disabled={paying || wiseId.trim().length < 4} className="px-4 py-2 rounded-lg bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold disabled:opacity-50">{paying ? "Recording…" : "Record payout"}</button>
+              <button onClick={pay} disabled={paying || wiseId.trim().length < 4} className="px-4 py-2 rounded-lg bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-semibold disabled:opacity-50">{paying ? "Recording…" : "Record payout"}</button>
             </div>
           </div>
         )}
@@ -822,7 +822,7 @@ function CommissionsTab({
             <button type="button" onClick={() => setAdjustOpen(false)} className="px-4 py-2 text-sm text-bb-muted hover:text-white">
               Cancel
             </button>
-            <button type="submit" className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white rounded-lg text-sm font-medium">
+            <button type="submit" className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white rounded-lg text-sm font-medium">
               Record
             </button>
           </div>
@@ -995,7 +995,7 @@ function SettingsTab({ partner, onSave }: { partner: Partner; onSave: (body: Rec
 
 function SaveButton({ saving, onClick }: { saving: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light disabled:opacity-60 text-white rounded-lg text-sm font-medium">
+    <button onClick={onClick} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light disabled:opacity-60 text-white rounded-lg text-sm font-medium">
       {saving && <Loader2 size={14} className="animate-spin" />} Save
     </button>
   );

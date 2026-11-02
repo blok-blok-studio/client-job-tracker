@@ -16,7 +16,7 @@ export default function StatsGrid({
       label: "Active Clients",
       value: activeClients,
       icon: Users,
-      color: "text-bb-orange",
+      color: "text-bb-accent",
       formatted: String(activeClients),
     },
     {

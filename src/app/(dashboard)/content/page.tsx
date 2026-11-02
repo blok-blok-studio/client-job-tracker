@@ -287,7 +287,7 @@ function ContentPlanner() {
                 aria-current={tab === key ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors cursor-pointer",
-                  tab === key ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white hover:bg-bb-elevated"
+                  tab === key ? "bg-bb-blue text-white" : "text-bb-muted hover:text-white hover:bg-bb-elevated"
                 )}
               >
                 <Icon size={15} /> {label}
@@ -305,7 +305,7 @@ function ContentPlanner() {
             <button
               type="button"
               onClick={() => openNew()}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange-light transition-colors flex-1 sm:flex-initial cursor-pointer"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-bb-blue text-white rounded-lg text-sm font-medium hover:bg-bb-blue-light transition-colors flex-1 sm:flex-initial cursor-pointer"
             >
               <Plus size={16} /> New post
             </button>

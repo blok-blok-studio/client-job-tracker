@@ -47,14 +47,14 @@ export function isOverdue(row: { status: string; dueDate: string | null }): bool
 }
 
 export const inputCls =
-  "w-full px-3 py-2 rounded-lg bg-bb-black border border-bb-border text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange/50";
+  "w-full px-3 py-2 rounded-lg bg-bb-black border border-bb-border text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue/50";
 export const labelCls = "block text-xs font-medium text-bb-muted mb-1";
 export const chipCls = (active: boolean) =>
   `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
-    active ? "bg-bb-orange/10 text-bb-orange border-bb-orange/30" : "bg-bb-surface text-bb-muted border-bb-border hover:border-bb-orange/20"
+    active ? "bg-bb-blue/10 text-bb-accent border-bb-blue/30" : "bg-bb-surface text-bb-muted border-bb-border hover:border-bb-blue/20"
   }`;
-export const btnPrimary = "px-4 py-2 rounded-lg bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
-export const btnGhost = "px-3 py-2 rounded-lg bg-bb-surface border border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-orange/30 disabled:opacity-50 transition-colors";
+export const btnPrimary = "px-4 py-2 rounded-lg bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+export const btnGhost = "px-3 py-2 rounded-lg bg-bb-surface border border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-blue/30 disabled:opacity-50 transition-colors";
 
 export async function readJsonSafe(res: Response): Promise<{ success?: boolean; error?: string; data?: unknown; warning?: string | null; [k: string]: unknown }> {
   const text = await res.text();

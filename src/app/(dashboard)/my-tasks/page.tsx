@@ -20,7 +20,7 @@ interface MyTask {
 
 const PRIORITY_DOT: Record<Priority, string> = {
   URGENT: "bg-red-500",
-  HIGH: "bg-bb-orange",
+  HIGH: "bg-bb-blue",
   MEDIUM: "bg-blue-500",
   LOW: "bg-bb-dim",
 };
@@ -28,7 +28,7 @@ const PRIORITY_DOT: Record<Priority, string> = {
 const STATUS_STYLE: Record<TaskStatus, string> = {
   BACKLOG: "bg-bb-elevated text-bb-dim",
   TODO: "bg-blue-500/15 text-blue-400",
-  IN_PROGRESS: "bg-bb-orange/15 text-bb-orange",
+  IN_PROGRESS: "bg-bb-blue/15 text-bb-accent",
   IN_REVIEW: "bg-purple-500/15 text-purple-400",
   DONE: "bg-emerald-500/15 text-emerald-400",
   BLOCKED: "bg-red-500/15 text-red-400",
@@ -38,7 +38,7 @@ type GroupKey = "overdue" | "today" | "week" | "later" | "nodate";
 
 const GROUPS: Array<{ key: GroupKey; label: string; icon: React.ReactNode; accent: string }> = [
   { key: "overdue", label: "Overdue", icon: <Flame size={14} />, accent: "text-red-400" },
-  { key: "today", label: "Due today", icon: <Sun size={14} />, accent: "text-bb-orange" },
+  { key: "today", label: "Due today", icon: <Sun size={14} />, accent: "text-bb-accent" },
   { key: "week", label: "This week", icon: <CalendarRange size={14} />, accent: "text-blue-400" },
   { key: "later", label: "Later", icon: <Calendar size={14} />, accent: "text-bb-muted" },
   { key: "nodate", label: "No due date", icon: <Inbox size={14} />, accent: "text-bb-dim" },
@@ -155,7 +155,7 @@ export default function MyTasksPage() {
                     <button
                       key={t.id}
                       onClick={() => setDetailTaskId(t.id)}
-                      className="w-full flex items-center gap-2.5 rounded-lg border border-bb-border bg-bb-surface px-3 py-3 text-left hover:border-bb-orange/40 hover:-translate-y-px transition-all"
+                      className="w-full flex items-center gap-2.5 rounded-lg border border-bb-border bg-bb-surface px-3 py-3 text-left hover:border-bb-blue/40 hover:-translate-y-px transition-all"
                     >
                       <span className={`h-2 w-2 rounded-full shrink-0 ${PRIORITY_DOT[t.priority]}`} />
                       <span className="flex-1 min-w-0 truncate text-sm text-white">{t.title}</span>

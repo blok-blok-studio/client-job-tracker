@@ -26,7 +26,7 @@ const ACCENT_BORDER: Record<string, string> = {
   DRAFT: "border-l-bb-dim",
   SCHEDULED: "border-l-blue-400",
   PUBLISHING: "border-l-yellow-400",
-  ACTION_NEEDED: "border-l-bb-orange",
+  ACTION_NEEDED: "border-l-bb-blue",
   PUBLISHED: "border-l-emerald-400",
   FAILED: "border-l-red-500",
   AWAITING_APPROVAL: "border-l-purple-400",
@@ -91,7 +91,7 @@ export function MonthChip({
         onOpen(group.lead);
       }}
       className={cn(
-        "w-full flex items-center gap-1 overflow-hidden rounded px-1 py-0.5 text-left bg-bb-elevated/80 hover:bg-bb-elevated border border-transparent hover:border-bb-border transition-colors cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-bb-orange",
+        "w-full flex items-center gap-1 overflow-hidden rounded px-1 py-0.5 text-left bg-bb-elevated/80 hover:bg-bb-elevated border border-transparent hover:border-bb-border transition-colors cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-bb-blue",
         movable && "touch-none",
         isDragging && "opacity-40"
       )}
@@ -125,7 +125,7 @@ export function WeekBlock({ group, onOpen }: { group: PostGroup; onOpen: (post: 
         onOpen(group.lead);
       }}
       className={cn(
-        "w-full h-full text-left rounded-md bg-bb-elevated border border-bb-border border-l-2 hover:bg-[#252525] px-1.5 py-1 transition-colors cursor-pointer overflow-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-bb-orange",
+        "w-full h-full text-left rounded-md bg-bb-elevated border border-bb-border border-l-2 hover:bg-[#252525] px-1.5 py-1 transition-colors cursor-pointer overflow-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-bb-blue",
         ACCENT_BORDER[accent],
         movable && "touch-none",
         isDragging && "opacity-40"
@@ -161,7 +161,7 @@ export function GroupCard({
 }) {
   const lead = group.lead;
   return (
-    <div className="bg-bb-elevated/60 border border-bb-border rounded-lg p-3 hover:border-bb-orange/30 transition-colors">
+    <div className="bg-bb-elevated/60 border border-bb-border rounded-lg p-3 hover:border-bb-blue/30 transition-colors">
       <button type="button" onClick={() => onOpen(lead)} className="w-full text-left flex gap-3 cursor-pointer">
         <Thumb post={lead} className="w-12 h-12" />
         <div className="min-w-0 flex-1">
@@ -228,7 +228,7 @@ export function PostStatusRow({
             <button
               type="button"
               onClick={() => onRetry(post)}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] text-white bg-bb-orange hover:bg-bb-orange-light transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] text-white bg-bb-blue hover:bg-bb-blue-light transition-colors cursor-pointer"
             >
               <RotateCcw size={11} /> Retry
             </button>
@@ -245,7 +245,7 @@ export function PostStatusRow({
           {post.status === "ACTION_NEEDED" && (
             <Link
               href={`/content/handoff/${post.id}`}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] text-white bg-bb-orange hover:bg-bb-orange-light transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] text-white bg-bb-blue hover:bg-bb-blue-light transition-colors"
             >
               <Smartphone size={11} /> Post it
             </Link>

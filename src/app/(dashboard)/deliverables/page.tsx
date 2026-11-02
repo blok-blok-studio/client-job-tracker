@@ -23,7 +23,7 @@ interface DeliverableRow {
 const STATUS_STYLES: Record<DeliverableRow["status"], string> = {
   PENDING_REVIEW: "bg-yellow-500/10 text-yellow-400",
   APPROVED: "bg-green-500/10 text-green-400",
-  REVISION_REQUESTED: "bg-bb-orange/10 text-bb-orange",
+  REVISION_REQUESTED: "bg-bb-blue/10 text-bb-accent",
 };
 
 const STATUS_LABELS: Record<DeliverableRow["status"], string> = {
@@ -100,7 +100,7 @@ export default function DeliverablesPage() {
             <h1 className="font-display text-2xl font-bold">Deliverables</h1>
             <p className="text-bb-dim text-sm mt-1">
               Finished work across every client — {awaiting} awaiting review
-              {needsWork > 0 && <>, <span className="text-bb-orange">{needsWork} need changes</span></>}
+              {needsWork > 0 && <>, <span className="text-bb-accent">{needsWork} need changes</span></>}
             </p>
           </div>
           <span className="text-sm text-bb-dim">{filtered.length} of {items.length}</span>
@@ -114,7 +114,7 @@ export default function DeliverablesPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search title, client, or team member..."
-              className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-bb-surface border border-bb-border text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange/50"
+              className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-bb-surface border border-bb-border text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue/50"
             />
           </div>
           {(["all", "PENDING_REVIEW", "REVISION_REQUESTED", "APPROVED"] as const).map((s) => (
@@ -123,8 +123,8 @@ export default function DeliverablesPage() {
               onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                 statusFilter === s
-                  ? "bg-bb-orange/10 text-bb-orange border border-bb-orange/30"
-                  : "bg-bb-surface text-bb-muted border border-bb-border hover:border-bb-orange/20"
+                  ? "bg-bb-blue/10 text-bb-accent border border-bb-blue/30"
+                  : "bg-bb-surface text-bb-muted border border-bb-border hover:border-bb-blue/20"
               }`}
             >
               {s === "all" ? "All" : STATUS_LABELS[s]}
@@ -134,7 +134,7 @@ export default function DeliverablesPage() {
             <select
               value={senderFilter}
               onChange={(e) => setSenderFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-lg bg-bb-surface border border-bb-border text-sm text-bb-muted focus:outline-none focus:border-bb-orange/50"
+              className="px-3 py-1.5 rounded-lg bg-bb-surface border border-bb-border text-sm text-bb-muted focus:outline-none focus:border-bb-blue/50"
             >
               <option value="all">Everyone</option>
               {senders.map((name) => (
@@ -177,7 +177,7 @@ export default function DeliverablesPage() {
                   <p className="text-xs text-bb-dim mt-1">
                     <button
                       onClick={() => router.push(`/clients/${d.client.id}`)}
-                      className="text-bb-muted hover:text-bb-orange transition-colors font-medium"
+                      className="text-bb-muted hover:text-bb-accent transition-colors font-medium"
                     >
                       {d.client.name}
                     </button>
@@ -192,7 +192,7 @@ export default function DeliverablesPage() {
                     )}
                   </p>
                   {d.status === "REVISION_REQUESTED" && d.revisionNotes && (
-                    <p className="text-xs text-bb-orange/90 mt-1.5 line-clamp-2 whitespace-pre-wrap">
+                    <p className="text-xs text-bb-accent/90 mt-1.5 line-clamp-2 whitespace-pre-wrap">
                       &ldquo;{d.revisionNotes}&rdquo;
                     </p>
                   )}
@@ -200,14 +200,14 @@ export default function DeliverablesPage() {
                 <div className="flex items-center gap-3 shrink-0">
                   <button
                     onClick={() => copyLink(d)}
-                    className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                    className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
                   >
                     {copiedId === d.id ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
                     {copiedId === d.id ? "Copied" : "Copy link"}
                   </button>
                   <button
                     onClick={() => window.open(`/r/${d.token}`, "_blank")}
-                    className="flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light transition-colors"
+                    className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light transition-colors"
                   >
                     <Eye size={12} /> View
                   </button>

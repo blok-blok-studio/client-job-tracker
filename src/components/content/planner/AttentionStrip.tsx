@@ -40,7 +40,7 @@ export default function AttentionStrip({
   ].filter(Boolean);
 
   return (
-    <section className="bg-bb-surface border border-bb-orange/25 rounded-xl">
+    <section className="bg-bb-surface border border-bb-blue/25 rounded-xl">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -48,7 +48,7 @@ export default function AttentionStrip({
         className="w-full flex items-center justify-between gap-2 px-4 py-2.5 cursor-pointer"
       >
         <span className="flex items-center gap-2 text-sm text-white">
-          <AlertTriangle size={15} className="text-bb-orange" />
+          <AlertTriangle size={15} className="text-bb-accent" />
           Needs attention
           <span className="text-xs text-bb-muted">{parts.join(" · ")}</span>
         </span>

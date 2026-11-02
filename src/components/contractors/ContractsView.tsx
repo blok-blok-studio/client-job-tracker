@@ -390,7 +390,7 @@ export default function ContractsView({
 
   const selectedContractor = contractors.find((c) => c.id === form.contractorId);
   const inputClass =
-    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
+    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
   return (
     <div className="space-y-4">
@@ -408,7 +408,7 @@ export default function ContractsView({
                 key={tile.label}
                 className="bg-bb-surface border border-bb-border rounded-lg p-4 flex items-center gap-3"
               >
-                <tile.icon size={18} className="text-bb-orange shrink-0" />
+                <tile.icon size={18} className="text-bb-accent shrink-0" />
                 <div className="min-w-0">
                   <p className="text-lg font-semibold text-white truncate">{tile.value}</p>
                   <p className="text-xs text-bb-dim truncate">{tile.label}</p>
@@ -431,11 +431,11 @@ export default function ContractsView({
                       setForm((f) => ({ ...f, contractorId: c.id, kind: "IC_AGREEMENT" }));
                       openCreate();
                     }}
-                    className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 bg-bb-black border border-bb-border hover:border-bb-orange/50 rounded-lg text-sm text-white transition-colors"
+                    className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 bg-bb-black border border-bb-border hover:border-bb-blue/50 rounded-lg text-sm text-white transition-colors"
                   >
                     <ContractorAvatar contractor={c} size={22} />
                     {c.name}
-                    <Plus size={13} className="text-bb-orange" />
+                    <Plus size={13} className="text-bb-accent" />
                   </button>
                 ))}
               </div>
@@ -453,7 +453,7 @@ export default function ContractsView({
                 onClick={() => setStatusTab(tab.key)}
                 className={cn(
                   "px-3 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap",
-                  statusTab === tab.key ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white"
+                  statusTab === tab.key ? "bg-bb-blue text-white" : "text-bb-muted hover:text-white"
                 )}
               >
                 {tab.label}
@@ -464,7 +464,7 @@ export default function ContractsView({
         <div className="flex-1" />
         <button
           onClick={openCreate}
-          className="flex items-center gap-1.5 px-3 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors w-fit"
+          className="flex items-center gap-1.5 px-3 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors w-fit"
         >
           <Plus size={14} />
           New Agreement
@@ -488,7 +488,7 @@ export default function ContractsView({
           filtered.map((c) => (
             <div
               key={c.id}
-              className="w-full flex items-center gap-3 p-3 bg-bb-surface border border-bb-border hover:border-bb-orange/50 rounded-lg transition-colors"
+              className="w-full flex items-center gap-3 p-3 bg-bb-surface border border-bb-border hover:border-bb-blue/50 rounded-lg transition-colors"
             >
               <button onClick={() => openDetail(c.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                 <ContractorAvatar contractor={c.contractor} size={30} />
@@ -514,7 +514,7 @@ export default function ContractsView({
               {c.status !== "DRAFT" && (
                 <button
                   onClick={() => copyLink(c.token)}
-                  className="p-1.5 rounded text-bb-dim hover:text-bb-orange transition-colors"
+                  className="p-1.5 rounded text-bb-dim hover:text-bb-accent transition-colors"
                   title="Copy signing link"
                 >
                   {copied === c.token ? <Check size={14} className="text-green-400" /> : <Link2 size={14} />}
@@ -567,7 +567,7 @@ export default function ContractsView({
                   className={cn(
                     "text-left p-3 rounded-lg border transition-colors",
                     form.kind === k.key
-                      ? "border-bb-orange bg-bb-orange/10"
+                      ? "border-bb-blue bg-bb-blue/10"
                       : "border-bb-border bg-bb-black hover:border-bb-border/80"
                   )}
                 >
@@ -685,7 +685,7 @@ export default function ContractsView({
 
           <div>
             <label className="flex items-center gap-1.5 text-xs text-bb-muted mb-1">
-              <Sparkles size={12} className="text-bb-orange" />
+              <Sparkles size={12} className="text-bb-accent" />
               Reshape with AI (optional)
             </label>
             <textarea
@@ -756,7 +756,7 @@ export default function ContractsView({
               type="checkbox"
               checked={form.draft}
               onChange={(e) => setForm({ ...form, draft: e.target.checked })}
-              className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
+              className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-blue"
             />
             <div>
               <span className="text-sm font-medium text-white">Review before sending</span>
@@ -772,7 +772,7 @@ export default function ContractsView({
                 type="checkbox"
                 checked={form.emailIt}
                 onChange={(e) => setForm({ ...form, emailIt: e.target.checked })}
-                className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-orange"
+                className="w-4 h-4 mt-0.5 rounded border-bb-border bg-bb-black accent-bb-blue"
               />
               <div>
                 <span className="text-sm font-medium text-white">Email them the link too</span>
@@ -800,7 +800,7 @@ export default function ContractsView({
             <button
               onClick={handleCreate}
               disabled={creating || !form.contractorId || !form.providerSignedName.trim()}
-              className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {creating ? (
                 <>
@@ -822,7 +822,7 @@ export default function ContractsView({
       <Modal open={!!detail} onClose={() => setDetail(null)} title={detail?.title || "Agreement"}>
         {detailLoading || !detail ? (
           <div className="py-12 flex justify-center">
-            <Loader2 className="animate-spin text-bb-orange" size={24} />
+            <Loader2 className="animate-spin text-bb-accent" size={24} />
           </div>
         ) : (
           <div className="space-y-4">
@@ -845,7 +845,7 @@ export default function ContractsView({
                 <button
                   onClick={() => patchContract(detail.id, { action: "send" }, "Released — the link works now")}
                   disabled={busy}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   <Send size={13} /> Release for signing
                 </button>
@@ -946,7 +946,7 @@ export default function ContractsView({
               <div className="space-y-1.5">
                 {detail.auditLogs.map((log) => (
                   <div key={log.id} className="flex items-start gap-2 text-[11px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-bb-orange mt-1.5 shrink-0" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-bb-blue mt-1.5 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-bb-muted">
                         {AUDIT_LABELS[log.event] || log.event}

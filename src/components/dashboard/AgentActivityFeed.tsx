@@ -32,10 +32,10 @@ export default function AgentActivityFeed({ activities }: { activities: Activity
     <div className="bg-bb-surface border border-bb-border rounded-lg">
       <div className="px-5 py-4 border-b border-bb-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-bb-orange animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-bb-blue animate-pulse" />
           <h2 className="font-display font-semibold">Recent Activity</h2>
         </div>
-        <Link href="/activity" className="text-xs text-bb-orange hover:text-bb-orange-light">
+        <Link href="/activity" className="text-xs text-bb-accent hover:text-bb-accent-light">
           View All
         </Link>
       </div>

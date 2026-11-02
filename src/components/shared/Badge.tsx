@@ -9,7 +9,7 @@ interface BadgeProps {
 
 const variants = {
   default: "bg-bb-elevated text-bb-muted",
-  orange: "bg-bb-orange/15 text-bb-orange",
+  orange: "bg-bb-blue text-white",
   blue: "bg-blue-500/15 text-blue-400",
   green: "bg-green-500/15 text-green-400",
   red: "bg-red-500/15 text-red-400",

@@ -113,7 +113,7 @@ function SortableTile({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn("relative group rounded-lg border border-bb-border bg-bb-elevated overflow-hidden", isDragging && "z-10 ring-2 ring-bb-orange/60")}
+      className={cn("relative group rounded-lg border border-bb-border bg-bb-elevated overflow-hidden", isDragging && "z-10 ring-2 ring-bb-blue/60")}
     >
       <div className="relative aspect-square bg-black/40">
         {thumb ? (
@@ -134,7 +134,7 @@ function SortableTile({
             className="absolute inset-0 flex items-center justify-center cursor-pointer group/play"
           >
             {kind !== "image" && (
-              <span className="flex items-center justify-center w-10 h-10 rounded-full bg-black/60 text-white group-hover/play:bg-bb-orange transition-colors">
+              <span className="flex items-center justify-center w-10 h-10 rounded-full bg-black/60 text-white group-hover/play:bg-bb-blue transition-colors">
                 <Play size={18} className="ml-0.5" />
               </span>
             )}
@@ -157,7 +157,7 @@ function SortableTile({
           title="Download original"
           className={cn(
             "absolute bottom-1 right-1 inline-flex items-center gap-1 p-1.5 sm:p-1 rounded text-white cursor-pointer transition-colors",
-            save.status === "ready" ? "bg-bb-orange" : "bg-black/70 hover:bg-bb-orange"
+            save.status === "ready" ? "bg-bb-blue" : "bg-black/70 hover:bg-bb-blue"
           )}
         >
           {save.status === "preparing" ? (
@@ -336,7 +336,7 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
           setDragOver(false);
           if (!disabled && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
         }}
-        className={cn("rounded-lg transition-colors", dragOver && "bg-bb-orange/5 ring-2 ring-dashed ring-bb-orange/40")}
+        className={cn("rounded-lg transition-colors", dragOver && "bg-bb-blue/5 ring-2 ring-dashed ring-bb-blue/40")}
       >
         {mediaUrls.length > 0 && (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -374,12 +374,12 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
             {uploads.map((u) => (
               <div key={u.id} className="text-xs text-bb-muted">
                 <div className="flex items-center gap-2">
-                  <Loader2 size={12} className="animate-spin text-bb-orange shrink-0" />
+                  <Loader2 size={12} className="animate-spin text-bb-accent shrink-0" />
                   <span className="truncate flex-1">{u.name}</span>
                   <span className="font-mono tabular-nums">{u.pct}%</span>
                 </div>
                 <div className="mt-1 h-1 rounded-full bg-bb-border overflow-hidden">
-                  <div className="h-full bg-bb-orange transition-[width] duration-300" style={{ width: `${u.pct}%` }} />
+                  <div className="h-full bg-bb-blue transition-[width] duration-300" style={{ width: `${u.pct}%` }} />
                 </div>
               </div>
             ))}
@@ -391,7 +391,7 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border border-dashed border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors"
+              className="flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border border-dashed border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-blue/50 cursor-pointer transition-colors"
             >
               <Upload size={14} /> <span className="sm:hidden">Photos &amp; videos</span>
               <span className="hidden sm:inline">Upload</span>
@@ -402,7 +402,7 @@ export default function MediaTray({ clientId, mediaUrls, meta, altTexts, disable
               onClick={() => setLibraryOpen((v) => !v)}
               className={cn(
                 "flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border text-sm cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
-                libraryOpen ? "border-bb-orange/60 text-white bg-bb-orange/10" : "border-bb-border text-bb-muted hover:text-white"
+                libraryOpen ? "border-bb-blue/60 text-white bg-bb-blue/10" : "border-bb-border text-bb-muted hover:text-white"
               )}
             >
               <FolderOpen size={14} /> {libraryOpen ? "Close library" : "Client library"}

@@ -74,7 +74,7 @@ export default function MyWork({
 
   const tiles = [
     { label: "Overdue", value: overdue.length, icon: Flame, accent: "text-red-400" },
-    { label: "Due today", value: today.length, icon: Sun, accent: "text-bb-orange" },
+    { label: "Due today", value: today.length, icon: Sun, accent: "text-bb-accent" },
     { label: "This week", value: week.length, icon: CalendarRange, accent: "text-blue-400" },
   ];
 
@@ -92,7 +92,7 @@ export default function MyWork({
         </div>
         <Link
           href="/my-tasks"
-          className="flex items-center gap-1 text-xs text-bb-muted hover:text-bb-orange transition-colors shrink-0"
+          className="flex items-center gap-1 text-xs text-bb-muted hover:text-bb-accent transition-colors shrink-0"
         >
           All my tasks <ArrowRight size={12} />
         </Link>
@@ -125,7 +125,7 @@ export default function MyWork({
               <Link
                 key={t.id}
                 href={`/kanban?task=${t.id}`}
-                className="flex items-center gap-3 p-2.5 rounded-md bg-bb-black border border-bb-border hover:border-bb-orange/50 transition-colors"
+                className="flex items-center gap-3 p-2.5 rounded-md bg-bb-black border border-bb-border hover:border-bb-blue/50 transition-colors"
               >
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm text-white truncate">{t.title}</span>

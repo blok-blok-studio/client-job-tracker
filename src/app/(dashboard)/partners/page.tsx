@@ -27,7 +27,7 @@ interface PartnerRow {
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 const inputClass =
-  "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
+  "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
 export default function PartnersPage() {
   const router = useRouter();
@@ -107,7 +107,7 @@ export default function PartnersPage() {
               setCreated(null);
               setAdding(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white rounded-lg text-sm font-medium transition-colors"
           >
             <Plus size={16} /> Add partner
           </button>
@@ -129,7 +129,7 @@ export default function PartnersPage() {
               <button
                 key={p.id}
                 onClick={() => router.push(`/partners/${p.id}`)}
-                className="text-left bg-bb-surface border border-bb-border hover:border-bb-orange/50 rounded-xl p-5 transition-colors"
+                className="text-left bg-bb-surface border border-bb-border hover:border-bb-blue/50 rounded-xl p-5 transition-colors"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -190,7 +190,7 @@ export default function PartnersPage() {
                   setAdding(false);
                   router.push(`/partners/${created.id}`);
                 }}
-                className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white rounded-lg text-sm font-medium"
+                className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white rounded-lg text-sm font-medium"
               >
                 Open partner
               </button>
@@ -234,7 +234,7 @@ export default function PartnersPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light disabled:opacity-60 text-white rounded-lg text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light disabled:opacity-60 text-white rounded-lg text-sm font-medium"
               >
                 {saving && <Loader2 size={14} className="animate-spin" />} Create partner
               </button>
@@ -250,7 +250,7 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
   return (
     <div>
       <p className="text-[11px] uppercase tracking-wide text-bb-dim">{label}</p>
-      <p className={`text-sm font-semibold ${highlight ? "text-bb-orange" : "text-white"}`}>{value}</p>
+      <p className={`text-sm font-semibold ${highlight ? "text-bb-accent" : "text-white"}`}>{value}</p>
     </div>
   );
 }

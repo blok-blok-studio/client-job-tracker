@@ -131,7 +131,7 @@ function todayLocalDate() {
 }
 
 const inputClass =
-  "w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-lg text-white placeholder:text-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50";
+  "w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-lg text-white placeholder:text-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
 export default function ContractorPortal({
   params,
@@ -639,7 +639,7 @@ export default function ContractorPortal({
             onClick={() => avatarInputRef.current?.click()}
             disabled={avatarUploading}
             title="Add a photo of yourself"
-            className="group relative w-20 h-20 rounded-full mx-auto mb-4 block overflow-hidden bg-gradient-to-br from-orange-500 to-pink-500 disabled:opacity-60"
+            className="group relative w-20 h-20 rounded-full mx-auto mb-4 block overflow-hidden bg-gradient-to-br from-bb-blue to-pink-500 disabled:opacity-60"
           >
             {contractor.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -742,13 +742,13 @@ export default function ContractorPortal({
                 >
                   <div
                     className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                      signed ? "bg-green-500/10" : expired ? "bg-white/5" : "bg-orange-500/10"
+                      signed ? "bg-green-500/10" : expired ? "bg-white/5" : "bg-bb-blue/10"
                     }`}
                   >
                     {signed ? (
                       <CheckCircle size={16} className="text-green-400" />
                     ) : (
-                      <PenLine size={16} className={expired ? "text-gray-600" : "text-orange-400"} />
+                      <PenLine size={16} className={expired ? "text-gray-600" : "text-bb-accent"} />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -764,7 +764,7 @@ export default function ContractorPortal({
                       {!signed && !expired && (
                         <a
                           href={`/a/${c.token}`}
-                          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
+                          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-bb-blue to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
                         >
                           <PenLine size={12} /> Review &amp; sign
                         </a>
@@ -813,7 +813,7 @@ export default function ContractorPortal({
                   <button
                     type="button"
                     onClick={() => setTab("contracts")}
-                    className="mt-2 ml-6 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
+                    className="mt-2 ml-6 px-4 py-1.5 bg-gradient-to-r from-bb-blue to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
                   >
                     Sign your agreement
                   </button>
@@ -821,7 +821,7 @@ export default function ContractorPortal({
                   <button
                     type="button"
                     onClick={() => setTab("documents")}
-                    className="mt-2 ml-6 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
+                    className="mt-2 ml-6 px-4 py-1.5 bg-gradient-to-r from-bb-blue to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
                   >
                     Go to Documents
                   </button>
@@ -852,12 +852,12 @@ export default function ContractorPortal({
                 onClick={() => fileInputRef.current?.click()}
                 className={`flex flex-col items-center justify-center gap-4 py-12 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
                   dragOver
-                    ? "border-orange-500 bg-orange-500/5 scale-[1.01]"
+                    ? "border-bb-blue bg-bb-blue/5 scale-[1.01]"
                     : "border-white/10 hover:border-white/20 bg-white/[0.02]"
                 }`}
               >
-                <div className={`p-4 rounded-full transition-colors ${dragOver ? "bg-orange-500/10" : "bg-white/5"}`}>
-                  <Upload size={28} className={dragOver ? "text-orange-400" : "text-white/40"} />
+                <div className={`p-4 rounded-full transition-colors ${dragOver ? "bg-bb-blue/10" : "bg-white/5"}`}>
+                  <Upload size={28} className={dragOver ? "text-bb-accent" : "text-white/40"} />
                 </div>
                 <div className="text-center">
                   <p className="text-white font-medium">Drag &amp; drop your invoice here</p>
@@ -870,7 +870,7 @@ export default function ContractorPortal({
               </div>
             ) : (
               <div className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded-xl">
-                <FileText size={16} className="text-orange-400 shrink-0" />
+                <FileText size={16} className="text-bb-accent shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white truncate">{file.name}</p>
                   <p className="text-[10px] text-gray-500">
@@ -969,7 +969,7 @@ export default function ContractorPortal({
                   type="button"
                   onClick={handleSubmit}
                   disabled={uploading}
-                  className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2 relative overflow-hidden"
+                  className="w-full py-3 bg-gradient-to-r from-bb-blue to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2 relative overflow-hidden"
                 >
                   {uploading ? (
                     <>
@@ -1005,7 +1005,7 @@ export default function ContractorPortal({
                       key={inv.id}
                       className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded-xl"
                     >
-                      <FileText size={16} className="text-orange-400 shrink-0" />
+                      <FileText size={16} className="text-bb-accent shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white truncate">
                           {inv.invoiceNumber ? `#${inv.invoiceNumber}` : inv.filename}
@@ -1063,12 +1063,12 @@ export default function ContractorPortal({
               onClick={() => workFileInputRef.current?.click()}
               className={`flex flex-col items-center justify-center gap-4 py-10 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
                 workDragOver
-                  ? "border-orange-500 bg-orange-500/5 scale-[1.01]"
+                  ? "border-bb-blue bg-bb-blue/5 scale-[1.01]"
                   : "border-white/10 hover:border-white/20 bg-white/[0.02]"
               }`}
             >
-              <div className={`p-4 rounded-full transition-colors ${workDragOver ? "bg-orange-500/10" : "bg-white/5"}`}>
-                <FolderUp size={28} className={workDragOver ? "text-orange-400" : "text-white/40"} />
+              <div className={`p-4 rounded-full transition-colors ${workDragOver ? "bg-bb-blue/10" : "bg-white/5"}`}>
+                <FolderUp size={28} className={workDragOver ? "text-bb-accent" : "text-white/40"} />
               </div>
               <div className="text-center">
                 <p className="text-white font-medium">Drag &amp; drop your finished files here</p>
@@ -1102,7 +1102,7 @@ export default function ContractorPortal({
                     key={`${f.name}-${f.size}-${i}`}
                     className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded-xl"
                   >
-                    <FileText size={16} className="text-orange-400 shrink-0" />
+                    <FileText size={16} className="text-bb-accent shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-white truncate">{f.name}</p>
                       <p className="text-[10px] text-gray-500">{fmtBytes(f.size)}</p>
@@ -1124,7 +1124,7 @@ export default function ContractorPortal({
               <div className="mt-5 space-y-3">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">
-                    Which client is this for? <span className="text-orange-400">*</span>
+                    Which client is this for? <span className="text-bb-accent">*</span>
                   </label>
                   <select
                     value={workClientId}
@@ -1167,7 +1167,7 @@ export default function ContractorPortal({
                   type="button"
                   onClick={handleWorkSubmit}
                   disabled={workUploading || !workClientId}
-                  className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2 relative overflow-hidden"
+                  className="w-full py-3 bg-gradient-to-r from-bb-blue to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2 relative overflow-hidden"
                 >
                   {workUploading ? (
                     <>
@@ -1203,7 +1203,7 @@ export default function ContractorPortal({
                       key={w.id}
                       className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/5 rounded-xl"
                     >
-                      <FileText size={16} className="text-orange-400 shrink-0" />
+                      <FileText size={16} className="text-bb-accent shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white truncate">
                           {w.filename}
@@ -1286,7 +1286,7 @@ export default function ContractorPortal({
 
               {preview && (
                 <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                  <Timer size={12} className="text-orange-400" />
+                  <Timer size={12} className="text-bb-accent" />
                   {fmtDuration(preview.minutes)}
                   {preview.overnight && <span className="text-blue-400">(ends the next day)</span>}
                   <span className="text-gray-600">
@@ -1325,7 +1325,7 @@ export default function ContractorPortal({
                   type="checkbox"
                   checked={attested}
                   onChange={(e) => setAttested(e.target.checked)}
-                  className="mt-0.5 accent-orange-500"
+                  className="mt-0.5 accent-bb-blue"
                 />
                 <span className="text-xs text-gray-300">{attestationText}</span>
               </label>
@@ -1341,7 +1341,7 @@ export default function ContractorPortal({
                 type="button"
                 onClick={handleHoursSubmit}
                 disabled={hoursSubmitting || !attested}
-                className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-r from-bb-blue to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
               >
                 {hoursSubmitting ? (
                   <>
@@ -1375,7 +1375,7 @@ export default function ContractorPortal({
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <Clock size={16} className="text-orange-400 shrink-0" />
+                          <Clock size={16} className="text-bb-accent shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-white truncate">
                               {entry.workDate} &middot; {entry.startLocal} to {entry.endLocal}
@@ -1417,7 +1417,7 @@ export default function ContractorPortal({
                           <button
                             type="button"
                             onClick={() => startCorrection(entry)}
-                            className="ml-7 mt-1.5 text-[10px] text-gray-500 hover:text-orange-400 flex items-center gap-1 transition-colors"
+                            className="ml-7 mt-1.5 text-[10px] text-gray-500 hover:text-bb-accent flex items-center gap-1 transition-colors"
                           >
                             <Pencil size={9} />
                             Submit correction
@@ -1458,7 +1458,7 @@ export default function ContractorPortal({
                   .map((doc) => (
                     <div key={doc.id} className="p-3 bg-white/[0.03] border border-white/5 rounded-xl">
                       <div className="flex items-center gap-3">
-                        <FileText size={16} className="text-orange-400 shrink-0" />
+                        <FileText size={16} className="text-bb-accent shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-white truncate">{doc.label}</p>
                           <p className="text-[10px] text-gray-500">
@@ -1480,7 +1480,7 @@ export default function ContractorPortal({
                             type="button"
                             disabled={!!docUploading}
                             onClick={() => handleAttest(doc.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity shrink-0"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-bb-blue to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity shrink-0"
                           >
                             {docUploading === doc.id ? (
                               <Loader2 size={12} className="animate-spin" />
@@ -1497,7 +1497,7 @@ export default function ContractorPortal({
                               docTargetRef.current = doc.id;
                               docFileRef.current?.click();
                             }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity shrink-0"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-bb-blue to-pink-500 text-white text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity shrink-0"
                           >
                             {docUploading === doc.id ? (
                               <Loader2 size={12} className="animate-spin" />
@@ -1545,7 +1545,7 @@ export default function ContractorPortal({
                   .map((doc) => (
                     <div key={doc.id} className="p-3 bg-white/[0.03] border border-white/5 rounded-xl">
                       <div className="flex items-center gap-3">
-                        <FileText size={16} className="text-orange-400 shrink-0" />
+                        <FileText size={16} className="text-bb-accent shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-white truncate">{doc.label}</p>
                           <p className="text-[10px] text-gray-500">

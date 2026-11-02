@@ -632,11 +632,11 @@ export default function FilesPage() {
       {/* Drag overlay */}
       {dragOver && (
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center pointer-events-none">
-          <div className="flex flex-col items-center gap-3 p-8 rounded-2xl border-2 border-dashed border-bb-orange bg-bb-orange/5">
-            <div className="p-4 rounded-full bg-bb-orange/10">
-              <Upload size={32} className="text-bb-orange" />
+          <div className="flex flex-col items-center gap-3 p-8 rounded-2xl border-2 border-dashed border-bb-blue bg-bb-blue/5">
+            <div className="p-4 rounded-full bg-bb-blue/10">
+              <Upload size={32} className="text-bb-accent" />
             </div>
-            <p className="text-lg font-medium text-bb-orange">Drop files to upload</p>
+            <p className="text-lg font-medium text-bb-accent">Drop files to upload</p>
             <p className="text-sm text-bb-dim">
               {filterClient !== "ALL"
                 ? `Upload to ${allClients.find((c) => c.id === filterClient)?.name || "selected client"}`
@@ -650,7 +650,7 @@ export default function FilesPage() {
       {uploading && (
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3 p-8 rounded-2xl bg-bb-surface border border-bb-border">
-            <Loader2 size={32} className="text-bb-orange animate-spin" />
+            <Loader2 size={32} className="text-bb-accent animate-spin" />
             <p className="text-sm text-white">Uploading files...</p>
           </div>
         </div>
@@ -673,7 +673,7 @@ export default function FilesPage() {
             <button
               onClick={() => generateMissingThumbnails(false)}
               disabled={generatingThumbs}
-              className="text-xs text-bb-orange hover:text-bb-orange-light flex items-center gap-1 disabled:opacity-50"
+              className="text-xs text-bb-accent hover:text-bb-accent-light flex items-center gap-1 disabled:opacity-50"
             >
               {generatingThumbs ? (
                 <><Loader2 size={12} className="animate-spin" /> Generating thumbnails...</>
@@ -693,7 +693,7 @@ export default function FilesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search files..."
-              className="w-full pl-9 pr-3 py-2 text-sm bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue"
             />
           </div>
 
@@ -706,7 +706,7 @@ export default function FilesPage() {
                   onClick={() => setFilterType(t)}
                   className={`text-[11px] px-2.5 py-1 rounded-full transition-colors ${
                     filterType === t
-                      ? "bg-bb-orange/20 text-bb-orange"
+                      ? "bg-bb-blue/20 text-bb-accent"
                       : "bg-bb-elevated text-bb-dim hover:text-white"
                   }`}
                 >
@@ -735,7 +735,7 @@ export default function FilesPage() {
           <select
             value={filterClient}
             onChange={(e) => setFilterClient(e.target.value)}
-            className="text-xs bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-bb-orange"
+            className="text-xs bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-bb-blue"
           >
             <option value="ALL">All clients</option>
             {allClients.map((c) => (
@@ -745,7 +745,7 @@ export default function FilesPage() {
 
           {/* Upload button */}
           {filterClient !== "ALL" && (
-            <label className="flex items-center gap-1.5 px-3 py-2 bg-bb-orange text-white text-xs font-medium rounded-lg hover:bg-bb-orange-light cursor-pointer transition-colors">
+            <label className="flex items-center gap-1.5 px-3 py-2 bg-bb-blue text-white text-xs font-medium rounded-lg hover:bg-bb-blue-light cursor-pointer transition-colors">
               <Upload size={14} />
               {uploading ? "Uploading..." : "Upload"}
               <input
@@ -804,13 +804,13 @@ export default function FilesPage() {
           <div className="flex border border-bb-border rounded-lg overflow-hidden">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 ${viewMode === "grid" ? "bg-bb-orange/20 text-bb-orange" : "bg-bb-black text-bb-dim hover:text-white"}`}
+              className={`p-2 ${viewMode === "grid" ? "bg-bb-blue/20 text-bb-accent" : "bg-bb-black text-bb-dim hover:text-white"}`}
             >
               <Grid size={14} />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 ${viewMode === "list" ? "bg-bb-orange/20 text-bb-orange" : "bg-bb-black text-bb-dim hover:text-white"}`}
+              className={`p-2 ${viewMode === "list" ? "bg-bb-blue/20 text-bb-accent" : "bg-bb-black text-bb-dim hover:text-white"}`}
             >
               <List size={14} />
             </button>
@@ -848,9 +848,9 @@ export default function FilesPage() {
                       }}
                       className={`group relative rounded-lg overflow-hidden bg-bb-black border aspect-square cursor-pointer transition-all ${
                         selectMode && selectedIds.has(media.id)
-                          ? "border-bb-orange ring-1 ring-bb-orange/30"
+                          ? "border-bb-blue ring-1 ring-bb-blue/30"
                           : selectedId === media.id
-                          ? "border-bb-orange ring-1 ring-bb-orange/30"
+                          ? "border-bb-blue ring-1 ring-bb-blue/30"
                           : "border-bb-border hover:border-bb-muted"
                       }`}
                     >
@@ -865,8 +865,8 @@ export default function FilesPage() {
                           <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
                         </div>
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-orange-500/10 to-transparent">
-                          <FileText size={28} className="text-orange-400 mb-2" />
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-bb-blue/10 to-transparent">
+                          <FileText size={28} className="text-bb-accent mb-2" />
                           <span className="text-[10px] text-bb-dim truncate max-w-full px-2">{media.filename}</span>
                         </div>
                       )}
@@ -875,7 +875,7 @@ export default function FilesPage() {
                       {selectMode && (
                         <div className="absolute top-1.5 left-1.5 z-10">
                           {selectedIds.has(media.id) ? (
-                            <CheckSquare size={18} className="text-bb-orange drop-shadow-md" />
+                            <CheckSquare size={18} className="text-bb-accent drop-shadow-md" />
                           ) : (
                             <Square size={18} className="text-white/60 drop-shadow-md" />
                           )}
@@ -884,7 +884,7 @@ export default function FilesPage() {
 
                       {/* Label */}
                       {media.label && !selectMode && (
-                        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-bb-orange/80 text-[9px] text-white font-medium truncate max-w-[70%]">
+                        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-bb-blue/80 text-[9px] text-white font-medium truncate max-w-[70%]">
                           {media.label}
                         </div>
                       )}
@@ -901,7 +901,7 @@ export default function FilesPage() {
 
                       {/* Select mode tint for selected tiles */}
                       {selectMode && selectedIds.has(media.id) && (
-                        <div className="absolute inset-0 bg-bb-orange/10 pointer-events-none" />
+                        <div className="absolute inset-0 bg-bb-blue/10 pointer-events-none" />
                       )}
 
                       {/* Hover overlay */}
@@ -980,9 +980,9 @@ export default function FilesPage() {
                       }}
                       className={`grid grid-cols-[auto_1fr_120px_100px_100px_80px] gap-3 px-4 py-2.5 items-center cursor-pointer transition-colors border-b border-bb-border last:border-0 ${
                         selectMode && selectedIds.has(media.id)
-                          ? "bg-bb-orange/10"
+                          ? "bg-bb-blue/10"
                           : selectedId === media.id
-                          ? "bg-bb-orange/5"
+                          ? "bg-bb-blue/5"
                           : "hover:bg-bb-elevated/50"
                       }`}
                     >
@@ -995,12 +995,12 @@ export default function FilesPage() {
                         ) : media.fileType === "AUDIO" ? (
                           <div className="w-full h-full flex items-center justify-center"><Music size={16} className="text-green-400" /></div>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center"><FileText size={16} className="text-orange-400" /></div>
+                          <div className="w-full h-full flex items-center justify-center"><FileText size={16} className="text-bb-accent" /></div>
                         )}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm text-white truncate">{media.filename}</p>
-                        {media.label && <p className="text-[10px] text-bb-orange truncate">{media.label}</p>}
+                        {media.label && <p className="text-[10px] text-bb-accent truncate">{media.label}</p>}
                       </div>
                       <span className="text-xs text-bb-muted truncate">{media.client.name}</span>
                       <span className="text-xs text-bb-dim">{formatSize(media.fileSize)}</span>
@@ -1044,7 +1044,7 @@ export default function FilesPage() {
                   ) : selectedMedia.fileType === "AUDIO" ? (
                     <Music size={32} className="text-green-400" />
                   ) : (
-                    <FileText size={32} className="text-orange-400" />
+                    <FileText size={32} className="text-bb-accent" />
                   )}
                 </div>
 
@@ -1052,7 +1052,7 @@ export default function FilesPage() {
                 <p className="text-sm text-white font-medium break-all">{selectedMedia.filename}</p>
 
                 {/* Client link */}
-                <a href={`/clients/${selectedMedia.client.id}`} className="flex items-center gap-1.5 text-xs text-bb-orange hover:text-bb-orange-light">
+                <a href={`/clients/${selectedMedia.client.id}`} className="flex items-center gap-1.5 text-xs text-bb-accent hover:text-bb-accent-light">
                   <Users size={11} />
                   {selectedMedia.client.name}
                   {selectedMedia.client.company && <span className="text-bb-dim"> · {selectedMedia.client.company}</span>}
@@ -1069,7 +1069,7 @@ export default function FilesPage() {
                       <input
                         value={labelValue}
                         onChange={(e) => setLabelValue(e.target.value)}
-                        className="flex-1 text-xs bg-bb-surface border border-bb-border rounded px-2 py-1 text-white focus:outline-none focus:border-bb-orange"
+                        className="flex-1 text-xs bg-bb-surface border border-bb-border rounded px-2 py-1 text-white focus:outline-none focus:border-bb-blue"
                         placeholder="e.g. Logo, Headshot..."
                         autoFocus
                         onKeyDown={(e) => { if (e.key === "Enter") saveLabel(); if (e.key === "Escape") setEditingLabel(false); }}
@@ -1097,12 +1097,12 @@ export default function FilesPage() {
                         value={notesValue}
                         onChange={(e) => setNotesValue(e.target.value)}
                         rows={3}
-                        className="w-full text-xs bg-bb-surface border border-bb-border rounded px-2 py-1 text-white focus:outline-none focus:border-bb-orange resize-none"
+                        className="w-full text-xs bg-bb-surface border border-bb-border rounded px-2 py-1 text-white focus:outline-none focus:border-bb-blue resize-none"
                         placeholder="Add notes..."
                         autoFocus
                       />
                       <div className="flex gap-1 justify-end">
-                        <button onClick={saveNotes} disabled={saving} className="text-[10px] px-2 py-0.5 rounded bg-bb-orange text-white hover:bg-bb-orange-light">Save</button>
+                        <button onClick={saveNotes} disabled={saving} className="text-[10px] px-2 py-0.5 rounded bg-bb-blue text-white hover:bg-bb-blue-light">Save</button>
                         <button onClick={() => setEditingNotes(false)} className="text-[10px] px-2 py-0.5 rounded bg-bb-elevated text-bb-dim hover:text-white">Cancel</button>
                       </div>
                     </div>
@@ -1172,7 +1172,7 @@ export default function FilesPage() {
         {/* Marquee rectangle while drag-selecting */}
         {marquee && (
           <div
-            className="fixed z-[150] border border-bb-orange bg-bb-orange/10 rounded-sm pointer-events-none"
+            className="fixed z-[150] border border-bb-blue bg-bb-blue/10 rounded-sm pointer-events-none"
             style={{ left: marquee.x1, top: marquee.y1, width: marquee.x2 - marquee.x1, height: marquee.y2 - marquee.y1 }}
           />
         )}
@@ -1185,7 +1185,7 @@ export default function FilesPage() {
             </span>
             <button
               onClick={() => downloadZip(files.filter((m) => selectedIds.has(m.id)), zipNameHint)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bb-orange text-white text-sm font-medium hover:bg-bb-orange-light transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bb-blue text-white text-sm font-medium hover:bg-bb-blue-light transition-colors"
               title="Download selected files as a zip"
             >
               <Download size={14} /> Download
@@ -1260,7 +1260,7 @@ export default function FilesPage() {
                 ) : (
                   <div className="flex flex-col items-center gap-4">
                     <div className="w-32 h-32 rounded-2xl bg-white/5 flex items-center justify-center">
-                      <FileText size={48} className="text-orange-400" />
+                      <FileText size={48} className="text-bb-accent" />
                     </div>
                     <p className="text-white font-medium">{media.filename}</p>
                     <p className="text-sm text-bb-dim">{formatSize(media.fileSize)} &middot; {media.mimeType}</p>
@@ -1284,7 +1284,7 @@ export default function FilesPage() {
                       key={thumb.id}
                       onClick={() => setViewerIndex(i)}
                       className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
-                        i === viewerIndex ? "border-bb-orange scale-110" : "border-transparent opacity-50 hover:opacity-100"
+                        i === viewerIndex ? "border-bb-blue scale-110" : "border-transparent opacity-50 hover:opacity-100"
                       }`}
                     >
                       {thumb.fileType === "IMAGE" ? (
@@ -1295,7 +1295,7 @@ export default function FilesPage() {
                       ) : thumb.fileType === "AUDIO" ? (
                         <div className="w-full h-full bg-bb-surface flex items-center justify-center"><Music size={14} className="text-green-400" /></div>
                       ) : (
-                        <div className="w-full h-full bg-bb-surface flex items-center justify-center"><FileText size={14} className="text-orange-400" /></div>
+                        <div className="w-full h-full bg-bb-surface flex items-center justify-center"><FileText size={14} className="text-bb-accent" /></div>
                       )}
                     </button>
                   ))}

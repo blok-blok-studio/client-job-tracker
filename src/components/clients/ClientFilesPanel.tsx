@@ -45,7 +45,7 @@ function iconFor(file: ClientFileItem) {
   if (m.startsWith("video/")) return <FileVideo size={16} className="text-purple-400" />;
   if (m.startsWith("audio/")) return <FileAudio size={16} className="text-purple-400" />;
   if (m.includes("zip") || m.includes("compressed") || m.includes("tar")) return <FileArchive size={16} className="text-amber-400" />;
-  if (m.includes("pdf") || m.startsWith("text/") || m.includes("document") || m.includes("word")) return <FileText size={16} className="text-bb-orange" />;
+  if (m.includes("pdf") || m.startsWith("text/") || m.includes("document") || m.includes("word")) return <FileText size={16} className="text-bb-accent" />;
   return <FileIcon size={16} className="text-bb-muted" />;
 }
 
@@ -231,7 +231,7 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
   }
 
   const inputCls =
-    "w-full px-3 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
+    "w-full px-3 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
   return (
     <div
@@ -250,13 +250,13 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowLinkForm((s) => !s)}
-            className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1"
+            className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1"
           >
             <Link2 size={14} /> Save Drive link
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1"
+            className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1"
           >
             <Plus size={14} /> Upload files
           </button>
@@ -313,7 +313,7 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
             <button
               type="submit"
               disabled={linkSaving || !linkUrl.trim()}
-              className="px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light disabled:opacity-50 text-white text-xs font-medium rounded-md transition-colors"
+              className="px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light disabled:opacity-50 text-white text-xs font-medium rounded-md transition-colors"
             >
               {linkSaving ? "Saving…" : "Save link"}
             </button>
@@ -324,12 +324,12 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
       {uploading && (
         <div className="mb-3 space-y-1.5">
           <div className="flex items-center gap-2 text-sm text-bb-muted">
-            <Loader2 size={15} className="animate-spin text-bb-orange" />
+            <Loader2 size={15} className="animate-spin text-bb-accent" />
             Uploading {Math.min(uploading.done + 1, uploading.total)} of {uploading.total} — {uploading.percent}%
           </div>
           <div className="h-1.5 bg-bb-black border border-bb-border rounded-full overflow-hidden max-w-sm">
             <div
-              className="h-full bg-bb-orange transition-all duration-200"
+              className="h-full bg-bb-blue transition-all duration-200"
               style={{ width: `${uploading.percent}%` }}
             />
           </div>
@@ -337,7 +337,7 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
       )}
 
       {dragOver && (
-        <div className="mb-3 border-2 border-dashed border-bb-orange/60 rounded-lg p-6 text-center text-sm text-bb-orange bg-bb-orange/5">
+        <div className="mb-3 border-2 border-dashed border-bb-blue/60 rounded-lg p-6 text-center text-sm text-bb-accent bg-bb-blue/5">
           Drop to upload to this client
         </div>
       )}
@@ -367,7 +367,7 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
                           href={f.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-white hover:text-bb-orange transition-colors truncate block"
+                          className="text-sm text-white hover:text-bb-accent transition-colors truncate block"
                           title={f.kind === "LINK" ? "Open link" : "Open / download"}
                         >
                           {f.filename}
@@ -427,7 +427,7 @@ export default function ClientFilesPanel({ clientId, files, onRefresh, toast }: 
                           <button type="button" onClick={() => setEditing(null)} className="px-3 py-1.5 text-xs text-bb-muted hover:text-white transition-colors">
                             Cancel
                           </button>
-                          <button type="submit" className="px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors">
+                          <button type="submit" className="px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors">
                             Save
                           </button>
                         </div>

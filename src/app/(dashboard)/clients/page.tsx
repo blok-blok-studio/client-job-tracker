@@ -133,7 +133,7 @@ export default function ClientsPage() {
                 className={cn(
                   "px-3 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap",
                   activeTab === tab.key
-                    ? "bg-bb-orange text-white"
+                    ? "bg-bb-blue text-white"
                     : "text-bb-muted hover:text-white"
                 )}
               >
@@ -143,7 +143,7 @@ export default function ClientsPage() {
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors shrink-0 w-full sm:w-auto justify-center sm:justify-start"
+            className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors shrink-0 w-full sm:w-auto justify-center sm:justify-start"
           >
             <Plus size={16} />
             Add Client
@@ -158,7 +158,7 @@ export default function ClientsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search clients..."
-            className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+            className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
           />
         </div>
 
@@ -233,9 +233,9 @@ export default function ClientsPage() {
               <span className="text-sm font-medium">{onboardLink.name} has been added</span>
             </div>
 
-            <div className="bg-bb-black border border-bb-orange/30 rounded-lg p-4 space-y-3">
+            <div className="bg-bb-black border border-bb-blue/30 rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <Link2 size={16} className="text-bb-orange" />
+                <Link2 size={16} className="text-bb-accent" />
                 <h3 className="text-sm font-semibold text-white">Onboarding Link</h3>
               </div>
               <p className="text-xs text-bb-dim">
@@ -247,7 +247,7 @@ export default function ClientsPage() {
                 </code>
                 <button
                   onClick={handleCopyLink}
-                  className="p-2 rounded bg-bb-orange hover:bg-bb-orange-light text-white transition-colors shrink-0"
+                  className="p-2 rounded bg-bb-blue hover:bg-bb-blue-light text-white transition-colors shrink-0"
                   title="Copy link"
                 >
                   {copied ? <Check size={16} /> : <Copy size={16} />}
@@ -261,7 +261,7 @@ export default function ClientsPage() {
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => { setOnboardLink(null); setCopied(false); }}
-                className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors"
+                className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors"
               >
                 Done
               </button>

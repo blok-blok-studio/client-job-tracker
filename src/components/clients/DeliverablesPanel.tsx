@@ -133,7 +133,7 @@ const STATUS_META: Record<string, { label: string; classes: string; icon: React.
   },
   REVISION_REQUESTED: {
     label: "Revision requested",
-    classes: "bg-bb-orange/10 text-bb-orange border-bb-orange/30",
+    classes: "bg-bb-blue/10 text-bb-accent border-bb-blue/30",
     icon: <Pencil size={11} />,
   },
 };
@@ -186,12 +186,12 @@ function ReplyBox({
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && send()}
         placeholder="Reply to the client…"
-        className="flex-1 px-2.5 py-1.5 bg-bb-surface border border-bb-border rounded text-xs text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange"
+        className="flex-1 px-2.5 py-1.5 bg-bb-surface border border-bb-border rounded text-xs text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue"
       />
       <button
         onClick={send}
         disabled={sending || !body.trim()}
-        className="px-2.5 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white rounded disabled:opacity-50"
+        className="px-2.5 py-1.5 bg-bb-blue hover:bg-bb-blue-light text-white rounded disabled:opacity-50"
         title="Send reply (shows on the review page + emails the client)"
       >
         {sending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
@@ -207,10 +207,10 @@ function CommentList({ comments }: { comments: DeliverableComment[] }) {
         <div
           key={c.id}
           className={`rounded p-2 text-xs ${
-            c.fromTeam ? "bg-bb-orange/5 border border-bb-orange/20" : "bg-bb-surface border border-bb-border"
+            c.fromTeam ? "bg-bb-blue/5 border border-bb-blue/20" : "bg-bb-surface border border-bb-border"
           }`}
         >
-          <p className={`text-[10px] font-medium mb-0.5 ${c.fromTeam ? "text-bb-orange" : "text-bb-dim"}`}>
+          <p className={`text-[10px] font-medium mb-0.5 ${c.fromTeam ? "text-bb-accent" : "text-bb-dim"}`}>
             {c.fromTeam ? `${c.author} (you)` : c.author} ·{" "}
             {new Date(c.createdAt).toLocaleDateString()}
           </p>
@@ -253,12 +253,12 @@ function ResponsesSection({
         onClick={() => setOpen(!open)}
         className="w-full flex items-center gap-2 px-2.5 py-2 bg-bb-surface/50 hover:bg-bb-surface text-left"
       >
-        <MessageCircle size={12} className="text-bb-orange shrink-0" />
+        <MessageCircle size={12} className="text-bb-accent shrink-0" />
         <span className="text-xs text-white font-medium">Client responses</span>
         <span className="text-[10px] text-bb-dim">
           {approvedCount > 0 && <span className="text-green-400">{approvedCount} approved</span>}
           {approvedCount > 0 && changes.length > 0 && " · "}
-          {changes.length > 0 && <span className="text-bb-orange">{changes.length} need changes</span>}
+          {changes.length > 0 && <span className="text-bb-accent">{changes.length} need changes</span>}
         </span>
         <ChevronDown
           size={12}
@@ -284,13 +284,13 @@ function ResponsesSection({
             <div key={f.id} className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 {f.decision === "CHANGES_REQUESTED" ? (
-                  <Pencil size={10} className="text-bb-orange shrink-0" />
+                  <Pencil size={10} className="text-bb-accent shrink-0" />
                 ) : (
                   <MessageCircle size={10} className="text-bb-dim shrink-0" />
                 )}
                 <span className="text-xs text-white truncate">{label(f)}</span>
                 {f.decision === "CHANGES_REQUESTED" && (
-                  <span className="text-[10px] text-bb-orange shrink-0">changes requested</span>
+                  <span className="text-[10px] text-bb-accent shrink-0">changes requested</span>
                 )}
               </div>
               <CommentList comments={comments.filter((c) => c.fileId === f.id)} />
@@ -483,7 +483,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
   }
 
   const inputClass =
-    "w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange";
+    "w-full px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue";
 
   return (
     <div>
@@ -493,7 +493,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
         </p>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1 shrink-0"
+          className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1 shrink-0"
         >
           <Plus size={14} /> New
         </button>
@@ -544,7 +544,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             className={`rounded border border-dashed p-3 space-y-2 transition-colors ${
-              dragOver ? "border-bb-orange bg-bb-orange/5" : "border-bb-border"
+              dragOver ? "border-bb-blue bg-bb-blue/5" : "border-bb-border"
             }`}
           >
             {uploading ? (
@@ -557,13 +557,13 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
                 <div className="flex gap-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-bb-surface hover:bg-bb-elevated border border-bb-border hover:border-bb-orange rounded text-sm text-bb-muted hover:text-white transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-bb-surface hover:bg-bb-elevated border border-bb-border hover:border-bb-blue rounded text-sm text-bb-muted hover:text-white transition-colors"
                   >
                     <Upload size={14} /> Upload files
                   </button>
                   <button
                     onClick={() => folderInputRef.current?.click()}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-bb-surface hover:bg-bb-elevated border border-bb-border hover:border-bb-orange rounded text-sm text-bb-muted hover:text-white transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-bb-surface hover:bg-bb-elevated border border-bb-border hover:border-bb-blue rounded text-sm text-bb-muted hover:text-white transition-colors"
                   >
                     <FolderUp size={14} /> Upload folder
                   </button>
@@ -580,7 +580,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
               {pendingFiles.map((f, i) => (
                 <div key={i} className="flex items-center justify-between gap-2 px-2 py-1.5 bg-bb-surface rounded text-xs">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <FileText size={11} className="text-bb-orange shrink-0" />
+                    <FileText size={11} className="text-bb-accent shrink-0" />
                     <span className="text-white truncate">
                       {f.folder && <span className="text-bb-dim">{f.folder}/</span>}
                       {f.filename}
@@ -605,7 +605,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
             <button
               onClick={handleCreate}
               disabled={saving || uploading || !title.trim()}
-              className="p-1 text-bb-orange hover:text-bb-orange-light disabled:opacity-50"
+              className="p-1 text-bb-accent hover:text-bb-accent-light disabled:opacity-50"
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
             </button>
@@ -621,7 +621,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
             <div key={d.id} className="p-3 rounded-lg bg-bb-black border border-bb-border space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Package size={13} className="text-bb-orange shrink-0" />
+                  <Package size={13} className="text-bb-accent shrink-0" />
                   <span className="text-sm font-medium text-white truncate">{d.title}</span>
                   <span
                     className={`flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border shrink-0 ${meta.classes}`}
@@ -632,7 +632,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => copyLink(d)}
-                    className="p-1 text-bb-dim hover:text-bb-orange transition-colors"
+                    className="p-1 text-bb-dim hover:text-bb-accent transition-colors"
                     title="Copy review link"
                   >
                     {copiedId === d.id ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
@@ -641,7 +641,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
                     href={`/r/${d.token}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-1 text-bb-dim hover:text-bb-orange transition-colors"
+                    className="p-1 text-bb-dim hover:text-bb-accent transition-colors"
                     title="Open review page"
                   >
                     <ExternalLink size={13} />
@@ -676,13 +676,13 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
               <ResponsesSection d={d} onRefresh={onRefresh} toast={toast} />
 
               {d.status === "REVISION_REQUESTED" && d.revisionNotes && (
-                <div className="p-2.5 bg-bb-orange/5 border border-bb-orange/20 rounded space-y-2">
-                  <p className="text-xs text-bb-orange font-medium">Client requested:</p>
+                <div className="p-2.5 bg-bb-blue/5 border border-bb-blue/20 rounded space-y-2">
+                  <p className="text-xs text-bb-accent font-medium">Client requested:</p>
                   <p className="text-xs text-bb-muted whitespace-pre-wrap">{d.revisionNotes}</p>
                   <button
                     onClick={() => handleResubmit(d)}
                     disabled={resubmittingId === d.id}
-                    className="flex items-center gap-1.5 text-xs text-bb-orange hover:text-bb-orange-light disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-xs text-bb-accent hover:text-bb-accent-light disabled:opacity-50"
                   >
                     {resubmittingId === d.id ? (
                       <Loader2 size={11} className="animate-spin" />
@@ -703,7 +703,7 @@ export default function DeliverablesPanel({ clientId, deliverables, onRefresh, t
             <p className="text-sm text-bb-dim">No deliverables yet</p>
             <button
               onClick={() => setShowForm(true)}
-              className="text-xs text-bb-orange hover:text-bb-orange-light mt-1"
+              className="text-xs text-bb-accent hover:text-bb-accent-light mt-1"
             >
               Send your first deliverable for review
             </button>

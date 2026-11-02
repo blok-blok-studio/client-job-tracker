@@ -17,7 +17,7 @@ interface Row {
 
 const money = (n: number, c: string) => new Intl.NumberFormat("en-US", { style: "currency", currency: c, minimumFractionDigits: 2 }).format(n);
 const d = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : "");
-const TONE: Record<Row["status"], string> = { DRAFT: "text-bb-dim", ISSUED: "text-bb-orange", SENT: "text-blue-400", PAID: "text-green-400", VOID: "text-red-400" };
+const TONE: Record<Row["status"], string> = { DRAFT: "text-bb-dim", ISSUED: "text-bb-accent", SENT: "text-blue-400", PAID: "text-green-400", VOID: "text-red-400" };
 
 /** Owner-only card on the client page: this client's bank-transfer invoices + a shortcut to raise one. */
 export default function ClientInvoices({ clientId }: { clientId: string }) {
@@ -38,10 +38,10 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
     <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-display font-semibold flex items-center gap-2">
-          <Receipt size={16} className="text-bb-orange" /> Invoices
+          <Receipt size={16} className="text-bb-accent" /> Invoices
           {overdue.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400">{overdue.length} overdue</span>}
         </h3>
-        <button onClick={() => router.push(`/invoices?new=1&client=${clientId}`)} className="text-bb-orange hover:text-bb-orange-light text-sm flex items-center gap-1">
+        <button onClick={() => router.push(`/invoices?new=1&client=${clientId}`)} className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1">
           <Plus size={14} /> New
         </button>
       </div>
@@ -63,7 +63,7 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
             </button>
           ))}
           {rows.length > 6 && (
-            <button onClick={() => router.push(`/invoices?client=${clientId}`)} className="text-xs text-bb-orange hover:underline inline-flex items-center gap-1 px-2 pt-1">
+            <button onClick={() => router.push(`/invoices?client=${clientId}`)} className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1 px-2 pt-1">
               All {rows.length} invoices <ExternalLink size={11} />
             </button>
           )}

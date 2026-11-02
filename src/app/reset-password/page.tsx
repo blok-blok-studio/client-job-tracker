@@ -13,7 +13,7 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false);
 
   const inputClass =
-    "w-full px-4 py-3 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange focus:border-transparent font-mono";
+    "w-full px-4 py-3 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue focus:border-transparent font-mono";
 
   // The emailed link carries the token in the #fragment (never sent to the server
   // in the page request). Read it, then clear it from the address bar.
@@ -73,7 +73,7 @@ export default function ResetPasswordPage() {
             <p className="text-bb-muted text-sm">Sign in with your new password.</p>
             <Link
               href="/login"
-              className="block w-full py-3 bg-bb-orange hover:bg-bb-orange-light text-white font-display font-semibold rounded-md transition-colors"
+              className="block w-full py-3 bg-bb-blue hover:bg-bb-blue-light text-white font-display font-semibold rounded-md transition-colors"
             >
               Go to sign in
             </Link>
@@ -113,7 +113,7 @@ export default function ResetPasswordPage() {
             <button
               type="submit"
               disabled={loading || !password || !confirm}
-              className="w-full py-3 bg-bb-orange hover:bg-bb-orange-light text-white font-display font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-bb-blue hover:bg-bb-blue-light text-white font-display font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Saving..." : "Set new password"}
             </button>

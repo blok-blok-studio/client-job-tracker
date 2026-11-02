@@ -384,7 +384,7 @@ export default function CompliancePage() {
   }
 
   const countdownTone = (days: number) =>
-    days <= 10 ? "text-red-400" : days <= 30 ? "text-yellow-400" : days <= 90 ? "text-bb-orange" : "text-bb-muted";
+    days <= 10 ? "text-red-400" : days <= 30 ? "text-yellow-400" : days <= 90 ? "text-bb-accent" : "text-bb-muted";
 
   return (
     <div>
@@ -407,7 +407,7 @@ export default function CompliancePage() {
               onClick={() => setTab(t.key)}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors",
-                tab === t.key ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white"
+                tab === t.key ? "bg-bb-blue text-white" : "text-bb-muted hover:text-white"
               )}
             >
               <t.icon size={14} />
@@ -431,7 +431,7 @@ export default function CompliancePage() {
             {grouped.map(([groupLabel, list]) => (
               <div key={groupLabel} className="bg-bb-surface border border-bb-border rounded-lg p-4">
                 <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3">
-                  <Landmark size={15} className="text-bb-orange" />
+                  <Landmark size={15} className="text-bb-accent" />
                   {groupLabel}
                 </h2>
                 <div className="space-y-2">
@@ -491,7 +491,7 @@ export default function CompliancePage() {
                                     href={u}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-1 text-[10px] text-bb-dim hover:text-bb-orange transition-colors"
+                                    className="flex items-center gap-1 text-[10px] text-bb-dim hover:text-bb-accent transition-colors"
                                   >
                                     <ExternalLink size={9} />
                                     {new URL(u).hostname}
@@ -533,7 +533,7 @@ export default function CompliancePage() {
                 { label: "People Without Country", value: docStats.noCountry, icon: Globe },
               ].map((tile) => (
                 <div key={tile.label} className="bg-bb-surface border border-bb-border rounded-lg p-4 flex items-center gap-3">
-                  <tile.icon size={18} className="text-bb-orange shrink-0" />
+                  <tile.icon size={18} className="text-bb-accent shrink-0" />
                   <div className="min-w-0">
                     <p className="text-lg font-semibold text-white truncate">{tile.value}</p>
                     <p className="text-xs text-bb-dim truncate">{tile.label}</p>
@@ -546,7 +546,7 @@ export default function CompliancePage() {
             {docStats.noCountry > 0 && (
               <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
                 <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-3">
-                  <Globe size={15} className="text-bb-orange" />
+                  <Globe size={15} className="text-bb-accent" />
                   Set tax countries
                 </h2>
                 <div className="space-y-2">
@@ -574,7 +574,7 @@ export default function CompliancePage() {
                       <button
                         onClick={() => setCountry(p.kind, p.id, countryDrafts[`${p.kind}-${p.id}`] || "")}
                         disabled={busy || !countryDrafts[`${p.kind}-${p.id}`]}
-                        className="px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                        className="px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
                       >
                         Set
                       </button>
@@ -588,12 +588,12 @@ export default function CompliancePage() {
             <div className="bg-bb-surface border border-bb-border rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <FileCheck2 size={15} className="text-bb-orange" />
+                  <FileCheck2 size={15} className="text-bb-accent" />
                   Tracked documents
                 </h2>
                 <button
                   onClick={() => setShowAddDoc(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors"
                 >
                   <Plus size={14} />
                   Add Document
@@ -629,7 +629,7 @@ export default function CompliancePage() {
                             href={`/api/compliance/documents/${d.id}/file`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-bb-dim hover:text-bb-orange transition-colors"
+                            className="text-bb-dim hover:text-bb-accent transition-colors"
                             title="View file (decrypted on the fly; logged; owner only)"
                           >
                             <ExternalLink size={13} />
@@ -653,7 +653,7 @@ export default function CompliancePage() {
                                   attachFileRef.current?.click();
                                 }}
                                 disabled={!!attachingId}
-                                className="text-bb-dim hover:text-bb-orange transition-colors disabled:opacity-50"
+                                className="text-bb-dim hover:text-bb-accent transition-colors disabled:opacity-50"
                                 title={
                                   d.direction === "OUTBOUND"
                                     ? "Attach the file to deliver via their portal (encrypted)"
@@ -703,7 +703,7 @@ export default function CompliancePage() {
             {/* Master switch */}
             <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-2">
               <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Power size={15} className="text-bb-orange" />
+                <Power size={15} className="text-bb-accent" />
                 Slack reminders
               </h2>
               <p className="text-xs text-bb-muted">
@@ -730,7 +730,7 @@ export default function CompliancePage() {
             {/* Profiles */}
             <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-2">
               <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Landmark size={15} className="text-bb-orange" />
+                <Landmark size={15} className="text-bb-accent" />
                 Business profiles
               </h2>
               {profiles.map((p) => (
@@ -752,7 +752,7 @@ export default function CompliancePage() {
             {/* Catalog maintenance */}
             <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-2">
               <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                <RotateCcw size={15} className="text-bb-orange" />
+                <RotateCcw size={15} className="text-bb-accent" />
                 Catalog
               </h2>
               <p className="text-xs text-bb-muted">
@@ -782,7 +782,7 @@ export default function CompliancePage() {
             {isOwner && (
               <div className="bg-bb-surface border border-bb-border rounded-lg p-4 space-y-2">
                 <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <ShieldCheck size={15} className="text-bb-orange" />
+                  <ShieldCheck size={15} className="text-bb-accent" />
                   Legal records export
                 </h2>
                 <p className="text-xs text-bb-muted">
@@ -879,7 +879,7 @@ export default function CompliancePage() {
             <button
               onClick={handleAddDoc}
               disabled={!addDoc.person || !addDoc.type.trim() || busy}
-              className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               Add
             </button>

@@ -105,19 +105,19 @@ export default function ClientLifecycle({ clientId, isOwner = false }: { clientI
   const set = (k: string, v: string) => setDraft((p) => ({ ...p, [k]: v }));
   const dirty = Object.keys(draft).length > 0;
   const inputCls =
-    "w-full px-2.5 py-1.5 bg-bb-black border border-bb-border rounded text-sm text-white focus:border-bb-orange outline-none";
+    "w-full px-2.5 py-1.5 bg-bb-black border border-bb-border rounded text-sm text-white focus:border-bb-blue outline-none";
 
   return (
     <div className="bg-bb-surface border border-bb-border rounded-lg p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-display font-semibold flex items-center gap-2">
-          <Zap size={15} className="text-bb-orange" /> Lifecycle &amp; automations
+          <Zap size={15} className="text-bb-accent" /> Lifecycle &amp; automations
         </h3>
         {dirty && (
           <button
             onClick={save}
             disabled={saving}
-            className="px-3 py-1.5 bg-bb-orange hover:bg-bb-orange-light text-white text-xs font-medium rounded-md transition-colors"
+            className="px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md transition-colors"
           >
             {saving ? "Saving…" : "Save changes"}
           </button>

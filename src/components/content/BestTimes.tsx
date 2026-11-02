@@ -41,7 +41,7 @@ export default function BestTimes({ platform }: { platform: string | null }) {
   return (
     <div className="bg-bb-surface border border-bb-border rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
-        <TrendingUp size={14} className="text-bb-orange" />
+        <TrendingUp size={14} className="text-bb-accent" />
         <h3 className="text-sm font-semibold text-white">Best Times to Post</h3>
         <PlatformIcon platform={platform} size={12} />
       </div>
@@ -66,7 +66,7 @@ export default function BestTimes({ platform }: { platform: string | null }) {
             key={`${t.day}-${t.hour}`}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-bb-elevated rounded-lg border border-bb-border text-xs"
           >
-            <Clock size={10} className="text-bb-orange" />
+            <Clock size={10} className="text-bb-accent" />
             <span className="text-white">{localDay} {localLabel}</span>
             {t.source === "historical" && t.count > 0 && (
               <span className="text-bb-dim">({t.count}x)</span>

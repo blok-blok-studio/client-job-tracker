@@ -92,7 +92,7 @@ const usd2 = (n: number) => n.toLocaleString("en-US", { style: "currency", curre
 const fmtDate = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
 
 const inputClass =
-  "w-full px-3 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white placeholder:text-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50";
+  "w-full px-3 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white placeholder:text-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
 const STAGE_COLOR: Record<string, string> = {
   registered: "bg-white/10 text-gray-300",
@@ -188,7 +188,7 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
-          <p className="text-[11px] uppercase tracking-widest text-orange-400">{data.partner.name} × Blok Blok Studio</p>
+          <p className="text-[11px] uppercase tracking-widest text-bb-accent">{data.partner.name} × Blok Blok Studio</p>
           <h1 className="text-2xl font-bold text-white mt-1">Hi {data.rep.name.split(" ")[0]}</h1>
           <p className="text-sm text-gray-400 mt-1">
             {data.rep.isAdmin ? "Partner admin" : "Sales rep"}
@@ -199,7 +199,7 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
           <a href={`/api/partner/${token}/kit`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-white">
             <Download size={14} /> Kit PDF
           </a>
-          <button onClick={() => setRegisterOpen(true)} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-sm text-white font-medium">
+          <button onClick={() => setRegisterOpen(true)} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-bb-blue hover:bg-bb-blue-light text-sm text-white font-medium">
             <Plus size={14} /> Register a practice
           </button>
         </div>
@@ -225,7 +225,7 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
             <ul className="space-y-1.5">
               {criteria.map((c, i) => (
                 <li key={i} className="flex gap-2 text-sm text-gray-300">
-                  <CheckCircle size={15} className="text-orange-400 shrink-0 mt-0.5" />
+                  <CheckCircle size={15} className="text-bb-accent shrink-0 mt-0.5" />
                   <span>{c}</span>
                 </li>
               ))}
@@ -288,7 +288,7 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
                     </div>
                   )}
                   {data.rep.canClose && d.stage === "registered" && (
-                    <button onClick={() => setCloseDeal(d)} className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 text-sm">
+                    <button onClick={() => setCloseDeal(d)} className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bb-blue/15 hover:bg-bb-blue/25 text-bb-accent text-sm">
                       <FileText size={14} /> Generate contract
                     </button>
                   )}
@@ -349,7 +349,7 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white">
+    <main className="min-h-screen bg-[#000000] text-white">
       <div className="max-w-3xl mx-auto px-4 py-6 sm:py-10">{children}</div>
       <p className="text-center text-[11px] text-gray-600 pb-8">Blok Blok Studio LLC · partner portal</p>
     </main>
@@ -370,7 +370,7 @@ function CopyLink({ label, url, onCopied }: { label: string; url: string; onCopi
           window.prompt("Copy this link", url);
         }
       }}
-      className="inline-flex items-center gap-1 text-orange-300 hover:text-orange-200"
+      className="inline-flex items-center gap-1 text-bb-accent hover:text-bb-accent"
     >
       {done ? <Check size={12} /> : <Copy size={12} />} {label}
     </button>
@@ -389,7 +389,7 @@ function PriceList({ catalog }: { catalog: CatalogItem[] }) {
           <p className="text-xs text-gray-500 mt-0.5">{p.description}</p>
           <p className="text-[11px] text-gray-600 mt-1">{p.timeline}</p>
         </div>
-        <p className="text-orange-400 font-semibold whitespace-nowrap">
+        <p className="text-bb-accent font-semibold whitespace-nowrap">
           {usd(p.price)}
           {p.recurring ? <span className="text-xs text-gray-500"> / mo</span> : null}
         </p>
@@ -398,7 +398,7 @@ function PriceList({ catalog }: { catalog: CatalogItem[] }) {
         <ul className="px-4 pb-4 space-y-1.5">
           {p.deliverables.map((d, i) => (
             <li key={i} className="flex gap-2 text-sm text-gray-300">
-              <span className="text-orange-400">•</span>
+              <span className="text-bb-accent">•</span>
               <span>{d}</span>
             </li>
           ))}
@@ -466,7 +466,7 @@ function RegisterSheet({ token, onClose, onDone }: { token: string; onClose: () 
         <input placeholder="Current website (if any)" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} className={inputClass} />
         <textarea placeholder="Notes for Chase: what they want, budget conversation, timing" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={`${inputClass} min-h-[90px]`} />
         {err && <p className="text-sm text-red-400">{err}</p>}
-        <button type="submit" disabled={saving} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-400 disabled:opacity-60 text-white font-medium">
+        <button type="submit" disabled={saving} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-bb-blue hover:bg-bb-blue-light disabled:opacity-60 text-white font-medium">
           {saving && <Loader2 size={14} className="animate-spin" />} Register
         </button>
       </form>
@@ -575,7 +575,7 @@ function CloseSheet({
             </div>
             <div className="flex justify-between text-gray-300">
               <span>Deposit today (50%)</span>
-              <span className="text-orange-400 font-semibold">{usd(oneTime / 2)}</span>
+              <span className="text-bb-accent font-semibold">{usd(oneTime / 2)}</span>
             </div>
             {monthly > 0 && (
               <div className="flex justify-between text-gray-300">
@@ -585,7 +585,7 @@ function CloseSheet({
             )}
           </div>
           {err && <p className="text-sm text-red-400">{err}</p>}
-          <button onClick={generate} disabled={saving} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-400 disabled:opacity-60 text-white font-medium">
+          <button onClick={generate} disabled={saving} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-bb-blue hover:bg-bb-blue-light disabled:opacity-60 text-white font-medium">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} {saving ? "Generating" : "Generate and send"}
           </button>
         </div>
@@ -596,9 +596,9 @@ function CloseSheet({
 
 function Option({ selected, onClick, title, sub, price, checkbox }: { selected: boolean; onClick: () => void; title: string; sub?: string; price?: string; checkbox?: boolean }) {
   return (
-    <button type="button" onClick={onClick} className={`w-full text-left p-3 rounded-lg border transition-colors flex items-center justify-between gap-3 ${selected ? "border-orange-500 bg-orange-500/10" : "border-white/10 bg-white/[0.02] hover:border-white/20"}`}>
+    <button type="button" onClick={onClick} className={`w-full text-left p-3 rounded-lg border transition-colors flex items-center justify-between gap-3 ${selected ? "border-bb-blue bg-bb-blue/10" : "border-white/10 bg-white/[0.02] hover:border-white/20"}`}>
       <div className="flex items-center gap-3 min-w-0">
-        <span className={`w-4 h-4 shrink-0 ${checkbox ? "rounded" : "rounded-full"} border ${selected ? "border-orange-400 bg-orange-400" : "border-gray-600"}`} />
+        <span className={`w-4 h-4 shrink-0 ${checkbox ? "rounded" : "rounded-full"} border ${selected ? "border-bb-blue bg-bb-blue" : "border-gray-600"}`} />
         <div className="min-w-0">
           <p className="text-sm text-white truncate">{title}</p>
           {sub && <p className="text-[11px] text-gray-500 truncate">{sub}</p>}
@@ -693,7 +693,7 @@ function TeamTab({ token, reps, selfId, onChanged, notify }: { token: string; re
             <div>
               <p className="text-white">
                 {r.name}
-                {r.isAdmin ? <span className="text-xs text-orange-400 ml-2">admin</span> : null}
+                {r.isAdmin ? <span className="text-xs text-bb-accent ml-2">admin</span> : null}
                 {r.canClose ? <span className="text-xs text-green-400 ml-2">closer</span> : null}
                 {!r.isActive ? <span className="text-xs text-gray-500 ml-2">inactive</span> : null}
               </p>
@@ -710,7 +710,7 @@ function TeamTab({ token, reps, selfId, onChanged, notify }: { token: string; re
                     window.prompt("Copy this link", r.portalUrl);
                   }
                 }}
-                className="inline-flex items-center gap-1 text-orange-300 hover:text-orange-200"
+                className="inline-flex items-center gap-1 text-bb-accent hover:text-bb-accent"
               >
                 {copied === r.id ? <Check size={12} /> : <Copy size={12} />} link
               </button>
@@ -822,7 +822,7 @@ function StatementTab({
                 </div>
                 <div className="flex items-center gap-3">
                   {statements.find((st) => st.payoutId === p.id) ? (
-                    <a href={`/api/partner/${token}/statements/${statements.find((st) => st.payoutId === p.id)!.id}/pdf`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-orange-300 hover:underline whitespace-nowrap">
+                    <a href={`/api/partner/${token}/statements/${statements.find((st) => st.payoutId === p.id)!.id}/pdf`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-bb-accent hover:underline whitespace-nowrap">
                       <Download size={12} /> Statement {statements.find((st) => st.payoutId === p.id)!.number}
                     </a>
                   ) : (
@@ -868,7 +868,7 @@ function PayoutForm({ token, payout }: { token: string; payout?: PortalData["par
         <p className={saved?.verified ? "text-green-400" : "text-yellow-400"}>
           {!saved?.onFile ? "Payouts: add the US bank account commissions should go to" : saved.verified ? `Payouts: account ending ${saved.last4}, confirmed` : `Payouts: account ending ${saved.last4}, waiting for Chase to confirm`}
         </p>
-        {saved?.onFile && <button onClick={() => setOpen((v) => !v)} className="text-xs text-orange-300 hover:underline">{open ? "Hide" : "Change"}</button>}
+        {saved?.onFile && <button onClick={() => setOpen((v) => !v)} className="text-xs text-bb-accent hover:underline">{open ? "Hide" : "Change"}</button>}
       </div>
       <p className="text-xs text-gray-500 mt-1">Commissions are paid by bank transfer through Wise. Your details are encrypted and are not shown here again. Changing them pauses payouts until Chase confirms with you.</p>
       {open && (
@@ -882,7 +882,7 @@ function PayoutForm({ token, payout }: { token: string; payout?: PortalData["par
             <option value="savings">Savings</option>
           </select>
           <input className={inputClass} placeholder="Account holder's address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-          <button onClick={save} disabled={busy} className="sm:col-span-2 px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium disabled:opacity-50">{busy ? "Saving…" : "Save payout details"}</button>
+          <button onClick={save} disabled={busy} className="sm:col-span-2 px-3 py-2 rounded-lg bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium disabled:opacity-50">{busy ? "Saving…" : "Save payout details"}</button>
         </div>
       )}
       {msg && <p className="text-xs text-gray-400 mt-2">{msg}</p>}
@@ -914,7 +914,7 @@ function BillingForm({ token, billing }: { token: string; billing?: PortalData["
     <div className="pt-2 border-t border-white/10 mt-2">
       <div className="flex items-center justify-between">
         <p className={billing?.billingAddress ? "text-green-400" : "text-yellow-400"}>{billing?.billingAddress ? "Billing details: on file" : "Billing details: add your legal name, address and tax ID (printed on your commission statements)"}</p>
-        <button onClick={() => setOpen((v) => !v)} className="text-xs text-orange-300 hover:underline">{open ? "Hide" : "Edit"}</button>
+        <button onClick={() => setOpen((v) => !v)} className="text-xs text-bb-accent hover:underline">{open ? "Hide" : "Edit"}</button>
       </div>
       {open && (
         <div className="grid sm:grid-cols-2 gap-2 mt-3">
@@ -922,7 +922,7 @@ function BillingForm({ token, billing }: { token: string; billing?: PortalData["
           <input className={inputClass} placeholder="EIN / tax ID" value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} />
           <textarea className={`${inputClass} sm:col-span-2 min-h-[70px]`} placeholder={"Street\nCity, State ZIP\nCountry"} value={form.billingAddress} onChange={(e) => setForm({ ...form, billingAddress: e.target.value })} />
           <input className={inputClass} placeholder="Billing email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <button onClick={save} disabled={saving} className="px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium disabled:opacity-50">{saving ? "Saving…" : "Save billing details"}</button>
+          <button onClick={save} disabled={saving} className="px-3 py-2 rounded-lg bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium disabled:opacity-50">{saving ? "Saving…" : "Save billing details"}</button>
         </div>
       )}
       {msg && <p className="text-xs text-gray-400 mt-2">{msg}</p>}
@@ -1004,7 +1004,7 @@ function PortalInvoices({ token, deals, catalog, canClose, notify }: { token: st
           <p className="text-xs text-gray-500 mt-0.5">For practices that prefer ACH or wire over the card link. You draft it from the price list; Chase issues the number and the pay link appears here.</p>
         </div>
         {canClose && (
-          <button onClick={() => setFormOpen((v) => !v)} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 text-sm whitespace-nowrap">
+          <button onClick={() => setFormOpen((v) => !v)} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bb-blue/15 hover:bg-bb-blue/25 text-bb-accent text-sm whitespace-nowrap">
             <Plus size={14} /> New invoice
           </button>
         )}
@@ -1038,7 +1038,7 @@ function PortalInvoices({ token, deals, catalog, canClose, notify }: { token: st
           )}
           <div className="flex flex-wrap gap-2">
             {(["deposit", "balance", "full"] as const).map((m) => (
-              <button key={m} onClick={() => setForm({ ...form, milestone: m })} className={`px-3 py-1.5 rounded-lg text-sm border ${form.milestone === m ? "border-orange-400 text-orange-300 bg-orange-500/10" : "border-white/10 text-gray-400"}`}>
+              <button key={m} onClick={() => setForm({ ...form, milestone: m })} className={`px-3 py-1.5 rounded-lg text-sm border ${form.milestone === m ? "border-bb-blue text-bb-accent bg-bb-blue/10" : "border-white/10 text-gray-400"}`}>
                 {m === "deposit" ? "50% deposit" : m === "balance" ? "50% balance" : "Full amount"}
               </button>
             ))}
@@ -1048,7 +1048,7 @@ function PortalInvoices({ token, deals, catalog, canClose, notify }: { token: st
           </label>
           <div className="flex items-center justify-between">
             <p className="text-sm text-white">Invoice total: {usd2(preview)}</p>
-            <button onClick={submit} disabled={busy} className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium disabled:opacity-50">{busy ? "Sending…" : "Send draft to Chase"}</button>
+            <button onClick={submit} disabled={busy} className="px-4 py-2 rounded-lg bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium disabled:opacity-50">{busy ? "Sending…" : "Send draft to Chase"}</button>
           </div>
         </div>
       )}
@@ -1083,7 +1083,7 @@ function Tile({ label, value, accent }: { label: string; value: string; accent?:
   return (
     <div className="bg-white/[0.03] border border-white/10 rounded-xl p-3">
       <p className="text-[10px] uppercase tracking-wide text-gray-500">{label}</p>
-      <p className={`text-base font-semibold mt-0.5 ${accent ? "text-orange-400" : "text-white"}`}>{value}</p>
+      <p className={`text-base font-semibold mt-0.5 ${accent ? "text-bb-accent" : "text-white"}`}>{value}</p>
     </div>
   );
 }

@@ -100,7 +100,7 @@ export default function AutomationsPage() {
                   <button
                     key={t.key}
                     onClick={() => setEditing(t.key)}
-                    className="w-full flex items-center gap-3 bg-bb-surface border border-bb-border hover:border-bb-orange/50 rounded-lg p-3 text-left transition-colors"
+                    className="w-full flex items-center gap-3 bg-bb-surface border border-bb-border hover:border-bb-blue/50 rounded-lg p-3 text-left transition-colors"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">

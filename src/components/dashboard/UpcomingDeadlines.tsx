@@ -66,7 +66,7 @@ export default function UpcomingDeadlines({ deadlines, onRefresh }: { deadlines:
     <div className="bg-bb-surface border border-bb-border rounded-lg">
       <div className="px-5 py-4 border-b border-bb-border flex items-center justify-between">
         <h2 className="font-display font-semibold">Upcoming Deadlines</h2>
-        <Link href="/calendar" className="text-xs text-bb-orange hover:text-bb-orange-light">
+        <Link href="/calendar" className="text-xs text-bb-accent hover:text-bb-accent-light">
           View All
         </Link>
       </div>
@@ -88,7 +88,7 @@ export default function UpcomingDeadlines({ deadlines, onRefresh }: { deadlines:
                 <button
                   onClick={() => handleToggleDone(task.id)}
                   disabled={isDone || isDeleting}
-                  className={`w-5 h-5 rounded border-2 shrink-0 transition-all duration-300 flex items-center justify-center ${isDone ? "bg-green-500 border-green-500 scale-110" : "border-bb-border hover:border-bb-orange"}`}
+                  className={`w-5 h-5 rounded border-2 shrink-0 transition-all duration-300 flex items-center justify-center ${isDone ? "bg-green-500 border-green-500 scale-110" : "border-bb-border hover:border-bb-blue"}`}
                   title="Mark done"
                 >
                   {isDone && <Check size={12} className="text-white" strokeWidth={3} />}

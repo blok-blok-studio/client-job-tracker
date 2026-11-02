@@ -115,7 +115,7 @@ export default function SlotPicker({ clientId, slotZone, groupId, onPick }: Prop
         <button
           type="button"
           onClick={() => setDraft((d) => [...d, { weekday: d.length ? (d[d.length - 1].weekday + 2) % 7 : 1, time: d.length ? d[d.length - 1].time : "18:00" }])}
-          className="inline-flex items-center gap-1 text-xs text-bb-orange hover:text-bb-orange-light cursor-pointer"
+          className="inline-flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light cursor-pointer"
         >
           <Plus size={12} /> Add a time
         </button>
@@ -128,7 +128,7 @@ export default function SlotPicker({ clientId, slotZone, groupId, onPick }: Prop
             type="button"
             onClick={save}
             disabled={busy || draft.some((s) => !s.time)}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-lg bg-bb-orange text-white text-xs font-medium cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-lg bg-bb-blue text-white text-xs font-medium cursor-pointer disabled:opacity-50"
           >
             {busy && <Loader2 size={12} className="animate-spin" />} Save times
           </button>
@@ -151,7 +151,7 @@ export default function SlotPicker({ clientId, slotZone, groupId, onPick }: Prop
           <button
             type="button"
             onClick={pickNext}
-            className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-blue/50 cursor-pointer transition-colors"
           >
             <CalendarCheck size={14} /> Next free slot
           </button>

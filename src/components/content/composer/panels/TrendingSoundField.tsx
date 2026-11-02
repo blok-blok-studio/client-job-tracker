@@ -58,7 +58,7 @@ export default function TrendingSoundField({ draft, disabled, onDraft, onSetting
     <div>
       <FieldLabel htmlFor={`sound-${draft.key}`} hint="Optional">
         <span className="inline-flex items-center gap-1">
-          <TrendingUp size={11} className="text-bb-orange" /> Trending sound
+          <TrendingUp size={11} className="text-bb-accent" /> Trending sound
         </span>
       </FieldLabel>
       <select id={`sound-${draft.key}`} value={assigned?.id || ""} disabled={disabled} onChange={(e) => choose(e.target.value)} className={inputClass}>
@@ -73,17 +73,17 @@ export default function TrendingSoundField({ draft, disabled, onDraft, onSetting
       </select>
       {assigned && (
         <div className="mt-1.5 space-y-1">
-          <a href={assigned.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-bb-orange hover:text-bb-orange-light">
+          <a href={assigned.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-bb-accent hover:text-bb-accent-light">
             Open the sound <ExternalLink size={10} />
           </a>
           {draft.settings.tiktokDraft === true ? (
             <p className="flex items-start gap-1.5 text-[11px] text-bb-dim">
-              <Hand size={11} className="mt-px shrink-0 text-bb-orange" />
+              <Hand size={11} className="mt-px shrink-0 text-bb-accent" />
               The app is the only place this sound can be added, so this goes to TikTok as a draft. Whoever finishes it gets the sound link in the reminder.
             </p>
           ) : draft.publishMode === "ASSISTED" ? (
             <p className="flex items-start gap-1.5 text-[11px] text-bb-dim">
-              <Hand size={11} className="mt-px shrink-0 text-bb-orange" />
+              <Hand size={11} className="mt-px shrink-0 text-bb-accent" />
               The app is the only place this sound can be added, so this account is set to Post manually. Whoever posts it gets the sound link with everything else.
             </p>
           ) : (

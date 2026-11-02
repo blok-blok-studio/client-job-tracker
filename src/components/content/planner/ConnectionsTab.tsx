@@ -128,14 +128,14 @@ export default function ConnectionsTab({ clients }: { clients: { id: string; nam
         {/* Connect */}
         <section className="bg-bb-surface border border-bb-border rounded-xl p-4">
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            <PlugZap size={15} className="text-bb-orange" /> Connect an account
+            <PlugZap size={15} className="text-bb-accent" /> Connect an account
           </h3>
           <p className="text-xs text-bb-dim mt-1">Pick the client, then the platform. You sign in on the platform and come back here.</p>
           <select
             aria-label="Client to connect"
             value={connectClient}
             onChange={(e) => setConnectClient(e.target.value)}
-            className="mt-3 w-full sm:w-72 bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-bb-orange/60 cursor-pointer"
+            className="mt-3 w-full sm:w-72 bg-bb-elevated border border-bb-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-bb-blue/60 cursor-pointer"
           >
             <option value="">Choose a client</option>
             {clients.map((c) => (
@@ -157,7 +157,7 @@ export default function ConnectionsTab({ clients }: { clients: { id: string; nam
                     "flex items-start gap-2.5 rounded-lg border px-3 py-2 transition-colors",
                     disabled
                       ? "border-bb-border bg-bb-elevated/40 opacity-50 cursor-not-allowed"
-                      : "border-bb-border bg-bb-elevated hover:border-bb-orange/40 cursor-pointer"
+                      : "border-bb-border bg-bb-elevated hover:border-bb-blue/40 cursor-pointer"
                   )}
                 >
                   <PlatformIcon platform={p.platform} size={16} className="mt-0.5" />
@@ -282,7 +282,7 @@ export default function ConnectionsTab({ clients }: { clients: { id: string; nam
                             className={cn(
                               "shrink-0 px-2.5 py-1 rounded-md text-xs transition-colors",
                               broken
-                                ? "bg-bb-orange text-white hover:bg-bb-orange-light"
+                                ? "bg-bb-blue text-white hover:bg-bb-blue-light"
                                 : "text-bb-muted border border-bb-border hover:text-white hover:border-bb-muted"
                             )}
                           >

@@ -106,7 +106,7 @@ export default function YouTubePanel({ draft, postType, mediaUrls, meta, disable
               onClick={() => onSettings({ madeForKids: o.v })}
               className={cn(
                 "px-3 py-2 rounded-lg border text-sm text-left cursor-pointer transition-colors disabled:cursor-not-allowed",
-                madeForKids === o.v ? "border-bb-orange bg-bb-orange/10 text-white" : "border-bb-border bg-bb-elevated text-bb-muted hover:text-white"
+                madeForKids === o.v ? "border-bb-blue bg-bb-blue/10 text-white" : "border-bb-border bg-bb-elevated text-bb-muted hover:text-white"
               )}
             >
               {o.label}

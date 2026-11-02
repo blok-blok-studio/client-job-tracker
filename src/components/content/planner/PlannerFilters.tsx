@@ -16,7 +16,7 @@ export interface PlannerFilterState {
 export const EMPTY_FILTERS: PlannerFilterState = { clientId: "", platforms: [], statuses: [], assigneeId: "", mine: false };
 
 const selectClass =
-  "bg-bb-elevated border border-bb-border rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-bb-orange/60 cursor-pointer max-w-full";
+  "bg-bb-elevated border border-bb-border rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-bb-blue/60 cursor-pointer max-w-full";
 
 export default function PlannerFilters({
   value,
@@ -84,7 +84,7 @@ export default function PlannerFilters({
           className={cn(
             "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer",
             value.mine
-              ? "bg-bb-orange/10 text-bb-orange border-bb-orange/30"
+              ? "bg-bb-blue/10 text-bb-accent border-bb-blue/30"
               : "bg-bb-elevated text-bb-muted border-bb-border hover:text-white"
           )}
         >
@@ -112,7 +112,7 @@ export default function PlannerFilters({
               onClick={() => togglePlatform(p)}
               className={cn(
                 "flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border whitespace-nowrap shrink-0 transition-colors cursor-pointer",
-                on ? "bg-bb-orange/10 text-bb-orange border-bb-orange/30" : "text-bb-muted hover:text-white bg-bb-elevated border-bb-border"
+                on ? "bg-bb-blue/10 text-bb-accent border-bb-blue/30" : "text-bb-muted hover:text-white bg-bb-elevated border-bb-border"
               )}
             >
               <PlatformIcon platform={p} size={12} />

@@ -96,7 +96,7 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
   }
 
   const inputCls =
-    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
+    "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
   const labelCls = "block text-xs font-medium text-bb-muted mb-1";
 
   return (
@@ -206,7 +206,7 @@ export default function ServiceForm({ clients, clientId, initial, onSubmit, onCa
         <button
           type="submit"
           disabled={saving}
-          className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
+          className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
         >
           {saving ? "Saving…" : initial?.id ? "Save Changes" : "Add Service"}
         </button>

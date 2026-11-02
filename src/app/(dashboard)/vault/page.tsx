@@ -164,7 +164,7 @@ export default function VaultPage() {
       return acc;
     }, {});
 
-  const inputClass = "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50";
+  const inputClass = "w-full px-3 py-2 bg-bb-black border border-bb-border rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50";
 
   return (
     <div>
@@ -177,10 +177,10 @@ export default function VaultPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by client or platform..."
-              className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-sm text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
             />
           </div>
-          <button onClick={() => setShowAdd(true)} className="flex items-center justify-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md shrink-0">
+          <button onClick={() => setShowAdd(true)} className="flex items-center justify-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md shrink-0">
             <Plus size={16} /> Add Credential
           </button>
         </div>
@@ -333,7 +333,7 @@ export default function VaultPage() {
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => { setShowAdd(false); setSelectedPlatform(""); }} className="px-4 py-2 text-sm text-bb-muted hover:text-white">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md">Save Credential</button>
+            <button type="submit" className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md">Save Credential</button>
           </div>
         </form>
       </Modal>

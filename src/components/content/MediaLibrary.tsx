@@ -118,7 +118,7 @@ export default function MediaLibrary({ clientId, onSelect, selectedUrls, allowed
               onClick={() => setFilterType(opt.value)}
               className={`p-1.5 rounded-lg border text-xs transition-colors ${
                 filterType === opt.value
-                  ? "border-bb-orange bg-bb-orange/10 text-white"
+                  ? "border-bb-blue bg-bb-blue/10 text-white"
                   : "border-bb-border bg-bb-elevated text-bb-dim hover:text-bb-muted"
               }`}
               title={opt.label}
@@ -132,7 +132,7 @@ export default function MediaLibrary({ clientId, onSelect, selectedUrls, allowed
       {/* File grid */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 size={20} className="text-bb-orange animate-spin" />
+          <Loader2 size={20} className="text-bb-accent animate-spin" />
         </div>
       ) : filteredFiles.length === 0 ? (
         <div className="text-center py-12">
@@ -153,7 +153,7 @@ export default function MediaLibrary({ clientId, onSelect, selectedUrls, allowed
                 onClick={() => toggleSelect(file.url)}
                 className={`relative group rounded-lg overflow-hidden border-2 transition-all aspect-square ${
                   selected
-                    ? "border-bb-orange ring-1 ring-bb-orange/50"
+                    ? "border-bb-blue ring-1 ring-bb-blue/50"
                     : "border-transparent hover:border-bb-border"
                 }`}
               >
@@ -173,7 +173,7 @@ export default function MediaLibrary({ clientId, onSelect, selectedUrls, allowed
 
                 {/* Selection badge */}
                 {selected && (
-                  <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-bb-orange flex items-center justify-center">
+                  <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-bb-blue flex items-center justify-center">
                     <Check size={12} className="text-white" />
                   </div>
                 )}

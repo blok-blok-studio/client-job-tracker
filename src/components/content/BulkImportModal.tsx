@@ -95,7 +95,7 @@ export default function BulkImportModal({
               className="flex flex-col items-center justify-center gap-2 py-8 rounded-lg border-2 border-dashed border-bb-border hover:border-bb-muted cursor-pointer transition-colors bg-bb-elevated/50"
             >
               {importing ? (
-                <div className="flex items-center gap-2 text-bb-orange">
+                <div className="flex items-center gap-2 text-bb-accent">
                   <Upload size={20} className="animate-bounce" />
                   <span className="text-sm">Importing...</span>
                 </div>
@@ -165,7 +165,7 @@ export default function BulkImportModal({
               </button>
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-bb-orange text-white rounded-lg text-sm font-medium hover:bg-bb-orange/90 transition-colors"
+                className="px-4 py-2 bg-bb-blue text-white rounded-lg text-sm font-medium hover:bg-bb-blue/90 transition-colors"
               >
                 Done
               </button>

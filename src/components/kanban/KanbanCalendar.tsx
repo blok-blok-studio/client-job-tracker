@@ -21,7 +21,7 @@ interface KanbanCalendarProps {
 
 const PRIORITY_BORDER: Record<Priority, string> = {
   URGENT: "border-l-red-500",
-  HIGH: "border-l-bb-orange",
+  HIGH: "border-l-bb-blue",
   MEDIUM: "border-l-blue-500",
   LOW: "border-l-bb-dim",
 };
@@ -160,7 +160,7 @@ export default function KanbanCalendar({ tasks, onTaskClick, onReschedule }: Kan
         onDragLeave={() => setDragOverKey(null)}
         onDrop={(e) => handleDrop(e, null)}
         className={`rounded-lg border ${
-          dragOverKey === "__unscheduled__" ? "border-bb-orange" : "border-bb-border"
+          dragOverKey === "__unscheduled__" ? "border-bb-blue" : "border-bb-border"
         } bg-bb-black p-2 transition-colors`}
       >
         <div className="flex items-center gap-1.5 mb-1.5">
@@ -211,13 +211,13 @@ export default function KanbanCalendar({ tasks, onTaskClick, onReschedule }: Kan
                   onDrop={(e) => handleDrop(e, key)}
                   className={`min-h-[64px] sm:min-h-[92px] border-r border-bb-border last:border-r-0 p-0.5 sm:p-1 space-y-1 transition-colors ${
                     inMonth ? "bg-bb-black" : "bg-bb-surface/40"
-                  } ${dragOverKey === key ? "bg-bb-orange/10 ring-1 ring-inset ring-bb-orange" : ""}`}
+                  } ${dragOverKey === key ? "bg-bb-blue/10 ring-1 ring-inset ring-bb-blue" : ""}`}
                 >
                   <div className="flex justify-end">
                     <span
                       className={`text-[10px] leading-none px-1 py-0.5 rounded ${
                         isToday
-                          ? "bg-bb-orange text-white font-bold"
+                          ? "bg-bb-blue text-white font-bold"
                           : inMonth
                           ? "text-bb-muted"
                           : "text-bb-dim"

@@ -70,7 +70,7 @@ type CalendarItem = CalendarTask | CalBooking | CalendarPost;
 
 const priorityDot: Record<string, string> = {
   URGENT: "bg-red-500",
-  HIGH: "bg-bb-orange",
+  HIGH: "bg-bb-blue",
   MEDIUM: "bg-blue-500",
   LOW: "bg-bb-dim",
 };
@@ -263,7 +263,7 @@ export default function CalendarPage() {
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md",
                   mode === "calendar"
-                    ? "bg-bb-orange text-white"
+                    ? "bg-bb-blue text-white"
                     : "text-bb-muted hover:text-white"
                 )}
               >
@@ -274,7 +274,7 @@ export default function CalendarPage() {
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md",
                   mode === "timeline"
-                    ? "bg-bb-orange text-white"
+                    ? "bg-bb-blue text-white"
                     : "text-bb-muted hover:text-white"
                 )}
               >
@@ -404,14 +404,14 @@ export default function CalendarPage() {
                       className={cn(
                         "bg-bb-surface p-1 sm:p-2 min-h-[48px] sm:min-h-[80px] text-left hover:bg-bb-elevated transition-colors",
                         !isCurrentMonth && "opacity-30",
-                        isSelected && "ring-2 ring-bb-orange",
+                        isSelected && "ring-2 ring-bb-blue",
                         isToday(day) && "bg-bb-elevated"
                       )}
                     >
                       <span
                         className={cn(
                           "text-xs font-mono",
-                          isToday(day) ? "text-bb-orange font-bold" : "text-bb-dim"
+                          isToday(day) ? "text-bb-accent font-bold" : "text-bb-dim"
                         )}
                       >
                         {format(day, "d")}
@@ -457,7 +457,7 @@ export default function CalendarPage() {
                   <span className="w-2 h-2 rounded-full bg-red-500" /> Urgent
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] text-bb-dim">
-                  <span className="w-2 h-2 rounded-full bg-bb-orange" /> High
+                  <span className="w-2 h-2 rounded-full bg-bb-blue" /> High
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] text-bb-dim">
                   <span className="w-2 h-2 rounded-full bg-blue-500" /> Medium

@@ -16,7 +16,7 @@ import {
  * Single-series charts for the analytics tab. One series means no legend: the
  * card title names the metric. Series color is the dark-surface orange step
  * validated with the dataviz palette checker against bb-surface (#141414);
- * bb-orange itself is too light for the band.
+ * bb-blue itself is too light for the band.
  */
 export const SERIES_COLOR = "#d95926";
 const GRID = "#2A2A2A";

@@ -216,7 +216,7 @@ function QuoteEditor({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className={labelCls}>Line items</label>
-            <button type="button" className="text-xs text-bb-orange hover:underline inline-flex items-center gap-1" onClick={() => setF({ ...f, items: [...f.items, { description: "", qty: "1", unitPrice: "" }] })}><Plus size={12} /> Add line</button>
+            <button type="button" className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1" onClick={() => setF({ ...f, items: [...f.items, { description: "", qty: "1", unitPrice: "" }] })}><Plus size={12} /> Add line</button>
           </div>
           <div className="space-y-2">
             {f.items.map((row, i) => (
@@ -241,7 +241,7 @@ function QuoteEditor({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
                   <button type="button" className="p-2 text-bb-dim hover:text-red-400" onClick={() => setF({ ...f, schedule: f.schedule.filter((_, j) => j !== i) })}><Trash2 size={14} /></button>
                 </div>
               ))}
-              <button type="button" className="text-xs text-bb-orange hover:underline" onClick={() => setF({ ...f, schedule: [...f.schedule, { label: "", percent: "" }] })}>+ Add milestone</button>
+              <button type="button" className="text-xs text-bb-accent hover:underline" onClick={() => setF({ ...f, schedule: [...f.schedule, { label: "", percent: "" }] })}>+ Add milestone</button>
               {!schedOk && <p className="text-xs text-red-400">Must add up to 100%.</p>}
             </div>
           )}

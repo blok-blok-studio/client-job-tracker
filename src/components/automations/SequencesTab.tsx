@@ -77,7 +77,7 @@ function OffsetEditor({
       <input
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="w-16 bg-bb-black border border-bb-border rounded px-2 py-0.5 text-xs focus:border-bb-orange outline-none"
+        className="w-16 bg-bb-black border border-bb-border rounded px-2 py-0.5 text-xs focus:border-bb-blue outline-none"
       />
       <select
         value={unit}
@@ -90,7 +90,7 @@ function OffsetEditor({
       <button
         onClick={save}
         disabled={saving}
-        className="text-xs text-bb-orange hover:text-bb-orange-light px-1"
+        className="text-xs text-bb-accent hover:text-bb-accent-light px-1"
       >
         {saving ? "…" : "Save"}
       </button>
@@ -149,7 +149,7 @@ export default function SequencesTab({
               title={isOwner ? undefined : "Owner only"}
               className={cn(
                 "relative w-10 h-5.5 rounded-full transition-colors shrink-0 h-6",
-                seq.enabled ? "bg-bb-orange" : "bg-bb-elevated",
+                seq.enabled ? "bg-bb-blue" : "bg-bb-elevated",
                 !isOwner && "opacity-40 cursor-not-allowed"
               )}
             >

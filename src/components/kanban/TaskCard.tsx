@@ -29,7 +29,7 @@ interface TaskCardProps {
 
 const priorityBorder: Record<Priority, string> = {
   URGENT: "border-l-red-500",
-  HIGH: "border-l-bb-orange",
+  HIGH: "border-l-bb-blue",
   MEDIUM: "border-l-blue-500",
   LOW: "border-l-bb-dim",
 };
@@ -86,7 +86,7 @@ export default function TaskCard({
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`group bg-bb-surface border border-bb-border border-l-4 ${priorityBorder[priority]} rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-bb-orange/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-[transform,box-shadow,border-color] duration-200`}
+      className={`group bg-bb-surface border border-bb-border border-l-4 ${priorityBorder[priority]} rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-bb-blue/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-[transform,box-shadow,border-color] duration-200`}
     >
       <div className="flex items-start justify-between gap-1 mb-2">
         <p className="text-sm font-medium line-clamp-2">{title}</p>
@@ -121,7 +121,7 @@ export default function TaskCard({
         )}
         {openBlockers != null && openBlockers > 0 && (
           <span
-            className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold bg-bb-orange/15 text-bb-orange ring-1 ring-bb-orange/30"
+            className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold bg-bb-blue/15 text-bb-accent ring-1 ring-bb-blue/30"
             title={`Waiting on ${openBlockers} linked task${openBlockers === 1 ? "" : "s"} — auto-unblocks when they finish`}
           >
             <Link2 size={9} /> {openBlockers}
@@ -147,7 +147,7 @@ export default function TaskCard({
           </div>
           <div className="h-1 rounded-full bg-bb-elevated overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${pct === 100 ? "bg-emerald-500" : "bg-bb-orange"}`}
+              className={`h-full rounded-full transition-all ${pct === 100 ? "bg-emerald-500" : "bg-bb-blue"}`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -163,7 +163,7 @@ export default function TaskCard({
             </span>
           )}
           {isRecurring && (
-            <span className="flex items-center gap-0.5 text-bb-orange" title="Recurring task">
+            <span className="flex items-center gap-0.5 text-bb-accent" title="Recurring task">
               <Repeat size={10} />
             </span>
           )}

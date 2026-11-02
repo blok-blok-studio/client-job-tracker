@@ -39,7 +39,7 @@ export default function KanbanColumn({ status, label, tasks, onAddTask, onTaskCl
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col bg-bb-black rounded-lg border ${isOver ? "border-bb-orange" : "border-bb-border"} min-w-[280px] max-w-[320px] flex-shrink-0 transition-colors`}
+      className={`flex flex-col bg-bb-black rounded-lg border ${isOver ? "border-bb-blue" : "border-bb-border"} min-w-[280px] max-w-[320px] flex-shrink-0 transition-colors`}
     >
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-bb-border">
         <div className="flex items-center gap-2">
@@ -48,7 +48,7 @@ export default function KanbanColumn({ status, label, tasks, onAddTask, onTaskCl
         </div>
         <button
           onClick={() => onAddTask(status)}
-          className="p-1 rounded hover:bg-bb-elevated text-bb-dim hover:text-bb-orange transition-colors"
+          className="p-1 rounded hover:bg-bb-elevated text-bb-dim hover:text-bb-accent transition-colors"
         >
           <Plus size={16} />
         </button>

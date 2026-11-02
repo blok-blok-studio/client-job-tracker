@@ -226,7 +226,7 @@ export default function InvoicesPage() {
                   {rows.find((r) => r.client.id === clientFilter)?.client.company || rows.find((r) => r.client.id === clientFilter)?.client.name || "This client"} ×
                 </button>
               )}
-              <select value={year} onChange={(e) => setYear(e.target.value === "all" ? "all" : Number(e.target.value))} className="px-3 py-1.5 rounded-lg bg-bb-surface border border-bb-border text-sm text-bb-muted focus:outline-none focus:border-bb-orange/50">
+              <select value={year} onChange={(e) => setYear(e.target.value === "all" ? "all" : Number(e.target.value))} className="px-3 py-1.5 rounded-lg bg-bb-surface border border-bb-border text-sm text-bb-muted focus:outline-none focus:border-bb-blue/50">
                 <option value="all">All years</option>
                 {years.map((y) => (
                   <option key={y} value={y}>{y}</option>

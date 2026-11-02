@@ -281,7 +281,7 @@ export default function CalendarTab({
 
       <DragOverlay dropAnimation={null}>
         {dragging ? (
-          <div className="rounded-md bg-bb-elevated border border-bb-orange/60 shadow-modal px-2 py-1 flex items-center gap-2 max-w-[220px] cursor-grabbing">
+          <div className="rounded-md bg-bb-elevated border border-bb-blue/60 shadow-modal px-2 py-1 flex items-center gap-2 max-w-[220px] cursor-grabbing">
             <AccountStack posts={dragging.posts} size="xs" max={3} />
             <span className="text-[11px] text-white truncate">{postSnippet(dragging.lead, 40)}</span>
           </div>
@@ -332,7 +332,7 @@ function DayPanel({
             const when = isSameDay(day, new Date()) ? nextHour() : new Date(new Date(day).setHours(9, 0, 0, 0));
             onCreate(when);
           }}
-          className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-bb-orange/10 border border-bb-orange/30 rounded-lg text-sm text-bb-orange hover:bg-bb-orange/20 transition-colors cursor-pointer"
+          className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-bb-blue/10 border border-bb-blue/30 rounded-lg text-sm text-bb-accent hover:bg-bb-blue/20 transition-colors cursor-pointer"
         >
           <Plus size={14} /> New post
         </button>

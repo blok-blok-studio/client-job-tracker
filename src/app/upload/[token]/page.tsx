@@ -191,7 +191,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
     if (file.type.startsWith("video/")) return <Film size={16} className="text-purple-400" />;
     if (file.type.startsWith("audio/")) return <Music size={16} className="text-green-400" />;
     if (file.type === "application/pdf" || file.type.startsWith("application/vnd.") || file.type.startsWith("application/ms") || file.type.startsWith("text/"))
-      return <FileText size={16} className="text-orange-400" />;
+      return <FileText size={16} className="text-bb-accent" />;
     return <FileUp size={16} className="text-gray-400" />;
   };
 
@@ -230,7 +230,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
           {client.avatarUrl ? (
             <img src={client.avatarUrl} alt="" className="w-16 h-16 rounded-full mx-auto mb-4 border-2 border-white/10" />
           ) : (
-            <div className="w-16 h-16 rounded-full mx-auto mb-4 bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center text-white text-xl font-bold">
+            <div className="w-16 h-16 rounded-full mx-auto mb-4 bg-gradient-to-br from-bb-blue to-pink-500 flex items-center justify-center text-white text-xl font-bold">
               {client.name.charAt(0)}
             </div>
           )}
@@ -248,12 +248,12 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
           onClick={() => fileInputRef.current?.click()}
           className={`flex flex-col items-center justify-center gap-4 py-10 sm:py-16 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
             dragOver
-              ? "border-orange-500 bg-orange-500/5 scale-[1.01]"
+              ? "border-bb-blue bg-bb-blue/5 scale-[1.01]"
               : "border-white/10 hover:border-white/20 bg-white/[0.02]"
           }`}
         >
-          <div className={`p-4 rounded-full transition-colors ${dragOver ? "bg-orange-500/10" : "bg-white/5"}`}>
-            <Upload size={32} className={dragOver ? "text-orange-400" : "text-white/40"} />
+          <div className={`p-4 rounded-full transition-colors ${dragOver ? "bg-bb-blue/10" : "bg-white/5"}`}>
+            <Upload size={32} className={dragOver ? "text-bb-accent" : "text-white/40"} />
           </div>
           <div className="text-center">
             <p className="text-white font-medium hidden sm:block">Drag & drop files here</p>
@@ -327,9 +327,9 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
 
             {/* Ready to submit indicator */}
             {!uploading && uploadable.length > 0 && (
-              <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-                <Check size={14} className="text-orange-400 shrink-0" />
-                <p className="text-xs text-orange-300">
+              <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-bb-blue/10 border border-bb-blue/20 rounded-lg">
+                <Check size={14} className="text-bb-accent shrink-0" />
+                <p className="text-xs text-bb-accent">
                   {uploadable.length} file{uploadable.length !== 1 ? "s" : ""} ready to upload ({formatSize(uploadable.reduce((s, f) => s + f.size, 0))} total)
                 </p>
               </div>
@@ -341,7 +341,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
               type="button"
               onClick={handleUpload}
               disabled={uploading || uploadable.length === 0}
-              className="w-full sm:mt-3 py-3.5 sm:py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2 relative overflow-hidden"
+              className="w-full sm:mt-3 py-3.5 sm:py-3 bg-gradient-to-r from-bb-blue to-pink-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2 relative overflow-hidden"
             >
               {uploading ? (
                 <>
@@ -406,7 +406,7 @@ export default function ClientUploadPortal({ params }: { params: Promise<{ token
                       </div>
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center">
-                        <FileText size={24} className="text-orange-400 mb-1" />
+                        <FileText size={24} className="text-bb-accent mb-1" />
                         <span className="text-[10px] text-gray-400 truncate max-w-full px-2">{r.filename}</span>
                       </div>
                     )}

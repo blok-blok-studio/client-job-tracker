@@ -68,7 +68,7 @@ export default function SettingsTab({
           settings.liveEmails ? "bg-green-500/10 border-green-500/30" : "bg-bb-surface border-bb-border"
         )}
       >
-        <ShieldAlert size={18} className={settings.liveEmails ? "text-green-400" : "text-bb-orange"} />
+        <ShieldAlert size={18} className={settings.liveEmails ? "text-green-400" : "text-bb-accent"} />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold">
             Live client emails: {settings.liveEmails ? "ON" : "OFF"}
@@ -97,7 +97,7 @@ export default function SettingsTab({
             "px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0",
             settings.liveEmails
               ? "bg-bb-elevated hover:bg-bb-border"
-              : "bg-bb-orange hover:bg-bb-orange-light text-white",
+              : "bg-bb-blue hover:bg-bb-blue-light text-white",
             !isOwner && "opacity-40 cursor-not-allowed"
           )}
         >
@@ -116,7 +116,7 @@ export default function SettingsTab({
             value={bookingLink}
             onChange={(e) => setBookingLink(e.target.value)}
             placeholder="https://cal.com/…"
-            className="mt-1 w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm focus:border-bb-orange outline-none"
+            className="mt-1 w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm focus:border-bb-blue outline-none"
           />
         </div>
         <div>
@@ -127,13 +127,13 @@ export default function SettingsTab({
             value={checklistLink}
             onChange={(e) => setChecklistLink(e.target.value)}
             placeholder="https://…"
-            className="mt-1 w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm focus:border-bb-orange outline-none"
+            className="mt-1 w-full bg-bb-black border border-bb-border rounded-lg px-3 py-2 text-sm focus:border-bb-blue outline-none"
           />
         </div>
         <button
           onClick={() => put({ bookingLink, assetChecklistLink: checklistLink }, "Links saved")}
           disabled={saving}
-          className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors"
+          className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors"
         >
           Save links
         </button>
@@ -171,7 +171,7 @@ export default function SettingsTab({
                       value={t.revisions}
                       disabled={!isOwner}
                       onChange={(e) => setTier(key, { revisions: e.target.value })}
-                      className="w-16 bg-bb-black border border-bb-border rounded px-2 py-1 disabled:opacity-50 outline-none focus:border-bb-orange"
+                      className="w-16 bg-bb-black border border-bb-border rounded px-2 py-1 disabled:opacity-50 outline-none focus:border-bb-blue"
                     />
                   </td>
                   <td className="py-2 pr-3">
@@ -180,7 +180,7 @@ export default function SettingsTab({
                       value={t.supportMonths}
                       disabled={!isOwner}
                       onChange={(e) => setTier(key, { supportMonths: Number(e.target.value) })}
-                      className="w-16 bg-bb-black border border-bb-border rounded px-2 py-1 disabled:opacity-50 outline-none focus:border-bb-orange"
+                      className="w-16 bg-bb-black border border-bb-border rounded px-2 py-1 disabled:opacity-50 outline-none focus:border-bb-blue"
                     />
                   </td>
                   <td className="py-2 pr-3">
@@ -188,7 +188,7 @@ export default function SettingsTab({
                       value={t.timeline}
                       disabled={!isOwner}
                       onChange={(e) => setTier(key, { timeline: e.target.value })}
-                      className="w-28 bg-bb-black border border-bb-border rounded px-2 py-1 disabled:opacity-50 outline-none focus:border-bb-orange"
+                      className="w-28 bg-bb-black border border-bb-border rounded px-2 py-1 disabled:opacity-50 outline-none focus:border-bb-blue"
                     />
                   </td>
                   <td className="py-2">
@@ -199,7 +199,7 @@ export default function SettingsTab({
                       onChange={(e) =>
                         setTier(key, { scopeBullets: e.target.value.split("\n").filter(Boolean) })
                       }
-                      className="w-full min-w-52 bg-bb-black border border-bb-border rounded px-2 py-1 disabled:opacity-50 outline-none focus:border-bb-orange resize-y"
+                      className="w-full min-w-52 bg-bb-black border border-bb-border rounded px-2 py-1 disabled:opacity-50 outline-none focus:border-bb-blue resize-y"
                     />
                   </td>
                 </tr>
@@ -211,7 +211,7 @@ export default function SettingsTab({
           <button
             onClick={() => put({ tierConstants: tiers }, "Tier constants saved")}
             disabled={saving}
-            className="px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors"
+            className="px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors"
           >
             Save tier constants
           </button>

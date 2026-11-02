@@ -48,10 +48,10 @@ export default function ClientCard({
   const expiringSoon = daysUntilExpiry !== null && daysUntilExpiry > 0 && daysUntilExpiry <= 30;
 
   return (
-    <div className="bg-bb-surface border border-bb-border rounded-lg p-5 hover:border-bb-orange/30 transition-colors relative">
+    <div className="bg-bb-surface border border-bb-border rounded-lg p-5 hover:border-bb-blue/30 transition-colors relative">
       <div className="flex items-start justify-between mb-3">
         <Link href={`/clients/${id}`} className="group">
-          <h3 className="font-display font-semibold text-white group-hover:text-bb-orange transition-colors">
+          <h3 className="font-display font-semibold text-white group-hover:text-bb-accent transition-colors">
             {flag && <span className="mr-1.5">{flag}</span>}{name}
           </h3>
           {company && <p className="text-sm text-bb-muted">{company}</p>}

@@ -71,11 +71,11 @@ async function sendReminderEmail(kind: Stage["kind"], v: ReturnType<typeof build
   const first = (v.billTo.name || "").split(" ")[0] || "";
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;color:#111;">
-      <h2 style="margin:0 0 28px;font-size:18px;letter-spacing:0.02em;">Blok Blok Studio</h2>
+      <img src="https://app.blokblokstudio.com/bb_logo_wordmark_subhead_BLK_PNG.png" alt="Blok Blok Studio" width="170" style="display:block;width:170px;height:auto;margin:0 0 28px;border:0;" />
       <p style="font-size:15px;line-height:1.6;">${esc(de ? `Hallo ${first},` : `Hi ${first},`)}</p>
       <p style="font-size:15px;line-height:1.6;">${body}</p>
       <p style="font-size:15px;line-height:1.6;">${de ? `Verwendungszweck: <strong>${esc(v.number || "")}</strong>. Alle Zahlungsdetails, der GiroCode und das PDF:` : `Payment reference: <strong>${esc(v.number || "")}</strong>. Bank details, QR code and PDF:`}</p>
-      <div style="margin:24px 0;"><a href="${esc(v.publicUrl)}" style="display:inline-block;background:#111;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">${de ? "Rechnung öffnen" : "Open invoice"}</a></div>
+      <div style="margin:24px 0;"><a href="${esc(v.publicUrl)}" style="display:inline-block;background:#2561D8;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">${de ? "Rechnung öffnen" : "Open invoice"}</a></div>
       <p style="font-size:15px;line-height:1.6;">${esc(de ? "Beste Grüße" : "Best regards")}<br/>${esc(v.seller.contactName)}</p>
       <hr style="border:none;border-top:1px solid #e5e5e5;margin:32px 0;"/>
       <p style="color:#777;font-size:12px;line-height:1.6;">${esc(v.seller.sellerName)} · ${esc(v.seller.addressLines.join(", "))} · ${esc(v.seller.email)}</p>

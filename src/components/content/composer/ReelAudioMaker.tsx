@@ -112,7 +112,7 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-orange/50 cursor-pointer transition-colors"
+        className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg border border-bb-border text-sm text-bb-muted hover:text-white hover:border-bb-blue/50 cursor-pointer transition-colors"
       >
         <Music size={14} /> Add audio and post as a Reel
       </button>
@@ -124,7 +124,7 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="flex items-center gap-1.5 text-sm text-white">
-            <Clapperboard size={14} className="text-bb-orange" /> Photos with audio, posted as a Reel
+            <Clapperboard size={14} className="text-bb-accent" /> Photos with audio, posted as a Reel
           </p>
           <p className="text-[11px] text-bb-dim mt-1">
             Instagram and Facebook can&apos;t add audio to a carousel from a scheduling tool, so {imageUrls.length === 1 ? "this photo becomes" : `these ${imageUrls.length} photos become`} one
@@ -171,7 +171,7 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
               onClick={() => setFit(o.value)}
               className={cn(
                 "px-3 py-2 rounded-lg border text-left text-xs cursor-pointer transition-colors",
-                fit === o.value ? "border-bb-orange/60 text-white bg-bb-orange/10" : "border-bb-border text-bb-muted hover:text-white"
+                fit === o.value ? "border-bb-blue/60 text-white bg-bb-blue/10" : "border-bb-border text-bb-muted hover:text-white"
               )}
             >
               {o.label}
@@ -187,7 +187,7 @@ export default function ReelAudioMaker({ clientId, imageUrls, onCreated }: Props
         type="button"
         disabled={!audio || rendering || uploading}
         onClick={create}
-        className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg bg-bb-orange text-white text-sm font-medium cursor-pointer transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:py-2.5 rounded-lg bg-bb-blue text-white text-sm font-medium cursor-pointer transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {rendering ? <Loader2 size={14} className="animate-spin" /> : <Clapperboard size={14} />}
         {rendering ? "Making the video, usually under a minute" : "Make the Reel video"}

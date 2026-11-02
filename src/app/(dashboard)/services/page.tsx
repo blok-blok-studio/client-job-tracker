@@ -201,7 +201,7 @@ export default function ServicesPage() {
             { label: "Paused", value: summary.paused, icon: PauseCircle },
           ].map((tile) => (
             <div key={tile.label} className="bg-bb-surface border border-bb-border rounded-lg p-4 flex items-center gap-3">
-              <tile.icon size={18} className="text-bb-orange shrink-0" />
+              <tile.icon size={18} className="text-bb-accent shrink-0" />
               <div className="min-w-0">
                 <p className="text-lg font-semibold text-white truncate">{tile.value}</p>
                 <p className="text-xs text-bb-dim truncate">{tile.label}</p>
@@ -219,7 +219,7 @@ export default function ServicesPage() {
                 onClick={() => setStatusTab(tab.key)}
                 className={cn(
                   "px-3 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap",
-                  statusTab === tab.key ? "bg-bb-orange text-white" : "text-bb-muted hover:text-white"
+                  statusTab === tab.key ? "bg-bb-blue text-white" : "text-bb-muted hover:text-white"
                 )}
               >
                 {tab.label}
@@ -244,7 +244,7 @@ export default function ServicesPage() {
             </div>
             <button
               onClick={() => setShowAdd(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-bb-orange hover:bg-bb-orange-light text-white text-sm font-medium rounded-md transition-colors shrink-0 ml-auto sm:ml-0"
+              className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors shrink-0 ml-auto sm:ml-0"
             >
               <Plus size={16} />
               Add Service
@@ -261,7 +261,7 @@ export default function ServicesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search clients or services..."
-              className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-orange/50"
+              className="w-full pl-9 pr-4 py-2 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50"
             />
           </div>
           {presentCategories.length > 0 && (
@@ -271,7 +271,7 @@ export default function ServicesPage() {
                 className={cn(
                   "px-2.5 py-1 text-xs rounded-full border transition-colors",
                   !categoryFilter
-                    ? "bg-bb-orange/15 border-bb-orange/40 text-bb-orange"
+                    ? "bg-bb-blue/15 border-bb-blue/40 text-bb-accent"
                     : "bg-bb-surface border-bb-border text-bb-muted hover:text-white"
                 )}
               >
@@ -284,7 +284,7 @@ export default function ServicesPage() {
                   className={cn(
                     "px-2.5 py-1 text-xs rounded-full border transition-colors",
                     categoryFilter === c.id
-                      ? "bg-bb-orange/15 border-bb-orange/40 text-bb-orange"
+                      ? "bg-bb-blue/15 border-bb-blue/40 text-bb-accent"
                       : "bg-bb-surface border-bb-border text-bb-muted hover:text-white"
                   )}
                 >
@@ -312,7 +312,7 @@ export default function ServicesPage() {
             byClient.map(({ client, items }) => (
               <div key={client.id} className="bg-bb-surface border border-bb-border rounded-lg p-4">
                 <div className="flex items-center gap-2 flex-wrap mb-3">
-                  <Link href={`/clients/${client.id}`} className="text-sm font-semibold text-white hover:text-bb-orange transition-colors">
+                  <Link href={`/clients/${client.id}`} className="text-sm font-semibold text-white hover:text-bb-accent transition-colors">
                     {client.name}
                   </Link>
                   {client.company && <span className="text-xs text-bb-dim">{client.company}</span>}
@@ -327,7 +327,7 @@ export default function ServicesPage() {
                     <button
                       key={s.id}
                       onClick={() => setEditing(s)}
-                      className="group flex items-center gap-2 pl-3 pr-2.5 py-1.5 bg-bb-black border border-bb-border hover:border-bb-orange/50 rounded-lg transition-colors text-left"
+                      className="group flex items-center gap-2 pl-3 pr-2.5 py-1.5 bg-bb-black border border-bb-border hover:border-bb-blue/50 rounded-lg transition-colors text-left"
                       title="Click to edit"
                     >
                       <span
@@ -376,14 +376,14 @@ export default function ServicesPage() {
                         />
                         <Link
                           href={`/clients/${s.client.id}`}
-                          className="text-sm text-white hover:text-bb-orange transition-colors"
+                          className="text-sm text-white hover:text-bb-accent transition-colors"
                         >
                           {s.client.name}
                         </Link>
                         <Badge variant={statusVariant[s.status] || "gray"}>{s.status}</Badge>
                         <button
                           onClick={() => setEditing(s)}
-                          className="text-xs text-bb-dim hover:text-bb-orange transition-colors"
+                          className="text-xs text-bb-dim hover:text-bb-accent transition-colors"
                         >
                           Edit
                         </button>

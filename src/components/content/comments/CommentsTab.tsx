@@ -33,7 +33,7 @@ interface InboxPost {
 }
 
 const field =
-  "w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange";
+  "w-full bg-bb-elevated border border-bb-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue";
 
 function ago(iso: string): string {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
@@ -107,7 +107,7 @@ export default function CommentsTab({ clients }: { clients: { id: string; name: 
       <section className="bg-bb-surface border border-bb-border rounded-xl p-4 space-y-3">
         <div>
           <h2 className="flex items-center gap-1.5 text-sm font-medium text-white">
-            <MessageCircle size={15} className="text-bb-orange" /> Instagram comments
+            <MessageCircle size={15} className="text-bb-accent" /> Instagram comments
           </h2>
           <p className="text-xs text-bb-dim mt-1 max-w-xl">
             Comments on Instagram posts the scheduler published in the last 45 days (the newest 20 posts), read live from Instagram. Replies go out as the client&apos;s
@@ -134,7 +134,7 @@ export default function CommentsTab({ clients }: { clients: { id: string; name: 
                 onClick={() => setOnlyOpen(o.value)}
                 className={cn(
                   "px-3 py-2 sm:py-1.5 rounded-full border text-xs transition-colors cursor-pointer",
-                  onlyOpen === o.value ? "border-bb-orange/60 bg-bb-orange/10 text-white" : "border-bb-border text-bb-muted hover:text-white"
+                  onlyOpen === o.value ? "border-bb-blue/60 bg-bb-blue/10 text-white" : "border-bb-border text-bb-muted hover:text-white"
                 )}
               >
                 {o.label}
@@ -174,7 +174,7 @@ export default function CommentsTab({ clients }: { clients: { id: string; name: 
                 <p className="text-sm text-white truncate">{post.caption || "(no caption)"}</p>
               </div>
               {post.externalUrl && (
-                <a href={post.externalUrl} target="_blank" rel="noopener noreferrer" aria-label="Open the post" title="Open the post" className="p-2 -m-1 text-bb-muted hover:text-bb-orange transition-colors shrink-0">
+                <a href={post.externalUrl} target="_blank" rel="noopener noreferrer" aria-label="Open the post" title="Open the post" className="p-2 -m-1 text-bb-muted hover:text-bb-accent transition-colors shrink-0">
                   <ExternalLink size={15} />
                 </a>
               )}
@@ -200,7 +200,7 @@ export default function CommentsTab({ clients }: { clients: { id: string; name: 
                       {c.replies.map((r) => (
                         <li key={r.id}>
                           <p className="text-[11px] text-bb-dim">
-                            <span className={r.own ? "text-bb-orange" : "text-bb-muted"}>@{r.username}</span> · {ago(r.timestamp)}
+                            <span className={r.own ? "text-bb-accent" : "text-bb-muted"}>@{r.username}</span> · {ago(r.timestamp)}
                           </p>
                           <p className="text-xs text-bb-muted whitespace-pre-wrap break-words">{r.text}</p>
                         </li>
@@ -222,7 +222,7 @@ export default function CommentsTab({ clients }: { clients: { id: string; name: 
                       onClick={() => reply(post, c)}
                       disabled={!(drafts[c.id] || "").trim() || sending !== null}
                       aria-label="Send reply"
-                      className="shrink-0 inline-flex items-center justify-center w-11 sm:w-10 rounded-lg bg-bb-orange text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="shrink-0 inline-flex items-center justify-center w-11 sm:w-10 rounded-lg bg-bb-blue text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {sending === c.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                     </button>

@@ -102,7 +102,7 @@ function DecisionBadge({ decision }: { decision: ReviewFile["decision"] }) {
       <Check size={11} /> Approved
     </span>
   ) : (
-    <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-bb-orange/15 text-bb-orange border border-bb-orange/30">
+    <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-bb-blue/15 text-bb-accent border border-bb-blue/30">
       <Pencil size={11} /> Changes requested
     </span>
   );
@@ -229,7 +229,7 @@ function MediaCarousel({
                     : f.decision === "APPROVED"
                       ? "bg-green-400/70"
                       : f.decision === "CHANGES_REQUESTED"
-                        ? "bg-bb-orange/70"
+                        ? "bg-bb-blue/70"
                         : "bg-white/40"
                 }`}
               />
@@ -267,11 +267,11 @@ function CommentThread({
           key={c.id}
           className={`rounded-lg p-2.5 text-sm ${
             c.fromTeam
-              ? "bg-bb-orange/5 border border-bb-orange/20"
+              ? "bg-bb-blue/5 border border-bb-blue/20"
               : "bg-bb-black border border-bb-border"
           }`}
         >
-          <p className={`text-[11px] font-medium mb-1 ${c.fromTeam ? "text-bb-orange" : "text-bb-dim"}`}>
+          <p className={`text-[11px] font-medium mb-1 ${c.fromTeam ? "text-bb-accent" : "text-bb-dim"}`}>
             {c.fromTeam ? `${c.author} · Blok Blok Studio` : c.author}
             <span className="text-bb-dim font-normal"> · {new Date(c.createdAt).toLocaleDateString()}</span>
           </p>
@@ -287,12 +287,12 @@ function CommentThread({
             onKeyDown={(e) => e.key === "Enter" && send()}
             placeholder="Write a reply…"
             autoFocus
-            className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange text-sm"
+            className="flex-1 px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue text-sm"
           />
           <button
             onClick={send}
             disabled={busy || !reply.trim()}
-            className="px-3 py-2 bg-bb-orange hover:bg-bb-orange-light text-white rounded-lg disabled:opacity-50"
+            className="px-3 py-2 bg-bb-blue hover:bg-bb-blue-light text-white rounded-lg disabled:opacity-50"
             aria-label="Send reply"
           >
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
@@ -301,7 +301,7 @@ function CommentThread({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-1.5 text-xs text-bb-dim hover:text-bb-orange transition-colors"
+          className="flex items-center gap-1.5 text-xs text-bb-dim hover:text-bb-accent transition-colors"
         >
           <MessageCircle size={12} /> Reply
         </button>
@@ -370,8 +370,8 @@ function ItemReview({
                 disabled={busy}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
                   file.decision === "CHANGES_REQUESTED"
-                    ? "bg-bb-orange text-white"
-                    : "bg-bb-black border border-bb-border hover:border-bb-orange text-bb-muted hover:text-bb-orange"
+                    ? "bg-bb-blue text-white"
+                    : "bg-bb-black border border-bb-border hover:border-bb-blue text-bb-muted hover:text-bb-accent"
                 }`}
               >
                 <Pencil size={13} /> {file.decision === "CHANGES_REQUESTED" ? "Changes requested" : "Request changes"}
@@ -385,13 +385,13 @@ function ItemReview({
                 rows={2}
                 autoFocus
                 placeholder="What should change on this one? (optional but helpful)"
-                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-orange text-sm"
+                className="w-full px-3 py-2 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue text-sm"
               />
               <div className="flex gap-2">
                 <button
                   onClick={requestChanges}
                   disabled={busy}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-bb-orange hover:bg-bb-orange-light text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-bb-blue hover:bg-bb-blue-light text-white rounded-lg text-sm font-medium disabled:opacity-50"
                 >
                   {busy ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={13} />}
                   Mark for changes
@@ -560,12 +560,12 @@ export default function DeliverableReviewPage() {
   }
 
   const inputClass =
-    "w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange/50 focus:border-bb-orange text-sm transition-colors";
+    "w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 focus:border-bb-blue text-sm transition-colors";
 
   if (loading) {
     return (
       <div className="min-h-screen bg-bb-black flex items-center justify-center">
-        <Loader2 className="animate-spin text-bb-orange" size={32} />
+        <Loader2 className="animate-spin text-bb-accent" size={32} />
       </div>
     );
   }
@@ -588,7 +588,7 @@ export default function DeliverableReviewPage() {
           <p className="text-bb-muted text-sm">{error}</p>
           <p className="text-bb-dim text-xs">
             If you think this is a mistake, please contact us at{" "}
-            <a href="mailto:chase@blokblokstudio.com" className="text-bb-orange hover:underline">
+            <a href="mailto:chase@blokblokstudio.com" className="text-bb-accent hover:underline">
               chase@blokblokstudio.com
             </a>
           </p>
@@ -639,18 +639,18 @@ export default function DeliverableReviewPage() {
             className={`border rounded-xl p-6 mb-8 text-center space-y-3 ${
               done === "approved"
                 ? "bg-green-500/5 border-green-500/30"
-                : "bg-bb-orange/5 border-bb-orange/30"
+                : "bg-bb-blue/5 border-bb-blue/30"
             }`}
           >
             <div
               className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto ${
-                done === "approved" ? "bg-green-500/10" : "bg-bb-orange/10"
+                done === "approved" ? "bg-green-500/10" : "bg-bb-blue/10"
               }`}
             >
               {done === "approved" ? (
                 <Check className="text-green-400" size={28} />
               ) : (
-                <Pencil className="text-bb-orange" size={24} />
+                <Pencil className="text-bb-accent" size={24} />
               )}
             </div>
             <h2 className="text-xl font-display font-semibold text-white">
@@ -680,12 +680,12 @@ export default function DeliverableReviewPage() {
               <span className="text-xs text-bb-muted">
                 {decidedCount} of {review.files.length} item{review.files.length !== 1 ? "s" : ""} marked
                 {changesCount > 0 && (
-                  <span className="text-bb-orange"> · {changesCount} for changes</span>
+                  <span className="text-bb-accent"> · {changesCount} for changes</span>
                 )}
               </span>
               <div className="flex-1 max-w-[140px] h-1.5 bg-bb-black rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-bb-orange rounded-full transition-all"
+                  className="h-full bg-bb-blue rounded-full transition-all"
                   style={{ width: `${hasFiles ? (decidedCount / review.files.length) * 100 : 0}%` }}
                 />
               </div>
@@ -705,7 +705,7 @@ export default function DeliverableReviewPage() {
                 <div key={key} className="space-y-2">
                   {showFolderHeadings && (
                     <div className="flex items-center gap-2 mb-2">
-                      <Folder size={14} className="text-bb-orange" />
+                      <Folder size={14} className="text-bb-accent" />
                       <h2 className="text-sm font-medium text-white">
                         {g.folder ?? "More files"}
                       </h2>
@@ -788,7 +788,7 @@ export default function DeliverableReviewPage() {
               <div key={file.id} className="space-y-2">
                 <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-bb-black border border-bb-border rounded-t-lg rounded-b-none border-b-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <FileText size={14} className="text-bb-orange shrink-0" />
+                    <FileText size={14} className="text-bb-accent shrink-0" />
                     <span className="text-sm text-white truncate">
                       {file.folder && <span className="text-bb-dim">{file.folder}/</span>}
                       {file.filename}
@@ -800,7 +800,7 @@ export default function DeliverableReviewPage() {
                     download={file.filename}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-bb-orange hover:text-bb-orange-light shrink-0 transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-bb-accent hover:text-bb-accent-light shrink-0 transition-colors"
                   >
                     <Download size={13} /> Download
                   </a>
@@ -831,9 +831,9 @@ export default function DeliverableReviewPage() {
                 <div key={file.id} className="flex items-center justify-between gap-3 px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg">
                   <div className="flex items-center gap-2 min-w-0">
                     {file.mimeType.startsWith("video/") ? (
-                      <Play size={14} className="text-bb-orange shrink-0" />
+                      <Play size={14} className="text-bb-accent shrink-0" />
                     ) : (
-                      <FileText size={14} className="text-bb-orange shrink-0" />
+                      <FileText size={14} className="text-bb-accent shrink-0" />
                     )}
                     <span className="text-sm text-white truncate">
                       {file.folder && <span className="text-bb-dim">{file.folder}/</span>}
@@ -847,7 +847,7 @@ export default function DeliverableReviewPage() {
                     download={file.filename}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-bb-orange hover:text-bb-orange-light shrink-0 transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-bb-accent hover:text-bb-accent-light shrink-0 transition-colors"
                   >
                     <Download size={13} /> Download
                   </a>
@@ -859,7 +859,7 @@ export default function DeliverableReviewPage() {
 
         {/* Submit review (per-item flow) */}
         {!done && hasFiles && (
-          <div className="bg-bb-surface border border-bb-orange/30 rounded-xl p-6 space-y-4 mb-8">
+          <div className="bg-bb-surface border border-bb-blue/30 rounded-xl p-6 space-y-4 mb-8">
             <h2 className="text-lg font-display font-semibold text-white">Finish your review</h2>
             <p className="text-sm text-bb-muted">
               {allDecided
@@ -902,7 +902,7 @@ export default function DeliverableReviewPage() {
               disabled={submitting || !allDecided}
               className={`w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base ${
                 changesCount > 0
-                  ? "bg-bb-orange hover:bg-bb-orange-light text-white"
+                  ? "bg-bb-blue hover:bg-bb-blue-light text-white"
                   : "bg-green-600 hover:bg-green-500 text-white"
               }`}
             >
@@ -920,7 +920,7 @@ export default function DeliverableReviewPage() {
 
         {/* Legacy one-shot actions for content-only deliverables */}
         {!done && !hasFiles && (
-          <div className="bg-bb-surface border border-bb-orange/30 rounded-xl p-6 space-y-4 mb-8">
+          <div className="bg-bb-surface border border-bb-blue/30 rounded-xl p-6 space-y-4 mb-8">
             <h2 className="text-lg font-display font-semibold text-white">Your review</h2>
 
             <div>
@@ -967,7 +967,7 @@ export default function DeliverableReviewPage() {
                 <button
                   onClick={() => setMode("revision")}
                   disabled={submitting}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-bb-black border border-bb-border hover:border-bb-orange text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-bb-black border border-bb-border hover:border-bb-blue text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
                 >
                   <Pencil size={16} />
                   Request changes
@@ -978,7 +978,7 @@ export default function DeliverableReviewPage() {
                 <button
                   onClick={() => respond("request_revision")}
                   disabled={submitting || !notes.trim()}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-bb-orange hover:bg-bb-orange-light text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-bb-blue hover:bg-bb-blue-light text-white font-semibold rounded-xl transition-colors disabled:opacity-50 text-sm sm:text-base"
                 >
                   {submitting ? <Loader2 className="animate-spin" size={18} /> : <Pencil size={16} />}
                   Send revision request
@@ -998,7 +998,7 @@ export default function DeliverableReviewPage() {
         {/* General conversation — questions and replies about the whole deliverable */}
         <div className="bg-bb-surface border border-bb-border rounded-xl p-5 space-y-3">
           <div className="flex items-center gap-2">
-            <MessageCircle size={14} className="text-bb-orange" />
+            <MessageCircle size={14} className="text-bb-accent" />
             <h2 className="text-sm font-medium text-white">Questions or comments?</h2>
           </div>
           {error && done && <p className="text-red-400 text-sm">{error}</p>}

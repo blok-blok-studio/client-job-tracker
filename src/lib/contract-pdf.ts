@@ -7,10 +7,9 @@ import path from "path";
 // panel, same integrity footer, so every signed document out of the studio looks
 // like it came from the same place.
 
-// Brand palette — matches blokblokstudio.com (Tailwind orange-500 accent on
-// black with the site's neutral gray scale)
-const ORANGE = rgb(0.976, 0.451, 0.086); // #f97316 (orange-500)
-const BLACK = rgb(0.039, 0.039, 0.039); // #0a0a0a (gray-950)
+// Brand palette: black, white, gray and Blue 1 from the Blok Blok brand sheet
+const BLUE = rgb(0.145, 0.38, 0.847); // #2561D8 brand Blue 1
+const BLACK = rgb(0, 0, 0); // #000000
 const DARK_TEXT = rgb(0.09, 0.09, 0.09); // #171717 (gray-900)
 const BODY_TEXT = rgb(0.149, 0.149, 0.149); // #262626 (gray-800)
 const MUTED = rgb(0.451, 0.451, 0.451); // #737373 (gray-500)
@@ -80,7 +79,7 @@ export async function renderContractPdf(input: ContractPdfInput): Promise<Uint8A
     page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     pageCount++;
     // Orange brand bar across the top of every page
-    page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 5, width: PAGE_WIDTH, height: 5, color: ORANGE });
+    page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 5, width: PAGE_WIDTH, height: 5, color: BLUE });
     if (pageCount > 1) {
       // Slim running header on continuation pages
       page.drawText("BLOK BLOK STUDIO", { x: MARGIN, y: PAGE_HEIGHT - 34, size: 7.5, font: fontBold, color: MUTED });
@@ -142,7 +141,7 @@ export async function renderContractPdf(input: ContractPdfInput): Promise<Uint8A
     const indent = 14;
     const lines = wrapText(text, FONT_SIZE, font, CONTENT_WIDTH - indent);
     ensureSpace(LINE_HEIGHT);
-    page.drawCircle({ x: MARGIN + 3, y: y + 3.2, size: 1.6, color: ORANGE });
+    page.drawCircle({ x: MARGIN + 3, y: y + 3.2, size: 1.6, color: BLUE });
     for (let i = 0; i < lines.length; i++) {
       if (i > 0) ensureSpace(LINE_HEIGHT);
       page.drawText(lines[i], { x: MARGIN + indent, y, size: FONT_SIZE, font, color: BODY_TEXT });
@@ -169,7 +168,7 @@ export async function renderContractPdf(input: ContractPdfInput): Promise<Uint8A
       y: bottomOfText,
       width: 3,
       height: topOfText - bottomOfText,
-      color: ORANGE,
+      color: BLUE,
     });
     y -= 6;
   }
@@ -206,7 +205,7 @@ export async function renderContractPdf(input: ContractPdfInput): Promise<Uint8A
   page.drawText(counterpartyLabel, { x: PAGE_WIDTH - MARGIN - counterpartyW, y: PAGE_HEIGHT - 65, size: 9.5, font, color: DARK_TEXT });
 
   // Rule closing the letterhead
-  page.drawLine({ start: { x: MARGIN, y: HEADER_BOTTOM }, end: { x: MARGIN + 46, y: HEADER_BOTTOM }, thickness: 2.5, color: ORANGE });
+  page.drawLine({ start: { x: MARGIN, y: HEADER_BOTTOM }, end: { x: MARGIN + 46, y: HEADER_BOTTOM }, thickness: 2.5, color: BLUE });
   page.drawLine({ start: { x: MARGIN + 46, y: HEADER_BOTTOM }, end: { x: PAGE_WIDTH - MARGIN, y: HEADER_BOTTOM }, thickness: 0.75, color: LIGHT_BORDER });
 
   y = HEADER_BOTTOM - 34;
@@ -240,7 +239,7 @@ export async function renderContractPdf(input: ContractPdfInput): Promise<Uint8A
         start: { x: (PAGE_WIDTH - 46) / 2, y },
         end: { x: (PAGE_WIDTH + 46) / 2, y },
         thickness: 2,
-        color: ORANGE,
+        color: BLUE,
       });
       y -= 24;
       continue;

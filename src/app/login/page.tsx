@@ -20,7 +20,7 @@ export default function LoginPage() {
   const [pin, setPin] = useState("");
 
   const inputClass =
-    "w-full px-4 py-3 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-orange focus:border-transparent font-mono";
+    "w-full px-4 py-3 bg-bb-surface border border-bb-border rounded-md text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue focus:border-transparent font-mono";
 
   async function handlePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -150,7 +150,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !email || !password}
-              className="w-full py-3 bg-bb-orange hover:bg-bb-orange-light text-white font-display font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-bb-blue hover:bg-bb-blue-light text-white font-display font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Authenticating..." : "Enter Command Center"}
             </button>
@@ -196,7 +196,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || !email}
-                className="w-full py-3 bg-bb-orange hover:bg-bb-orange-light text-white font-display font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-bb-blue hover:bg-bb-blue-light text-white font-display font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Sending..." : "Send reset link"}
               </button>
@@ -250,7 +250,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || (methods.totp && !code) || (methods.pin && !pin)}
-              className="w-full py-3 bg-bb-orange hover:bg-bb-orange-light text-white font-display font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-bb-blue hover:bg-bb-blue-light text-white font-display font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Verifying..." : "Verify & Enter"}
             </button>
