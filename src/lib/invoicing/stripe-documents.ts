@@ -8,14 +8,17 @@ import { parseCsv } from "./stripe-ledger-import";
  */
 const utc = (s: string) => (s ? new Date(`${s.replace(" ", "T")}${s.length <= 16 ? ":00" : ""}Z`) : null);
 
-async function clientFor(email: string): Promise<string | null> {
-  if (!email) return null;
+async function clientFor(email: string, name?: string): Promise<string | null> {
+  // A customer billed under another email still carries the client's exact name
+  if (!email) return name ? ((await prisma.client.findFirst({ where: { OR: [{ company: { equals: name, mode: "insensitive" } }, { name: { equals: name, mode: "insensitive" } }] }, select: { id: true } }))?.id ?? null) : null;
   const direct = await prisma.client.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, select: { id: true } });
   if (direct) return direct.id;
   const linked = await prisma.stripePayment.findMany({ where: { billingEmail: { equals: email, mode: "insensitive" }, clientId: { not: null } }, select: { clientId: true } });
   const counts = new Map<string, number>();
   for (const p of linked) if (p.clientId) counts.set(p.clientId, (counts.get(p.clientId) || 0) + 1);
-  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (top) return top;
+  return name ? clientFor("", name) : null;
 }
 
 export async function importInvoiceRegister(text: string): Promise<{ rows: number; created: number; updated: number; skippedDrafts: number; withoutClient: number }> {
@@ -27,8 +30,10 @@ export async function importInvoiceRegister(text: string): Promise<{ rows: numbe
     if (!r.id?.startsWith("in_")) continue;
     if (r.Status === "draft") { res.skippedDrafts++; continue; }
     const email = (r["Customer Email"] || "").toLowerCase();
-    if (!clients.has(email)) clients.set(email, await clientFor(email));
-    const clientId = clients.get(email) ?? null;
+    const name = r["Customer Name"] || "";
+    const key = `${email}|${name}`;
+    if (!clients.has(key)) clients.set(key, await clientFor(email, name));
+    const clientId = clients.get(key) ?? null;
     if (!clientId) res.withoutClient++;
     const issuedAt = utc(r["Finalized At (UTC)"] || r["Date (UTC)"])!;
     const paidAt = utc(r["Paid At (UTC)"]);
