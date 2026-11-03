@@ -139,6 +139,18 @@ async function syncCharges(res: SyncResult, since: number | null): Promise<void>
   const params: Stripe.ChargeListParams = { limit: 100, expand: ["data.balance_transaction"] };
   if (since) params.created = { gte: since };
   const years = new Set<number>();
+  // Settlement details are a bonus: if the key cannot read them, fall back to ECB rates and carry on
+  let probe = true;
+  try {
+    await deps.stripe().charges.list({ ...params, limit: 1 });
+  } catch (err) {
+    if (/balance/i.test(err instanceof Error ? err.message : "")) probe = false;
+    else throw err;
+  }
+  if (!probe) {
+    delete params.expand;
+    res.errors.push("Payments: this key cannot read balance details, so USD is converted at the ECB rate and Stripe fees are blank.");
+  }
   for await (const c of deps.stripe().charges.list(params)) {
     if (c.status !== "succeeded") continue;
     res.paymentsSeen++;
