@@ -15,7 +15,7 @@ import {
   recordPlanCommissionForInvoice,
   recordRefundClawback,
 } from "@/lib/commissions";
-import { recordLivePayment, recordLiveRefund, recordLiveInvoiceDocument } from "@/lib/invoicing/stripe-live";
+import { recordLivePayment, recordLiveRefund, recordLiveInvoiceDocument, recordLiveDispute } from "@/lib/invoicing/stripe-live";
 
 // Recalculate a client's monthly retainer from their LIVE active Stripe
 // subscriptions (yearly plans normalized to /12). Returns the new value.
@@ -579,6 +579,24 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        break;
+      }
+
+      case "charge.dispute.created":
+      case "charge.dispute.updated":
+      case "charge.dispute.closed":
+      case "charge.dispute.funds_withdrawn":
+      case "charge.dispute.funds_reinstated": {
+        const dispute = event.data.object as Stripe.Dispute;
+        const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
+        if (chargeId) {
+          await recordLiveDispute({
+            chargeId,
+            status: dispute.status,
+            amountCents: dispute.amount,
+            balanceTransactions: (dispute.balance_transactions || []) as unknown as Parameters<typeof recordLiveDispute>[0]["balanceTransactions"],
+          }).catch((err) => console.error("[Webhook] dispute record failed:", err));
+        }
         break;
       }
 

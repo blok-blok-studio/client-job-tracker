@@ -118,3 +118,40 @@ export async function recordLiveInvoiceDocument(inv: {
     console.error("[stripe-live] invoice PDF fetch failed:", err);
   }
 }
+
+/**
+ * Disputes. Opened: the payment is flagged. Lost: the money is gone, so it stops
+ * counting as income. Won: the flag is cleared. The dispute's own balance lines
+ * (the withdrawal and Stripe's dispute fee) go into the ledger so the fee shows
+ * under money out.
+ */
+export async function recordLiveDispute(d: {
+  chargeId: string;
+  status: string;
+  amountCents: number;
+  balanceTransactions: Array<{ id: string; amount: number; fee: number; net: number; currency: string; created: number; available_on?: number | null; description?: string | null }>;
+}): Promise<void> {
+  const row = await prisma.stripePayment.findFirst({ where: { OR: [{ sourceId: d.chargeId }, { stripeChargeId: d.chargeId }] } });
+  if (row) {
+    const amount = Number(row.amount);
+    if (d.status === "lost") {
+      await prisma.stripePayment.update({ where: { id: row.id }, data: { disputed: true, refunded: amount, eurNet: 0 } });
+    } else if (d.status === "won") {
+      await prisma.stripePayment.update({ where: { id: row.id }, data: { disputed: false } });
+    } else {
+      await prisma.stripePayment.update({ where: { id: row.id }, data: { disputed: true } });
+    }
+  }
+  for (const bt of d.balanceTransactions || []) {
+    const created = new Date(bt.created * 1000);
+    await prisma.stripeLedgerEntry.upsert({
+      where: { txnId: bt.id },
+      create: {
+        txnId: bt.id, type: "adjustment", sourceId: d.chargeId, amount: bt.amount / 100, fee: bt.fee / 100, net: bt.net / 100,
+        currency: bt.currency.toUpperCase(), createdAt: created, availableOn: bt.available_on ? new Date(bt.available_on * 1000) : null,
+        description: bt.description || "Dispute", taxYear: created.getUTCFullYear(),
+      },
+      update: {},
+    });
+  }
+}
