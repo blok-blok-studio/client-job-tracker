@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOwner } from "@/app/api/studio-invoices/_shared";
 import { syncStripeLedger } from "@/lib/invoicing/stripe-ledger";
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 // POST — pull every Stripe customer and payment into the command center.
 // Read-only at Stripe, safe to re-run, owner only.

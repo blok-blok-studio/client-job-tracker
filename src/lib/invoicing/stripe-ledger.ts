@@ -286,17 +286,22 @@ async function syncSubscriptions(res: SyncResult, actor: string): Promise<void> 
 /** mode full = everything since the account began; recent = the last 120 days, enough to catch late refunds. */
 export async function syncStripeLedger(mode: "full" | "recent", actor: string): Promise<SyncResult> {
   const res: SyncResult = { customersSeen: 0, clientsCreated: 0, clientsLinked: 0, clientsEnriched: 0, invoicesImported: 0, paymentsSeen: 0, paymentsNew: 0, paymentsUnmatched: 0, subscriptionsSeen: 0, plansDrafted: 0, years: [], errors: [], syncedAt: new Date().toISOString(), mode };
-  if (mode === "full") await syncCustomers(res);
-  await syncCharges(res, mode === "full" ? null : Math.floor(Date.now() / 1000) - 120 * 86400);
-  // Never let a subscription problem (a key without that permission, say) cost the payment history
-  try {
-    await syncSubscriptions(res, actor);
-  } catch (err) {
-    res.errors.push(`Subscriptions: ${err instanceof Error ? err.message : "failed"}`);
-  }
+  // Each stage stands alone: what succeeds is kept, and what failed is written down
+  let stagesOk = true;
+  const stage = async (name: string, run: () => Promise<void>) => {
+    try {
+      await run();
+    } catch (err) {
+      stagesOk = false;
+      res.errors.unshift(`${name}: ${err instanceof Error ? err.message : "failed"}`);
+    }
+  };
+  if (mode === "full") await stage("Customers", () => syncCustomers(res));
+  await stage("Payments", () => syncCharges(res, mode === "full" ? null : Math.floor(Date.now() / 1000) - 120 * 86400));
+  await stage("Subscriptions", () => syncSubscriptions(res, actor));
   const { setSetting } = await import("@/lib/lifecycle/settings");
   // Only a finished full run makes the ledger the source of truth for year totals
-  if (mode === "full") await setSetting("stripe_ledger_full_at", res.syncedAt, actor);
+  if (mode === "full" && stagesOk) await setSetting("stripe_ledger_full_at", res.syncedAt, actor);
   await setSetting("stripe_ledger_last_sync", { ...res, errors: res.errors.slice(0, 20) }, actor);
   await prisma.activityLog.create({ data: { actor, action: "stripe_ledger_synced", details: `Stripe ${mode} sync: ${res.paymentsSeen} payments (${res.paymentsNew} new), ${res.customersSeen} customers, ${res.clientsCreated} clients created, ${res.clientsEnriched} filled in` } }).catch(() => {});
   return res;
