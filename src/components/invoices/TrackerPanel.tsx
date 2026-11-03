@@ -9,6 +9,8 @@ import { inputCls, chipCls, btnPrimary, btnGhost, readJsonSafe, money, shortDate
 
 type Group = "none" | "client" | "month" | "vat";
 interface LastSync { syncedAt: string; rows?: number; unmatched?: number }
+interface Payer { email: string; count: number; years: number[]; totals: Record<string, number>; test: boolean }
+interface ClientOption { id: string; name: string; company?: string | null }
 
 const TONE: Record<string, "green" | "red" | "yellow" | "gray" | "blue"> = { PAID: "green", OPEN: "blue", OVERDUE: "red", VOID: "gray", REFUNDED: "red", "PARTLY REFUNDED": "yellow", DISPUTED: "red", ISSUED: "blue", SENT: "blue" };
 const eur = (n: number) => money(n, "EUR");
@@ -33,6 +35,10 @@ export default function TrackerPanel() {
   const [syncing, setSyncing] = useState(false);
   const [paste, setPaste] = useState("");
   const [importResult, setImportResult] = useState<string | null>(null);
+  const [payers, setPayers] = useState<Payer[]>([]);
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [pick, setPick] = useState<Record<string, string>>({});
+  const [linking, setLinking] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const j = await readJsonSafe(await fetch("/api/studio-invoices/tracker"));
@@ -43,6 +49,10 @@ export default function TrackerPanel() {
     setCosts(d.costs);
     setLastSync(d.lastSync);
     setUnmatched(d.unmatched);
+    if (d.unmatched > 0) {
+      const p = await readJsonSafe(await fetch("/api/stripe/import/link"));
+      if (p.success) setPayers(p.data as Payer[]);
+    } else setPayers([]);
     const thisYear = new Date().getUTCFullYear();
     setYear((y) => y ?? (d.years.some((v) => v.year === thisYear) ? thisYear : (d.years[0]?.year ?? thisYear)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -50,6 +60,34 @@ export default function TrackerPanel() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!payers.some((p) => p.email)) return;
+    Promise.all(["ALL", "ARCHIVED"].map((t) => fetch(`/api/clients?type=${t}`).then((r) => r.json()).catch(() => null)))
+      .then((res) => {
+        const seen = new Set<string>();
+        const list: ClientOption[] = [];
+        for (const d of res) for (const c of (d?.data || []) as ClientOption[]) if (!seen.has(c.id)) { seen.add(c.id); list.push({ id: c.id, name: c.name, company: c.company }); }
+        list.sort((a, b) => (a.company || a.name).localeCompare(b.company || b.name));
+        setClients(list);
+      });
+  }, [payers]);
+
+  async function link(email: string) {
+    const clientId = pick[email];
+    if (!clientId) return;
+    setLinking(email);
+    try {
+      const j = await readJsonSafe(await fetch("/api/stripe/import/link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, clientId }) }));
+      if (!j.success) throw new Error(j.error || "Link failed");
+      toast(`${(j.data as { linked: number }).linked} payment(s) linked`, "success");
+      await load();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Link failed", "error");
+    } finally {
+      setLinking(null);
+    }
+  }
 
   async function importHistory() {
     setSyncing(true);
@@ -135,6 +173,28 @@ export default function TrackerPanel() {
           {importResult && <p className="text-xs text-bb-muted">{importResult}</p>}
           {unmatched > 0 && <p className="text-xs text-amber-300 flex gap-1.5"><AlertTriangle size={13} className="mt-0.5 shrink-0" /> {unmatched} payment(s) have no client. They still count in the year totals.</p>}
         </div>
+        {payers.length > 0 && (
+          <div className="pt-2 space-y-2">
+            {payers.map((p) => (
+              <div key={p.email || "none"} className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-white min-w-[220px]">{p.email || "No email on the payment"}</span>
+                <span className="text-bb-dim">
+                  {p.count} payment(s), {Object.entries(p.totals).map(([c, v]) => money(v, c)).join(" + ")}, {p.years.sort().join(", ")}
+                  {p.test ? ", test charges" : ""}
+                </span>
+                {p.email && (
+                  <>
+                    <select aria-label={`Client for ${p.email}`} className={`${inputCls} !w-auto py-1.5`} value={pick[p.email] || ""} onChange={(e) => setPick((s) => ({ ...s, [p.email]: e.target.value }))}>
+                      <option value="">Pick a client…</option>
+                      {clients.map((c) => <option key={c.id} value={c.id}>{c.company ? `${c.company} (${c.name})` : c.name}</option>)}
+                    </select>
+                    <button className={`${btnGhost} py-1.5`} disabled={!pick[p.email] || linking === p.email} onClick={() => link(p.email)}>{linking === p.email ? "Linking…" : "Link"}</button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {years.length > 0 && (

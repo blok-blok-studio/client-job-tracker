@@ -55,7 +55,6 @@ export async function importStripeHistory(text: string, actor: string): Promise<
     const rate = rates.get(rateKey)!;
     if (r.email && !clients.has(r.email)) clients.set(r.email, (await prisma.client.findFirst({ where: { email: { equals: r.email, mode: "insensitive" } }, select: { id: true } }))?.id ?? null);
     const clientId = r.email ? (clients.get(r.email) ?? null) : null;
-    if (!clientId) res.unmatched++;
     const lost = r.status === "refunded" || r.status === "disputed";
     const eurGross = rate != null ? round2(r.amount * rate) : null;
     const data = {
@@ -72,12 +71,15 @@ export async function importStripeHistory(text: string, actor: string): Promise<
       disputed: r.status === "disputed",
       syncedAt: new Date(),
     };
-    const existing = await prisma.stripePayment.findUnique({ where: { stripeChargeId }, select: { id: true } });
+    const existing = await prisma.stripePayment.findUnique({ where: { stripeChargeId }, select: { id: true, clientId: true } });
     if (existing) {
-      await prisma.stripePayment.update({ where: { id: existing.id }, data });
+      // A payment linked by hand keeps its client when the same history is pasted again
+      await prisma.stripePayment.update({ where: { id: existing.id }, data: { ...data, clientId: data.clientId ?? existing.clientId } });
+      if (!(data.clientId ?? existing.clientId)) res.unmatched++;
       res.updated++;
     } else {
       await prisma.stripePayment.create({ data: { stripeChargeId, ...data } });
+      if (!data.clientId) res.unmatched++;
       res.created++;
     }
     if (!lost) {
