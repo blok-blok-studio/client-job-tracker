@@ -62,7 +62,7 @@ export default function TrackerPanel() {
   }, [load]);
 
   useEffect(() => {
-    if (!payers.some((p) => p.email)) return;
+    if (!payers.some((p) => p.email || p.test)) return;
     Promise.all(["ALL", "ARCHIVED"].map((t) => fetch(`/api/clients?type=${t}`).then((r) => r.json()).catch(() => null)))
       .then((res) => {
         const seen = new Set<string>();
@@ -182,9 +182,9 @@ export default function TrackerPanel() {
                   {p.count} payment(s), {Object.entries(p.totals).map(([c, v]) => money(v, c)).join(" + ")}, {p.years.sort().join(", ")}
                   {p.test ? ", test charges" : ""}
                 </span>
-                {p.email && (
+                {(p.email || p.test) && (
                   <>
-                    <select aria-label={`Client for ${p.email}`} className={`${inputCls} !w-auto py-1.5`} value={pick[p.email] || ""} onChange={(e) => setPick((s) => ({ ...s, [p.email]: e.target.value }))}>
+                    <select aria-label={`Client for ${p.email || "payments without email"}`} className={`${inputCls} !w-auto py-1.5`} value={pick[p.email] || ""} onChange={(e) => setPick((s) => ({ ...s, [p.email]: e.target.value }))}>
                       <option value="">Pick a client…</option>
                       {clients.map((c) => <option key={c.id} value={c.id}>{c.company ? `${c.company} (${c.name})` : c.name}</option>)}
                     </select>

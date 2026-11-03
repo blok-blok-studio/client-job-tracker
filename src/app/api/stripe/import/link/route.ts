@@ -28,7 +28,8 @@ export async function GET() {
   }
 }
 
-const schema = z.object({ email: z.string().email().max(320), clientId: z.string().min(1).max(64) });
+// email "" means the payments that carry no email, which are only ever test charges
+const schema = z.object({ email: z.union([z.string().email().max(320), z.literal("")]), clientId: z.string().min(1).max(64) });
 
 // POST { email, clientId } — link every unlinked payment from that payer email to the client
 export async function POST(request: NextRequest) {
@@ -38,8 +39,11 @@ export async function POST(request: NextRequest) {
     const { email, clientId } = schema.parse(await request.json());
     const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, name: true } });
     if (!client) return NextResponse.json({ success: false, error: "Client not found" }, { status: 404 });
-    const res = await prisma.stripePayment.updateMany({ where: { clientId: null, billingEmail: { equals: email, mode: "insensitive" } }, data: { clientId } });
-    if (res.count) await logInvoiceActivity({ clientId, actor: session.name, action: "stripe_history_linked", details: `${res.count} imported Stripe payment(s) from ${email} linked to ${client.name}` });
+    const where = email
+      ? { clientId: null, billingEmail: { equals: email, mode: "insensitive" as const } }
+      : { clientId: null, description: "Test charge", OR: [{ billingEmail: null }, { billingEmail: "" }] };
+    const res = await prisma.stripePayment.updateMany({ where, data: { clientId } });
+    if (res.count) await logInvoiceActivity({ clientId, actor: session.name, action: "stripe_history_linked", details: `${res.count} imported Stripe payment(s) from ${email || "no email (test charges)"} linked to ${client.name}` });
     return NextResponse.json({ success: true, data: { linked: res.count } });
   } catch (err) {
     return handleError(err, "Link failed");
