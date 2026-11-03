@@ -19,10 +19,6 @@
     {
       "path": "/api/cron/render-media",
       "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/stripe-ledger",
-      "schedule": "23 */6 * * *"
     }
   ],
   "functions": {
@@ -85,12 +81,6 @@
     },
     "src/app/api/partners/[id]/pay/route.ts": {
       "maxDuration": 120
-    },
-    "src/app/api/cron/stripe-ledger/route.ts": {
-      "maxDuration": 800
-    },
-    "src/app/api/stripe/sync/route.ts": {
-      "maxDuration": 800
     }
   }
 }

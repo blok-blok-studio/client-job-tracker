@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, Download, FileArchive, Search, AlertTriangle } from "lucide-react";
+import { Download, FileArchive, Search, AlertTriangle } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
 import Badge from "@/components/shared/Badge";
 import type { CostRow, TrackerRow, YearSummary } from "@/lib/invoicing/tracker";
 import { inputCls, chipCls, btnPrimary, btnGhost, readJsonSafe, money, shortDate } from "./shared";
 
 type Group = "none" | "client" | "month" | "vat";
-interface LastSync { syncedAt: string; mode: string; paymentsSeen: number; customersSeen: number; clientsEnriched: number; errors: string[] }
+interface LastSync { syncedAt: string; rows?: number; unmatched?: number }
 
 const TONE: Record<string, "green" | "red" | "yellow" | "gray" | "blue"> = { PAID: "green", OPEN: "blue", OVERDUE: "red", VOID: "gray", REFUNDED: "red", "PARTLY REFUNDED": "yellow", DISPUTED: "red", ISSUED: "blue", SENT: "blue" };
 const eur = (n: number) => money(n, "EUR");
@@ -31,6 +31,8 @@ export default function TrackerPanel() {
   const [status, setStatus] = useState("all");
   const [group, setGroup] = useState<Group>("none");
   const [syncing, setSyncing] = useState(false);
+  const [paste, setPaste] = useState("");
+  const [importResult, setImportResult] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const j = await readJsonSafe(await fetch("/api/studio-invoices/tracker"));
@@ -49,16 +51,17 @@ export default function TrackerPanel() {
     load();
   }, [load]);
 
-  async function sync() {
+  async function importHistory() {
     setSyncing(true);
     try {
-      const j = await readJsonSafe(await fetch("/api/stripe/sync", { method: "POST" }));
-      if (!j.success) throw new Error(j.error || "Sync failed");
-      const d = j.data as { paymentsSeen: number; customersSeen: number; clientsEnriched: number; plansDrafted: number; errors: string[] };
-      toast(`Synced ${d.paymentsSeen} payments and ${d.customersSeen} customers, ${d.clientsEnriched} clients filled in, ${d.plansDrafted} plans drafted${d.errors.length ? `, ${d.errors.length} problems` : ""}`, d.errors.length ? "info" : "success");
+      const j = await readJsonSafe(await fetch("/api/stripe/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: paste }) }));
+      if (!j.success) throw new Error(j.error || "Import failed");
+      const d = j.data as { rows: number; created: number; unmatched: number; skipped: string[] };
+      setImportResult(`${d.rows} payments read, ${d.created} new, ${d.unmatched} without a client, ${d.skipped.length} lines skipped.${d.skipped[0] ? ` First skipped: ${d.skipped[0]}` : ""}`);
+      setPaste("");
       await load();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Sync failed", "error");
+      setImportResult(err instanceof Error ? err.message : "Import failed");
     } finally {
       setSyncing(false);
     }
@@ -121,16 +124,17 @@ export default function TrackerPanel() {
 
   return (
     <div className="space-y-5">
-      <div className="bg-bb-surface border border-bb-border rounded-xl p-4 flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-[220px]">
-          <p className="text-sm text-white font-medium">Stripe history</p>
-          <p className="text-xs text-bb-dim">
-            {lastSync ? `Last synced ${new Date(lastSync.syncedAt).toLocaleString("en-GB")} (${lastSync.mode}). New payments and refunds update every 6 hours.` : "Not synced yet. Press sync to bring in every customer, payment and subscription. It only reads from Stripe, and it runs by itself within 6 hours."}
-          </p>
+      <div className="bg-bb-surface border border-bb-border rounded-xl p-4 space-y-2">
+        <p className="text-sm text-white font-medium">Stripe history</p>
+        <p className="text-xs text-bb-dim">
+          {lastSync ? `Imported ${new Date(lastSync.syncedAt).toLocaleString("en-GB")}${lastSync.rows ? `, ${lastSync.rows} payments` : ""}. Stripe is not connected.` : "One-time import. Paste one payment per line: date,amount,currency,email,description,status. Stripe is not connected."}
+        </p>
+        <textarea aria-label="Stripe history" className={`${inputCls} font-mono text-xs`} rows={3} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="2026-11-01,200.00,USD,client@example.com,Subscription update" />
+        <div className="flex items-center gap-3">
+          <button className={btnPrimary} disabled={syncing || paste.trim().length < 10} onClick={importHistory}>{syncing ? "Importing…" : "Import payments"}</button>
+          {importResult && <p className="text-xs text-bb-muted">{importResult}</p>}
+          {unmatched > 0 && <p className="text-xs text-amber-300 flex gap-1.5"><AlertTriangle size={13} className="mt-0.5 shrink-0" /> {unmatched} payment(s) have no client. They still count in the year totals.</p>}
         </div>
-        <button className={`${btnPrimary} inline-flex items-center gap-1.5`} disabled={syncing} onClick={sync}><RefreshCw size={14} className={syncing ? "animate-spin" : ""} /> {syncing ? "Syncing, this can take a few minutes…" : "Sync everything from Stripe"}</button>
-        {!!lastSync?.errors?.length && <p className="w-full text-xs text-amber-300 flex gap-1.5"><AlertTriangle size={13} className="mt-0.5 shrink-0" /> {lastSync.errors.length} item(s) failed. First: {lastSync.errors[0]}</p>}
-        {unmatched > 0 && <p className="w-full text-xs text-amber-300 flex gap-1.5"><AlertTriangle size={13} className="mt-0.5 shrink-0" /> {unmatched} Stripe payment(s) have no client. They still count in the year totals.</p>}
       </div>
 
       {years.length > 0 && (

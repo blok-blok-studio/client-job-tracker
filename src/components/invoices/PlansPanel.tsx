@@ -135,7 +135,7 @@ export default function PlansPanel({ onInvoiceIssued }: { onInvoiceIssued: () =>
                 </p>
                 {p.stripeSubscriptionId && p.status === "PAUSED" && (
                   <p className={`text-xs ${["canceled", "incomplete_expired"].includes(p.stripeSubStatus || "") ? "text-green-400" : "text-amber-300"}`}>
-                    {["canceled", "incomplete_expired"].includes(p.stripeSubStatus || "") ? "Cancelled in Stripe. Check it, then resume to start billing." : `Draft. Still ${p.stripeSubStatus} in Stripe, so it cannot start. Cancel it there, then sync.`}
+                    {["canceled", "incomplete_expired"].includes(p.stripeSubStatus || "") ? "Cancelled in Stripe. Check it, then resume to start billing." : `Draft. Still ${p.stripeSubStatus} in Stripe, so it cannot start. Cancel it there first.`}
                   </p>
                 )}
                 <p className="text-xs text-bb-dim">
@@ -145,6 +145,9 @@ export default function PlansPanel({ onInvoiceIssued }: { onInvoiceIssued: () =>
               <div className="flex items-center gap-1.5">
                 {p.status !== "ENDED" && (
                   <button className={`${btnGhost} inline-flex items-center gap-1 py-1.5`} disabled={busy} onClick={() => setConfirmRun(p)} title="Issue this period's invoice now"><Play size={12} /> Bill now</button>
+                )}
+                {p.stripeSubscriptionId && p.status === "PAUSED" && !["canceled", "incomplete_expired"].includes(p.stripeSubStatus || "") && (
+                  <button className={`${btnGhost} py-1.5`} disabled={busy} onClick={() => patch(p, { stripeCancelled: true }, "Unlocked. You can resume this plan now.")}>I cancelled this in Stripe</button>
                 )}
                 {p.status === "ACTIVE" && <button className={`${btnGhost} py-1.5`} disabled={busy} onClick={() => patch(p, { status: "PAUSED" }, "Plan paused")} title="Pause"><Pause size={12} /></button>}
                 {p.status === "PAUSED" && <button className={`${btnGhost} py-1.5`} disabled={busy} onClick={() => patch(p, { status: "ACTIVE" }, "Plan resumed")} title="Resume"><Play size={12} /></button>}

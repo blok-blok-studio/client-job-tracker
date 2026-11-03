@@ -67,7 +67,7 @@ const STRIPE_LIVE = ["active", "trialing", "past_due", "unpaid", "paused", "inco
 /** A plan drafted from a subscription stays locked while Stripe could still charge that client. */
 export function assertNotLiveInStripe(plan: { stripeSubscriptionId: string | null; stripeSubStatus: string | null }) {
   if (plan.stripeSubscriptionId && STRIPE_LIVE.includes(plan.stripeSubStatus || "")) {
-    throw new InvoiceError("This subscription is still live in Stripe, so starting this plan would bill the client twice. Cancel it in Stripe, then run the sync.", 409);
+    throw new InvoiceError("This subscription is still live in Stripe, so starting this plan would bill the client twice. Cancel it in Stripe, then confirm that on this plan.", 409);
   }
 }
 
@@ -101,9 +101,12 @@ export async function createPlan(input: PlanInput, actor: string): Promise<Recur
   return plan;
 }
 
-export async function updatePlan(id: string, input: Partial<PlanInput> & { status?: "ACTIVE" | "PAUSED" | "ENDED" }, actor: string): Promise<RecurringPlan> {
-  const existing = await prisma.recurringPlan.findUnique({ where: { id } });
-  if (!existing) throw new InvoiceError("Plan not found", 404);
+export async function updatePlan(id: string, input: Partial<PlanInput> & { status?: "ACTIVE" | "PAUSED" | "ENDED"; stripeCancelled?: boolean }, actor: string): Promise<RecurringPlan> {
+  const found = await prisma.recurringPlan.findUnique({ where: { id } });
+  if (!found) throw new InvoiceError("Plan not found", 404);
+  // Stripe is no longer connected, so the owner confirms the cancellation
+  const existing = input.stripeCancelled ? await prisma.recurringPlan.update({ where: { id }, data: { stripeSubStatus: "canceled" } }) : found;
+  if (input.stripeCancelled) await logInvoiceActivity({ clientId: found.clientId, actor, action: "invoice_plan_updated", details: `Stripe subscription for "${found.name}" confirmed cancelled` });
   if (input.status === "ACTIVE") assertNotLiveInStripe(existing);
   const dayOfMonth = input.dayOfMonth ?? existing.dayOfMonth;
   const interval = input.interval ?? existing.interval;

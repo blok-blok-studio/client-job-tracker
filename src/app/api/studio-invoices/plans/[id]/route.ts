@@ -6,7 +6,7 @@ import { planSchema, updatePlan } from "@/lib/invoicing/recurring";
 
 export const dynamic = "force-dynamic";
 
-const patchSchema = planSchema.partial().extend({ status: z.enum(["ACTIVE", "PAUSED", "ENDED"]).optional() });
+const patchSchema = planSchema.partial().extend({ status: z.enum(["ACTIVE", "PAUSED", "ENDED"]).optional(), stripeCancelled: z.boolean().optional() });
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { denied } = await requireOwner();
