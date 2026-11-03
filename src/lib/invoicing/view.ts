@@ -241,6 +241,8 @@ export function clientToBillTo(client: {
   companyCountry: string | null;
   taxId: string | null;
   country: string | null;
+  phone?: string | null;
+  timezone?: string | null;
 }): BillTo {
   const lines: string[] = [];
   if (client.companyAddress) lines.push(...client.companyAddress.split(/\n+/).map((l) => l.trim()).filter(Boolean));
@@ -260,6 +262,6 @@ export function clientToBillTo(client: {
     addressLines: lines,
     email: client.email,
     vatId: client.taxId,
-    country: client.country,
+    country: country,
   };
 }

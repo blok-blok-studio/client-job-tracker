@@ -4,6 +4,7 @@ import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import type { Prisma, StudioInvoice } from "@prisma/client";
 import { loadInvoiceSettings, missingBankFields, type InvoiceSettings } from "./settings";
+import { detectCountry } from "./country-detect";
 import { decideVat, defaultsForTemplate, guessCountry, templateForCountry, type InvoiceTemplate, type VatOverride } from "./vat";
 import { addDays, computeTotals, parseDateOnly } from "./money";
 import { clientToBillTo, snapshotSeller, invoiceContentHash } from "./view";
@@ -69,6 +70,8 @@ export const CLIENT_BILLING_SELECT = {
   companyCountry: true,
   taxId: true,
   country: true,
+  phone: true,
+  timezone: true,
 } as const;
 
 type BillingClient = Prisma.ClientGetPayload<{ select: typeof CLIENT_BILLING_SELECT }>;
@@ -111,7 +114,8 @@ export async function prepareForClient(clientId: string) {
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: CLIENT_BILLING_SELECT });
   if (!client) throw new InvoiceError("Client not found", 404);
   const settings = await loadInvoiceSettings();
-  const country = guessCountry(client);
+  const detected = detectCountry(client);
+  const country = detected?.country ?? null;
   const template = templateForCountry(country);
   const base = defaultsForTemplate(template);
   // Bill in the client's own currency when we have a receiving account for it
@@ -134,6 +138,7 @@ export async function prepareForClient(clientId: string) {
   return {
     client: { id: client.id, name: client.name, company: client.company, email: client.email },
     country,
+    countrySource: detected ? (detected.onFile ? null : detected.source) : null,
     template,
     ...defaults,
     billTo,

@@ -21,6 +21,7 @@ interface ClientOption {
 interface Prepared {
   client: { id: string; name: string; company: string | null; email: string | null };
   country: string | null;
+  countrySource?: string | null;
   template: InvoiceTemplate;
   language: InvoiceLanguage;
   currency: InvoiceCurrency;
@@ -268,7 +269,7 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
             {/* Template / language / currency */}
             <div className="grid sm:grid-cols-3 gap-3">
               <div>
-                <label className={labelCls}>Template {prep.country ? <span className="text-bb-dim">(client country {prep.country})</span> : <span className="text-amber-400">(no country on file)</span>}</label>
+                <label className={labelCls}>Template {prep.country ? <span className="text-bb-dim">({prep.countrySource ? `detected ${prep.country} from ${prep.countrySource}` : `client country ${prep.country}`})</span> : <span className="text-amber-400">(could not tell the country, pick one)</span>}</label>
                 <div className="flex gap-1.5">
                   {(["DE", "US", "EU"] as const).map((t) => (
                     <button key={t} type="button" className={chipCls(template === t)} onClick={() => pickTemplate(t)}>

@@ -1,3 +1,4 @@
+import { detectCountry, type CountryClues } from "./country-detect";
 import type { InvoiceSettings } from "./settings";
 
 /**
@@ -20,31 +21,9 @@ export const COUNTRY_CURRENCY: Record<string, string> = {
   PH: "PHP", JP: "JPY", SG: "SGD", HK: "HKD", MX: "MXN", BR: "BRL", ZA: "ZAR", IN: "INR", TR: "TRY", IL: "ILS", KR: "KRW", CN: "CNY", AE: "AED",
 };
 
-const COUNTRY_WORDS: Array<[RegExp, string]> = [
-  [/\b(deutschland|germany|berlin|münchen|munich|hamburg|köln|cologne|frankfurt)\b/i, "DE"],
-  [/\b(usa|u\.s\.a\.|united states|america|texas|california|new york|florida|dallas|austin|houston)\b/i, "US"],
-  [/\b(österreich|austria)\b/i, "AT"],
-  [/\b(schweiz|switzerland)\b/i, "CH"],
-  [/\b(nederland|netherlands|holland)\b/i, "NL"],
-  [/\b(france|frankreich)\b/i, "FR"],
-  [/\b(españa|spain|spanien)\b/i, "ES"],
-  [/\b(italia|italy|italien)\b/i, "IT"],
-  [/\b(united kingdom|england|uk|great britain)\b/i, "GB"],
-  [/\b(canada|kanada)\b/i, "CA"],
-  [/\b(china|prc)\b/i, "CN"],
-  [/\b(philippines|pilipinas|manila|cebu)\b/i, "PH"],
-  [/\b(australia)\b/i, "AU"],
-];
-
-/** Best guess at an ISO country code from the client record. */
-export function guessCountry(client: { country?: string | null; companyCountry?: string | null; companyState?: string | null }): string | null {
-  if (client.country && /^[A-Z]{2}$/.test(client.country)) return client.country;
-  const text = [client.companyCountry, client.companyState].filter(Boolean).join(" ");
-  if (!text) return null;
-  const upper = text.trim().toUpperCase();
-  if (/^[A-Z]{2}$/.test(upper)) return upper;
-  for (const [re, code] of COUNTRY_WORDS) if (re.test(text)) return code;
-  return null;
+/** Best guess at an ISO country code from the client record (see country-detect.ts for the clues used). */
+export function guessCountry(client: CountryClues): string | null {
+  return detectCountry(client)?.country ?? null;
 }
 
 /** 1. German client → DE. 2. EU client outside Germany → EU. 3. Everyone else → US. */
