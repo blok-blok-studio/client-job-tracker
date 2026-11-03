@@ -89,6 +89,22 @@ export default function TrackerPanel() {
     }
   }
 
+  async function importLedger(file: File) {
+    setSyncing(true);
+    try {
+      const text = await file.text();
+      const j = await readJsonSafe(await fetch("/api/stripe/ledger", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }));
+      if (!j.success) throw new Error(j.error || "Import failed");
+      const d = j.data as { lines: number; created: number; paymentsMatched: number; paymentsAdded: number };
+      setImportResult(`Balance history: ${d.lines} lines, ${d.created} new. ${d.paymentsMatched} payments got their fee, ${d.paymentsAdded} payments added.`);
+      await load();
+    } catch (err) {
+      setImportResult(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function importHistory() {
     setSyncing(true);
     try {
@@ -170,6 +186,10 @@ export default function TrackerPanel() {
         <textarea aria-label="Stripe history" className={`${inputCls} font-mono text-xs`} rows={3} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="2026-11-01,200.00,USD,client@example.com,Subscription update" />
         <div className="flex items-center gap-3">
           <button className={btnPrimary} disabled={syncing || paste.trim().length < 10} onClick={importHistory}>{syncing ? "Importing…" : "Import payments"}</button>
+          <label className={`${btnGhost} cursor-pointer ${syncing ? "opacity-40 pointer-events-none" : ""}`} title="Stripe: Transactions, All activity, Export, all columns, UTC">
+            Import balance history (CSV)
+            <input aria-label="Stripe balance history CSV" type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importLedger(f); }} />
+          </label>
           {importResult && <p className="text-xs text-bb-muted">{importResult}</p>}
           {unmatched > 0 && <p className="text-xs text-amber-300 flex gap-1.5"><AlertTriangle size={13} className="mt-0.5 shrink-0" /> {unmatched} payment(s) have no client. They still count in the year totals.</p>}
         </div>
@@ -255,7 +275,7 @@ export default function TrackerPanel() {
               {out.map((c) => (
                 <tr key={c.id} className="border-t border-bb-border/60 first:border-0">
                   <td className="px-3 py-2 text-bb-muted whitespace-nowrap">{shortDate(c.date)}</td>
-                  <td className="px-3 py-2 text-white">{c.payee}<p className="text-xs text-bb-dim">{c.kind === "partner" ? "Partner commission" : "Contractor invoice"} {c.reference}</p></td>
+                  <td className="px-3 py-2 text-white">{c.payee}<p className="text-xs text-bb-dim">{c.kind === "partner" ? "Partner commission" : c.kind === "stripe" ? "Stripe fees" : "Contractor invoice"} {c.reference}</p></td>
                   <td className="px-3 py-2 text-right text-white whitespace-nowrap">{money(c.amount, c.currency)}</td>
                 </tr>
               ))}

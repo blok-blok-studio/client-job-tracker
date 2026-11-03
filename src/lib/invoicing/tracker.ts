@@ -30,7 +30,7 @@ export interface TrackerRow {
 
 export interface CostRow {
   id: string;
-  kind: "contractor" | "partner";
+  kind: "contractor" | "partner" | "stripe";
   date: string;
   year: number;
   payee: string;
@@ -123,6 +123,19 @@ export async function costRows(): Promise<CostRow[]> {
     const d = i.paidAt || i.invoiceDate || i.submittedAt;
     out.push({ id: i.id, kind: "contractor", date: iso(d), year: d.getUTCFullYear(), payee: cn.get(i.contractorId) || "Contractor", reference: i.invoiceNumber || "", currency: i.currency.toUpperCase(), amount: Number(i.amount || 0) });
   }
+  // Stripe's fees, one line per month and currency: card fees, conversion and dispute fees, and its own billing charges
+  const ledger = await prisma.stripeLedgerEntry.findMany({ where: { OR: [{ fee: { not: 0 } }, { type: "stripe_fee" }] }, select: { type: true, amount: true, fee: true, currency: true, createdAt: true } });
+  const months = new Map<string, CostRow>();
+  for (const e of ledger) {
+    const kept = Number(e.fee) + (e.type === "stripe_fee" ? -Number(e.amount) : 0);
+    if (!kept) continue;
+    const m = e.createdAt.toISOString().slice(0, 7);
+    const key = `${m}|${e.currency}`;
+    const row = months.get(key) || { id: `stripe-fees-${key}`, kind: "stripe" as const, date: `${m}-${new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).getUTCDate()}`, year: Number(m.slice(0, 4)), payee: "Stripe", reference: `Fees ${m}`, currency: e.currency, amount: 0 };
+    row.amount = Math.round((row.amount + kept) * 100) / 100;
+    months.set(key, row);
+  }
+  out.push(...months.values());
   for (const p of payouts) out.push({ id: p.id, kind: "partner", date: iso(p.createdAt), year: p.createdAt.getUTCFullYear(), payee: pn.get(p.partnerId) || "Partner", reference: p.wiseTransferId || p.stripeTransferId || "", currency: p.currency.toUpperCase(), amount: Number(p.amount) });
   return out.sort((a, b) => (a.date < b.date ? 1 : -1));
 }

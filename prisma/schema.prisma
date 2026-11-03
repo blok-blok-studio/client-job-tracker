@@ -843,6 +843,7 @@ model StripePayment {
   receiptUrl     String?   @db.Text
   disputed       Boolean   @default(false)
   syncedAt       DateTime  @default(now())
+  sourceId       String?   // Stripe ch_/py_ id, filled from the balance history export
 
   @@index([taxYear])
   @@index([clientId])
@@ -2276,4 +2277,27 @@ model CommissionPayout {
   createdAt DateTime @default(now())
 
   @@index([partnerId])
+}
+
+// Every line of Stripe's balance history, imported once from the dashboard export.
+// The full money trail: charges, fees, currency conversions, refunds, disputes, payouts.
+model StripeLedgerEntry {
+  id          String   @id @default(cuid())
+  txnId       String   @unique
+  type        String
+  sourceId    String?
+  amount      Decimal  @db.Decimal(12, 2)
+  fee         Decimal  @default(0) @db.Decimal(12, 2)
+  net         Decimal  @db.Decimal(12, 2)
+  currency    String
+  createdAt   DateTime
+  availableOn DateTime?
+  description String?  @db.Text
+  payoutId    String?
+  taxYear     Int
+  importedAt  DateTime @default(now())
+
+  @@index([taxYear])
+  @@index([type])
+  @@index([payoutId])
 }
