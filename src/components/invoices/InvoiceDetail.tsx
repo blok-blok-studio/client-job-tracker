@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Download, Send, Link2, CheckCircle2, Ban, Pencil, Trash2, Undo2, ExternalLink, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import IssuePreview from "./IssuePreview";
 import { useToast } from "@/components/shared/Toast";
 import type { InvoiceView } from "@/lib/invoicing/types";
 import { VAT_SCHEME_LABELS } from "@/lib/invoicing/vat";
@@ -44,7 +45,8 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
   const [paidNote, setPaidNote] = useState("");
   const [commissionKind, setCommissionKind] = useState<"PROJECT" | "BRAND_GUIDE" | "PLAN" | "NONE">("PROJECT");
   const [voidReason, setVoidReason] = useState("");
-  const [confirm, setConfirm] = useState<null | "issue" | "delete" | "unpaid" | "rotate">(null);
+  const [confirm, setConfirm] = useState<null | "delete" | "unpaid" | "rotate">(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [note, setNote] = useState("");
 
   const load = useCallback(async () => {
@@ -172,7 +174,7 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
           <div className="flex flex-wrap gap-2">
             {canIssue && (
               <>
-                <button className={btnPrimary} disabled={busy} onClick={() => setConfirm("issue")}>Issue number</button>
+                <button className={btnPrimary} disabled={busy} onClick={() => setPreviewOpen(true)}>Preview and issue</button>
                 <button className={`${btnGhost} inline-flex items-center gap-1.5`} onClick={() => onEdit(inv.id)}><Pencil size={14} /> Edit</button>
                 <button className={`${btnGhost} inline-flex items-center gap-1.5 text-red-400`} disabled={busy} onClick={() => setConfirm("delete")}><Trash2 size={14} /> Delete draft</button>
               </>
@@ -405,33 +407,15 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
         </div>
       )}
 
-      <ConfirmDialog
-        open={confirm === "issue"}
-        onClose={() => setConfirm(null)}
-        onConfirm={async () => {
-          setConfirm(null);
-          if (!id) return;
-          setBusy(true);
-          try {
-            const res = await fetch(`/api/studio-invoices/${id}/issue`, { method: "POST" });
-            const json = await readJsonSafe(res);
-            if (!json.success) throw new Error(json.error || "Failed");
-            const d = json.data as { number: string; send?: { sent: boolean; to: string | null; error: string | null } };
-            if (d.send?.sent) toast(`Issued ${d.number} and emailed to ${d.send.to}`, "success");
-            else if (d.send?.error) toast(`Issued ${d.number}. Not emailed: ${d.send.error}`, "info");
-            else toast(`Issued ${d.number}`, "success");
-            await load();
-            onChanged();
-          } catch (err) {
-            toast(err instanceof Error ? err.message : "Failed", "error");
-          } finally {
-            setBusy(false);
-          }
+      <IssuePreview
+        open={previewOpen}
+        id={id}
+        onClose={() => setPreviewOpen(false)}
+        onIssued={async () => {
+          setPreviewOpen(false);
+          await load();
+          onChanged();
         }}
-        title="Issue this invoice?"
-        message={`The next number in the sequence is assigned and the invoice becomes a permanent record. ${inv?.billTo.email ? `It is emailed to ${inv.billTo.email} right away (PDF + pay link).` : "No email on the invoice, so it will not be sent automatically."} Corrections afterwards mean voiding and issuing a new one.`}
-        confirmLabel={inv?.billTo.email ? "Issue and email" : "Issue number"}
-        loading={busy}
       />
       <ConfirmDialog
         open={confirm === "delete"}

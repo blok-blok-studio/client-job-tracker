@@ -74,6 +74,14 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // Invoice preview PDF is shown inside the app (own origin only)
+        source: "/api/studio-invoices/:id/preview",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: "default-src 'none'; frame-ancestors 'self'" },
+        ],
+      },
     ];
   },
 };

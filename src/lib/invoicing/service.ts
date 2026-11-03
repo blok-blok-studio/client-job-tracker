@@ -11,7 +11,7 @@ import { sealBank } from "./bank-vault";
 import { inferCommissionKind, recordCommissionForStudioInvoice, voidCommissionsForStudioInvoice } from "./partner-commission";
 import { rateToEurOn } from "./revenue";
 import type { BillTo } from "./types";
-import { assignInvoiceNumber, withNumberRetry } from "./numbering";
+import { assignInvoiceNumber, withNumberRetry, formatInvoiceNumber, nextSequenceFor } from "./numbering";
 
 export const lineItemSchema = z.object({
   description: z.string().trim().min(1).max(500),
@@ -218,6 +218,67 @@ export async function updateDraft(id: string, input: Omit<DraftInput, "clientId"
   return { invoice, warning };
 }
 
+/** Why a draft cannot be issued yet (empty list = ready). Same checks issueInvoice enforces. */
+function issueBlockers(existing: StudioInvoice, settings: InvoiceSettings): string[] {
+  const out: string[] = [];
+  const isCard = existing.paymentMethod === "STRIPE" && !!existing.paymentUrl;
+  if (!isCard) {
+    const missing = missingBankFields(settings, existing.currency);
+    if (missing.length) out.push(`Fill in the ${existing.currency} bank details first: ${missing.join(", ")}.`);
+  }
+  if (Number(existing.total) <= 0) out.push("The invoice total must be above zero.");
+  const billTo = existing.billTo as unknown as BillTo;
+  if (existing.vatScheme === "REVERSE_CHARGE" && !billTo.vatId) out.push("EU reverse charge needs the client's VAT ID on the invoice. Add it under Bill to.");
+  if (!billTo.name && !billTo.company) out.push("Bill to needs a name or a company.");
+  return out;
+}
+
+/** The fields issuing writes, computed without saving: shared by issueInvoice and the preview. */
+function issueFields(existing: StudioInvoice, settings: InvoiceSettings) {
+  const billTo = existing.billTo as unknown as BillTo;
+  // Issue date is the day it is issued unless the draft set one explicitly
+  const issueDate = existing.issueDate ?? parseDateOnly(new Date().toISOString())!;
+  const vat = decideVat({ template: existing.template as InvoiceTemplate, issueDate, clientVatId: billTo.vatId, settings, override: existing.vatOverride as VatOverride | null });
+  const items = (existing.items as unknown as Array<{ description: string; qty: number; unitPrice: number }>).map((i) => ({
+    description: i.description,
+    qty: Number(i.qty),
+    unitPrice: Number(i.unitPrice),
+  }));
+  const totals = computeTotals(items, vat.rate);
+  return {
+    issueDate,
+    dueDate: addDays(issueDate, existing.dueDays),
+    vatScheme: vat.scheme,
+    vatRate: vat.rate,
+    vatNote: vat.notes.join("\n"),
+    items: totals.items,
+    subtotal: totals.subtotal,
+    vatAmount: totals.vatAmount,
+    total: totals.total,
+    sellerSnapshot: sealBank(snapshotSeller(settings)),
+  };
+}
+
+/**
+ * Exactly what issuing would produce, without saving anything: the predicted
+ * number, the final PDF view (no DRAFT stamp) and who the email goes to.
+ * The number is a prediction; issuing assigns the real one.
+ */
+export async function previewIssue(id: string) {
+  const existing = await prisma.studioInvoice.findUnique({ where: { id } });
+  if (!existing) throw new InvoiceError("Invoice not found", 404);
+  if (existing.status !== "DRAFT") throw new InvoiceError("This invoice was already issued.", 409);
+  const settings = await loadInvoiceSettings();
+  const fields = issueFields(existing, settings);
+  const year = fields.issueDate.getUTCFullYear();
+  const agg = await prisma.studioInvoice.aggregate({ where: { year }, _max: { sequence: true } });
+  const number = formatInvoiceNumber(year, nextSequenceFor(year, agg._max.sequence, settings));
+  const row = { ...existing, ...fields, status: "ISSUED", number, year } as unknown as StudioInvoice;
+  const corrects = existing.correctsId ? await prisma.studioInvoice.findUnique({ where: { id: existing.correctsId }, select: { number: true, issueDate: true } }) : null;
+  const billTo = existing.billTo as unknown as BillTo;
+  return { row, settings, corrects, number, to: billTo.email || null, autoSend: settings.autoSendOnIssue, blockers: issueBlockers(existing, settings) };
+}
+
 /**
  * Issue: freeze the seller block, assign the next number, lock the row.
  * Refuses when the bank details for the currency are missing, when an EU
@@ -228,29 +289,10 @@ export async function issueInvoice(id: string, actor: string, meta?: { ipAddress
   if (!existing) throw new InvoiceError("Invoice not found", 404);
   if (existing.status !== "DRAFT") throw new InvoiceError("This invoice was already issued.", 409);
   const settings = await loadInvoiceSettings();
-  const currency = existing.currency;
-  const isCard = existing.paymentMethod === "STRIPE" && !!existing.paymentUrl;
-  if (!isCard) {
-    const missing = missingBankFields(settings, currency);
-    if (missing.length) throw new InvoiceError(`Fill in the ${currency} bank details first: ${missing.join(", ")}.`, 422);
-  }
-  if (Number(existing.total) <= 0) throw new InvoiceError("The invoice total must be above zero.", 422);
-  const billTo = existing.billTo as unknown as BillTo;
-  if (existing.vatScheme === "REVERSE_CHARGE" && !billTo.vatId) {
-    throw new InvoiceError("EU reverse charge needs the client's VAT ID on the invoice. Add it under Bill to.", 422);
-  }
-  if (!billTo.name && !billTo.company) throw new InvoiceError("Bill to needs a name or a company.", 422);
-
-  // Issue date is the day it is issued unless the draft set one explicitly
-  const issueDate = existing.issueDate ?? parseDateOnly(new Date().toISOString())!;
-  const vat = decideVat({ template: existing.template as InvoiceTemplate, issueDate, clientVatId: billTo.vatId, settings, override: existing.vatOverride as VatOverride | null });
-  const items = (existing.items as unknown as Array<{ description: string; qty: number; unitPrice: number }>).map((i) => ({
-    description: i.description,
-    qty: Number(i.qty),
-    unitPrice: Number(i.unitPrice),
-  }));
-  const totals = computeTotals(items, vat.rate);
-  const seller = sealBank(snapshotSeller(settings));
+  const blockers = issueBlockers(existing, settings);
+  if (blockers.length) throw new InvoiceError(blockers[0], 422);
+  const { sellerSnapshot: seller, ...f } = issueFields(existing, settings);
+  const issueDate = f.issueDate;
 
   const issued = await withNumberRetry(async (tx) => {
     await tx.studioInvoice.update({
@@ -258,14 +300,14 @@ export async function issueInvoice(id: string, actor: string, meta?: { ipAddress
       data: {
         status: "ISSUED",
         issueDate,
-        dueDate: addDays(issueDate, existing.dueDays),
-        vatScheme: vat.scheme,
-        vatRate: vat.rate,
-        vatNote: vat.notes.join("\n"),
-        items: totals.items as unknown as Prisma.InputJsonValue,
-        subtotal: totals.subtotal,
-        vatAmount: totals.vatAmount,
-        total: totals.total,
+        dueDate: f.dueDate,
+        vatScheme: f.vatScheme,
+        vatRate: f.vatRate,
+        vatNote: f.vatNote,
+        items: f.items as unknown as Prisma.InputJsonValue,
+        subtotal: f.subtotal,
+        vatAmount: f.vatAmount,
+        total: f.total,
         sellerSnapshot: seller as unknown as Prisma.InputJsonValue,
       },
     });

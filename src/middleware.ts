@@ -107,9 +107,12 @@ function getClientIp(request: NextRequest): string {
   return request.headers.get("x-real-ip") || "unknown";
 }
 
-function addSecurityHeaders(response: NextResponse): NextResponse {
+/** The invoice preview PDF is framed by the app itself; everything else stays unframeable. */
+const SAME_ORIGIN_FRAME = /^\/api\/studio-invoices\/[^/]+\/preview$/;
+
+function addSecurityHeaders(response: NextResponse, pathname?: string): NextResponse {
   response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Frame-Options", pathname && SAME_ORIGIN_FRAME.test(pathname) ? "SAMEORIGIN" : "DENY");
   response.headers.set("X-XSS-Protection", "1; mode=block");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   // Force HTTPS for a year incl. subdomains (harmless on localhost; browsers ignore it there)
@@ -258,7 +261,7 @@ export async function middleware(request: NextRequest) {
 
   try {
     await jwtVerify(token, secret);
-    return addSecurityHeaders(NextResponse.next());
+    return addSecurityHeaders(NextResponse.next(), pathname);
   } catch {
     if (pathname.startsWith("/api/")) {
       return addSecurityHeaders(

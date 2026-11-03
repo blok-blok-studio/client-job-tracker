@@ -22,7 +22,22 @@ export async function sendStudioInvoiceEmail(params: {
 }): Promise<{ id: string | null }> {
   if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set, invoice email not sent");
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const v = params.view;
+  const { subject, html } = buildStudioInvoiceEmail(params.view, params.message);
+  const number = params.view.number || "";
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    replyTo: params.replyTo || params.view.seller.email || undefined,
+    subject,
+    html,
+    attachments: [{ filename: `${number || "invoice"}.pdf`, content: Buffer.from(params.pdf) }],
+  });
+  if (error) throw new Error(`Resend error: ${error.message}`);
+  return { id: data?.id ?? null };
+}
+
+/** Subject + HTML of the invoice email. Used for sending and for the preview before issuing. */
+export function buildStudioInvoiceEmail(v: InvoiceView, message?: string | null): { subject: string; html: string } {
   const de = v.language === "de";
   const amount = formatMoney(v.total, v.currency, v.language);
   const due = v.dueDate ? formatDate(v.dueDate, v.language) : null;
@@ -56,7 +71,7 @@ export async function sendStudioInvoiceEmail(params: {
     : `Please use <strong>${esc(number)}</strong> as the payment reference.`;
   const button = de ? "Rechnung online ansehen" : "View invoice online";
   const closing = de ? "Vielen Dank und beste Grüße" : "Thank you and best regards";
-  const custom = params.message?.trim() ? `<p style="color:#333;font-size:15px;line-height:1.6;white-space:pre-wrap;">${esc(params.message.trim())}</p>` : "";
+  const custom = message?.trim() ? `<p style="color:#333;font-size:15px;line-height:1.6;white-space:pre-wrap;">${esc(message.trim())}</p>` : "";
 
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;color:#111;">
@@ -75,17 +90,7 @@ export async function sendStudioInvoiceEmail(params: {
         ${v.seller.steuernummer ? `${de ? "Steuernummer" : "Tax number"} ${esc(v.seller.steuernummer)} · ` : ""}${esc(v.seller.email)} · ${esc(v.seller.website)}
       </p>
     </div>`;
-
-  const { data, error } = await resend.emails.send({
-    from: FROM_EMAIL,
-    to: params.to,
-    replyTo: params.replyTo || v.seller.email || undefined,
-    subject,
-    html,
-    attachments: [{ filename: `${number || "invoice"}.pdf`, content: Buffer.from(params.pdf) }],
-  });
-  if (error) throw new Error(`Resend error: ${error.message}`);
-  return { id: data?.id ?? null };
+  return { subject, html };
 }
 
 /** Payment confirmation (Zahlungsbestätigung) with the PAID-stamped invoice attached. */
