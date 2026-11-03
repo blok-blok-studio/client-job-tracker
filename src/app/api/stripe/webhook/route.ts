@@ -15,6 +15,7 @@ import {
   recordPlanCommissionForInvoice,
   recordRefundClawback,
 } from "@/lib/commissions";
+import { recordLivePayment, recordLiveRefund, recordLiveInvoiceDocument } from "@/lib/invoicing/stripe-live";
 
 // Recalculate a client's monthly retainer from their LIVE active Stripe
 // subscriptions (yearly plans normalized to /12). Returns the new value.
@@ -130,6 +131,22 @@ export async function POST(request: NextRequest) {
               where: { stripePaymentLink: paymentLinkId },
             });
           }
+        }
+
+        // Payment history: one-off payments only, subscription months arrive as invoice.paid
+        if (session.mode === "payment" && session.payment_status === "paid") {
+          const pi = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+          await recordLivePayment({
+            chargeId: null,
+            fallbackId: pi || session.id,
+            amountCents: session.amount_total || 0,
+            currency: session.currency || "usd",
+            paidAt: new Date((session.created || Date.now() / 1000) * 1000),
+            clientId: record?.clientId ?? null,
+            email: session.customer_details?.email || session.customer_email || null,
+            name: session.customer_details?.name || null,
+            description: record?.description || "Stripe payment",
+          }).catch((err) => console.error("[Webhook] payment history (checkout) failed:", err));
         }
 
         if (!record) break;
@@ -363,6 +380,33 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // Payment history and the invoice PDF, kept for the books
+        {
+          const legacy = paidInvoice as unknown as { charge?: string | { id: string } | null; subscription?: string | { id: string } | null };
+          const chargeId = (typeof legacy.charge === "string" ? legacy.charge : legacy.charge?.id) ?? null;
+          const subRef = paidInvoice.parent?.subscription_details?.subscription ?? legacy.subscription;
+          const subscriptionId = (typeof subRef === "string" ? subRef : subRef?.id) ?? null;
+          const reason = paidInvoice.billing_reason;
+          await recordLivePayment({
+            chargeId,
+            fallbackId: paidInvoice.id,
+            amountCents: paidInvoice.amount_paid || 0,
+            currency: paidInvoice.currency || "usd",
+            paidAt,
+            clientId: invClientId,
+            email: paidInvoice.customer_email || null,
+            name: paidInvoice.customer_name || null,
+            description: reason === "subscription_cycle" ? "Subscription update" : reason === "subscription_create" ? "Subscription creation" : "Payment for Invoice",
+            stripeInvoiceId: paidInvoice.id,
+          }).catch((err) => console.error("[Webhook] payment history (invoice) failed:", err));
+          await recordLiveInvoiceDocument({
+            id: paidInvoice.id, number: paidInvoice.number || null, status: paidInvoice.status || "paid", currency: paidInvoice.currency || "usd",
+            total: paidInvoice.total || 0, amountPaid: paidInvoice.amount_paid || 0, created: paidInvoice.created, paidAt,
+            email: paidInvoice.customer_email || null, name: paidInvoice.customer_name || null, chargeId, subscriptionId,
+            pdfUrl: paidInvoice.invoice_pdf || null, clientId: invClientId,
+          }).catch((err) => console.error("[Webhook] invoice document failed:", err));
+        }
+
         // Sales-partner plan commission for subscription months. The endpoint
         // is pinned to API version 2024-06-20, where the subscription sits at
         // invoice.subscription; newer versions moved it under parent. Read both.
@@ -404,6 +448,7 @@ export async function POST(request: NextRequest) {
             console.error("[Webhook] invoice lookup for refund failed:", err);
           }
         }
+        await recordLiveRefund(charge.id, charge.amount_refunded).catch((err) => console.error("[Webhook] payment history (refund) failed:", err));
         await recordRefundClawback({
           chargeId: charge.id,
           paymentIntentId: pi,
