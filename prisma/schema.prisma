@@ -2330,3 +2330,61 @@ model StripeDocument {
   @@index([taxYear])
   @@index([number])
 }
+
+// --- PITCHES ---
+// Team-built pitch decks: an internal pitch to Chase or a pitch to an outside
+// brand. The team types their own research; the PDF adds the Blok Blok
+// branding, the brand's logo and the confirmed case studies.
+enum PitchKind {
+  INTERNAL
+  BRAND
+}
+
+enum PitchStatus {
+  DRAFT
+  READY
+  SENT
+  WON
+  LOST
+}
+
+model Pitch {
+  id            String      @id @default(cuid())
+  kind          PitchKind   @default(BRAND)
+  status        PitchStatus @default(DRAFT)
+  title         String
+  brandName     String
+  brandWebsite  String?
+  brandIndustry String?
+  brandColor    String? // #RRGGBB accent from the brand, used on the cover
+  recipient     String? // who it is for, e.g. "Head of Marketing" or "Chase"
+  clientId      String? // optional link to an existing client (no FK: pitches outlive clients)
+  authorId      String // User.id
+  authorName    String
+  authorEmail   String?
+  sections      Json // { hook, research, problem, proposal, whyUs, investment, timeline, ask }
+  stats         Json        @default("[]") // [{ value, label, source }]
+  proof         String[]    @default([]) // case-study keys from src/lib/pitches/proof.ts
+  logo          Bytes? // brand logo, normalised to PNG
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  images PitchImage[]
+
+  @@index([authorId])
+  @@index([updatedAt])
+}
+
+model PitchImage {
+  id        String   @id @default(cuid())
+  pitchId   String
+  pitch     Pitch    @relation(fields: [pitchId], references: [id], onDelete: Cascade)
+  caption   String?
+  data      Bytes // JPEG, max 1600px wide
+  width     Int
+  height    Int
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([pitchId])
+}

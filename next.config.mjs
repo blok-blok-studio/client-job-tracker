@@ -13,6 +13,8 @@ const nextConfig = {
   outputFileTracingIncludes: {
     // Contract PDF embeds the brand logo from public/
     "/api/contract/[token]/pdf": ["./public/bb_logo_wordmark_subhead_BLK_PNG.png"],
+    // Pitch decks embed both wordmarks
+    "/api/pitches/[id]/pdf": ["./public/bb_logo_wordmark_subhead_BLK_PNG.png", "./public/bb_logo_wordmark_subhead_WHT_PNG.png"],
     "/api/cron": ["./node_modules/@ffmpeg-installer/**/*"],
     "/api/client-media": ["./node_modules/@ffmpeg-installer/**/*"],
     "/api/client-media/upload-portal": ["./node_modules/@ffmpeg-installer/**/*"],

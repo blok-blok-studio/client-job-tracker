@@ -35,6 +35,7 @@ import {
   X,
   Handshake,
   Receipt,
+  Presentation,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,7 @@ const navItems = [
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/monthly-reports", label: "Monthly Reports", icon: FileBarChart },
+  { href: "/pitches", label: "Pitches", icon: Presentation },
   { href: "/support", label: "Support", icon: MessageCircle },
   {
     // Blok Blok OS is a separate app with its own database and its own login.
