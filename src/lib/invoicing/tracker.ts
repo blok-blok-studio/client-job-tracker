@@ -19,6 +19,7 @@ export interface TrackerRow {
   amount: number;
   refunded: number;
   eur: number | null; // counted toward income; null when not received
+  eurGross?: number | null; // Stripe only: before refunds and lost disputes
   fee: number | null;
   status: string; // PAID | OPEN | OVERDUE | VOID | REFUNDED | PARTLY REFUNDED | DISPUTED
   method: string;
@@ -94,6 +95,7 @@ export async function trackerRows(opts: { clientId?: string | null } = {}): Prom
       amount,
       refunded,
       eur: p.eurNet != null ? Number(p.eurNet) : null,
+      eurGross: p.eurGross != null ? Number(p.eurGross) : null,
       fee: p.fee != null ? Number(p.fee) : null,
       status: p.disputed ? "DISPUTED" : refunded >= amount ? "REFUNDED" : refunded > 0 ? "PARTLY REFUNDED" : "PAID",
       method: "stripe",

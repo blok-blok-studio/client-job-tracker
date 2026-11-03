@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
-import { Plus, Search, Settings as SettingsIcon, Receipt, Download, FileArchive, AlertTriangle, Link2, FileText, Repeat, FileSignature, Landmark, LineChart } from "lucide-react";
+import { Plus, Search, Settings as SettingsIcon, Receipt, Download, FileArchive, AlertTriangle, Link2, FileText, Repeat, FileSignature, Landmark, LineChart, BarChart3 } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
 import type { StudioInvoiceStatus } from "@/lib/invoicing/types";
 import InvoiceEditor from "./InvoiceEditor";
@@ -13,6 +13,7 @@ import PlansPanel from "./PlansPanel";
 import QuotesPanel from "./QuotesPanel";
 import BankPanel from "./BankPanel";
 import TrackerPanel from "./TrackerPanel";
+import AnalyticsPanel from "./AnalyticsPanel";
 import { StatusBadge, isOverdue, shortDate, money, byCurrency, chipCls, btnPrimary, btnGhost, inputCls, readJsonSafe } from "./shared";
 
 interface Row {
@@ -62,7 +63,7 @@ export default function InvoicesPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [year, setYear] = useState<"all" | number>("all");
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"invoices" | "tracker" | "plans" | "quotes" | "bank" | "settings">((["settings", "plans", "quotes", "bank", "tracker"].includes(search.get("tab") || "") ? search.get("tab") : "invoices") as "invoices" | "tracker" | "plans" | "quotes" | "bank" | "settings");
+  const [tab, setTab] = useState<"invoices" | "tracker" | "analytics" | "plans" | "quotes" | "bank" | "settings">((["settings", "plans", "quotes", "bank", "tracker", "analytics"].includes(search.get("tab") || "") ? search.get("tab") : "invoices") as "invoices" | "tracker" | "analytics" | "plans" | "quotes" | "bank" | "settings");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editDraftId, setEditDraftId] = useState<string | null>(null);
   const [editorClientId, setEditorClientId] = useState<string | null>(null);
@@ -151,6 +152,9 @@ export default function InvoicesPage() {
             <button className={chipCls(tab === "tracker")} onClick={() => setTab("tracker")}>
               <span className="inline-flex items-center gap-1.5"><LineChart size={14} /> Tracker</span>
             </button>
+            <button className={chipCls(tab === "analytics")} onClick={() => setTab("analytics")}>
+              <span className="inline-flex items-center gap-1.5"><BarChart3 size={14} /> Analytics</span>
+            </button>
             <button className={chipCls(tab === "plans")} onClick={() => setTab("plans")}>
               <span className="inline-flex items-center gap-1.5"><Repeat size={14} /> Plans</span>
             </button>
@@ -175,6 +179,8 @@ export default function InvoicesPage() {
           <InvoiceSettingsPanel onSaved={load} />
         ) : tab === "tracker" ? (
           <TrackerPanel />
+        ) : tab === "analytics" ? (
+          <AnalyticsPanel />
         ) : tab === "plans" ? (
           <PlansPanel onInvoiceIssued={load} />
         ) : tab === "quotes" ? (
