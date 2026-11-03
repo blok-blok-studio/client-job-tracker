@@ -58,6 +58,7 @@ export default function InvoicesPage() {
   const search = useSearchParams();
   const { toast } = useToast();
   const [rows, setRows] = useState<Row[]>([]);
+  const [autoPreview, setAutoPreview] = useState(false);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
@@ -346,12 +347,13 @@ export default function InvoicesPage() {
         draftId={editDraftId}
         initialClientId={editorClientId}
         onClose={() => { setEditorOpen(false); setEditDraftId(null); setEditorClientId(null); }}
-        onSaved={(id) => { setEditorOpen(false); setEditDraftId(null); setEditorClientId(null); load(); setDetailId(id); }}
+        onSaved={(id, preview) => { setEditorOpen(false); setEditDraftId(null); setEditorClientId(null); load(); setAutoPreview(preview); setDetailId(id); }}
       />
       <InvoiceDetail
         open={!!detailId}
         id={detailId}
-        onClose={() => setDetailId(null)}
+        autoPreview={autoPreview}
+        onClose={() => { setDetailId(null); setAutoPreview(false); }}
         onEdit={(id) => { setDetailId(null); setEditDraftId(id); setEditorOpen(true); }}
         onChanged={load}
       />

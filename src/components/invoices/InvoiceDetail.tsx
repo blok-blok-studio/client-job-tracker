@@ -30,9 +30,11 @@ interface Props {
   onClose: () => void;
   onEdit: (id: string) => void;
   onChanged: () => void;
+  /** Open the issue preview as soon as the draft loads (from "Save and preview") */
+  autoPreview?: boolean;
 }
 
-export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: Props) {
+export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged, autoPreview }: Props) {
   const { toast } = useToast();
   const [inv, setInv] = useState<Detail | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,6 +49,9 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged }: 
   const [voidReason, setVoidReason] = useState("");
   const [confirm, setConfirm] = useState<null | "delete" | "unpaid" | "rotate">(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  useEffect(() => {
+    if (autoPreview && inv?.id === id && inv?.status === "DRAFT") setPreviewOpen(true);
+  }, [autoPreview, inv?.id, inv?.status, id]);
   const [note, setNote] = useState("");
 
   const load = useCallback(async () => {

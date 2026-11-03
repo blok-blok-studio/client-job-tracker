@@ -45,7 +45,8 @@ interface Props {
   onClose: () => void;
   draftId?: string | null; // edit an existing draft
   initialClientId?: string | null;
-  onSaved: (id: string, issued: boolean) => void;
+  /** preview = true when the owner asked to see the issue preview next */
+  onSaved: (id: string, preview: boolean) => void;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -233,17 +234,8 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
         onSaved(id, false);
         return;
       }
-      const issued = await fetch(`/api/studio-invoices/${id}/issue`, { method: "POST" });
-      const ij = await readJsonSafe(issued);
-      if (!ij.success) {
-        toast(`Saved as draft. ${ij.error || "Could not issue."}`, "error");
-        onSaved(id, false);
-        return;
-      }
-      const issuedData = ij.data as { number: string; send?: { sent: boolean; to: string | null; error: string | null } };
-      if (issuedData.send?.sent) toast(`Issued ${issuedData.number} and emailed to ${issuedData.send.to}`, "success");
-      else if (issuedData.send?.error) toast(`Issued ${issuedData.number}. Not emailed: ${issuedData.send.error}`, "info");
-      else toast(`Issued ${issuedData.number}`, "success");
+      // Never issue blind: save the draft and open the preview (PDF + email) first
+      toast("Draft saved. Check the preview, then issue.", "success");
       onSaved(id, true);
     } catch (err) {
       toast(err instanceof Error ? err.message : "Save failed", "error");
@@ -462,7 +454,7 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
               <button type="button" className={btnGhost} onClick={onClose} disabled={saving}>Cancel</button>
               <button type="button" className={btnGhost} onClick={() => save(false)} disabled={saving}>Save draft</button>
               <button type="button" className={btnPrimary} onClick={() => save(true)} disabled={saving || (paymentMethod === "BANK" && missingBank.length > 0)} title={missingBank.length ? "Add bank details in Settings first" : undefined}>
-                {saving ? "Working…" : billTo.email ? "Issue and email" : "Issue (no email on file)"}
+                {saving ? "Working…" : "Save and preview"}
               </button>
             </div>
           </>
