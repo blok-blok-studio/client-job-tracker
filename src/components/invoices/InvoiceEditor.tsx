@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
 import Modal from "@/components/shared/Modal";
+import { partnerPackages } from "@/lib/partner-catalog";
 import { useToast } from "@/components/shared/Toast";
 import { computeTotals, formatMoney } from "@/lib/invoicing/money";
 import { decideVat, defaultsForTemplate, VAT_SCHEME_LABELS, VAT_OVERRIDE_OPTIONS, type InvoiceTemplate, type InvoiceLanguage, type InvoiceCurrency, type VatOverride } from "@/lib/invoicing/vat";
@@ -33,6 +34,7 @@ interface Prepared {
   stripeFeePct: number;
   openStripeInvoices: Array<{ id: string; amount: number; currency: string; status: string; dueDate: string | null; stripeInvoiceUrl: string | null }>;
   openStudioInvoices: Array<{ id: string; number: string | null; total: number; currency: string; status: string }>;
+  lastItems?: { number: string | null; currency: string; items: Array<{ description: string; qty: number; unitPrice: number }> } | null;
 }
 
 interface ItemRow {
@@ -51,6 +53,13 @@ interface Props {
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+/** The fixed price list (same packages partners sell), as one-tap invoice lines. */
+const QUICK_ITEMS = partnerPackages().map((p) => {
+  const description = p.name.replace(/\s*—\s*/g, ": ");
+  const label = description.replace(/^Website, /, "Site ").replace(/ Plan:.*$/, " plan").replace("Brand Strategy Guide", "Brand guide");
+  return { label: `${label} $${p.price.toLocaleString("en-US")}${p.recurring ? "/mo" : ""}`, description, unitPrice: p.price };
+});
 
 export default function InvoiceEditor({ open, onClose, draftId, initialClientId, onSaved }: Props) {
   const { toast } = useToast();
@@ -198,6 +207,42 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
 
   function updateItem(i: number, patch: Partial<ItemRow>) {
     setItems((prev) => prev.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+  }
+
+  /** Add lines, filling the first empty row instead of leaving it blank. */
+  function addLines(rows: ItemRow[]) {
+    setItems((prev) => {
+      const kept = prev.filter((r) => r.description.trim() || r.unitPrice.trim());
+      return [...kept, ...rows];
+    });
+  }
+
+  /** Price list is in USD: EUR invoices get today's ECB rate (whole euros), other currencies are flagged. */
+  async function addCatalogLine(description: string, usd: number) {
+    let price = usd;
+    if (currency === "EUR") {
+      const r = await fetch("/api/exchange-rate").then((x) => x.json()).catch(() => null);
+      if (r?.rate) price = Math.round(usd * r.rate);
+      else toast("Could not load the USD to EUR rate, the USD price was used. Adjust it.", "error");
+    } else if (currency !== "USD") {
+      toast(`The price list is in USD. Adjust the ${currency} amount.`, "info");
+    }
+    addLines([{ description, qty: "1", unitPrice: String(price) }]);
+  }
+
+  /** Halve every line and label it as the deposit or the balance of the project. */
+  function splitItems(kind: "deposit" | "balance") {
+    const de = language === "de";
+    const tag = kind === "deposit" ? (de ? "Anzahlung 50 %" : "Deposit 50%") : (de ? "Restzahlung 50 %" : "Balance 50%");
+    setItems((prev) =>
+      prev
+        .filter((r) => r.description.trim() || r.unitPrice.trim())
+        .map((r) => {
+          const price = Number(String(r.unitPrice).replace(",", "."));
+          const desc = r.description.replace(/^(Anzahlung 50 %|Restzahlung 50 %|Deposit 50%|Balance 50%): /, "");
+          return { ...r, description: `${tag}: ${desc}`, unitPrice: Number.isFinite(price) ? String(Math.round((price / 2) * 100) / 100) : r.unitPrice };
+        })
+    );
   }
 
   async function save(issue: boolean) {
@@ -388,6 +433,25 @@ export default function InvoiceEditor({ open, onClose, draftId, initialClientId,
                 <button type="button" className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1" onClick={() => setItems((p) => [...p, { description: "", qty: "1", unitPrice: "" }])}>
                   <Plus size={12} /> Add line
                 </button>
+              </div>
+              {/* One-tap lines: the price list, the client's last invoice, a 50/50 split */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {QUICK_ITEMS.map((q) => (
+                  <button key={q.label} type="button" className={chipCls(false)} title={`${q.description}: ${q.unitPrice}`} onClick={() => addCatalogLine(q.description, q.unitPrice)}>
+                    + {q.label}
+                  </button>
+                ))}
+                {prep?.lastItems?.items.length ? (
+                  <button type="button" className={chipCls(false)} title="Copy the lines of this client's last invoice" onClick={() => setItems(prep.lastItems!.items.map((i) => ({ description: i.description, qty: String(i.qty), unitPrice: String(i.unitPrice) })))}>
+                    ↺ Same as {prep.lastItems.number || "last draft"}
+                  </button>
+                ) : null}
+                {parsedItems.length > 0 && (
+                  <>
+                    <button type="button" className={chipCls(false)} onClick={() => splitItems("deposit")}>½ Deposit 50%</button>
+                    <button type="button" className={chipCls(false)} onClick={() => splitItems("balance")}>½ Balance 50%</button>
+                  </>
+                )}
               </div>
               <div className="space-y-2">
                 {items.map((row, i) => (

@@ -63,6 +63,8 @@ export interface InvoiceSettings {
   stripeFeePct: number;
   /** Email the invoice (PDF + pay link) to the client the moment it is issued. */
   autoSendOnIssue: boolean;
+  /** Automations (contract signed, plan due) stop at a ready draft; nothing is numbered or emailed until the owner says yes. */
+  approveBeforeSend: boolean;
   otherBanks: OtherBank[];
   reminders: ReminderSettings;
   datev: DatevSettings;
@@ -88,6 +90,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   sequenceStart: 1,
   stripeFeePct: 5.5,
   autoSendOnIssue: true,
+  approveBeforeSend: true,
   otherBanks: [],
   reminders: { enabled: true, beforeDueDays: 3, overdueDays: [7, 14, 30] },
   datev: normalizeDatev(null),
@@ -140,6 +143,7 @@ export function normalizeInvoiceSettings(raw: unknown): InvoiceSettings {
     sequenceStart: Math.max(1, Math.round(num(r.sequenceStart, d.sequenceStart))),
     stripeFeePct: Math.max(0, num(r.stripeFeePct, d.stripeFeePct)),
     autoSendOnIssue: typeof r.autoSendOnIssue === "boolean" ? r.autoSendOnIssue : d.autoSendOnIssue,
+    approveBeforeSend: typeof r.approveBeforeSend === "boolean" ? r.approveBeforeSend : d.approveBeforeSend,
     otherBanks: Array.isArray(r.otherBanks)
       ? (r.otherBanks as unknown[])
           .map((b) => {

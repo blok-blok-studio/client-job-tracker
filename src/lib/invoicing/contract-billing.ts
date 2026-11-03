@@ -7,6 +7,7 @@ import { addDays, parseDateOnly } from "./money";
 import { defaultsForTemplate, templateForCountry } from "./vat";
 import { loadInvoiceSettings } from "./settings";
 import { notifyUser } from "@/lib/notifications";
+import { markReadyForReview } from "./ready";
 
 /**
  * Contracts bill by bank transfer. Sending a contract prepares the paperwork:
@@ -88,7 +89,7 @@ async function pingOwners(clientId: string, title: string, body: string, link: s
   for (const o of owners) await notifyUser({ userId: o.id, type: "connection_problem", title, body, link, clientId }).catch(() => {});
 }
 
-/** Client signed: issue + email the first milestone, start the plans. Never throws into the signing flow. */
+/** Client signed: prepare the first milestone for the owner's yes (or issue + email it when approval is switched off), start the plans. Never throws into the signing flow. */
 export async function activateContractBilling(contractId: string): Promise<void> {
   const contract = await prisma.contractSignature.findUnique({ where: { id: contractId }, select: { clientId: true, selectedPackages: true } });
   if (!contract) return;
@@ -102,12 +103,15 @@ export async function activateContractBilling(contractId: string): Promise<void>
       where: { id: first.id },
       data: { billTo: billTo as unknown as Prisma.InputJsonValue, issueDate: today, dueDate: addDays(today, first.dueDays) },
     });
-    if (!billTo.addressLines.length) {
+    const settings = await loadInvoiceSettings();
+    if (settings.approveBeforeSend) {
+      // Stop before anything is numbered or emailed: the owner reviews and sends
+      await markReadyForReview(first.id, `${client.name} signed the contract, so the first invoice is prepared.${billTo.addressLines.length ? "" : " Their address is missing: add it under Bill to before issuing."}`);
+    } else if (!billTo.addressLines.length) {
       await pingOwners(client.id, `Deposit invoice needs ${client.name}'s address`, "The contract is signed, but an invoice needs the client's full address. Add it under Bill to, then issue the draft.", `/invoices?invoice=${first.id}`);
     } else {
       try {
         const issued = await issueInvoice(first.id, "contract signing");
-        const settings = await loadInvoiceSettings();
         const sent = settings.autoSendOnIssue ? await sendIssuedInvoice(first.id, "contract signing") : { sent: false, error: "auto-send is off" };
         if (!sent.sent) await pingOwners(client.id, `Invoice ${issued.number} was not emailed`, sent.error || "Send it from the Invoices page.", `/invoices?invoice=${first.id}`);
       } catch (err) {

@@ -639,6 +639,7 @@ model StudioInvoice {
   // Recurring billing + dunning
   planId        String?
   plan          RecurringPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  readyAt       DateTime? // prepared by automation (contract signed, plan due), waiting for the owner to review and send
   reminderStage Int       @default(0) // 0 none · 1 due soon · 2 overdue · 3 second · 4 final notice (Mahnung)
   lastReminderAt DateTime?
 

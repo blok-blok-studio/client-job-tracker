@@ -32,6 +32,7 @@ const LIST_SELECT = {
   voidedAt: true,
   paymentMethod: true,
   createdAt: true,
+  readyAt: true,
   client: { select: { id: true, name: true, company: true } },
   partner: { select: { id: true, name: true } },
 } as const;

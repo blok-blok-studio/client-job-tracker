@@ -43,7 +43,7 @@ interface ClientOption {
 
 const INTERVAL_LABEL = { MONTHLY: "Monthly", QUARTERLY: "Quarterly", YEARLY: "Yearly" } as const;
 
-export default function PlansPanel({ onInvoiceIssued }: { onInvoiceIssued: () => void }) {
+export default function PlansPanel({ onInvoiceIssued }: { onInvoiceIssued: (preparedId?: string) => void }) {
   const { toast } = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,10 +82,15 @@ export default function PlansPanel({ onInvoiceIssued }: { onInvoiceIssued: () =>
       const res = await fetch(`/api/studio-invoices/plans/${p.id}/run`, { method: "POST" });
       const j = await readJsonSafe(res);
       if (!j.success) throw new Error(j.error || "Failed");
-      const d = j.data as { number: string; sent?: boolean };
-      toast(`Issued ${d.number}${d.sent ? " and emailed" : ""}`, "success");
+      const d = j.data as { number: string | null; sent?: boolean; prepared?: boolean; invoiceId: string | null };
       await load();
-      onInvoiceIssued();
+      if (d.prepared && d.invoiceId) {
+        toast("Invoice prepared. Check it, then issue and send.", "success");
+        onInvoiceIssued(d.invoiceId);
+      } else {
+        toast(`Issued ${d.number}${d.sent ? " and emailed" : ""}`, "success");
+        onInvoiceIssued();
+      }
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed", "error");
     } finally {
@@ -166,8 +171,8 @@ export default function PlansPanel({ onInvoiceIssued }: { onInvoiceIssued: () =>
         onClose={() => setConfirmRun(null)}
         onConfirm={() => confirmRun && runNow(confirmRun)}
         title={confirmRun ? `Bill "${confirmRun.name}" now?` : ""}
-        message={confirmRun ? `A numbered invoice for ${money(confirmRun.amount, confirmRun.currency)} is issued${confirmRun.autoSend ? " and emailed to the client" : ""}. ${new Date(confirmRun.nextRunAt) <= new Date() ? "This covers the period that is due." : "This is an extra run; the next scheduled date stays as it is."}` : ""}
-        confirmLabel="Issue invoice"
+        message={confirmRun ? `An invoice for ${money(confirmRun.amount, confirmRun.currency)} is prepared and opened for you to check before it is issued and sent. ${new Date(confirmRun.nextRunAt) <= new Date() ? "This covers the period that is due." : "This is an extra run; the next scheduled date stays as it is."}` : ""}
+        confirmLabel="Prepare invoice"
         loading={busy}
       />
     </div>

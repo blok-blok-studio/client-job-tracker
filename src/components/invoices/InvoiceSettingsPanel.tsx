@@ -244,6 +244,10 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
           <input type="checkbox" checked={s.autoSendOnIssue} onChange={(e) => set("autoSendOnIssue", e.target.checked)} />
           Email every invoice to the client automatically when it is issued (PDF + pay link)
         </label>
+        <label className="flex items-center gap-2 text-sm text-bb-muted mt-2">
+          <input type="checkbox" checked={s.approveBeforeSend} onChange={(e) => set("approveBeforeSend", e.target.checked)} />
+          Automations stop for my yes: when a contract is signed or a plan is due, the invoice is prepared and I get a ping, nothing is issued or emailed until I approve it
+        </label>
         <p className="text-xs text-bb-dim mt-3">
           Numbers run BBS-YYYY-001, 002, … per year and are assigned when an invoice is issued. If some 2026 numbers were already used outside this system, set the first number here before issuing. German invoices issued after the § 19 date add 19% USt automatically.
         </p>

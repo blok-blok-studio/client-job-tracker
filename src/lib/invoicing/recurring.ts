@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { markReadyForReview } from "./ready";
 import type { Prisma, RecurringPlan } from "@prisma/client";
 import { z } from "zod";
 import { createDraft, issueInvoice, sendIssuedInvoice, InvoiceError, lineItemSchema, logInvoiceActivity } from "./service";
@@ -137,8 +138,8 @@ export async function updatePlan(id: string, input: Partial<PlanInput> & { statu
   return plan;
 }
 
-/** One billing run: draft → issue → (auto)send. Returns the invoice id or the reason it was skipped. */
-export async function runPlanOnce(plan: RecurringPlan, runAt: Date, actor: string): Promise<{ invoiceId: string | null; number: string | null; skipped?: string; sent?: boolean }> {
+/** One billing run: draft → (owner approval, for automatic runs) → issue → (auto)send. Returns the invoice id or the reason it was skipped. */
+export async function runPlanOnce(plan: RecurringPlan, runAt: Date, actor: string): Promise<{ invoiceId: string | null; number: string | null; skipped?: string; sent?: boolean; prepared?: boolean }> {
   const settings = await loadInvoiceSettings();
   if (missingBankFields(settings, plan.currency).length) {
     return { invoiceId: null, number: null, skipped: `${plan.currency} bank details missing` };
@@ -166,14 +167,28 @@ export async function runPlanOnce(plan: RecurringPlan, runAt: Date, actor: strin
     },
     actor
   );
-  await prisma.studioInvoice.update({ where: { id: invoice.id }, data: { planId: plan.id } });
-  const issued = await issueInvoice(invoice.id, actor);
-  let sent = false;
-  if (plan.autoSend && settings.autoSendOnIssue !== false) {
-    const r = await sendIssuedInvoice(invoice.id, actor);
-    sent = r.sent;
+  try {
+    await prisma.studioInvoice.update({ where: { id: invoice.id }, data: { planId: plan.id } });
+    if (settings.approveBeforeSend) {
+      // Prepare only: the owner says yes (preview) before it is numbered or emailed.
+      // Automatic runs ping the owner; a manual "bill now" opens the preview directly.
+      if (actor === "system") await markReadyForReview(invoice.id, `Recurring plan "${plan.name}" is due, so this period's invoice is prepared.`);
+      else await prisma.studioInvoice.update({ where: { id: invoice.id }, data: { readyAt: new Date() } });
+      return { invoiceId: invoice.id, number: null, sent: false, prepared: true };
+    }
+    const issued = await issueInvoice(invoice.id, actor);
+    let sent = false;
+    if (plan.autoSend && settings.autoSendOnIssue !== false) {
+      const r = await sendIssuedInvoice(invoice.id, actor);
+      sent = r.sent;
+    }
+    return { invoiceId: invoice.id, number: issued.number, sent };
+  } catch (err) {
+    // Never leave a half-made draft behind: the plan stays due and the next
+    // run would otherwise create a second one for the same period.
+    await prisma.studioInvoice.deleteMany({ where: { id: invoice.id, status: "DRAFT" } }).catch(() => {});
+    throw err;
   }
-  return { invoiceId: invoice.id, number: issued.number, sent };
 }
 
 /** Cron entry: every ACTIVE plan whose nextRunAt has passed gets its invoice. One run per call per plan (catch-up is deliberate, one at a time). */
@@ -198,7 +213,7 @@ export async function runDueRecurringPlans(now = new Date()): Promise<Array<{ pl
         data: { lastRunAt: now, runs: { increment: 1 }, nextRunAt: advanceRun(plan.nextRunAt, plan.interval, plan.dayOfMonth) },
       });
       out.push({ planId: plan.id, name: plan.name, number: r.number });
-      await notifySlack(`:repeat: Recurring invoice *${r.number}* issued for plan *${plan.name}*${r.sent ? " and emailed" : ""}.\n${APP_URL}/invoices?invoice=${r.invoiceId}`).catch(() => {});
+      if (!r.prepared) await notifySlack(`:repeat: Recurring invoice *${r.number}* issued for plan *${plan.name}*${r.sent ? " and emailed" : ""}.\n${APP_URL}/invoices?invoice=${r.invoiceId}`).catch(() => {});
     } catch (err) {
       const msg = err instanceof Error ? err.message : "failed";
       console.error("[recurring] plan run failed:", plan.id, msg);

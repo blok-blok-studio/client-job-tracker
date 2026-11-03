@@ -135,8 +135,18 @@ export async function prepareForClient(clientId: string) {
     orderBy: { createdAt: "desc" },
     take: 10,
   });
+  // "Same as last time": the client's most recent real invoice lines
+  const last = await prisma.studioInvoice.findFirst({
+    where: { clientId, kind: "INVOICE", status: { not: "VOID" } },
+    orderBy: { createdAt: "desc" },
+    select: { items: true, number: true, currency: true },
+  });
+  const lastItems = last
+    ? { number: last.number, currency: last.currency, items: (last.items as unknown as Array<{ description: string; qty: number; unitPrice: number }>).map((i) => ({ description: i.description, qty: Number(i.qty), unitPrice: Number(i.unitPrice) })) }
+    : null;
   return {
     client: { id: client.id, name: client.name, company: client.company, email: client.email },
+    lastItems,
     country,
     countrySource: detected ? (detected.onFile ? null : detected.source) : null,
     template,
@@ -304,6 +314,7 @@ export async function issueInvoice(id: string, actor: string, meta?: { ipAddress
       where: { id },
       data: {
         status: "ISSUED",
+        readyAt: null,
         issueDate,
         dueDate: f.dueDate,
         vatScheme: f.vatScheme,

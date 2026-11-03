@@ -39,6 +39,7 @@ interface Row {
   partner?: { id: string; name: string } | null;
   kind?: string;
   milestone?: string | null;
+  readyAt?: string | null;
 }
 
 interface Summary {
@@ -58,7 +59,7 @@ export default function InvoicesPage() {
   const search = useSearchParams();
   const { toast } = useToast();
   const [rows, setRows] = useState<Row[]>([]);
-  const [autoPreview, setAutoPreview] = useState(false);
+  const [autoPreview, setAutoPreview] = useState(search.get("preview") === "1");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
@@ -123,6 +124,7 @@ export default function InvoicesPage() {
 
   const bankMissing = !!summary && summary.setup.missingBank.EUR.length > 0 && summary.setup.missingBank.USD.length > 0;
   const rev = summary?.revenue;
+  const ready = rows.filter((r) => r.status === "DRAFT" && r.readyAt);
   const revTone = !rev ? "" : rev.pct >= 100 ? "border-red-500/40 bg-red-500/10" : rev.pct >= 80 ? "border-amber-500/40 bg-amber-500/10" : "border-bb-border bg-bb-surface";
 
   async function copyLink(r: Row) {
@@ -183,7 +185,7 @@ export default function InvoicesPage() {
         ) : tab === "analytics" ? (
           <AnalyticsPanel />
         ) : tab === "plans" ? (
-          <PlansPanel onInvoiceIssued={load} />
+          <PlansPanel onInvoiceIssued={(preparedId) => { load(); if (preparedId) { setTab("invoices"); setAutoPreview(true); setDetailId(preparedId); } }} />
         ) : tab === "quotes" ? (
           <QuotesPanel onInvoiceDrafted={(id) => { load(); setDetailId(id); }} />
         ) : tab === "bank" ? (
@@ -195,6 +197,26 @@ export default function InvoicesPage() {
                 <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                 <span>Bank details are not set yet. Add the IBAN (EUR) and the Wise USD account under Settings before issuing the first invoice. Nothing is pre-filled or guessed.</span>
               </button>
+            )}
+
+            {/* Prepared by automation, waiting for the owner's yes */}
+            {ready.length > 0 && (
+              <div className="mb-6 rounded-xl border border-bb-blue/40 bg-bb-blue/10 p-4">
+                <p className="text-sm font-semibold text-white mb-1">Ready for your yes ({ready.length})</p>
+                <p className="text-xs text-bb-muted mb-3">Prepared automatically. Nothing is numbered or emailed until you check it and press Issue and email.</p>
+                <div className="space-y-2">
+                  {ready.map((r) => (
+                    <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg bg-bb-black/40 px-3 py-2">
+                      <div className="flex-1 min-w-[160px]">
+                        <p className="text-sm text-white">{r.client.company || r.client.name}</p>
+                        <p className="text-xs text-bb-dim">{r.milestone ? `${r.milestone} · ` : ""}prepared {shortDate(r.readyAt)}</p>
+                      </div>
+                      <p className="text-sm font-semibold text-white">{money(r.total, r.currency)}</p>
+                      <button className={btnPrimary} onClick={() => { setAutoPreview(true); setDetailId(r.id); }}>Review and send</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Tiles */}
