@@ -105,6 +105,20 @@ export default function TrackerPanel() {
     }
   }
 
+  async function importDetails(file: File) {
+    setSyncing(true);
+    try {
+      const j = await readJsonSafe(await fetch("/api/stripe/client-details", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: await file.text() }) }));
+      if (!j.success) throw new Error(j.error || "Import failed");
+      const d = j.data as { rows: number; updated: Array<{ client: string; filled: string[] }>; unchanged: number; unmatched: string[] };
+      setImportResult(`Client details: ${d.updated.length} clients filled in${d.updated.length ? ` (${d.updated.map((u) => `${u.client}: ${u.filled.join(", ")}`).join("; ")})` : ""}, ${d.unchanged} already complete, ${d.unmatched.length} without a client${d.unmatched.length ? ` (${d.unmatched.join(", ")})` : ""}.`);
+    } catch (err) {
+      setImportResult(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function importHistory() {
     setSyncing(true);
     try {
@@ -189,6 +203,10 @@ export default function TrackerPanel() {
           <label className={`${btnGhost} cursor-pointer ${syncing ? "opacity-40 pointer-events-none" : ""}`} title="Stripe: Transactions, All activity, Export, all columns, UTC">
             Import balance history (CSV)
             <input aria-label="Stripe balance history CSV" type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importLedger(f); }} />
+          </label>
+          <label className={`${btnGhost} cursor-pointer ${syncing ? "opacity-40 pointer-events-none" : ""}`} title="email,name,phone,line1,line2,city,state,zip,country,taxId. Fills empty fields only.">
+            Import client details (CSV)
+            <input aria-label="Client details CSV" type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importDetails(f); }} />
           </label>
           {importResult && <p className="text-xs text-bb-muted">{importResult}</p>}
           {unmatched > 0 && <p className="text-xs text-amber-300 flex gap-1.5"><AlertTriangle size={13} className="mt-0.5 shrink-0" /> {unmatched} payment(s) have no client. They still count in the year totals.</p>}
