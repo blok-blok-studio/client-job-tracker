@@ -119,10 +119,16 @@ export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings, 
     qrKind = "URL";
   }
 
+  // Exactly one QR per invoice, picked for the payer, so there is never a
+  // choice to make: card link for card invoices, the SEPA GiroCode for EUR
+  // invoices to European clients, otherwise Wise (or the online invoice page
+  // when no Wise link is set).
   const qrs: InvoiceView["qrs"] = [];
   if (inv.kind !== "CORRECTION" && qrPayload) {
-    qrs.push({ kind: qrKind === "EPC" ? "EPC" : paymentMethod === "STRIPE" ? "CARD" : "PAGE", payload: qrKind === "EPC" || paymentMethod === "STRIPE" ? qrPayload : url });
-    if (paymentMethod !== "STRIPE" && seller.wisePayLink) qrs.push({ kind: "WISE", payload: seller.wisePayLink });
+    if (paymentMethod === "STRIPE") qrs.push({ kind: "CARD", payload: qrPayload });
+    else if (qrKind === "EPC" && inv.template !== "US") qrs.push({ kind: "EPC", payload: qrPayload });
+    else if (seller.wisePayLink) qrs.push({ kind: "WISE", payload: seller.wisePayLink });
+    else qrs.push({ kind: "PAGE", payload: url });
   }
 
   return {

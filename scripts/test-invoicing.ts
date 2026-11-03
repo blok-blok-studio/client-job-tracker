@@ -206,7 +206,7 @@ const deView: InvoiceView = {
   vatNotes: ["Gemäß § 19 UStG wird keine Umsatzsteuer berechnet."],
   billTo: { name: "Max Mustermann", company: "Musterfirma GmbH", addressLines: ["Beispielstraße 1", "10115 Berlin", "Deutschland"], email: "max@musterfirma.de", vatId: null, country: "DE" },
   qrPayload: buildEpcPayload({ name: seller.eur.holder, iban: seller.eur.iban, bic: seller.eur.bic, amount: 6025, reference: "BBS-2026-007" }), qrKind: "EPC",
-  qrs: [{ kind: "EPC", payload: buildEpcPayload({ name: seller.eur.holder, iban: seller.eur.iban, bic: seller.eur.bic, amount: 6025, reference: "BBS-2026-007" }) }, { kind: "WISE", payload: seller.wisePayLink }],
+  qrs: [{ kind: "EPC", payload: buildEpcPayload({ name: seller.eur.holder, iban: seller.eur.iban, bic: seller.eur.bic, amount: 6025, reference: "BBS-2026-007" }) }],
 };
 const usView: InvoiceView = {
   ...base, number: "BBS-2026-008", language: "en", currency: "USD", template: "US", vatScheme: "DRITTLAND",
@@ -214,7 +214,7 @@ const usView: InvoiceView = {
   billTo: { name: "Jane Doe", company: "Bronco Plumbing DFW", addressLines: ["123 Main St", "Dallas, TX 75201", "USA"], email: "jane@example.com", vatId: null, country: "US" },
   notes: "Payment by ACH or wire. Card payments available on request (processing fee applies).",
   qrPayload: seller.wisePayLink, qrKind: "URL",
-  qrs: [{ kind: "PAGE", payload: "https://app.blokblokstudio.com/b/sampletoken" }, { kind: "WISE", payload: seller.wisePayLink }],
+  qrs: [{ kind: "WISE", payload: seller.wisePayLink }],
 };
 const de27View: InvoiceView = {
   ...deView, number: "BBS-2027-001", issueDate: "2027-01-05", dueDate: "2027-01-19", vatScheme: "REGULAR", vatRate: 19, vatNotes: [],

@@ -162,13 +162,22 @@ export default function PublicInvoicePage() {
             </dl>
             {inv.qrs.length > 0 && !isPaid && (
               <div className="flex gap-4 justify-center">
-                {inv.qrs.map((q) =>
+                {inv.qrs.filter((q) => q.kind !== "PAGE").map((q) =>
                   q.dataUrl ? (
                     <div key={q.kind} className="text-center w-36">
                       <p className={`text-xs font-semibold mb-2 ${q.kind === "WISE" ? "text-bb-accent" : "text-white"}`}>{q.kind === "EPC" ? L.qrEpcTitle : q.kind === "WISE" ? L.qrWiseTitle : q.kind === "CARD" ? L.qrCardTitle : L.qrPageTitle}</p>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={q.dataUrl} alt={q.kind === "WISE" ? "Wise QR code" : "Bank transfer QR code"} width={144} height={144} className={`rounded-lg bg-white p-2 mx-auto ${q.kind === "WISE" ? "ring-2 ring-bb-blue" : ""}`} />
                       <p className="text-[11px] text-neutral-500 mt-2 leading-snug">{q.kind === "EPC" ? L.qrEpcHint : q.kind === "WISE" ? L.qrWiseHint : L.qrPageHint}</p>
+                      {q.kind === "WISE" && (
+                        <>
+                          <p className="text-sm font-semibold text-white mt-1">{fmt(inv.total)}</p>
+                          <p className="text-xs font-semibold text-white">{inv.number}</p>
+                          {inv.seller.wisePayLink && (
+                            <a href={inv.seller.wisePayLink} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block rounded-lg bg-bb-blue px-3 py-1.5 text-xs font-semibold text-white">{lang === "de" ? "Wise öffnen" : "Open Wise"}</a>
+                          )}
+                        </>
+                      )}
                     </div>
                   ) : null
                 )}

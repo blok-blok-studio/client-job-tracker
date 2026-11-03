@@ -341,17 +341,17 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
   // each payer finds "their" code at a glance; a single QR sits on the right.
   const qrs = [...view.qrs.slice(0, 2)].sort((a, b) => (a.kind === "WISE" ? 1 : 0) - (b.kind === "WISE" ? 1 : 0));
   const qrCount = qrs.length;
-  const qrSize = qrCount ? 84 : 0;
-  const colW = qrCount ? 100 : 0;
+  const qrSize = qrCount === 2 ? 84 : qrCount ? 100 : 0;
+  const colW = qrCount === 2 ? 100 : qrCount ? 128 : 0;
   const panelPad = 14;
   const rowH = 12.5;
   const qrTitle = (k: string) => (k === "EPC" ? L.qrEpcTitle : k === "WISE" ? L.qrWiseTitle : k === "CARD" ? L.qrCardTitle : L.qrPageTitle);
   const qrHint = (k: string) => (k === "EPC" ? L.qrEpcHint : k === "WISE" ? L.qrWiseHint : L.qrPageHint);
-  const titleLines = qrs.map((q) => wrap(qrTitle(q.kind), 7.5, bold, colW - 6));
+  const titleLines = qrs.map((q) => wrap(qrTitle(q.kind), 9.5, bold, colW - 6));
   const hintLines = qrs.map((q) => wrap(qrHint(q.kind), 6.5, font, colW - 6));
   const maxTitle = Math.max(0, ...titleLines.map((l) => l.length));
   const maxHint = Math.max(0, ...hintLines.map((l) => l.length));
-  const qrColH = qrCount ? maxTitle * 9.5 + 8 + qrSize + 6 + maxHint * 8.5 : 0;
+  const qrColH = qrCount ? maxTitle * 11.5 + 4 + qrSize + 6 + maxHint * 8.5 + (qrs.some((q) => q.kind === "WISE") ? 22 : 0) : 0;
   const leftCol = qrCount === 2 ? colW + panelPad : 0;
   const rightCol = qrCount ? colW + panelPad : 0;
   const textX = M + panelPad + leftCol;
@@ -392,11 +392,11 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
     const color = q.kind === "WISE" ? BLUE1 : BLUE2;
     let ty = panelTop - panelPad - 8;
     for (const l of titleLines[i]) {
-      const tw = width(l, 7.5, bold);
-      text(l, cx - tw / 2, ty, 7.5, bold, color);
-      ty -= 9.5;
+      const tw = width(l, 9.5, bold);
+      text(l, cx - tw / 2, ty, 9.5, bold, color);
+      ty -= 11.5;
     }
-    const qy = panelTop - panelPad - maxTitle * 9.5 - 6 - qrSize;
+    const qy = panelTop - panelPad - maxTitle * 11.5 - 4 - qrSize;
     try {
       const png = await pdf.embedPng(await qrPng(q.payload, 512));
       page.drawRectangle({ x: cx - qrSize / 2 - 3, y: qy - 3, width: qrSize + 6, height: qrSize + 6, color: rgb(1, 1, 1), borderColor: color, borderWidth: 1.2 });
@@ -406,6 +406,16 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
         const hw = width(l, 6.5, font);
         text(l, cx - hw / 2, hy, 6.5, font, MUTED);
         hy -= 8.5;
+      }
+      // Wise links do not carry the amount: print exactly what to type in
+      if (q.kind === "WISE") {
+        hy -= 2;
+        const amt = money(view.total);
+        const aw = width(amt, 8.5, bold);
+        text(amt, cx - aw / 2, hy, 8.5, bold, INK);
+        const ref = view.number || "";
+        const rw = width(ref, 8, bold);
+        text(ref, cx - rw / 2, hy - 11, 8, bold, INK);
       }
     } catch {
       // QR failed: the bank details beside it still carry the payment
