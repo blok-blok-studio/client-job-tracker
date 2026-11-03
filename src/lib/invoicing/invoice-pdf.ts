@@ -158,8 +158,17 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
   const topBlocks = y;
 
   // Sender line (window-envelope style) above the recipient
-  const senderLine = [view.seller.sellerName, ...view.seller.addressLines].join(" · ");
-  text(senderLine, M, y, 6.5, font, FAINT);
+  // Must stay inside the left column: drop trailing address lines (country first),
+  // then shrink the type, so a long seller name never runs into the meta block
+  const senderMax = colRightX - 24 - M;
+  const senderParts = [view.seller.sellerName, ...view.seller.addressLines];
+  let senderLine = senderParts.join(" · ");
+  while (width(senderLine, 6.5, font) > senderMax && senderParts.length > 2) {
+    senderParts.pop();
+    senderLine = senderParts.join(" · ");
+  }
+  const senderSize = Math.max(5, Math.min(6.5, (6.5 * senderMax) / Math.max(1, width(senderLine, 6.5, font))));
+  text(senderLine, M, y, senderSize, font, FAINT);
   rule(M, colRightX - 24, y - 4, 0.4);
   y -= 18;
   text(L.billTo.toUpperCase(), M, y, 6.5, bold, MUTED);

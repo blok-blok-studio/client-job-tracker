@@ -255,7 +255,20 @@ export function clientToBillTo(client: {
     ? [[city, state].filter(Boolean).join(", "), zip].filter(Boolean).join(" ") // Dallas, TX 75201
     : [[zip, city].filter(Boolean).join(" "), state && !city.includes(state) ? state : ""].filter(Boolean).join(", "); // 10115 Berlin
   if (cityLine) lines.push(cityLine);
-  if (client.companyCountry) lines.push(client.companyCountry);
+  if (client.companyCountry) {
+    // A bare ISO code ("DE") prints as the country name; German addresses in German
+    const cc = client.companyCountry.trim();
+    let name = cc;
+    if (/^[A-Za-z]{2}$/.test(cc)) {
+      const code = cc.toUpperCase() === "UK" ? "GB" : cc.toUpperCase();
+      try {
+        name = (code === "DE" || code === "AT" || code === "CH" ? new Intl.DisplayNames(["de"], { type: "region" }) : new Intl.DisplayNames(["en"], { type: "region" })).of(code) || cc;
+      } catch {
+        name = cc;
+      }
+    }
+    lines.push(name);
+  }
   return {
     name: client.name,
     company: client.company,
