@@ -2358,6 +2358,7 @@ model Pitch {
   brandIndustry String?
   brandColor    String? // #RRGGBB accent from the brand, used on the cover
   recipient     String? // who it is for, e.g. "Head of Marketing" or "Chase"
+  notes         String? @db.Text // raw research notes the AI drafts from
   clientId      String? // optional link to an existing client (no FK: pitches outlive clients)
   authorId      String // User.id
   authorName    String

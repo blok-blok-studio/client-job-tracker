@@ -4,15 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Loader2, FileDown, Eye, Trash2, Upload, X, Check, Building2, UserRound, Plus, Image as ImageIcon, Award, Hash, PenLine, Palette,
+  ArrowLeft, Loader2, Sparkles, FileDown, Eye, Trash2, Upload, X, Check, Building2, UserRound, Plus, Image as ImageIcon, Award, Hash, PenLine, Palette,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { useToast } from "@/components/shared/Toast";
+import { upload } from "@vercel/blob/client";
 import { readJson } from "@/lib/fetch-json";
 import { PROOF } from "@/lib/pitches/proof";
 import { SECTION_KEYS, SECTION_META, type PitchSections, type PitchStat } from "@/lib/pitches/types";
 import { STATUS_LABEL, STATUS_STYLE, inputClass, shrinkForUpload, type PitchStatusKey } from "@/components/pitches/meta";
+
+const MAX_MB = 25;
+const MAX_IMAGES = 20;
+const DIRECT_LIMIT = 3.5 * 1024 * 1024;
 
 interface Img { id: string; caption: string | null; width: number; height: number }
 interface Pitch {
@@ -25,6 +30,7 @@ interface Pitch {
   brandIndustry: string | null;
   brandColor: string | null;
   recipient: string | null;
+  notes: string | null;
   authorName: string;
   sections: PitchSections;
   stats: PitchStat[];
@@ -51,6 +57,9 @@ export default function PitchEditor() {
   const [uploading, setUploading] = useState<"logo" | "image" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [confirmDraft, setConfirmDraft] = useState(false);
   const pending = useRef<Partial<Editable>>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoInput = useRef<HTMLInputElement>(null);
@@ -61,6 +70,7 @@ export default function PitchEditor() {
     if (!r.ok) { setMissing(true); toast(r.error!, "error"); return; }
     const d = r.data!.data;
     setPitch({ ...d, sections: d.sections || {}, stats: Array.isArray(d.stats) ? d.stats : [] });
+    setNotes(d.notes || "");
   }, [id, toast]);
   useEffect(() => { load(); }, [load]);
 
@@ -94,11 +104,53 @@ export default function PitchEditor() {
     window.open(`/api/pitches/${id}/pdf${download ? "?download=1" : ""}`, "_blank");
   };
 
+  /** Small files post straight to the API; big ones go browser -> Blob first (Vercel caps a request at 4.5 MB). */
+  const sendImage = async (path: "logo" | "images", file: File, method: "PUT" | "POST") => {
+    if (file.size > MAX_MB * 1024 * 1024) return { ok: false as const, error: `${file.name} is over ${MAX_MB} MB` };
+    const body = await shrinkForUpload(file, path === "logo" ? 1600 : 2400);
+    if (body.size <= DIRECT_LIMIT) {
+      const fd = new FormData();
+      fd.append("file", body, file.name);
+      return readJson<{ data: Img }>(await fetch(`/api/pitches/${id}/${path}`, { method, body: fd }));
+    }
+    try {
+      const safeName = file.name.replace(/[^\w.-]+/g, "_").slice(-80) || "image";
+      const blob = await upload(`pitch-uploads/${id}/${safeName}`, body, {
+        access: "public",
+        handleUploadUrl: `/api/pitches/${id}/upload-token`,
+        contentType: body.type || file.type,
+      });
+      return readJson<{ data: Img }>(
+        await fetch(`/api/pitches/${id}/${path}`, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ blobUrl: blob.url }) })
+      );
+    } catch {
+      return { ok: false as const, error: `Could not upload ${file.name}. Try again.` };
+    }
+  };
+
+  const runDraft = async () => {
+    setConfirmDraft(false);
+    if (!(await flush())) return;
+    setDrafting(true);
+    const r = await readJson<{ data: { title: string; sections: PitchSections; stats: PitchStat[]; proof: string[] } }>(
+      await fetch(`/api/pitches/${id}/draft`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notes }) })
+    );
+    setDrafting(false);
+    if (!r.ok) return toast(r.error!, "error");
+    const d = r.data!.data;
+    setPitch((p) => (p ? { ...p, title: d.title, sections: d.sections, stats: d.stats, proof: d.proof, notes } : p));
+    setSaving("saved");
+    toast("Draft written. Read it through and fix anything that isn't right.", "success");
+  };
+  const askDraft = () => {
+    const filled = pitch && Object.values(pitch.sections).some((v) => v && v.trim());
+    if (filled) setConfirmDraft(true);
+    else runDraft();
+  };
+
   const uploadLogo = async (file: File) => {
     setUploading("logo");
-    const fd = new FormData();
-    fd.append("file", await shrinkForUpload(file, 1600), file.name);
-    const r = await readJson(await fetch(`/api/pitches/${id}/logo`, { method: "PUT", body: fd }));
+    const r = await sendImage("logo", file, "PUT");
     setUploading(null);
     if (!r.ok) return toast(r.error!, "error");
     setPitch((p) => (p ? { ...p, hasLogo: true } : p));
@@ -113,10 +165,8 @@ export default function PitchEditor() {
   const uploadImages = async (files: FileList) => {
     setUploading("image");
     for (const file of Array.from(files)) {
-      const fd = new FormData();
-      fd.append("file", await shrinkForUpload(file), file.name);
-      const r = await readJson<{ data: Img }>(await fetch(`/api/pitches/${id}/images`, { method: "POST", body: fd }));
-      if (!r.ok) { toast(`${file.name}: ${r.error}`, "error"); break; }
+      const r = await sendImage("images", file, "POST");
+      if (!r.ok) { toast(r.error!, "error"); break; }
       setPitch((p) => (p ? { ...p, images: [...p.images, r.data!.data] } : p));
     }
     setUploading(null);
@@ -221,6 +271,32 @@ export default function PitchEditor() {
               </div>
             </div>
 
+            {/* AI draft */}
+            <div className={card}>
+              <h3 className={h3}><Sparkles size={14} className="text-bb-accent" /> Paste your research, let AI draft it</h3>
+              <p className="text-[11px] text-bb-dim -mt-1">
+                Notes, links, numbers, reviews, anything you found. The AI only uses what you paste: it won&apos;t make up numbers or prices. You can edit every section after.
+              </p>
+              <textarea
+                className={`${inputClass} min-h-[140px] leading-relaxed`}
+                disabled={ro || drafting}
+                maxLength={30000}
+                value={notes}
+                placeholder={"e.g. Their site takes 9.1s to load on mobile (PageSpeed). 4.9 stars, 1,200 Google reviews. No online ordering. Two competitors launched apps this year..."}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={askDraft}
+                  disabled={ro || drafting || notes.trim().length < 40}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors"
+                >
+                  {drafting ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} {drafting ? "Drafting, about 30 seconds..." : "Draft with AI"}
+                </button>
+                <span className="text-[11px] text-bb-dim">{notes.length.toLocaleString()} / 30,000</span>
+              </div>
+            </div>
+
             {/* research */}
             <div className={card}>
               <h3 className={h3}><PenLine size={14} className="text-bb-accent" /> Your research</h3>
@@ -246,14 +322,14 @@ export default function PitchEditor() {
                 {!ro && (
                   <>
                     <input ref={imageInput} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) uploadImages(e.target.files); e.target.value = ""; }} />
-                    <button onClick={() => imageInput.current?.click()} disabled={uploading !== null || pitch.images.length >= 8} className={small}>
+                    <button onClick={() => imageInput.current?.click()} disabled={uploading !== null || pitch.images.length >= MAX_IMAGES} className={small}>
                       {uploading === "image" ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Add screenshots
                     </button>
                   </>
                 )}
               </div>
               {pitch.images.length === 0 ? (
-                <p className="text-xs text-bb-dim">Their site on a phone, bad reviews, a competitor doing it better. Up to 8, two per page in the PDF.</p>
+                <p className="text-xs text-bb-dim">Their site on a phone, bad reviews, a competitor doing it better. Up to 20, each up to 25 MB. Two per page in the PDF.</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {pitch.images.map((img) => (
@@ -303,7 +379,7 @@ export default function PitchEditor() {
                   {pitch.hasLogo && <button onClick={removeLogo} className={small}><X size={13} /> Remove</button>}
                 </div>
               )}
-              <p className="text-[11px] text-bb-dim">PNG or SVG with a transparent background looks best. No logo? Their name is used.</p>
+              <p className="text-[11px] text-bb-dim">PNG or SVG with a transparent background looks best, up to 25 MB. No logo? Their name is used.</p>
               <Field label="Accent colour (optional)" hint="Their main brand colour, used for the stripes and bullets.">
                 <div className="flex items-center gap-2">
                   <input
@@ -371,6 +447,15 @@ export default function PitchEditor() {
         </div>
       </div>
 
+      <ConfirmDialog
+        open={confirmDraft}
+        onClose={() => setConfirmDraft(false)}
+        onConfirm={runDraft}
+        title="Replace what's written?"
+        message="The AI draft replaces the title, every section, the key numbers and the case-study picks. Screenshots and the logo stay."
+        confirmLabel="Draft with AI"
+        confirmVariant="warning"
+      />
       <ConfirmDialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}

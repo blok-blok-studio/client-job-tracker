@@ -51,11 +51,23 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     });
     const name = `${p.brandName} - ${p.kind === "INTERNAL" ? "internal pitch" : "Blok Blok pitch"}.pdf`.replace(/[^\w .,()-]+/g, "");
     const download = request.nextUrl.searchParams.get("download") === "1";
-    return new NextResponse(Buffer.from(pdf), {
+    // Streamed: a deck with many screenshots can pass the 4.5 MB cap on buffered responses
+    const CHUNK = 256 * 1024;
+    let at = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (at >= pdf.length) return controller.close();
+        controller.enqueue(pdf.subarray(at, at + CHUNK));
+        at += CHUNK;
+      },
+    });
+    return new NextResponse(body, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${name}"`,
         "Cache-Control": "private, no-store",
+        "Content-Length": String(pdf.length),
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (err) {

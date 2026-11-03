@@ -48,6 +48,9 @@ export async function POST(request: NextRequest) {
       },
       select: { id: true },
     });
+    await prisma.activityLog
+      .create({ data: { actor: `user:${user.id}`, action: "pitch_created", details: `${user.name} started a pitch for ${input.brandName}` } })
+      .catch(() => {});
     return NextResponse.json({ success: true, data: pitch });
   } catch (err) {
     return pitchError(err, "Could not create the pitch");

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requirePitchUser, canEdit, pitchError, notFound, notYours } from "@/lib/pitches/access";
-import { checkUpload, normaliseLogo } from "@/lib/pitches/images";
+import { normaliseLogo, readUpload } from "@/lib/pitches/images";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -23,10 +23,9 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
     const existing = await prisma.pitch.findUnique({ where: { id }, select: { authorId: true } });
     if (!existing) return notFound();
     if (!canEdit(user, existing)) return notYours();
-    const file = (await request.formData()).get("file") as File | null;
-    const bad = checkUpload(file);
-    if (bad) return NextResponse.json({ success: false, error: bad }, { status: 400 });
-    const png = await normaliseLogo(Buffer.from(await file!.arrayBuffer())).catch(() => null);
+    const up = await readUpload(request, id);
+    if ("error" in up) return NextResponse.json({ success: false, error: up.error }, { status: 400 });
+    const png = await normaliseLogo(up.buf).catch(() => null);
     if (!png) return NextResponse.json({ success: false, error: "Could not read that image" }, { status: 400 });
     await prisma.pitch.update({ where: { id }, data: { logo: new Uint8Array(png) } });
     return NextResponse.json({ success: true });

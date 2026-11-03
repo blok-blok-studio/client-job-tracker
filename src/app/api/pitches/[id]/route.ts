@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 const detail = {
   id: true, kind: true, status: true, title: true, brandName: true, brandWebsite: true, brandIndustry: true,
-  brandColor: true, recipient: true, clientId: true, authorId: true, authorName: true, authorEmail: true,
+  brandColor: true, recipient: true, clientId: true, notes: true, authorId: true, authorName: true, authorEmail: true,
   sections: true, stats: true, proof: true, createdAt: true, updatedAt: true,
   images: { select: { id: true, caption: true, width: true, height: true, order: true }, orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
 } satisfies Prisma.PitchSelect;
@@ -61,9 +61,12 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const { user, denied } = await requirePitchUser();
   if (denied) return denied;
   const { id } = await params;
-  const existing = await prisma.pitch.findUnique({ where: { id }, select: { authorId: true } });
+  const existing = await prisma.pitch.findUnique({ where: { id }, select: { authorId: true, brandName: true, title: true } });
   if (!existing) return notFound();
   if (!canEdit(user, existing)) return notYours();
   await prisma.pitch.delete({ where: { id } });
+  await prisma.activityLog
+    .create({ data: { actor: `user:${user.id}`, action: "pitch_deleted", details: `${user.name} deleted the pitch "${existing.title}" (${existing.brandName})` } })
+    .catch(() => {});
   return NextResponse.json({ success: true });
 }
