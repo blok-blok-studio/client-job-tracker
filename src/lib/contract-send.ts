@@ -14,6 +14,8 @@ export interface ContractGenParams {
   paymentSchedule?: Array<{ label: string; percent: number }>;
   skipPayment: boolean;
   exchangeRate?: number;
+  /** Fees were read from a prompt contract in this currency: amounts are final, no conversion */
+  billingCurrency?: string;
 }
 
 export interface ContractSendResult {
@@ -43,7 +45,14 @@ export function readGenParams(selectedPackages: unknown): ContractGenParams {
       : undefined,
     skipPayment: sp.skipPayment === true,
     exchangeRate: typeof sp.exchangeRate === "number" ? sp.exchangeRate : undefined,
+    billingCurrency: typeof sp.billingCurrency === "string" && /^[A-Z]{3}$/.test(sp.billingCurrency) ? sp.billingCurrency : undefined,
   };
+}
+
+async function billingCountry(clientId: string): Promise<string | null> {
+  const [{ detectCountry }, { CLIENT_BILLING_SELECT }] = await Promise.all([import("@/lib/invoicing/country-detect"), import("@/lib/invoicing/service")]);
+  const c = await prisma.client.findUnique({ where: { id: clientId }, select: CLIENT_BILLING_SELECT });
+  return c ? detectCountry(c)?.country ?? null : null;
 }
 
 /**
@@ -87,7 +96,7 @@ export async function sendContract(
   if (!params.skipPayment && !isStandardDoc) {
     try {
       const convertAmount = (usd: number) =>
-        exchangeRate ? Math.round(usd * exchangeRate * 100) / 100 : usd;
+        !params.billingCurrency && exchangeRate ? Math.round(usd * exchangeRate * 100) / 100 : usd;
       const allItems = [
         ...SERVICE_PACKAGES.filter((p) => params.packages.includes(p.id)),
         ...ADDON_PACKAGES.filter((a) => params.addons.includes(a.id)),
@@ -115,8 +124,9 @@ export async function sendContract(
             contractId: contract.id,
             clientId: client.id,
             clientName: client.name,
-            country: params.country,
-            currency: getCurrencyForCountry(params.country).toUpperCase(),
+            // Prompt contracts: the client's own country picks the invoice template
+            country: params.billingCurrency ? (await billingCountry(client.id)) || params.country : params.country,
+            currency: params.billingCurrency || getCurrencyForCountry(params.country).toUpperCase(),
             milestones: schedule.map((m) => ({
               label: m.label,
               title: m.label === "deposit" ? "Deposit" : m.label === "milestone" ? "Milestone" : "Completion",

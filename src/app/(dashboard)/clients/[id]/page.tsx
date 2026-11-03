@@ -92,7 +92,7 @@ export default function ClientDetailPage() {
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractCopied, setContractCopied] = useState<string | null>(null);
   // Draft review modal: shows the generated body before it's sent to the client
-  const [reviewContract, setReviewContract] = useState<{ id: string; token: string; status: string; contractBody: string } | null>(null);
+  const [reviewContract, setReviewContract] = useState<{ id: string; token: string; status: string; contractBody: string; billing?: ContractBilling | null; billingError?: string | null } | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [sendingContract, setSendingContract] = useState(false);
   // When AI drafting fails, this holds a clear explanation shown to the user (toast + banner)
@@ -364,12 +364,14 @@ export default function ClientDetailPage() {
             token: data.data.token,
             status: data.data.status,
             contractBody: data.data.contractBody || "",
+            billing: data.data.billing ?? null,
+            billingError: data.data.billingError ?? null,
           });
           toast("Draft contract created. Review it, then send to the client.", "success");
         } else if (data.data?.paymentLinkError) {
           toast(`Contract created, but invoices failed: ${data.data.paymentLinkError}`, "error");
         } else if (data.data?.paymentLinks?.length > 0) {
-          toast(`Contract sent. ${data.data.paymentLinks.length} invoice(s) or plan(s) prepared; the deposit invoice goes out when the client signs.`, "success");
+          toast(`Contract sent. ${data.data.paymentLinks.length} invoice(s) or plan(s) prepared. When the client signs, the deposit invoice waits for your yes on the Invoices page.`, "success");
         } else {
           toast("Contract generated and sent to client for signing.", "success");
         }
@@ -392,6 +394,7 @@ export default function ClientDetailPage() {
           token: data.data.token,
           status: data.data.status,
           contractBody: data.data.contractBody || "",
+          billing: data.data.billing ?? null,
         });
       } else {
         toast(data.error || "Failed to load contract", "error");
@@ -412,7 +415,7 @@ export default function ClientDetailPage() {
         if (data.data?.paymentLinkError) {
           toast(`Contract sent, but invoices failed: ${data.data.paymentLinkError}`, "error");
         } else if (data.data?.paymentLinks?.length > 0) {
-          toast(`Contract sent. ${data.data.paymentLinks.length} invoice(s) or plan(s) prepared; the deposit invoice goes out when the client signs.`, "success");
+          toast(`Contract sent. ${data.data.paymentLinks.length} invoice(s) or plan(s) prepared. When the client signs, the deposit invoice waits for your yes on the Invoices page.`, "success");
         } else {
           toast("Contract sent to client for signing.", "success");
         }
@@ -1881,6 +1884,8 @@ export default function ClientDetailPage() {
               <pre className="whitespace-pre-wrap font-mono text-xs text-bb-muted leading-relaxed">{reviewContract.contractBody}</pre>
             </div>
 
+            <ContractBillingBox billing={reviewContract.billing ?? null} error={reviewContract.billingError ?? null} draft={reviewContract.status === "DRAFT"} />
+
             <div className="flex gap-3 justify-end items-center">
               {reviewContract.status === "DRAFT" && (
                 <button
@@ -2472,6 +2477,51 @@ export default function ClientDetailPage() {
           )}
         </div>
       </Modal>
+    </div>
+  );
+}
+
+interface ContractBilling {
+  currency: string;
+  customItems: Array<{ name: string; price: number; recurring?: boolean }>;
+  paymentSchedule: Array<{ label: string; percent: number }> | null;
+}
+
+/** What invoices the contract prepares, read from its fees, so Chase can check the numbers before sending. */
+function ContractBillingBox({ billing, error, draft }: { billing: ContractBilling | null; error: string | null; draft: boolean }) {
+  const fmt = (n: number, c: string) => new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format(n);
+  if (!billing) {
+    return (
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+        {error ? `Could not read the fees (${error}).` : "No fees found in this contract."} No invoices will be prepared. Create the invoice yourself on the Invoices page if one is needed.
+      </div>
+    );
+  }
+  const oneTime = billing.customItems.filter((i) => !i.recurring);
+  const monthly = billing.customItems.filter((i) => i.recurring);
+  const total = oneTime.reduce((s, i) => s + i.price, 0);
+  const schedule = billing.paymentSchedule?.length ? billing.paymentSchedule : [{ label: "deposit", percent: 100 }];
+  const name = (l: string) => (l === "deposit" ? "Deposit" : l === "milestone" ? "Milestone" : "Completion");
+  return (
+    <div className="rounded-lg border border-bb-blue/40 bg-bb-blue/10 p-3 text-sm">
+      <p className="font-semibold text-white mb-1">Invoices this contract prepares ({billing.currency})</p>
+      <p className="text-xs text-bb-muted mb-2">Read from the fees in the contract. {draft ? "Created as drafts when you send it; " : ""}the first one is ready for your yes when the client signs, nothing goes out by itself.</p>
+      {oneTime.length > 0 && (
+        <ul className="text-xs text-bb-muted space-y-0.5 mb-2">
+          {oneTime.map((i, k) => <li key={k}>{i.name}: <span className="text-white">{fmt(i.price, billing.currency)}</span></li>)}
+        </ul>
+      )}
+      {total > 0 && (
+        <ul className="text-xs space-y-0.5 mb-2">
+          {schedule.map((m, k) => <li key={k} className="text-white">{name(m.label)} {m.percent}%: {fmt(Math.round(total * m.percent) / 100, billing.currency)}</li>)}
+        </ul>
+      )}
+      {monthly.length > 0 && (
+        <ul className="text-xs space-y-0.5">
+          {monthly.map((i, k) => <li key={k} className="text-white">Monthly plan, {i.name}: {fmt(i.price, billing.currency)}/month (starts when signed)</li>)}
+        </ul>
+      )}
+      <p className="text-[11px] text-bb-dim mt-2">If a number is wrong, fix the contract prompt and regenerate, or edit the draft invoice before you send it.</p>
     </div>
   );
 }

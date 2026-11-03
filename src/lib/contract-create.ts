@@ -1,3 +1,4 @@
+import { extractContractBilling, type ExtractedBilling } from "@/lib/invoicing/contract-billing-extract";
 import { randomBytes, createHash } from "crypto";
 import prisma from "@/lib/prisma";
 import { generateContractBody, type PaymentMilestone, type PackageCustomization, type CustomLineItem } from "@/lib/contract-templates";
@@ -71,6 +72,9 @@ export interface CreateContractResult {
   aiError: string | null;
   paymentLinks: ContractSendResult["paymentLinks"];
   paymentLinkError: string | null;
+  /** Fees read from a prompt-only contract (null when none were found) */
+  billing?: ExtractedBilling | null;
+  billingError?: string | null;
 }
 
 export async function createClientContract(input: CreateContractInput): Promise<CreateContractResult> {
@@ -148,6 +152,17 @@ export async function createClientContract(input: CreateContractInput): Promise<
     if (!ai.usedAi) aiError = ai.error || "AI drafting unavailable — used baseline contract";
   }
 
+  // Prompt-only contracts carry their fees in the text: read them out so the
+  // invoices can be prepared when the contract goes out (Chase checks them in
+  // the review step; nothing is issued before the client signs and he says yes).
+  let billing: ExtractedBilling | null = null;
+  let billingError: string | null = null;
+  if (!input.template && input.customPrompt?.trim() && !input.packages.length && !(input.customItems || []).length) {
+    const r = await extractContractBilling(input.customPrompt, contractBody);
+    if (r.ok) billing = r.billing;
+    else billingError = r.error;
+  }
+
   // SHA-256 hash of the contract body for tamper detection
   const documentHash = createHash("sha256").update(contractBody).digest("hex");
   const providerIp = input.ipAddress || "unknown";
@@ -172,12 +187,14 @@ export async function createClientContract(input: CreateContractInput): Promise<
       selectedPackages: {
         packages: input.packages,
         addons: input.addons || [],
-        customItems: input.customItems || [],
+        customItems: billing ? billing.customItems : input.customItems || [],
         packageCustomizations: input.packageCustomizations || {},
         country: input.country,
-        paymentSchedule: input.paymentSchedule || null,
-        // Standard documents never create payment links
-        skipPayment: input.template ? true : input.skipPayment,
+        paymentSchedule: billing ? billing.paymentSchedule : input.paymentSchedule || null,
+        // Standard documents never create payment links; prompt contracts with
+        // fees found in the text prepare bank invoices
+        skipPayment: input.template ? true : billing ? false : input.skipPayment,
+        ...(billing ? { billingCurrency: billing.currency, billingSource: "ai" } : {}),
         exchangeRate: exchangeRate ?? null,
       },
     },
@@ -241,5 +258,7 @@ export async function createClientContract(input: CreateContractInput): Promise<
     aiError,
     paymentLinks,
     paymentLinkError,
+    billing,
+    billingError,
   };
 }

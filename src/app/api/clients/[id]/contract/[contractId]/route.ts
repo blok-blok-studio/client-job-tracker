@@ -28,6 +28,7 @@ export async function GET(
         signedName: true,
         signedAt: true,
         createdAt: true,
+        selectedPackages: true,
       },
     });
 
@@ -35,7 +36,15 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Contract not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, data: contract });
+    // What this contract bills, for the review screen (fees read from a prompt contract)
+    const sp = (contract.selectedPackages || {}) as Record<string, unknown>;
+    const { selectedPackages: _sp, ...rest } = contract;
+    void _sp;
+    const billing =
+      typeof sp.billingCurrency === "string" && Array.isArray(sp.customItems)
+        ? { currency: sp.billingCurrency, customItems: sp.customItems, paymentSchedule: Array.isArray(sp.paymentSchedule) ? sp.paymentSchedule : null }
+        : null;
+    return NextResponse.json({ success: true, data: { ...rest, billing } });
   } catch (error) {
     console.error("Failed to fetch contract:", error);
     return NextResponse.json({ success: false, error: "Failed to fetch contract" }, { status: 500 });
