@@ -39,6 +39,16 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
       .catch(() => {});
   }, [clientId]);
 
+  // Invoices Stripe issued before the move, kept with their PDFs
+  const [stripeDocs, setStripeDocs] = useState<Array<{ id: string; number: string | null; status: string; currency: string; total: number; issuedAt: string; hasPdf: boolean }>>([]);
+  const [showAllStripe, setShowAllStripe] = useState(false);
+  useEffect(() => {
+    fetch(`/api/stripe/documents?clientId=${encodeURIComponent(clientId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setStripeDocs(j?.success ? j.data.docs : []))
+      .catch(() => {});
+  }, [clientId]);
+
   const open = rows?.filter((r) => r.status === "ISSUED" || r.status === "SENT") || [];
   const overdue = open.filter((r) => r.dueDate && new Date(r.dueDate).getTime() < Date.now());
 
@@ -81,6 +91,23 @@ export default function ClientInvoices({ clientId }: { clientId: string }) {
             <button onClick={() => router.push(`/invoices?client=${clientId}`)} className="text-xs text-bb-accent hover:underline inline-flex items-center gap-1 px-2 pt-1">
               All {rows.length} invoices <ExternalLink size={11} />
             </button>
+          )}
+        </div>
+      )}
+      {stripeDocs.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-bb-border">
+          <p className="text-xs text-bb-muted mb-1.5">Stripe invoices ({stripeDocs.length})</p>
+          <div className="space-y-1">
+            {(showAllStripe ? stripeDocs : stripeDocs.slice(0, 6)).map((d) => (
+              <a key={d.id} href={d.hasPdf ? `/api/stripe/documents/${d.id}` : undefined} target="_blank" rel="noreferrer" className={`flex items-center justify-between gap-3 px-2 py-1 rounded text-xs ${d.hasPdf ? "hover:bg-bb-elevated/60" : "opacity-60 pointer-events-none"}`}>
+                <span className="font-mono text-white truncate">{d.number || "—"}</span>
+                <span className="text-bb-dim whitespace-nowrap">{new Date(d.issuedAt).toLocaleDateString("en-GB")} · {d.status}</span>
+                <span className="text-white whitespace-nowrap">{money(d.total, d.currency)}</span>
+              </a>
+            ))}
+          </div>
+          {stripeDocs.length > 6 && (
+            <button onClick={() => setShowAllStripe((v) => !v)} className="text-xs text-bb-accent hover:underline px-2 pt-1">{showAllStripe ? "Show fewer" : `Show all ${stripeDocs.length}`}</button>
           )}
         </div>
       )}

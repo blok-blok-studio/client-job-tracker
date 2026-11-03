@@ -135,6 +135,12 @@ export async function GET(request: NextRequest) {
         const payoutRows = ledger.filter((e) => e.type === "payout");
         files[`stripe-payouts-${year}.csv`] = strToU8("\uFEFF" + ["created_utc,currency,amount_to_bank,balance_transaction", ...payoutRows.map((e) => [e.createdAt.toISOString().slice(0, 10), e.currency, (-Number(e.amount)).toFixed(2), e.txnId].map(csvCell).join(","))].join("\n") + "\n");
       }
+      // Invoices Stripe issued that year, one at a time (Accelerate caps a response at 5 MB)
+      const stripeDocs = await prisma.stripeDocument.findMany({ where: { taxYear: year, pdfBytes: { not: null } }, select: { id: true, number: true, customerName: true, status: true }, orderBy: { issuedAt: "asc" } });
+      for (const d of stripeDocs) {
+        const one = await prisma.stripeDocument.findUnique({ where: { id: d.id }, select: { pdf: true } });
+        if (one?.pdf) files[`stripe-invoices/${(d.number || d.id).replace(/[^\w.-]+/g, "_")}_${(d.customerName || "").replace(/[^\w.-]+/g, "_").slice(0, 40)}${d.status === "void" ? "_VOID" : ""}.pdf`] = new Uint8Array(one.pdf);
+      }
       const sum = summarizeYears(yr, cs)[0];
       files[`summary-${year}.txt`] = strToU8([`Blok Blok Studio LLC, tax year ${year}`, `Generated ${new Date().toISOString().slice(0, 10)}`, "", `Income counted (EUR, by date received): ${sum?.incomeEur.toFixed(2) ?? "0.00"}`, `  Bank and Wise invoices: ${sum?.invoiceEur.toFixed(2) ?? "0.00"}`, `  Stripe, net of refunds: ${sum?.stripeEur.toFixed(2) ?? "0.00"}`, `Stripe fees are listed under money out (card, conversion and dispute fees and Stripe billing), per month.`, `Received with no EUR amount yet: ${sum?.missingEur ?? 0} (check these)`, `Money out: ${Object.entries(sum?.costs || {}).map(([c, v]) => `${c} ${v.toFixed(2)}`).join(", ") || "none recorded"}`, "", "Foreign currency: the amount Stripe settled in EUR where available, otherwise the ECB rate of the day received.", "Other business expenses are not in this system. Add them from your bank statements."].join("\n") + "\n");
       const datevRows = rows.filter((r) => r.status !== "VOID" || r.voidReason?.startsWith("Corrected by")).map((r) => Object.assign(r, { clientLabel: r.client.company || r.client.name }));

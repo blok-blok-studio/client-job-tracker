@@ -119,6 +119,37 @@ export default function TrackerPanel() {
     }
   }
 
+  async function importInvoices(files: File[]) {
+    setSyncing(true);
+    try {
+      const csv = files.filter((f) => /\.csv$/i.test(f.name));
+      const pdfs = files.filter((f) => /\.pdf$/i.test(f.name));
+      let note = "";
+      for (const f of csv) {
+        const j = await readJsonSafe(await fetch("/api/stripe/documents/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: await f.text() }) }));
+        if (!j.success) throw new Error(j.error || "Register import failed");
+        const d = j.data as { created: number; updated: number; skippedDrafts: number; withoutClient: number };
+        note += `Register: ${d.created} new, ${d.updated} updated, ${d.skippedDrafts} drafts skipped, ${d.withoutClient} without a client. `;
+      }
+      let ok = 0;
+      const failed: string[] = [];
+      for (let i = 0; i < pdfs.length; i++) {
+        setImportResult(`${note}Uploading PDFs ${i + 1} of ${pdfs.length}…`);
+        const form = new FormData();
+        form.append("file", pdfs[i]);
+        const j = await readJsonSafe(await fetch("/api/stripe/documents/pdf", { method: "POST", body: form }));
+        const d = j.data as { attached: boolean; number: string; reason?: string } | undefined;
+        if (j.success && d?.attached) ok++;
+        else failed.push(`${d?.number || pdfs[i].name}${d?.reason ? ` (${d.reason})` : ""}`);
+      }
+      setImportResult(`${note}${pdfs.length ? `PDFs: ${ok} stored${failed.length ? `, ${failed.length} not stored: ${failed.slice(0, 5).join(", ")}${failed.length > 5 ? "…" : ""}` : ""}.` : ""}`);
+    } catch (err) {
+      setImportResult(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function importHistory() {
     setSyncing(true);
     try {
@@ -207,6 +238,10 @@ export default function TrackerPanel() {
           <label className={`${btnGhost} cursor-pointer ${syncing ? "opacity-40 pointer-events-none" : ""}`} title="email,name,phone,line1,line2,city,state,zip,country,taxId. Fills empty fields only.">
             Import client details (CSV)
             <input aria-label="Client details CSV" type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importDetails(f); }} />
+          </label>
+          <label className={`${btnGhost} cursor-pointer ${syncing ? "opacity-40 pointer-events-none" : ""}`} title="Stripe invoice export (CSV) and the invoice PDFs, together or in batches">
+            Import Stripe invoices (CSV + PDFs)
+            <input aria-label="Stripe invoices CSV and PDFs" type="file" multiple accept=".csv,.pdf,text/csv,application/pdf" className="hidden" onChange={(e) => { const f = [...(e.target.files || [])]; e.target.value = ""; if (f.length) importInvoices(f); }} />
           </label>
           {importResult && <p className="text-xs text-bb-muted">{importResult}</p>}
           {unmatched > 0 && <p className="text-xs text-amber-300 flex gap-1.5"><AlertTriangle size={13} className="mt-0.5 shrink-0" /> {unmatched} payment(s) have no client. They still count in the year totals.</p>}
