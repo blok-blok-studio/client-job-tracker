@@ -337,49 +337,76 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
 
   // Nothing left to pay: a paid or voided invoice stops printing account numbers and QR codes
   if (docType === "INVOICE" && view.status !== "PAID" && view.status !== "VOID") {
-  const qrCount = Math.min(view.qrs.length, 2);
-  const qrSize = qrCount === 2 ? 92 : qrCount ? 108 : 0;
-  const qrGap = 16;
-  const qrBlockW = qrCount ? qrCount * qrSize + (qrCount - 1) * qrGap : 0;
+  // Bank QR on the left, Wise on the right, bank details between them, so
+  // each payer finds "their" code at a glance; a single QR sits on the right.
+  const qrs = [...view.qrs.slice(0, 2)].sort((a, b) => (a.kind === "WISE" ? 1 : 0) - (b.kind === "WISE" ? 1 : 0));
+  const qrCount = qrs.length;
+  const qrSize = qrCount ? 84 : 0;
+  const colW = qrCount ? 100 : 0;
   const panelPad = 14;
   const rowH = 12.5;
-  const panelH = Math.max(panelPad * 2 + 20 + rows.length * rowH + (view.dueDate ? 16 : 0), qrSize ? qrSize + panelPad * 2 + 34 : 0);
+  const qrTitle = (k: string) => (k === "EPC" ? L.qrEpcTitle : k === "WISE" ? L.qrWiseTitle : k === "CARD" ? L.qrCardTitle : L.qrPageTitle);
+  const qrHint = (k: string) => (k === "EPC" ? L.qrEpcHint : k === "WISE" ? L.qrWiseHint : L.qrPageHint);
+  const titleLines = qrs.map((q) => wrap(qrTitle(q.kind), 7.5, bold, colW - 6));
+  const hintLines = qrs.map((q) => wrap(qrHint(q.kind), 6.5, font, colW - 6));
+  const maxTitle = Math.max(0, ...titleLines.map((l) => l.length));
+  const maxHint = Math.max(0, ...hintLines.map((l) => l.length));
+  const qrColH = qrCount ? maxTitle * 9.5 + 8 + qrSize + 6 + maxHint * 8.5 : 0;
+  const leftCol = qrCount === 2 ? colW + panelPad : 0;
+  const rightCol = qrCount ? colW + panelPad : 0;
+  const textX = M + panelPad + leftCol;
+  const panelH = Math.max(panelPad * 2 + 20 + rows.length * rowH + (view.dueDate ? 16 : 0), qrColH + panelPad * 2);
   ensure(panelH + 10);
   const panelTop = y;
   page.drawRectangle({ x: M, y: panelTop - panelH, width: CW, height: panelH, color: PANEL, borderColor: RULE, borderWidth: 0.5 });
+  // Divider lines set the QR columns apart from the bank details
+  if (qrCount === 2) page.drawLine({ start: { x: textX - panelPad / 2, y: panelTop - panelPad }, end: { x: textX - panelPad / 2, y: panelTop - panelH + panelPad }, thickness: 0.5, color: RULE });
+  if (qrCount) page.drawLine({ start: { x: PAGE_W - M - rightCol - panelPad / 2, y: panelTop - panelPad }, end: { x: PAGE_W - M - rightCol - panelPad / 2, y: panelTop - panelH + panelPad }, thickness: 0.5, color: RULE });
 
   let py = panelTop - panelPad - 8;
-  text((isCard ? L.paymentTitleCard : L.paymentTitle).toUpperCase(), M + panelPad, py, 7.5, bold, BLUE2);
+  text((isCard ? L.paymentTitleCard : L.paymentTitle).toUpperCase(), textX, py, 7.5, bold, BLUE2);
   py -= 16;
-  const labelW = 84;
-  const valX = M + panelPad + labelW;
-  const textMaxW = (qrSize ? CW - qrBlockW - panelPad * 3 : CW - panelPad * 2) - labelW;
+  // Label column as wide as its longest label, so values never collide with it
+  const labelW = Math.max(60, ...rows.filter(([k]) => k).map(([k]) => width(k, 8, font) + 8));
+  const valX = textX + labelW;
+  const textMaxW = CW - panelPad * 2 - leftCol - rightCol - labelW;
   for (const [k, v, isMono] of rows) {
-    if (k) text(k, M + panelPad, py, 8, font, MUTED);
+    if (k) text(k, textX, py, 8, font, MUTED);
     const f = isMono ? mono : k === L.reference ? bold : font;
     const vLines = wrap(v, 8.5, f, Math.max(80, textMaxW));
-    vLines.forEach((l, i) => text(l, k ? valX : M + panelPad, py - i * 11, 8.5, f, INK));
+    vLines.forEach((l, i) => text(l, k ? valX : textX, py - i * 11, 8.5, f, INK));
     py -= rowH + (vLines.length - 1) * 11;
   }
   if (view.dueDate) {
     py -= 3;
-    text(`${L.payBy} ${formatDate(view.dueDate, lang)}.`, M + panelPad, py, 8, font, INK);
+    for (const l of wrap(`${L.payBy} ${formatDate(view.dueDate, lang)}.`, 8, font, CW - panelPad * 2 - leftCol - rightCol)) {
+      text(l, textX, py, 8, font, INK);
+      py -= 10;
+    }
   }
 
   for (let i = 0; i < qrCount; i++) {
-    const q = view.qrs[i];
-    const qx = PAGE_W - M - panelPad - qrBlockW + i * (qrSize + qrGap);
-    const qy = panelTop - panelPad - 10 - qrSize;
-    const title = q.kind === "EPC" ? L.qrEpcTitle : q.kind === "WISE" ? L.qrWiseTitle : q.kind === "CARD" ? L.qrCardTitle : L.qrPageTitle;
-    const hint = q.kind === "EPC" ? L.qrEpcHint : q.kind === "WISE" ? L.qrWiseHint : L.qrPageHint;
-    const cx = qx + qrSize / 2;
-    const tw = width(title, 6.5, bold);
-    text(title, cx - tw / 2, qy + qrSize + 3, 6.5, bold, q.kind === "WISE" ? BLUE1 : BLUE2);
+    const q = qrs[i];
+    const colX = qrCount === 2 && i === 0 ? M + panelPad : PAGE_W - M - panelPad - colW;
+    const cx = colX + colW / 2;
+    const color = q.kind === "WISE" ? BLUE1 : BLUE2;
+    let ty = panelTop - panelPad - 8;
+    for (const l of titleLines[i]) {
+      const tw = width(l, 7.5, bold);
+      text(l, cx - tw / 2, ty, 7.5, bold, color);
+      ty -= 9.5;
+    }
+    const qy = panelTop - panelPad - maxTitle * 9.5 - 6 - qrSize;
     try {
       const png = await pdf.embedPng(await qrPng(q.payload, 512));
-      page.drawImage(png, { x: qx, y: qy, width: qrSize, height: qrSize });
-      const hw = width(hint, 6, font);
-      text(hint, cx - hw / 2, qy - 8, 6, font, MUTED);
+      page.drawRectangle({ x: cx - qrSize / 2 - 3, y: qy - 3, width: qrSize + 6, height: qrSize + 6, color: rgb(1, 1, 1), borderColor: color, borderWidth: 1.2 });
+      page.drawImage(png, { x: cx - qrSize / 2, y: qy, width: qrSize, height: qrSize });
+      let hy = qy - 12;
+      for (const l of hintLines[i]) {
+        const hw = width(l, 6.5, font);
+        text(l, cx - hw / 2, hy, 6.5, font, MUTED);
+        hy -= 8.5;
+      }
     } catch {
       // QR failed: the bank details beside it still carry the payment
     }
