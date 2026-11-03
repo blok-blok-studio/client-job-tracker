@@ -1253,6 +1253,8 @@ model ClientMedia {
 
   thumbnailUrl String? // JPEG thumbnail for videos (generated server-side)
   playbackUrl  String? // Web-safe H.264 MP4 transcode for in-browser playback (HEVC .mov etc.)
+  thumbnailAttempts Int @default(0) // failed background thumbnail runs; the cron stops after 3
+  playbackAttempts  Int @default(0) // failed background transcode runs; the cron stops after 3
 
   label      String? // Optional user-given label
   folder     String? // Event / collection this file belongs to (for grouping uploads)

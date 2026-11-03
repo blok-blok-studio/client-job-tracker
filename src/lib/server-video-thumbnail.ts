@@ -34,6 +34,9 @@ const MAX_FULL_DOWNLOAD_BYTES = 500 * 1024 * 1024;
 // plays fine as-is.
 export const MP4_PLAYBACK_SIZE_THRESHOLD = 25 * 1024 * 1024;
 
+// Background backfills give up on a file after this many failed runs
+const MAX_BACKGROUND_ATTEMPTS = 3;
+
 /**
  * Whether a video needs a web-optimized playback copy: every non-mp4 format,
  * plus mp4s over MP4_PLAYBACK_SIZE_THRESHOLD.
@@ -43,14 +46,14 @@ export function needsPlaybackTranscode(mimeType: string, fileSize: number): bool
   return fileSize > MP4_PLAYBACK_SIZE_THRESHOLD;
 }
 
-async function runFfmpeg(inputPath: string, outputPath: string, mediaId: string): Promise<{ ok: boolean; stderr: string }> {
+async function runFfmpeg(inputPath: string, outputPath: string, mediaId: string, seek = "0.5"): Promise<{ ok: boolean; stderr: string }> {
   const ffmpegPath = await getFfmpegPath();
   return new Promise((resolve) => {
     const proc = spawn(
       ffmpegPath,
       [
         "-i", inputPath,
-        "-ss", "0.5",
+        "-ss", seek,
         "-vframes", "1",
         "-q:v", "4",
         "-vf", "scale=640:-1",
@@ -125,8 +128,14 @@ export async function generateVideoThumbnail(
       if (!result.ok) return null;
     }
 
-    const thumbBuffer = await readFile(outputPath);
-    if (thumbBuffer.length < 100) return null;
+    // Clips shorter than the 0.5s seek exit 0 without writing a frame: take frame 0
+    let thumbBuffer = await readFile(outputPath).catch(() => null);
+    if (!thumbBuffer || thumbBuffer.length < 100) {
+      const again = await runFfmpeg(inputPath, outputPath, mediaId, "0");
+      if (!again.ok) return null;
+      thumbBuffer = await readFile(outputPath).catch(() => null);
+    }
+    if (!thumbBuffer || thumbBuffer.length < 100) return null;
 
     const blob = await put(`thumbnails/${mediaId}.jpg`, thumbBuffer, {
       access: "public",
@@ -154,7 +163,10 @@ export async function backfillMissingThumbnails(limit = 10): Promise<{
   total: number;
 }> {
   const videos = await prisma.clientMedia.findMany({
-    where: { fileType: "VIDEO", thumbnailUrl: null },
+    // Files that failed MAX_BACKGROUND_ATTEMPTS times (truncated uploads, files too big
+    // to fetch) are skipped, otherwise they fill every batch and newer videos never run
+    where: { fileType: "VIDEO", thumbnailUrl: null, thumbnailAttempts: { lt: MAX_BACKGROUND_ATTEMPTS } },
+    orderBy: { createdAt: "desc" },
     select: { id: true, url: true },
     take: limit,
   });
@@ -169,10 +181,61 @@ export async function backfillMissingThumbnails(limit = 10): Promise<{
         .update({ where: { id: video.id }, data: { thumbnailUrl: thumbUrl } })
         .catch(() => {});
       generated++;
+    } else {
+      await prisma.clientMedia
+        .update({ where: { id: video.id }, data: { thumbnailAttempts: { increment: 1 } } })
+        .catch(() => {});
     }
   }
 
   return { generated, total: videos.length };
+}
+
+// audioStream: null = ffmpeg's default pick, -1 = drop audio, n = map stream 0:n
+async function runTranscode(
+  inputPath: string,
+  outputPath: string,
+  mediaId: string,
+  audioStream: number | null
+): Promise<{ ok: boolean; stderr: string }> {
+  const ffmpegPath = await getFfmpegPath();
+  const maps =
+    audioStream === null ? [] : ["-map", "0:v:0", ...(audioStream >= 0 ? ["-map", `0:${audioStream}`] : [])];
+  const audioArgs = audioStream === -1 ? ["-an"] : ["-c:a", "aac", "-b:a", "128k"];
+  return new Promise((resolve) => {
+    const proc = spawn(
+      ffmpegPath,
+      [
+        "-i", inputPath,
+        ...maps,
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "23",
+        "-pix_fmt", "yuv420p",
+        "-vf", "scale='min(1920,iw)':-2",
+        ...audioArgs,
+        "-movflags", "+faststart",
+        "-y",
+        outputPath,
+      ],
+      { timeout: 280000 }
+    );
+
+    let stderr = "";
+    proc.stderr?.on("data", (d) => { stderr += d.toString(); });
+
+    proc.on("close", (code) => {
+      if (code !== 0) {
+        console.error(`[Transcode] ffmpeg exit ${code} for ${mediaId}:`, stderr.slice(-500));
+      }
+      resolve({ ok: code === 0, stderr });
+    });
+
+    proc.on("error", (err) => {
+      console.error(`[Transcode] ffmpeg spawn error for ${mediaId}:`, err);
+      resolve({ ok: false, stderr: String(err) });
+    });
+  });
 }
 
 /**
@@ -212,41 +275,15 @@ export async function transcodeToWebMp4(
     }
     await writeFile(inputPath, buf);
 
-    const ffmpegPath = await getFfmpegPath();
-    const result = await new Promise<{ ok: boolean; stderr: string }>((resolve) => {
-      const proc = spawn(
-        ffmpegPath,
-        [
-          "-i", inputPath,
-          "-c:v", "libx264",
-          "-preset", "veryfast",
-          "-crf", "23",
-          "-pix_fmt", "yuv420p",
-          "-vf", "scale='min(1920,iw)':-2",
-          "-c:a", "aac",
-          "-b:a", "128k",
-          "-movflags", "+faststart",
-          "-y",
-          outputPath,
-        ],
-        { timeout: 280000 }
-      );
-
-      let stderr = "";
-      proc.stderr?.on("data", (d) => { stderr += d.toString(); });
-
-      proc.on("close", (code) => {
-        if (code !== 0) {
-          console.error(`[Transcode] ffmpeg exit ${code} for ${mediaId}:`, stderr.slice(-500));
-        }
-        resolve({ ok: code === 0, stderr });
-      });
-
-      proc.on("error", (err) => {
-        console.error(`[Transcode] ffmpeg spawn error for ${mediaId}:`, err);
-        resolve({ ok: false, stderr: String(err) });
-      });
-    });
+    let result = await runTranscode(inputPath, outputPath, mediaId, null);
+    // iPhone spatial-audio files carry an audio track this ffmpeg can't decode
+    // ("Decoder (codec none) not found"); ffmpeg picks it by default. Retry with
+    // the first audio track it can decode, or no audio if there is none.
+    if (!result.ok && /Decoder \(codec none\) not found/.test(result.stderr)) {
+      const audio = [...result.stderr.matchAll(/Stream #0:(\d+)[^:]*: Audio: (\w+)/g)]
+        .find((m) => m[2] !== "none");
+      result = await runTranscode(inputPath, outputPath, mediaId, audio ? Number(audio[1]) : -1);
+    }
 
     if (!result.ok) return null;
 
@@ -285,6 +322,7 @@ export async function backfillMissingPlayback(limit = 3): Promise<{
       playbackUrl: null,
       // Files over the download cap would fail every run and block the batch
       fileSize: { lte: MAX_FULL_DOWNLOAD_BYTES },
+      playbackAttempts: { lt: MAX_BACKGROUND_ATTEMPTS },
       OR: [
         { mimeType: { not: "video/mp4" } },
         { fileSize: { gt: MP4_PLAYBACK_SIZE_THRESHOLD } },
@@ -305,6 +343,10 @@ export async function backfillMissingPlayback(limit = 3): Promise<{
         .update({ where: { id: video.id }, data: { playbackUrl } })
         .catch(() => {});
       generated++;
+    } else {
+      await prisma.clientMedia
+        .update({ where: { id: video.id }, data: { playbackAttempts: { increment: 1 } } })
+        .catch(() => {});
     }
   }
 
