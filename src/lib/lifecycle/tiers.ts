@@ -12,7 +12,7 @@ export interface TierConstants {
   label: string;
   revisions: string; // "2", "3", or "priority"
   supportMonths: number;
-  timeline: string; // plain copy, e.g. "2 to 3 weeks"
+  timeline: string; // plain copy, e.g. "4 weeks"
   timelineUpperWeeks: number | null; // null = scoped per project
   scopeBullets: string[]; // default scope lines when the client has no services on record
 }
@@ -22,8 +22,8 @@ export const DEFAULT_TIER_CONSTANTS: Record<PackageTier, TierConstants> = {
     label: "Launch",
     revisions: "2",
     supportMonths: 3,
-    timeline: "2 to 3 weeks",
-    timelineUpperWeeks: 3,
+    timeline: "4 weeks",
+    timelineUpperWeeks: 4,
     scopeBullets: [
       "A one page website designed and built for you",
       "Mobile friendly and fast",
@@ -35,8 +35,8 @@ export const DEFAULT_TIER_CONSTANTS: Record<PackageTier, TierConstants> = {
     label: "Essential",
     revisions: "2",
     supportMonths: 6,
-    timeline: "4 to 6 weeks",
-    timelineUpperWeeks: 6,
+    timeline: "4 weeks",
+    timelineUpperWeeks: 4,
     scopeBullets: [
       "A website of up to 5 pages designed and built for you",
       "Mobile friendly and fast",
@@ -48,8 +48,8 @@ export const DEFAULT_TIER_CONSTANTS: Record<PackageTier, TierConstants> = {
     label: "Growth",
     revisions: "3",
     supportMonths: 9,
-    timeline: "6 to 10 weeks",
-    timelineUpperWeeks: 10,
+    timeline: "4 weeks",
+    timelineUpperWeeks: 4,
     scopeBullets: [
       "A full custom website designed and built for you",
       "Mobile friendly and fast",
@@ -61,8 +61,8 @@ export const DEFAULT_TIER_CONSTANTS: Record<PackageTier, TierConstants> = {
     label: "Scale",
     revisions: "priority",
     supportMonths: 12,
-    timeline: "scoped",
-    timelineUpperWeeks: null,
+    timeline: "4 weeks",
+    timelineUpperWeeks: 4,
     scopeBullets: [
       "A custom web build scoped to your project",
       "Mobile friendly and fast",
@@ -71,6 +71,9 @@ export const DEFAULT_TIER_CONSTANTS: Record<PackageTier, TierConstants> = {
     ],
   },
 };
+
+/** Client content is due this many days after signing (the 4-week build needs it by the end of week 2). */
+export const ASSET_DEADLINE_DAYS = 14;
 
 export const CARE_TIER_PRICES: Record<CareTier, number> = {
   CARE: 200,

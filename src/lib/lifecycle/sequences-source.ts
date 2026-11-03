@@ -87,7 +87,7 @@ export const SEQUENCE_SOURCES: SequenceSource[] = [
   {
     key: "B",
     name: "Content collection",
-    trigger: "Asset deadline is set (default: signing + 10 days, editable)",
+    trigger: "Asset deadline is set (default: signing + 14 days, editable)",
     anchorDescription: "asset deadline",
     audience: "client",
     steps: [

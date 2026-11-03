@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma";
 import type { Client, ClientService, Contractor, Prisma, ScheduledStep, StepKind } from "@prisma/client";
 import { notifySlack } from "@/lib/slack";
 import { getSetting } from "./settings";
-import { getTierConstants, computeSupportEnd, computeCareFreeEnd, addDays } from "./tiers";
+import { getTierConstants, computeSupportEnd, computeCareFreeEnd, addDays, ASSET_DEADLINE_DAYS } from "./tiers";
 import { renderTokens, type RenderContext } from "./tokens";
 import {
   SEQUENCE_SOURCES,
@@ -294,19 +294,19 @@ export async function onClientChanged(
   });
   if (!client) return;
 
-  // Contract signed → default asset deadline (+10d, editable), sequences A + B
+  // Contract signed → default asset deadline (+14d, editable), sequences A + B
   if (!before.contractSignedAt && client.contractSignedAt) {
     if (!client.assetDeadline) {
       client = await prisma.client.update({
         where: { id: client.id },
-        data: { assetDeadline: addDays(client.contractSignedAt, 10) },
+        data: { assetDeadline: addDays(client.contractSignedAt, ASSET_DEADLINE_DAYS) },
         include: { services: true },
       });
       await audit({
         clientId: client.id,
         actor: "system",
         action: "lifecycle_asset_deadline_defaulted",
-        details: `Asset deadline defaulted to signing + 10 days`,
+        details: `Asset deadline defaulted to signing + ${ASSET_DEADLINE_DAYS} days`,
       });
     }
     await materializeClientSequence(client, "A", client.contractSignedAt!);

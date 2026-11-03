@@ -1,5 +1,5 @@
 import type { Client, Contractor, ClientService, PackageTier } from "@prisma/client";
-import { addDays, CARE_TIER_PRICES, type TierConstants } from "./tiers";
+import { addDays, ASSET_DEADLINE_DAYS, CARE_TIER_PRICES, type TierConstants } from "./tiers";
 
 /**
  * Merge-field system. Templates use {{token}} syntax. Every token must exist
@@ -112,7 +112,7 @@ export const TOKEN_REGISTRY: Record<string, TokenDef> = {
   },
   timeline_line: {
     description: "Build timeline line from the tier constants",
-    sample: "Build: 4 to 6 weeks",
+    sample: "Build: 4 weeks",
     resolve: (ctx) => {
       const tier = clientTier(ctx);
       return tier ? `Build: ${tier.timeline}` : null;
@@ -297,7 +297,7 @@ export function sampleRenderContext(
     projectBalance: 1750,
     websiteUrl: "https://kellerbakery.example",
     contractSignedAt: signed,
-    assetDeadline: addDays(signed, 10),
+    assetDeadline: addDays(signed, ASSET_DEADLINE_DAYS),
     launchDate: launch,
     supportEnd: addDays(launch, 183),
     careFreeEnd: addDays(launch, 92),

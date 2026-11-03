@@ -127,7 +127,7 @@ export async function runFullDryRun(): Promise<DryRunReport> {
   });
   events.push({ day: 0, action: "Created fake client (Essential tier) and fake contractor" });
 
-  // --- Day 0: contract signed → A1 immediately, asset deadline defaults to +10d ---
+  // --- Day 0: contract signed → A1 immediately, asset deadline defaults to +14d ---
   await applyClientUpdate(client.id, { contractSignedAt: t0 }, events, t0, 0, "Contract signed");
   await process(at(t0, 0));
 
