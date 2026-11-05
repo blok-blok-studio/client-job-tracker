@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
-import { sendTelegramMessage, getWebhookSecret } from "@/lib/telegram";
+import { sendTelegramMessage, getWebhookSecret, answerTelegramCallback, editTelegramMessage } from "@/lib/telegram";
+import { approveStep, skipAwaitingStep } from "@/lib/lifecycle/approval";
 import { rateLimit } from "@/lib/rate-limit";
 
 interface TelegramUpdate {
+  callback_query?: {
+    id: string;
+    data?: string;
+    from?: { username?: string };
+    message?: { message_id: number; chat: { id: number }; text?: string };
+  };
   message?: {
     chat: { id: number };
     from?: { first_name?: string; last_name?: string; username?: string };
@@ -45,6 +52,30 @@ export async function POST(request: NextRequest) {
     }
 
     const update: TelegramUpdate = await request.json();
+
+    // Inline button taps (approval mode). Admin chat only.
+    if (update.callback_query) {
+      const cq = update.callback_query;
+      const chatId = cq.message ? String(cq.message.chat.id) : "";
+      if (!chatId || !isAdminChat(chatId, cq.from?.username)) {
+        await answerTelegramCallback(cq.id, "Not allowed");
+        return NextResponse.json({ ok: true });
+      }
+      const m = (cq.data || "").match(/^lc:(send|skip):([A-Za-z0-9_-]+)$/);
+      if (!m) {
+        await answerTelegramCallback(cq.id);
+        return NextResponse.json({ ok: true });
+      }
+      const r = m[1] === "send" ? await approveStep(m[2], "chase (telegram)") : await skipAwaitingStep(m[2], "chase (telegram)");
+      const note = r.ok ? r.message : r.error;
+      await answerTelegramCallback(cq.id, note.slice(0, 190));
+      if (cq.message) {
+        const verdict = r.ok ? (m[1] === "send" ? "SENT" : "SKIPPED") : "NOT SENT";
+        const original = (cq.message.text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        await editTelegramMessage(chatId, cq.message.message_id, `<b>${verdict}</b>: ${note.replace(/</g, "&lt;")}\n\n${original}`.slice(0, 4000));
+      }
+      return NextResponse.json({ ok: true });
+    }
 
     if (!update.message?.text) {
       return NextResponse.json({ ok: true });

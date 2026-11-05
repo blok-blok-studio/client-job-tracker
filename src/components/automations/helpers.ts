@@ -34,6 +34,7 @@ export const STEP_STATUS_VARIANT: Record<
   CANCELLED: "gray",
   SKIPPED: "purple",
   FAILED: "red",
+  AWAITING_APPROVAL: "orange",
 };
 
 export const KIND_VARIANT: Record<string, "orange" | "blue" | "gray"> = {

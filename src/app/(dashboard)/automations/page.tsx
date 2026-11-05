@@ -65,7 +65,15 @@ export default function AutomationsPage() {
         subtitle="Client and contractor lifecycle: sequences, templates, timings"
       />
       <div className="px-4 lg:px-6 space-y-4 pb-8">
-        {settings && !settings.liveEmails && (
+        {settings?.approvalMode && (
+          <div className="bg-bb-blue/10 border border-bb-blue/30 rounded-lg px-3 py-2">
+            <p className="text-xs text-bb-accent">
+              Approval mode: every automated client email waits for your Send tap on Telegram or the client&apos;s
+              timeline. Nothing goes out on its own.
+            </p>
+          </div>
+        )}
+        {settings && !settings.liveEmails && !settings.approvalMode && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2">
             <p className="text-xs text-yellow-400">
               Safe mode: live client emails are OFF. Sequences run as dry runs — everything is recorded

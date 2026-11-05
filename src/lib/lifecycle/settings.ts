@@ -27,6 +27,15 @@ export async function setSetting(key: string, value: unknown, updatedBy: string)
   });
 }
 
+/**
+ * Approval mode: every automated client email is rendered when due and held
+ * as AWAITING_APPROVAL until the owner taps send (Telegram or the timeline).
+ * Wins over the live switch, so turning it on can never cause an unreviewed send.
+ */
+export async function approvalModeEnabled(): Promise<boolean> {
+  return (await getSetting<boolean>("lifecycle_approval_mode", false)) === true;
+}
+
 /** True only when the owner has explicitly enabled real outbound sends. */
 export async function liveEmailsEnabled(): Promise<boolean> {
   return (await getSetting<boolean>("lifecycle_live_emails", false)) === true;

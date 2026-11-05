@@ -18,6 +18,7 @@ export interface LifecycleSettings {
   bookingLink: string;
   assetChecklistLink: string;
   liveEmails: boolean;
+  approvalMode: boolean;
   tierConstants: Record<string, TierRow>;
   isOwner: boolean;
 }
@@ -102,6 +103,37 @@ export default function SettingsTab({
           )}
         >
           {settings.liveEmails ? "Turn off" : "Turn on"}
+        </button>
+      </div>
+
+      {/* Approval mode */}
+      <div
+        className={cn(
+          "border rounded-lg p-4 flex flex-col sm:flex-row sm:items-start gap-3",
+          settings.approvalMode ? "bg-bb-blue/10 border-bb-blue/30" : "bg-bb-surface border-bb-border"
+        )}
+      >
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold">
+            Approve each email: {settings.approvalMode ? "ON" : "OFF"}
+          </p>
+          <p className="text-xs text-bb-dim mt-0.5">
+            When on, every automated client email is written when it is due and waits for you. You get it
+            on Telegram with Send and Skip buttons (also on the client&apos;s timeline). Nothing goes out until
+            you tap Send. This wins over the live switch. Owner only.
+          </p>
+        </div>
+        <button
+          onClick={() => isOwner && put({ approvalMode: !settings.approvalMode }, `Approve each email ${settings.approvalMode ? "OFF" : "ON"}`)}
+          disabled={!isOwner || saving}
+          title={isOwner ? undefined : "Owner only"}
+          className={cn(
+            "px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 self-start",
+            settings.approvalMode ? "bg-bb-elevated hover:bg-bb-border" : "bg-bb-blue hover:bg-bb-blue-light text-white",
+            !isOwner && "opacity-40 cursor-not-allowed"
+          )}
+        >
+          {settings.approvalMode ? "Turn off" : "Turn on"}
         </button>
       </div>
 

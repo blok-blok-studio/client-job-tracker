@@ -1974,6 +1974,7 @@ enum StepStatus {
   CANCELLED // cancel condition met before it fired
   SKIPPED // manually skipped by the team
   FAILED
+  AWAITING_APPROVAL // rendered and held until the owner taps send (approval mode)
 }
 
 // Small key-value store: booking link, tier constants overrides, master switches.

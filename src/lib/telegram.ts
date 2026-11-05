@@ -7,7 +7,8 @@ function getToken() {
 export async function sendTelegramMessage(
   chatId: string,
   text: string,
-  parseMode: "HTML" | "Markdown" = "HTML"
+  parseMode: "HTML" | "Markdown" = "HTML",
+  replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> }
 ): Promise<{ success: boolean; error?: string }> {
   const token = getToken();
   if (!token) {
@@ -23,6 +24,7 @@ export async function sendTelegramMessage(
         chat_id: chatId,
         text,
         parse_mode: parseMode,
+        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
       }),
     });
 
@@ -66,4 +68,26 @@ export async function setTelegramWebhook(url: string): Promise<{ success: boolea
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
+}
+
+/** Acknowledge an inline-button tap so Telegram stops the loading spinner. */
+export async function answerTelegramCallback(callbackQueryId: string, text?: string): Promise<void> {
+  const token = getToken();
+  if (!token) return;
+  await fetch(`${TELEGRAM_API}${token}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_query_id: callbackQueryId, ...(text ? { text } : {}) }),
+  }).catch(() => {});
+}
+
+/** Replace an inline-button message's text (and drop its buttons) once it is handled. */
+export async function editTelegramMessage(chatId: string, messageId: number, text: string): Promise<void> {
+  const token = getToken();
+  if (!token) return;
+  await fetch(`${TELEGRAM_API}${token}/editMessageText`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId, text, parse_mode: "HTML" }),
+  }).catch(() => {});
 }

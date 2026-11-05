@@ -15,6 +15,7 @@ export async function GET() {
       bookingLink: await getSetting<string>("booking_link", ""),
       assetChecklistLink: await getSetting<string>("asset_checklist_link", ""),
       liveEmails: await getSetting<boolean>("lifecycle_live_emails", false),
+      approvalMode: await getSetting<boolean>("lifecycle_approval_mode", false),
       tierConstants: await getTierConstants(),
       tierDefaults: DEFAULT_TIER_CONSTANTS,
       careTierPrices: CARE_TIER_PRICES,
@@ -36,6 +37,7 @@ const putSchema = z.object({
   bookingLink: z.string().url().or(z.literal("")).optional(),
   assetChecklistLink: z.string().url().or(z.literal("")).optional(),
   liveEmails: z.boolean().optional(), // owner only — the master send switch
+  approvalMode: z.boolean().optional(), // owner only — hold every client email for a tap
   tierConstants: z
     .object({ LAUNCH: tierSchema, ESSENTIAL: tierSchema, GROWTH: tierSchema, SCALE: tierSchema })
     .optional(), // owner only
@@ -52,7 +54,7 @@ export async function PUT(request: NextRequest) {
   }
   const d = parsed.data;
 
-  if ((d.tierConstants !== undefined || d.liveEmails !== undefined) && session.role !== "OWNER") {
+  if ((d.tierConstants !== undefined || d.liveEmails !== undefined || d.approvalMode !== undefined) && session.role !== "OWNER") {
     return NextResponse.json(
       { success: false, error: "Owner only: tier constants and the live email switch" },
       { status: 403 }
@@ -77,6 +79,13 @@ export async function PUT(request: NextRequest) {
       new: d.liveEmails,
     };
     await setSetting("lifecycle_live_emails", d.liveEmails, session.name);
+  }
+  if (d.approvalMode !== undefined) {
+    changes.lifecycle_approval_mode = {
+      old: await getSetting("lifecycle_approval_mode", false),
+      new: d.approvalMode,
+    };
+    await setSetting("lifecycle_approval_mode", d.approvalMode, session.name);
   }
   if (d.tierConstants !== undefined) {
     changes.tier_constants = { old: await getTierConstants(), new: d.tierConstants };

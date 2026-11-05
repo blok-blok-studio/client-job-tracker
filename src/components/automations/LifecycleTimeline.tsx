@@ -100,6 +100,28 @@ export default function LifecycleTimeline({
     }
   };
 
+  const decide = async (step: StepRow, action: "approve" | "skip") => {
+    if (action === "approve" && !confirm(`Send "${step.renderedSubject}" to the client now?`)) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/lifecycle/steps/${step.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast(data.message || (action === "approve" ? "Sent" : "Skipped"), "success");
+        setViewing(null);
+        load();
+      } else {
+        toast(data.error || "Failed", "error");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const sendDraft = async () => {
     if (!sendingDraft) return;
     setBusy(true);
@@ -163,7 +185,7 @@ export default function LifecycleTimeline({
             className="flex items-center gap-2 flex-wrap text-xs bg-bb-black/40 border border-bb-border/50 rounded-md px-2.5 py-1.5"
           >
             <Badge variant={STEP_STATUS_VARIANT[s.status] || "gray"}>
-              {s.status}
+              {s.status === "AWAITING_APPROVAL" ? "NEEDS YOUR OK" : s.status}
               {s.dryRun && (s.status === "SENT" || s.status === "DONE") ? " (dry)" : ""}
             </Badge>
             <Badge variant={KIND_VARIANT[s.kind] || "gray"}>{KIND_LABEL[s.kind] || s.kind}</Badge>
@@ -188,6 +210,26 @@ export default function LifecycleTimeline({
               >
                 <SkipForward size={13} />
               </button>
+            )}
+            {s.status === "AWAITING_APPROVAL" && (
+              <>
+                <button
+                  onClick={() => decide(s, "approve")}
+                  disabled={busy}
+                  title="Send this email to the client"
+                  className="flex items-center gap-1 text-bb-accent hover:text-bb-accent-light transition-colors disabled:opacity-40"
+                >
+                  <Send size={12} /> Send
+                </button>
+                <button
+                  onClick={() => decide(s, "skip")}
+                  disabled={busy}
+                  title="Skip, never send"
+                  className="text-bb-dim hover:text-yellow-400 transition-colors disabled:opacity-40"
+                >
+                  <SkipForward size={13} />
+                </button>
+              </>
             )}
             {s.kind === "DRAFT" && s.status === "DONE" && s.renderedBody && (
               <button
@@ -225,6 +267,24 @@ export default function LifecycleTimeline({
             <p className="text-sm text-bb-muted whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
               {viewing.renderedBody}
             </p>
+            {viewing.status === "AWAITING_APPROVAL" && (
+              <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-bb-border">
+                <button
+                  onClick={() => decide(viewing, "approve")}
+                  disabled={busy}
+                  className="px-3 py-2 text-sm font-medium rounded-md bg-bb-blue hover:bg-bb-blue-light text-white disabled:opacity-40"
+                >
+                  Send to client
+                </button>
+                <button
+                  onClick={() => decide(viewing, "skip")}
+                  disabled={busy}
+                  className="px-3 py-2 text-sm rounded-md bg-bb-elevated hover:bg-bb-border disabled:opacity-40"
+                >
+                  Skip
+                </button>
+              </div>
+            )}
           </div>
         </Modal>
       )}

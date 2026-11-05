@@ -68,11 +68,13 @@ export async function deliverLifecycleEmail(params: {
   subject: string;
   bodyText: string;
   forceDry?: boolean;
+  /** The owner approved this exact email by hand: send even while the live switch is off. */
+  approved?: boolean;
 }): Promise<DeliverResult> {
   if (params.forceDry || isDryRunAddress(params.to)) {
     return { delivered: false, dryRun: true, reason: "dry-run record" };
   }
-  if (!(await liveEmailsEnabled())) {
+  if (!params.approved && !(await liveEmailsEnabled())) {
     return { delivered: false, dryRun: true, reason: "live emails master switch is off" };
   }
   const resend = getResend();

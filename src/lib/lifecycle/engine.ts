@@ -2,7 +2,8 @@ import prisma from "@/lib/prisma";
 import type { Client, ClientService, Contractor, Prisma, ScheduledStep, StepKind } from "@prisma/client";
 import { notifySlack } from "@/lib/slack";
 import { notifyUser } from "@/lib/notifications";
-import { getSetting } from "./settings";
+import { getSetting, approvalModeEnabled } from "./settings";
+import { requestApproval } from "./approval";
 import { getTierConstants, computeSupportEnd, computeCareFreeEnd, addDays, ASSET_DEADLINE_DAYS } from "./tiers";
 import { renderTokens, type RenderContext } from "./tokens";
 import {
@@ -506,6 +507,7 @@ export interface ProcessSummary {
   cancelled: number;
   expired: number;
   failed: number;
+  awaitingApproval: number;
 }
 
 async function enabledSequences(): Promise<Set<string>> {
@@ -525,6 +527,7 @@ export async function processDueSteps(opts: ProcessOptions = {}): Promise<Proces
     cancelled: 0,
     expired: 0,
     failed: 0,
+    awaitingApproval: 0,
   };
   const enabled = await enabledSequences();
 
@@ -666,6 +669,27 @@ async function executeStep(
     if (missing.length > 0) {
       // NEVER send raw tokens to a client
       throw new Error(`Unresolved merge fields: ${missing.join(", ")}`);
+    }
+    // Approval mode: hold the rendered email for the owner's tap. Nothing is sent.
+    if (!forcedDry && (await approvalModeEnabled())) {
+      await prisma.scheduledStep.update({
+        where: { id: step.id },
+        data: {
+          status: "AWAITING_APPROVAL",
+          renderedSubject: subject.text,
+          renderedBody: body.text,
+          processedAt: asOf,
+        },
+      });
+      summary.awaitingApproval++;
+      await audit({
+        clientId: client.id,
+        actor: "system",
+        action: "lifecycle_email_awaiting_approval",
+        details: `Waiting for approval: "${subject.text}" (${step.stepKey})`,
+      });
+      await requestApproval(step.id);
+      return;
     }
     const result = await deliverLifecycleEmail({
       to: client.email,

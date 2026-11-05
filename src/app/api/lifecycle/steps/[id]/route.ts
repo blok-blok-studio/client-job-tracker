@@ -5,9 +5,11 @@ import { getSession } from "@/lib/auth";
 import { buildRenderContext } from "@/lib/lifecycle/engine";
 import { renderTokens, unknownTokens } from "@/lib/lifecycle/tokens";
 import { deliverLifecycleEmail, isDryRunAddress } from "@/lib/lifecycle/deliver";
+import { approveStep, skipAwaitingStep } from "@/lib/lifecycle/approval";
+import { approvalModeEnabled } from "@/lib/lifecycle/settings";
 
 const postSchema = z.object({
-  action: z.enum(["skip", "send-draft"]),
+  action: z.enum(["skip", "send-draft", "approve"]),
   reason: z.string().max(500).optional(),
   subject: z.string().max(300).optional(),
   body: z.string().max(20000).optional(),
@@ -33,6 +35,19 @@ export async function POST(
   });
   if (!step) {
     return NextResponse.json({ success: false, error: "Step not found" }, { status: 404 });
+  }
+
+  // Approval mode: the owner sends or skips an email that is waiting for them
+  if (parsed.data.action === "approve" || (parsed.data.action === "skip" && step.status === "AWAITING_APPROVAL")) {
+    if (session.role !== "OWNER") {
+      return NextResponse.json({ success: false, error: "Owner only" }, { status: 403 });
+    }
+    const r = parsed.data.action === "approve"
+      ? await approveStep(id, session.name)
+      : await skipAwaitingStep(id, session.name);
+    return r.ok
+      ? NextResponse.json({ success: true, message: r.message })
+      : NextResponse.json({ success: false, error: r.error }, { status: 400 });
   }
 
   if (parsed.data.action === "skip") {
@@ -102,6 +117,7 @@ export async function POST(
     return NextResponse.json({ success: false, error: "No recipients with an email" }, { status: 400 });
   }
 
+  const approvalOn = await approvalModeEnabled();
   let delivered = 0;
   let dryRuns = 0;
   const stillMissing = new Set<string>();
@@ -120,6 +136,8 @@ export async function POST(
       subject: s.text,
       bodyText: b.text,
       forceDry: isDryRunAddress(recipient.email),
+      // A human clicked send: in approval mode that click is the approval
+      approved: approvalOn,
     });
     if (result.delivered) delivered++;
     else dryRuns++;
