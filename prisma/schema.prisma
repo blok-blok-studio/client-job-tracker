@@ -73,6 +73,7 @@ model Client {
   taxId            String?
   noTaxId          Boolean    @default(false) // client confirmed they have no VAT / tax ID (private person, not registered)
   onboardedAt      DateTime? // when the client submitted the onboarding form
+  contractBrief    String?   @db.Text // owner-only deal terms; a contract draft is made from them when onboarding completes
 
   // Direct debit mandate: Stripe ids + display info only, no account numbers stored here
   debitPaymentMethodId String?

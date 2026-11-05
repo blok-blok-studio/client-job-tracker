@@ -10,6 +10,7 @@ const CLIENT_FINANCE_FIELDS = [
   "projectPrice",
   "depositReceived",
   "projectBalance",
+  "contractBrief",
 ] as const;
 
 export function stripClientFinance<T extends Record<string, unknown>>(client: T): T {

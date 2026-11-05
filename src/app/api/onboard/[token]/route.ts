@@ -1,9 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import prisma from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { onOnboardingCompleted } from "@/lib/pipeline";
+import { autoDraftContract } from "@/lib/contract-autodraft";
+
+export const maxDuration = 300;
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { normalizeCountry, STATE_REQUIRED_COUNTRIES } from "@/lib/client-party";
 
@@ -477,6 +480,15 @@ export async function POST(
     // MUST be awaited — serverless runtimes kill the process after response,
     // so fire-and-forget promises may never complete
     await onOnboardingCompleted(client.id);
+
+    // Draft the contract from the owner's deal terms after the response, so
+    // the client is not kept waiting on AI drafting. Draft only, never sent.
+    const draftClientId = client.id;
+    after(async () => {
+      await autoDraftContract(draftClientId, { trigger: "onboarding" }).catch((err) =>
+        console.error("[Onboard] auto-draft failed:", err)
+      );
+    });
 
     return NextResponse.json(
       { success: true, message: "Onboarding complete", uploadUrl },

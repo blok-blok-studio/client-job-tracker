@@ -540,14 +540,22 @@ export async function onOnboardingCompleted(clientId: string) {
  */
 async function notifyOwnerOnboarded(clientId: string): Promise<void> {
   try {
-    const party = await prisma.client.findUnique({ where: { id: clientId }, select: CLIENT_PARTY_SELECT });
+    const party = await prisma.client.findUnique({ where: { id: clientId }, select: { ...CLIENT_PARTY_SELECT, contractBrief: true } });
     if (!party) return;
     const missing = missingPartyDetails(party);
     const name = party.company || party.name;
     const link = `/clients/${clientId}`;
-    const status = missing.length === 0
-      ? "All contract details are in, ready for a contract."
-      : `Still missing for a contract: ${missing.join(", ")}.`;
+    const hasContract = await prisma.contractSignature.findFirst({
+      where: { clientId, kind: "SERVICE_AGREEMENT", status: { in: ["DRAFT", "PENDING", "SIGNED"] } },
+      select: { id: true },
+    });
+    const status = missing.length > 0
+      ? `Still missing for a contract: ${missing.join(", ")}.`
+      : hasContract
+        ? "All contract details are in. They already have a contract on file."
+        : party.contractBrief?.trim()
+          ? "All contract details are in. Drafting the contract from your deal terms now, you will get a ping when it is ready to review."
+          : "All contract details are in. Add the deal terms under Contracts on their page and tap Draft contract now.";
     await notifySlack(`:clipboard: *${name}* finished onboarding. ${status} ${APP_URL}${link}`);
     const owners = await prisma.user.findMany({ where: { role: "OWNER", isActive: true }, select: { id: true } });
     for (const o of owners) {

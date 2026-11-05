@@ -26,6 +26,7 @@ import ClientMerge from "@/components/clients/ClientMerge";
 import DeliverablesPanel, { type DeliverableItem } from "@/components/clients/DeliverablesPanel";
 import ClientFilesPanel, { type ClientFileItem } from "@/components/clients/ClientFilesPanel";
 import ContractClientDetails from "@/components/clients/ContractClientDetails";
+import ContractBriefCard from "@/components/clients/ContractBriefCard";
 import { friendlyError } from "@/lib/fetch-json";
 import { safeUuid } from "@/lib/safe-uuid";
 import { DEFAULT_UPLOAD_LIMIT_MB } from "@/lib/upload-limits";
@@ -1377,6 +1378,12 @@ export default function ClientDetailPage() {
                 {/* ─── Contracts Tab ─── */}
                 {assetsTab === "contracts" && (
                   <div>
+                    <ContractBriefCard
+                      clientId={id}
+                      hasServiceAgreement={!!client.contracts?.some((c) => (c.kind || "SERVICE_AGREEMENT") === "SERVICE_AGREEMENT" && ["DRAFT", "PENDING", "SIGNED"].includes(c.status))}
+                      onDrafted={fetchClient}
+                      toast={toast}
+                    />
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-xs text-bb-dim">{client.contracts?.length || 0} contracts</p>
                       <button onClick={() => setShowContractModal(true)} className="text-bb-accent hover:text-bb-accent-light text-sm flex items-center gap-1">
