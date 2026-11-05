@@ -2,6 +2,9 @@ import prisma from "@/lib/prisma";
 import { sendOnboardingLinkEmail, sendContractSigningEmail, sendContractSignedAdminEmail, sendOnboardingCompleteEmail } from "@/lib/email";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { randomBytes } from "crypto";
+import { notifySlack } from "@/lib/slack";
+import { notifyUser } from "@/lib/notifications";
+import { CLIENT_PARTY_SELECT, missingPartyDetails } from "@/lib/client-party";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
 
@@ -505,6 +508,9 @@ export async function onOnboardingCompleted(clientId: string) {
       });
     }
 
+    // Tell the owner (never the client) that the form is in
+    await notifyOwnerOnboarded(clientId);
+
     await prisma.activityLog.create({
       data: {
         clientId,
@@ -526,3 +532,28 @@ export async function onOnboardingCompleted(clientId: string) {
   }
 }
 
+
+/**
+ * Owner-only ping when a client submits the onboarding form: Slack plus the
+ * bell inbox. Says whether the contract details are complete. Never emails
+ * the client and never throws into the onboarding flow.
+ */
+async function notifyOwnerOnboarded(clientId: string): Promise<void> {
+  try {
+    const party = await prisma.client.findUnique({ where: { id: clientId }, select: CLIENT_PARTY_SELECT });
+    if (!party) return;
+    const missing = missingPartyDetails(party);
+    const name = party.company || party.name;
+    const link = `/clients/${clientId}`;
+    const status = missing.length === 0
+      ? "All contract details are in, ready for a contract."
+      : `Still missing for a contract: ${missing.join(", ")}.`;
+    await notifySlack(`:clipboard: *${name}* finished onboarding. ${status} ${APP_URL}${link}`);
+    const owners = await prisma.user.findMany({ where: { role: "OWNER", isActive: true }, select: { id: true } });
+    for (const o of owners) {
+      await notifyUser({ userId: o.id, type: "onboarding_completed", title: `${name} finished onboarding`, body: status, link, clientId }).catch(() => {});
+    }
+  } catch (err) {
+    console.error("[Pipeline] Owner onboarding ping failed:", err);
+  }
+}

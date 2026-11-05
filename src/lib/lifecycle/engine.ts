@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import type { Client, ClientService, Contractor, Prisma, ScheduledStep, StepKind } from "@prisma/client";
 import { notifySlack } from "@/lib/slack";
+import { notifyUser } from "@/lib/notifications";
 import { getSetting } from "./settings";
 import { getTierConstants, computeSupportEnd, computeCareFreeEnd, addDays, ASSET_DEADLINE_DAYS } from "./tiers";
 import { renderTokens, type RenderContext } from "./tokens";
@@ -605,6 +606,24 @@ export async function processDueSteps(opts: ProcessOptions = {}): Promise<Proces
         },
       });
       summary.failed++;
+      // Tell the owner a client email was held back and why. Nothing was sent.
+      if (client && !forcedDry && step.kind === "EMAIL") {
+        const why = err instanceof Error ? err.message : "Unknown error";
+        await notifySlack(
+          `:warning: Lifecycle email ${step.stepKey} for *${client.name}* was NOT sent: ${why}`
+        ).catch(() => {});
+        const owners = await prisma.user.findMany({ where: { role: "OWNER", isActive: true }, select: { id: true } });
+        for (const o of owners) {
+          await notifyUser({
+            userId: o.id,
+            type: "lifecycle_rehearsal",
+            title: `Email ${step.stepKey} for ${client.name} held back`,
+            body: `Not sent: ${why}`,
+            link: `/clients/${client.id}`,
+            clientId: client.id,
+          }).catch(() => {});
+        }
+      }
     }
   }
   return summary;
@@ -684,6 +703,24 @@ async function executeStep(
         action: "lifecycle_email_dry_run",
         details: `Dry run "${subject.text}" (${step.stepKey}) — ${result.reason}`,
       });
+      // Rehearsal: a real client's email was held only by the master switch.
+      // Show the owner what would have gone out. Nothing reaches the client.
+      if (!forcedDry && result.reason === "live emails master switch is off") {
+        await notifySlack(
+          `:test_tube: Rehearsal, NOT sent: *${subject.text}* would have gone to *${client.name}* (step ${step.stepKey}). Read it on the client's timeline.`
+        ).catch(() => {});
+        const owners = await prisma.user.findMany({ where: { role: "OWNER", isActive: true }, select: { id: true } });
+        for (const o of owners) {
+          await notifyUser({
+            userId: o.id,
+            type: "lifecycle_rehearsal",
+            title: `Rehearsal (not sent): ${subject.text}`,
+            body: `Would have gone to ${client.name}. Nothing was emailed.`,
+            link: `/clients/${client.id}`,
+            clientId: client.id,
+          }).catch(() => {});
+        }
+      }
     }
     return;
   }

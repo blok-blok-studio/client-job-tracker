@@ -19,7 +19,9 @@ export type NotificationType =
   | "post_action_needed"
   | "post_failed"
   | "connection_problem"
-  | "approval_response";
+  | "approval_response"
+  | "onboarding_completed"
+  | "lifecycle_rehearsal";
 
 export interface NotifyInput {
   userId: string;
