@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Plus, Trash2, Check, Loader2, ChevronDown, MessageCircle, Upload, Link2 } from "lucide-react";
 import QRCode from "qrcode";
 import AddToHomeScreen from "@/components/shared/AddToHomeScreen";
+import { countryOptions, normalizeCountry, STATE_REQUIRED_COUNTRIES } from "@/lib/client-party";
 
 interface Contact {
   name: string;
@@ -209,6 +210,10 @@ export default function OnboardPage() {
   const [companyZip, setCompanyZip] = useState("");
   const [companyCountry, setCompanyCountry] = useState("");
   const [taxId, setTaxId] = useState("");
+  const [noTaxId, setNoTaxId] = useState(false);
+  const [noWebsite, setNoWebsite] = useState(false);
+  const countries = useMemo(() => countryOptions(), []);
+  const stateRequired = STATE_REQUIRED_COUNTRIES.includes(companyCountry);
   const [source, setSource] = useState("");
   const [industry, setIndustry] = useState("");
   const [sourceOpen, setSourceOpen] = useState(false);
@@ -235,6 +240,24 @@ export default function OnboardPage() {
         if (data.success) {
           setClientId(data.data.id);
           setClientName(data.data.name);
+          // Start from what we already have on file; the client checks and completes it
+          const pre = data.data.prefill || {};
+          if (data.data.company) setCompany(data.data.company);
+          if (pre.companyAddress) setCompanyAddress(pre.companyAddress);
+          if (pre.companyCity) setCompanyCity(pre.companyCity);
+          if (pre.companyState) setCompanyState(pre.companyState);
+          if (pre.companyZip) setCompanyZip(pre.companyZip);
+          if (pre.companyCountry) setCompanyCountry(normalizeCountry(pre.companyCountry) || "");
+          if (pre.taxId) setTaxId(pre.taxId);
+          else if (pre.noTaxId) setNoTaxId(true);
+          if (pre.websiteUrl) setCompanyWebsite(String(pre.websiteUrl).replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, ""));
+          if (pre.industry) setIndustry(pre.industry);
+          if (pre.source) setSource(pre.source);
+          setContacts((prev) =>
+            prev.length === 1 && !prev[0].name && !prev[0].email
+              ? [{ ...prev[0], name: data.data.name || "", email: pre.email || "" }]
+              : prev
+          );
           if (data.data.uploadUrl) setUploadUrl(data.data.uploadUrl);
           if (data.data.telegramLink) {
             setTelegramLink(data.data.telegramLink);
@@ -304,13 +327,15 @@ export default function OnboardPage() {
             validSocialLinks.length > 0 ? validSocialLinks : undefined,
           timezone: timezone || undefined,
           company: company.trim() || undefined,
-          companyWebsite: companyWebsite.trim() ? `https://www.${companyWebsite.trim()}` : undefined,
+          companyWebsite: !noWebsite && companyWebsite.trim() ? `https://www.${companyWebsite.trim().replace(/^https?:\/\/(www\.)?/i, "")}` : undefined,
+          noWebsite,
           companyAddress: companyAddress.trim() || undefined,
           companyCity: companyCity.trim() || undefined,
           companyState: companyState.trim() || undefined,
           companyZip: companyZip.trim() || undefined,
           companyCountry: companyCountry || undefined,
-          taxId: taxId.trim() || undefined,
+          taxId: noTaxId ? undefined : taxId.trim() || undefined,
+          noTaxId,
           source: source.trim() || undefined,
           industry: industry.trim() || undefined,
           notes: notes.trim() || undefined,
@@ -535,10 +560,11 @@ export default function OnboardPage() {
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Role</label>
+                    <label className={labelClass}>Role *</label>
                     <input
                       value={contact.role}
                       onChange={(e) => updateContact(i, "role", e.target.value)}
+                      required
                       className={inputClass}
                       placeholder="e.g. Marketing Manager"
                     />
@@ -589,72 +615,83 @@ export default function OnboardPage() {
           {/* Company Info */}
           <section className="bg-bb-surface border border-bb-border rounded-xl p-4 sm:p-6 space-y-4">
             <h2 className="text-lg font-display font-semibold text-white">
-              Company Info
+              Business Details
             </h2>
             <p className="text-xs text-bb-dim">
-              If applicable, share your company details.
+              These go into your contract and invoices exactly as you write them, so please use your registered business details. Working with us as a private person? Use your full name and home address. Fields marked * are required.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className={labelClass}>Company Name</label>
+                <label className={labelClass}>Legal / company name *</label>
                 <input
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
+                  required
                   className={inputClass}
                   placeholder="Acme Inc."
                 />
               </div>
               <div>
-                <label className={labelClass}>Company Website</label>
+                <label className={labelClass}>Company website{noWebsite ? "" : " *"}</label>
                 <div className="flex">
                   <span className="inline-flex items-center px-3 bg-bb-black border border-r-0 border-bb-border rounded-l-lg text-bb-dim text-sm">
                     https://www.
                   </span>
                   <input
                     type="text"
-                    value={companyWebsite}
+                    value={noWebsite ? "" : companyWebsite}
                     onChange={(e) => setCompanyWebsite(e.target.value)}
-                    className={`${inputClass} rounded-l-none`}
+                    required={!noWebsite}
+                    disabled={noWebsite}
+                    className={`${inputClass} rounded-l-none disabled:opacity-40`}
                     placeholder="example.com"
                   />
                 </div>
+                <label className="flex items-center gap-2 mt-1.5 text-xs text-bb-muted cursor-pointer">
+                  <input type="checkbox" checked={noWebsite} onChange={(e) => setNoWebsite(e.target.checked)} />
+                  We don&apos;t have a website yet
+                </label>
               </div>
             </div>
 
             {/* Company Address */}
             <div>
-              <label className={labelClass}>Street Address</label>
+              <label className={labelClass}>Street address *</label>
               <input
                 value={companyAddress}
                 onChange={(e) => setCompanyAddress(e.target.value)}
+                required
                 className={inputClass}
                 placeholder="123 Main St, Suite 100"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className={labelClass}>City</label>
+                <label className={labelClass}>City *</label>
                 <input
                   value={companyCity}
                   onChange={(e) => setCompanyCity(e.target.value)}
+                  required
                   className={inputClass}
                   placeholder="New York"
                 />
               </div>
               <div>
-                <label className={labelClass}>State / Region</label>
+                <label className={labelClass}>State / region{stateRequired ? " *" : ""}</label>
                 <input
                   value={companyState}
                   onChange={(e) => setCompanyState(e.target.value)}
+                  required={stateRequired}
                   className={inputClass}
                   placeholder="NY"
                 />
               </div>
               <div>
-                <label className={labelClass}>Zip / Postal Code</label>
+                <label className={labelClass}>Zip / postal code *</label>
                 <input
                   value={companyZip}
                   onChange={(e) => setCompanyZip(e.target.value)}
+                  required
                   className={inputClass}
                   placeholder="10001"
                 />
@@ -662,37 +699,45 @@ export default function OnboardPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="relative">
-                <label className={labelClass}>Country</label>
+                <label className={labelClass}>Country *</label>
                 <select
                   value={companyCountry}
                   onChange={(e) => setCompanyCountry(e.target.value)}
+                  required
                   className={inputClass}
                 >
                   <option value="">Select country...</option>
-                  {COUNTRY_CODES.map((c, idx) => (
-                    <option key={`country-${c.name}-${idx}`} value={c.name}>
-                      {c.flag} {c.name}
+                  {countries.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className={labelClass}>Tax ID (VAT/EIN)</label>
+                <label className={labelClass}>VAT / tax ID{noTaxId ? "" : " *"}</label>
                 <input
-                  value={taxId}
+                  value={noTaxId ? "" : taxId}
                   onChange={(e) => setTaxId(e.target.value)}
-                  className={inputClass}
-                  placeholder="e.g. US12-3456789"
+                  required={!noTaxId}
+                  disabled={noTaxId}
+                  className={`${inputClass} disabled:opacity-40`}
+                  placeholder="e.g. DE123456789 or 12-3456789"
                 />
-                <p className="text-xs text-bb-dim mt-1">VAT number, EIN, or local tax ID (if applicable)</p>
+                <p className="text-xs text-bb-dim mt-1">EU VAT number, US EIN, or your local tax number</p>
+                <label className="flex items-center gap-2 mt-1.5 text-xs text-bb-muted cursor-pointer">
+                  <input type="checkbox" checked={noTaxId} onChange={(e) => setNoTaxId(e.target.checked)} />
+                  I don&apos;t have a VAT or tax ID (private person or not registered)
+                </label>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="relative">
-                <label className={labelClass}>How did you hear about us?</label>
+                <label className={labelClass}>How did you hear about us? *</label>
                 <input
                   type="text"
+                  required
                   value={source}
                   onChange={(e) => { setSource(e.target.value); setSourceOpen(true); }}
                   onFocus={() => setSourceOpen(true)}
@@ -720,9 +765,10 @@ export default function OnboardPage() {
                 })()}
               </div>
               <div className="relative">
-                <label className={labelClass}>Industry</label>
+                <label className={labelClass}>Industry *</label>
                 <input
                   type="text"
+                  required
                   value={industry}
                   onChange={(e) => { setIndustry(e.target.value); setIndustryOpen(true); }}
                   onFocus={() => setIndustryOpen(true)}
@@ -1067,10 +1113,11 @@ export default function OnboardPage() {
             </h2>
 
             <div>
-              <label className={labelClass}>Timezone</label>
+              <label className={labelClass}>Timezone *</label>
               <select
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
+                required
                 className={inputClass}
               >
                 {timezoneOptions.map((tz) => (

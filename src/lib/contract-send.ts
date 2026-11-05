@@ -69,7 +69,7 @@ export async function sendContract(
   const contract = await prisma.contractSignature.findUnique({
     where: { id: contractId },
     include: {
-      client: { select: { id: true, name: true, email: true, company: true, stripeCustomerId: true } },
+      client: { select: { id: true, name: true, email: true, company: true, stripeCustomerId: true, onboardedAt: true } },
     },
   });
 
@@ -192,7 +192,9 @@ export async function sendContract(
         })
     );
 
-    if (!isStandardDoc) emailTasks.push(
+    // Clients who already filled in the onboarding form (their details are in
+    // the contract) are not asked to fill it in again.
+    if (!isStandardDoc && !client.onboardedAt) emailTasks.push(
       (async () => {
         let onboardToken = (await prisma.client.findUnique({ where: { id: client.id }, select: { onboardToken: true } }))?.onboardToken;
         if (!onboardToken) {

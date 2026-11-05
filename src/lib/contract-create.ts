@@ -1,4 +1,5 @@
 import { extractContractBilling, type ExtractedBilling } from "@/lib/invoicing/contract-billing-extract";
+import { CLIENT_PARTY_SELECT, clientPartyBlock, ensureClientPartyBlock, insertClientPartyBlock, missingPartyDetails } from "@/lib/client-party";
 import { randomBytes, createHash } from "crypto";
 import prisma from "@/lib/prisma";
 import { generateContractBody, type PaymentMilestone, type PackageCustomization, type CustomLineItem } from "@/lib/contract-templates";
@@ -38,6 +39,12 @@ export interface StandardTemplateInput {
 }
 
 export interface CreateContractInput {
+  /**
+   * Refuse to draft until the client's legal details are complete (default).
+   * Partner closes pass false: they generate the contract live on the call,
+   * before the practice has onboarded, and get whatever is on file.
+   */
+  requireClientDetails?: boolean;
   clientId: string;
   packages: string[];
   addons: string[];
@@ -80,9 +87,20 @@ export interface CreateContractResult {
 export async function createClientContract(input: CreateContractInput): Promise<CreateContractResult> {
   const client = await prisma.client.findUnique({
     where: { id: input.clientId },
-    select: { id: true, name: true, email: true, company: true, stripeCustomerId: true },
+    select: { ...CLIENT_PARTY_SELECT, stripeCustomerId: true },
   });
   if (!client) throw new ContractCreateError("Client not found", 404);
+
+  // Every contract names the client in full: legal name, address, tax ID, email.
+  // They come from the onboarding form (or Chase fills them in on the contract screen).
+  const missingDetails = missingPartyDetails(client);
+  if (missingDetails.length > 0 && input.requireClientDetails !== false) {
+    throw new ContractCreateError(
+      `Client details missing: ${missingDetails.join(", ")}. Send the onboarding form or fill them in first.`,
+      409
+    );
+  }
+  const partyBlock = clientPartyBlock(client);
 
   // Validate payment schedule adds up to 100%
   if (input.paymentSchedule && input.paymentSchedule.length > 0) {
@@ -139,16 +157,18 @@ export async function createClientContract(input: CreateContractInput): Promise<
 
   // If a custom prompt is provided, run the baseline through AI drafting (figures stay locked).
   // Falls back to the baseline body on any AI failure.
-  let contractBody = baselineBody;
+  const baselineWithParty = insertClientPartyBlock(baselineBody, partyBlock);
+  let contractBody = baselineWithParty;
   let aiError: string | null = null;
   if (!input.template && input.customPrompt && input.customPrompt.trim()) {
     const ai = await generateAiContractBody({
-      baselineBody,
+      baselineBody: baselineWithParty,
       customPrompt: input.customPrompt.trim(),
       clientName: client.name,
       companyName: client.company,
+      clientDetails: partyBlock,
     });
-    contractBody = ai.body;
+    contractBody = ensureClientPartyBlock(ai.body, partyBlock);
     if (!ai.usedAi) aiError = ai.error || "AI drafting unavailable — used baseline contract";
   }
 

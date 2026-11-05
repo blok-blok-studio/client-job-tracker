@@ -124,6 +124,7 @@ export async function POST(
       paymentSchedule: [...PARTNER_PAYMENT_SCHEDULE],
       skipPayment: false,
       draft: false,
+      requireClientDetails: false,
       createdBy: `${rep.name} (${rep.partner.name})`,
       actor: "partner",
       ipAddress: meta.ipAddress,

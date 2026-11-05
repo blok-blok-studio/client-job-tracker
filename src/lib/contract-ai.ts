@@ -93,14 +93,16 @@ export async function generateAiContractBody(opts: {
   customPrompt: string;
   clientName: string;
   companyName: string | null;
+  /** Exact CLIENT DETAILS block (legal name, address, tax ID, email) */
+  clientDetails?: string;
 }): Promise<{ body: string; usedAi: boolean; error?: string }> {
-  const { baselineBody, customPrompt, clientName, companyName } = opts;
+  const { baselineBody, customPrompt, clientName, companyName, clientDetails } = opts;
 
   return draftFromBaseline({
     baselineBody,
     system: SYSTEM_PROMPT,
     userContent: `CLIENT: ${clientName}${companyName ? ` / ${companyName}` : ""}
-
+${clientDetails ? `\nThe baseline carries the client's CLIENT DETAILS block, taken from the client's own onboarding form. Keep that block word for word, right after the opening paragraph. Use exactly this legal name, address and tax ID wherever the contract names the Client; never invent or change them, even if the custom instructions mention other details.\n${clientDetails}\n` : ""}
 CUSTOM INSTRUCTIONS:
 ${customPrompt}
 

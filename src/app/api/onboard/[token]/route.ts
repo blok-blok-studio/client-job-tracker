@@ -5,6 +5,7 @@ import { randomBytes } from "crypto";
 import { z } from "zod";
 import { onOnboardingCompleted } from "@/lib/pipeline";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { normalizeCountry, STATE_REQUIRED_COUNTRIES } from "@/lib/client-party";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://blokblokstudio-clients.vercel.app";
 
@@ -117,7 +118,11 @@ export async function GET(
 
     const client = await prisma.client.findUnique({
       where: { onboardToken: token },
-      select: { id: true, name: true, company: true, type: true, uploadToken: true },
+      select: {
+        id: true, name: true, company: true, type: true, uploadToken: true, email: true, phone: true,
+        companyAddress: true, companyCity: true, companyState: true, companyZip: true, companyCountry: true,
+        taxId: true, noTaxId: true, websiteUrl: true, industry: true, source: true,
+      },
     });
 
     if (!client || client.type === "ARCHIVED") {
@@ -140,6 +145,21 @@ export async function GET(
           id: client.id,
           name: client.name,
           company: client.company,
+          // Whatever we already know, so the client only checks and completes it
+          prefill: {
+            email: client.email,
+            phone: client.phone,
+            companyAddress: client.companyAddress,
+            companyCity: client.companyCity,
+            companyState: client.companyState,
+            companyZip: client.companyZip,
+            companyCountry: normalizeCountry(client.companyCountry),
+            taxId: client.taxId,
+            noTaxId: client.noTaxId,
+            websiteUrl: client.websiteUrl,
+            industry: client.industry,
+            source: client.source,
+          },
           telegramLink,
           uploadUrl: client.uploadToken ? `${APP_URL}/u/${client.uploadToken}` : null,
         },
@@ -156,53 +176,73 @@ export async function GET(
 }
 
 // POST — Submit onboarding data from the client-facing form
-const onboardSchema = z.object({
-  contacts: z
-    .array(
-      z.object({
-        name: z.string().min(1).max(200),
-        role: z.string().max(100).optional(),
-        email: z.string().email().max(254),
-        phone: z.string().min(1).max(30),
-        isPrimary: z.boolean().optional(),
-      })
-    )
-    .max(20)
-    .optional(),
-  credentials: z
-    .array(
-      z.object({
-        platform: z.string().min(1).max(100),
-        username: z.string().min(1).max(200),
-        password: z.string().min(1).max(500),
-        url: z.string().max(500).optional(),
-        notes: z.string().max(1000).optional(),
-      })
-    )
-    .max(50)
-    .optional(),
-  timezone: z.string().max(50).optional(),
-  company: z.string().max(200).optional(),
-  companyWebsite: z.string().max(500).optional(),
-  companyAddress: z.string().max(500).optional(),
-  companyCity: z.string().max(100).optional(),
-  companyState: z.string().max(100).optional(),
-  companyZip: z.string().max(20).optional(),
-  companyCountry: z.string().max(2).optional(),
-  taxId: z.string().max(50).optional(),
-  source: z.string().max(200).optional(),
-  industry: z.string().max(200).optional(),
-  telegramChatId: z.string().max(30).optional(),
-  contractStart: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }).optional(),
-  contractEnd: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }).optional(),
-  monthlyRetainer: z.number().min(0).optional(),
-  notes: z.string().max(5000).optional(),
-  brandGuidelines: z.string().max(10000).optional(),
-  socialLinks: z
-    .array(z.object({ platform: z.string().max(50), url: z.string().max(500) }))
-    .max(20)
-    .optional(),
-});
+const req = (label: string, max: number) =>
+  z.string({ error: `${label} is required` }).trim().min(1, `${label} is required`).max(max);
+
+// Every business detail is required: the contract is drafted from them.
+// Logins, social links, brand notes and comments stay optional.
+const onboardSchema = z
+  .object({
+    contacts: z
+      .array(
+        z.object({
+          name: req("Contact name", 200),
+          role: req("Contact role", 100),
+          email: z.string().trim().email("Enter a valid contact email").max(254),
+          phone: req("Contact phone", 30),
+          isPrimary: z.boolean().optional(),
+        })
+      )
+      .min(1, "Add at least one contact")
+      .max(20),
+    credentials: z
+      .array(
+        z.object({
+          platform: z.string().min(1).max(100),
+          username: z.string().min(1).max(200),
+          password: z.string().min(1).max(500),
+          url: z.string().max(500).optional(),
+          notes: z.string().max(1000).optional(),
+        })
+      )
+      .max(50)
+      .optional(),
+    timezone: req("Timezone", 50),
+    company: req("Legal / company name", 200),
+    companyWebsite: z.string().trim().max(500).optional(),
+    noWebsite: z.boolean().optional().default(false),
+    companyAddress: req("Street address", 500),
+    companyCity: req("City", 100),
+    companyState: z.string().trim().max(100).optional(),
+    companyZip: req("Postal code", 20),
+    companyCountry: req("Country", 2),
+    taxId: z.string().trim().max(50).optional(),
+    noTaxId: z.boolean().optional().default(false),
+    source: req("How you heard about us", 200),
+    industry: req("Industry", 200),
+    telegramChatId: z.string().max(30).optional(),
+    contractStart: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }).optional(),
+    contractEnd: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }).optional(),
+    monthlyRetainer: z.number().min(0).optional(),
+    notes: z.string().max(5000).optional(),
+    brandGuidelines: z.string().max(10000).optional(),
+    socialLinks: z
+      .array(z.object({ platform: z.string().max(50), url: z.string().max(500) }))
+      .max(20)
+      .optional(),
+  })
+  .superRefine((d, ctx) => {
+    const country = normalizeCountry(d.companyCountry);
+    if (country && STATE_REQUIRED_COUNTRIES.includes(country) && !d.companyState?.trim()) {
+      ctx.addIssue({ code: "custom", path: ["companyState"], message: "State / region is required" });
+    }
+    if (!d.taxId?.trim() && !d.noTaxId) {
+      ctx.addIssue({ code: "custom", path: ["taxId"], message: "Enter your VAT / tax ID, or tick that you don't have one" });
+    }
+    if (!d.companyWebsite?.trim() && !d.noWebsite) {
+      ctx.addIssue({ code: "custom", path: ["companyWebsite"], message: "Enter your website, or tick that you don't have one yet" });
+    }
+  });
 
 export async function POST(
   request: NextRequest,
@@ -261,8 +301,15 @@ export async function POST(
     if (parsed.companyCity) updates.companyCity = parsed.companyCity;
     if (parsed.companyState) updates.companyState = parsed.companyState;
     if (parsed.companyZip) updates.companyZip = parsed.companyZip;
-    if (parsed.companyCountry) updates.companyCountry = parsed.companyCountry;
-    if (parsed.taxId) updates.taxId = parsed.taxId;
+    if (parsed.companyCountry) updates.companyCountry = normalizeCountry(parsed.companyCountry);
+    if (parsed.taxId?.trim()) {
+      updates.taxId = parsed.taxId.trim();
+      updates.noTaxId = false;
+    } else if (parsed.noTaxId) {
+      updates.noTaxId = true;
+    }
+    if (parsed.companyWebsite?.trim()) updates.websiteUrl = parsed.companyWebsite.trim();
+    updates.onboardedAt = new Date();
     if (parsed.telegramChatId) updates.telegramChatId = parsed.telegramChatId;
     if (parsed.contractStart) updates.contractStart = new Date(parsed.contractStart);
     if (parsed.contractEnd) updates.contractEnd = new Date(parsed.contractEnd);
@@ -305,7 +352,7 @@ export async function POST(
         if (parsed.companyCity) address.city = parsed.companyCity;
         if (parsed.companyState) address.state = parsed.companyState;
         if (parsed.companyZip) address.postal_code = parsed.companyZip;
-        if (parsed.companyCountry) address.country = parsed.companyCountry;
+        if (parsed.companyCountry) address.country = normalizeCountry(parsed.companyCountry) || parsed.companyCountry;
 
         if (Object.keys(address).length > 0) {
           stripeUpdate.address = address;
@@ -319,7 +366,7 @@ export async function POST(
         // Add tax ID if provided
         if (parsed.taxId && parsed.companyCountry) {
           // Map country to Stripe tax ID type
-          const taxType = getTaxIdType(parsed.companyCountry, parsed.taxId);
+          const taxType = getTaxIdType(normalizeCountry(parsed.companyCountry) || parsed.companyCountry, parsed.taxId);
           if (taxType) {
             await stripe.customers.createTaxId(updatedClient.stripeCustomerId, {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -438,7 +485,7 @@ export async function POST(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, error: "Validation failed", details: error.issues },
+        { success: false, error: error.issues[0]?.message || "Some details are missing", details: error.issues },
         { status: 400, headers: corsHeaders(request) }
       );
     }
