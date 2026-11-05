@@ -404,7 +404,7 @@ export default function OnboardPage() {
   }
 
   const inputClass =
-    "w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 focus:border-bb-blue text-sm transition-colors";
+    "w-full px-3 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white placeholder:text-bb-dim focus:outline-none focus:ring-2 focus:ring-bb-blue/50 focus:border-bb-blue text-base sm:text-sm transition-colors";
   const labelClass = "block text-sm text-bb-muted mb-1.5 font-medium";
 
   if (loading) {
@@ -588,7 +588,7 @@ export default function OnboardPage() {
                       <select
                         value={contact.countryCode}
                         onChange={(e) => updateContact(i, "countryCode", e.target.value)}
-                        className="appearance-none pl-3 pr-8 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50 focus:border-bb-blue transition-colors min-w-[100px]"
+                        className="appearance-none pl-3 pr-8 py-2.5 bg-bb-black border border-bb-border rounded-lg text-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-bb-blue/50 focus:border-bb-blue transition-colors min-w-[100px]"
                       >
                         {COUNTRY_CODES.map((c, idx) => (
                           <option key={`${c.code}-${c.name}-${idx}`} value={c.code}>
@@ -647,7 +647,7 @@ export default function OnboardPage() {
                     placeholder="example.com"
                   />
                 </div>
-                <label className="flex items-center gap-2 mt-1.5 text-xs text-bb-muted cursor-pointer">
+                <label className="flex items-center gap-2 mt-1.5 py-1 text-xs text-bb-muted cursor-pointer">
                   <input type="checkbox" checked={noWebsite} onChange={(e) => setNoWebsite(e.target.checked)} />
                   We don&apos;t have a website yet
                 </label>
@@ -725,7 +725,7 @@ export default function OnboardPage() {
                   placeholder="e.g. DE123456789 or 12-3456789"
                 />
                 <p className="text-xs text-bb-dim mt-1">EU VAT number, US EIN, or your local tax number</p>
-                <label className="flex items-center gap-2 mt-1.5 text-xs text-bb-muted cursor-pointer">
+                <label className="flex items-center gap-2 mt-1.5 py-1 text-xs text-bb-muted cursor-pointer">
                   <input type="checkbox" checked={noTaxId} onChange={(e) => setNoTaxId(e.target.checked)} />
                   I don&apos;t have a VAT or tax ID (private person or not registered)
                 </label>

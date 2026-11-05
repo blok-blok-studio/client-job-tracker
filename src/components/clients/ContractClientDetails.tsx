@@ -111,7 +111,7 @@ export default function ContractClientDetails({
   if (!data) return null;
 
   const complete = data.missing.length === 0;
-  const input = "w-full px-2.5 py-1.5 bg-bb-black border border-bb-border rounded-md text-white text-xs focus:outline-none focus:border-bb-blue";
+  const input = "w-full px-2.5 py-1.5 bg-bb-black border border-bb-border rounded-md text-white text-base sm:text-xs focus:outline-none focus:border-bb-blue";
   const set = (k: keyof Details, v: string | boolean) => setForm((f) => (f ? { ...f, [k]: v } : f));
   const stateNeeded = !!form?.companyCountry && STATE_REQUIRED_COUNTRIES.includes(form.companyCountry);
 
@@ -173,7 +173,7 @@ export default function ContractClientDetails({
             <input className={input} placeholder="Email" value={form.email || ""} onChange={(e) => set("email", e.target.value)} />
           </div>
           <input className={input} placeholder="Street address" value={form.companyAddress || ""} onChange={(e) => set("companyAddress", e.target.value)} />
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <input className={input} placeholder="Postal code" value={form.companyZip || ""} onChange={(e) => set("companyZip", e.target.value)} />
             <input className={input} placeholder="City" value={form.companyCity || ""} onChange={(e) => set("companyCity", e.target.value)} />
             <input className={input} placeholder={stateNeeded ? "State (required)" : "State / region"} value={form.companyState || ""} onChange={(e) => set("companyState", e.target.value)} />
@@ -187,7 +187,7 @@ export default function ContractClientDetails({
             </select>
             <input className={`${input} disabled:opacity-40`} placeholder="VAT / tax ID" disabled={form.noTaxId} value={form.noTaxId ? "" : form.taxId || ""} onChange={(e) => set("taxId", e.target.value)} />
           </div>
-          <label className="flex items-center gap-2 text-xs text-bb-muted">
+          <label className="flex items-center gap-2 py-1 text-xs text-bb-muted">
             <input type="checkbox" checked={form.noTaxId} onChange={(e) => set("noTaxId", e.target.checked)} />
             Client has no VAT / tax ID (private person or not registered)
           </label>
