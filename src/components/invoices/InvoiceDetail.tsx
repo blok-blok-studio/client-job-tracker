@@ -10,6 +10,7 @@ import type { InvoiceView } from "@/lib/invoicing/types";
 import { VAT_SCHEME_LABELS } from "@/lib/invoicing/vat";
 import { formatMoney } from "@/lib/invoicing/money";
 import { StatusBadge, isOverdue, shortDate, inputCls, labelCls, btnPrimary, btnGhost, readJsonSafe } from "./shared";
+import { paysViaWiseOnly } from "@/lib/invoicing/settings-core";
 
 type Detail = Omit<InvoiceView, "qrs"> & {
   qrs: Array<{ kind: string; dataUrl: string | null }>;
@@ -355,10 +356,13 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged, au
                   <p className="font-mono">{inv.seller.eur.iban ? inv.seller.eur.iban.replace(/(.{4})/g, "$1 ").trim() : "IBAN missing"}{inv.seller.eur.bic ? ` · ${inv.seller.eur.bic}` : ""}</p>
                 </>
               )}
-              {inv.paymentMethod !== "STRIPE" && inv.currency !== "EUR" && inv.currency !== "USD" && (
+              {inv.paymentMethod !== "STRIPE" && paysViaWiseOnly(inv.seller, inv.currency) && (
+                <p className="break-all">Pay via Wise: {inv.seller.wisePayLink}</p>
+              )}
+              {inv.paymentMethod !== "STRIPE" && !paysViaWiseOnly(inv.seller, inv.currency) && inv.currency !== "EUR" && inv.currency !== "USD" && (
                 <p>{inv.seller.otherBanks?.find((b) => b.currency === inv.currency) ? `${inv.currency} account: ${inv.seller.otherBanks.find((b) => b.currency === inv.currency)!.lines.map((l) => `${l.label} ${l.value}`).join(" · ")}` : `${inv.currency}: no receiving account in Settings`}</p>
               )}
-              {inv.paymentMethod !== "STRIPE" && inv.currency === "USD" && inv.seller.usd && (
+              {inv.paymentMethod !== "STRIPE" && !paysViaWiseOnly(inv.seller, inv.currency) && inv.currency === "USD" && inv.seller.usd && (
                 <>
                   <p>{inv.seller.usd.holder} · {inv.seller.usd.bank || "bank not set"}</p>
                   <p className="font-mono">Routing {inv.seller.usd.routing || "?"} · Account {inv.seller.usd.account || "?"}{inv.seller.usd.swift ? ` · ${inv.seller.usd.swift}` : ""}</p>

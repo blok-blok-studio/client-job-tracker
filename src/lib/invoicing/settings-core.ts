@@ -191,11 +191,24 @@ export function isValidIban(iban: string): boolean {
 }
 
 /** What still has to be filled in before an invoice in `currency` can be issued. */
+/** True when a non-EUR invoice has no account numbers of its own and is paid through the Wise link. */
+export function paysViaWiseOnly(seller: { wisePayLink: string; usd: { routing: string; account: string } | null; otherBanks?: Array<{ currency: string; lines: unknown[] }> }, currency: string): boolean {
+  if (currency === "EUR" || !seller.wisePayLink) return false;
+  if (currency === "USD") return !seller.usd?.routing && !seller.usd?.account;
+  const b = seller.otherBanks?.find((x) => x.currency === currency);
+  return !b || !b.lines.length;
+}
+
 export function missingBankFields(settings: InvoiceSettings, currency: string): string[] {
   const missing: string[] = [];
+  // Any non-EUR currency can be paid through the Wise pay link, so the link
+  // alone is enough when no local account numbers are saved for it.
+  const wise = !!settings.wisePayLink.trim();
   if (currency !== "EUR" && currency !== "USD") {
     const b = settings.otherBanks.find((x) => x.currency === currency);
-    if (!b) missing.push(`${currency} receiving account (add it under Settings → Other currencies)`);
+    if (wise && (!b || !b.lines.length)) {
+      /* paid via the Wise link */
+    } else if (!b) missing.push(`${currency} receiving account (add it under Settings → Other currencies)`);
     else {
       if (!b.holder) missing.push(`${currency} account holder`);
       if (!b.lines.length) missing.push(`${currency} account details`);
@@ -208,6 +221,8 @@ export function missingBankFields(settings: InvoiceSettings, currency: string): 
     if (!settings.eur.iban) missing.push("IBAN");
     else if (!isValidIban(settings.eur.iban)) missing.push("IBAN (fails the checksum)");
     if (!settings.eur.bank) missing.push("EUR bank name");
+  } else if (wise && !settings.usd.routing && !settings.usd.account) {
+    /* paid via the Wise link */
   } else {
     if (!settings.usd.holder) missing.push("USD account holder");
     if (!settings.usd.bank) missing.push("USD bank name");
@@ -231,7 +246,7 @@ export function settingsWarnings(settings: InvoiceSettings): string[] {
   if (settings.ustIdNr && !isPlausibleVatId(settings.ustIdNr)) w.push("The USt-IdNr. does not look right (German ids are DE followed by 9 digits).");
   if (settings.eur.iban && !isValidIban(settings.eur.iban)) w.push("The IBAN does not pass the checksum. Re-check it before issuing EUR invoices.");
   if (!settings.eur.iban) w.push("EUR bank details are empty. EUR invoices cannot be issued until the IBAN is in.");
-  if (!settings.usd.routing || !settings.usd.account) w.push("USD (Wise) account details are empty. USD invoices cannot be issued until they are in.");
+  if ((!settings.usd.routing || !settings.usd.account) && !settings.wisePayLink.trim()) w.push("USD (Wise) account details are empty. USD invoices cannot be issued until they are in.");
   return w;
 }
 

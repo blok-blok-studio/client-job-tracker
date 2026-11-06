@@ -3,7 +3,7 @@ import { COUNTRY_CURRENCY } from "./vat";
 import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import type { Prisma, StudioInvoice } from "@prisma/client";
-import { loadInvoiceSettings, missingBankFields, type InvoiceSettings } from "./settings";
+import { loadInvoiceSettings, missingBankFields, CURRENCY_OPTIONS, type InvoiceSettings } from "./settings";
 import { detectCountry } from "./country-detect";
 import { decideVat, defaultsForTemplate, guessCountry, templateForCountry, type InvoiceTemplate, type VatOverride } from "./vat";
 import { addDays, computeTotals, parseDateOnly } from "./money";
@@ -155,7 +155,7 @@ export async function prepareForClient(clientId: string) {
     vat,
     dueDays: settings.defaultDueDays,
     kleinunternehmerUntil: settings.kleinunternehmerUntil,
-    missingBank: Object.fromEntries(["EUR", "USD", ...settings.otherBanks.map((b) => b.currency)].map((c) => [c, missingBankFields(settings, c)])) as Record<string, string[]>,
+    missingBank: Object.fromEntries([...new Set(["EUR", "USD", ...CURRENCY_OPTIONS, ...settings.otherBanks.map((b) => b.currency)])].map((c) => [c, missingBankFields(settings, c)])) as Record<string, string[]>,
     configuredCurrencies: ["EUR", "USD", ...settings.otherBanks.map((b) => b.currency)],
     stripeFeePct: settings.stripeFeePct,
     openStripeInvoices: openStripe.map((i) => ({ ...i, amount: Number(i.amount) })),

@@ -5,6 +5,7 @@ import type { InvoiceView } from "./types";
 import { LABELS } from "./types";
 import { formatDate, formatMoneyPdf, formatQty } from "./money";
 import { qrPng } from "./epc-qr";
+import { paysViaWiseOnly } from "./settings-core";
 
 // Studio invoice PDF: the big wordmark, the brand blues on band and rules, and
 // one QR code that stays black on white so banking apps can read it. German invoices come out on A4 in
@@ -328,12 +329,15 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
     if (b.iban) rows.push([L.iban, groupIban(b.iban), true]);
     if (b.bic) rows.push([L.bic, b.bic, true]);
     if (b.bank) rows.push([L.bank, b.bank, false]);
+  } else if (paysViaWiseOnly(view.seller, cur)) {
+    rows.push([L.holder, (cur === "USD" && view.seller.usd?.holder) || view.seller.otherBanks?.find((x) => x.currency === cur)?.holder || view.seller.sellerName, false]);
+    rows.push(["Pay via Wise", view.seller.wisePayLink, true]);
   } else if (cur !== "USD" && view.seller.otherBanks?.some((b) => b.currency === cur)) {
     const b = view.seller.otherBanks.find((x) => x.currency === cur)!;
     rows.push([L.holder, b.holder || view.seller.sellerName, false]);
     if (b.bank) rows.push([L.bank, b.bank, false]);
     for (const l of b.lines) rows.push([l.label, l.value, /\d/.test(l.value)]);
-  } else if (view.seller.usd) {
+  } else if (cur === "USD" && view.seller.usd) {
     const b = view.seller.usd;
     rows.push([L.holder, b.holder || view.seller.sellerName, false]);
     if (b.bank) rows.push([L.bank, b.bank, false]);

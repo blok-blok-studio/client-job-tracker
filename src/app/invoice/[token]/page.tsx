@@ -7,6 +7,7 @@ import { Download, Copy, Check, ExternalLink } from "lucide-react";
 import type { InvoiceView } from "@/lib/invoicing/types";
 import { LABELS } from "@/lib/invoicing/types";
 import { formatDate, formatMoney, formatQty } from "@/lib/invoicing/money";
+import { paysViaWiseOnly } from "@/lib/invoicing/settings-core";
 
 type PublicInvoice = Omit<InvoiceView, "id" | "qrs"> & { qrs: Array<{ kind: "EPC" | "WISE" | "PAGE" | "CARD"; dataUrl: string | null }> };
 
@@ -81,7 +82,10 @@ export default function PublicInvoicePage() {
   const other = inv.currency !== "EUR" && inv.currency !== "USD" ? inv.seller.otherBanks?.find((b) => b.currency === inv.currency) || null : null;
   const rows: Array<[string, string, boolean]> = [];
   if (isCard) rows.push([L.cardHint, inv.paymentUrl!, true]);
-  else if (eur) {
+  else if (!eur && paysViaWiseOnly(inv.seller, inv.currency)) {
+    rows.push([L.holder, usd?.holder || other?.holder || inv.seller.sellerName, true]);
+    rows.push(["Pay via Wise", inv.seller.wisePayLink, true]);
+  } else if (eur) {
     rows.push([L.holder, eur.holder || inv.seller.sellerName, true]);
     if (eur.iban) rows.push([L.iban, eur.iban.replace(/(.{4})/g, "$1 ").trim(), true]);
     if (eur.bic) rows.push([L.bic, eur.bic, true]);
