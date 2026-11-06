@@ -33,6 +33,17 @@ export interface PreparedLine {
   amount: number;
 }
 
+/**
+ * "Payment 2 of 4: Milestone 25% (50% of the project total)". Each line
+ * carries its own share plus the running total, so a 4 x 25% split reads
+ * 25 / 50 / 75 / 100 instead of four identical "25%" invoices.
+ */
+export function milestoneDescription(title: string, percent: number, n: number, count: number, paidToDate: number): string {
+  if (count <= 1) return `${title} (${percent}%)`;
+  const cumulative = Math.min(100, Math.round(paidToDate * 100) / 100);
+  return `Payment ${n} of ${count}: ${title} ${percent}% (${cumulative}% of the project total)`;
+}
+
 export async function prepareContractBilling(input: ContractBillingInput, actor: string): Promise<PreparedLine[]> {
   const [existing, existingPlans] = await Promise.all([
     prisma.studioInvoice.count({ where: { contractId: input.contractId } }),
@@ -42,15 +53,18 @@ export async function prepareContractBilling(input: ContractBillingInput, actor:
   const template = templateForCountry(input.country);
   const { language } = defaultsForTemplate(template);
   const out: PreparedLine[] = [];
-  for (const m of input.milestones) {
-    if (m.amount <= 0) continue;
+  const billable = input.milestones.filter((m) => m.amount > 0);
+  let paidToDate = 0;
+  for (const [n, m] of billable.entries()) {
+    paidToDate += m.percent;
+    const description = milestoneDescription(m.title, m.percent, n + 1, billable.length, paidToDate);
     const { invoice } = await createDraft(
       {
         clientId: input.clientId,
         template,
         language,
         currency: input.currency,
-        items: [{ description: `${m.title} (${m.percent}%)`, qty: 1, unitPrice: m.amount }],
+        items: [{ description, qty: 1, unitPrice: m.amount }],
         internalNote: `From the service agreement, milestone: ${m.label}`,
       },
       actor

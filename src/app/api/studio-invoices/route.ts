@@ -33,9 +33,31 @@ const LIST_SELECT = {
   paymentMethod: true,
   createdAt: true,
   readyAt: true,
+  contractId: true,
+  clientId: true,
   client: { select: { id: true, name: true, company: true } },
   partner: { select: { id: true, name: true } },
 } as const;
+
+/**
+ * Drafts have no issue date, so the newest-first sort listed a split as
+ * Completion, Milestone, Milestone, Deposit. Keep drafts of the same contract
+ * (or quote, or client) together in payment order: Deposit first.
+ */
+function orderMilestoneDrafts<T extends { status: string; issueDate: Date | null; createdAt: Date; contractId: string | null; quoteId: string | null; clientId: string | null; id: string }>(rows: T[]): T[] {
+  const isDraft = (r: T) => r.status === "DRAFT" && !r.issueDate;
+  const drafts = rows.filter(isDraft);
+  const rest = rows.filter((r) => !isDraft(r));
+  const key = (r: T) => r.contractId ?? r.quoteId ?? (r.clientId ? `client:${r.clientId}` : r.id);
+  const newest = new Map<string, number>();
+  for (const r of drafts) newest.set(key(r), Math.max(newest.get(key(r)) ?? 0, r.createdAt.getTime()));
+  drafts.sort((a, b) => {
+    const ka = key(a), kb = key(b);
+    if (ka !== kb) return newest.get(kb)! - newest.get(ka)! || (ka < kb ? -1 : 1);
+    return a.createdAt.getTime() - b.createdAt.getTime();
+  });
+  return [...drafts, ...rest];
+}
 
 // GET — every studio invoice + the tiles (outstanding / overdue / paid this month) + the § 19 watch
 export async function GET(request: NextRequest) {
@@ -57,7 +79,7 @@ export async function GET(request: NextRequest) {
       ];
     }
     const rows = await prisma.studioInvoice.findMany({ where, select: LIST_SELECT, orderBy: [{ issueDate: "desc" }, { createdAt: "desc" }] });
-    const data = rows.map((r) => ({ ...r, total: Number(r.total), eurAmount: r.eurAmount != null ? Number(r.eurAmount) : null }));
+    const data = orderMilestoneDrafts(rows).map((r) => ({ ...r, total: Number(r.total), eurAmount: r.eurAmount != null ? Number(r.eurAmount) : null }));
 
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
