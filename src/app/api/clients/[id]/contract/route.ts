@@ -88,6 +88,8 @@ export async function POST(
       template: parsed.template,
       createdBy: session.email,
       actor: "chase",
+      // Chase can draft without the client's full details; the contract prints what is on file
+      requireClientDetails: false,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
     });

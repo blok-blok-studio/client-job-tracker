@@ -324,7 +324,7 @@ export default function ClientDetailPage() {
   async function handleGenerateContract() {
     // Custom contracts are drafted entirely from the AI prompt — prices and terms live in the
     // instructions. Standard documents (NDA, Social Media agreement) are fill-in templates.
-    if (!contractFormReady || !partyReady) return;
+    if (!contractFormReady) return;
     setGeneratingContract(true);
     setAiFallbackNote(null);
     try {
@@ -1842,8 +1842,8 @@ export default function ClientDetailPage() {
             </button>
             <button
               onClick={handleGenerateContract}
-              disabled={!contractFormReady || !partyReady || generatingContract || !providerSignedName.trim()}
-              title={!partyReady ? "Complete the client details above first" : undefined}
+              disabled={!contractFormReady || generatingContract || !providerSignedName.trim()}
+              title={!partyReady ? "Some client details are blank. The contract prints what is filled in." : undefined}
               className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
             >
               {generatingContract ? (

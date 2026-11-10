@@ -122,14 +122,14 @@ export default function ContractClientDetails({
           {complete ? <Check size={14} className="text-green-400 mt-0.5 shrink-0" /> : <AlertTriangle size={14} className="text-amber-400 mt-0.5 shrink-0" />}
           <div>
             <p className="text-sm font-medium text-white">
-              {complete ? "Client details for the contract" : "Client details missing"}
+              {complete ? "Client details for the contract" : "Some client details are blank"}
             </p>
             <p className="text-xs text-bb-muted">
               {complete
                 ? data.onboardedAt
                   ? "From the client's onboarding form. Printed in the contract exactly like this."
                   : "Printed in the contract exactly like this."
-                : `The contract needs: ${data.missing.join(", ")}.`}
+                : `Not on file: ${data.missing.join(", ")}. You can still write the contract; it prints what is filled in.`}
             </p>
           </div>
         </div>
