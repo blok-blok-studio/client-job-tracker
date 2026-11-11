@@ -99,6 +99,12 @@ export default function ClientDetailPage() {
   const [reviewContract, setReviewContract] = useState<{ id: string; token: string; status: string; contractBody: string; billing?: ContractBilling | null; billingError?: string | null } | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [sendingContract, setSendingContract] = useState(false);
+  // Re-editing a draft instead of starting over: hand edit (textarea) or an AI change request
+  const [reviewEditing, setReviewEditing] = useState(false);
+  const [reviewEditBody, setReviewEditBody] = useState("");
+  const [reviewAiChange, setReviewAiChange] = useState("");
+  const [savingContractEdit, setSavingContractEdit] = useState<"manual" | "ai" | null>(null);
+  const [copyingContract, setCopyingContract] = useState<string | null>(null);
   // When AI drafting fails, this holds a clear explanation shown to the user (toast + banner)
   const [aiFallbackNote, setAiFallbackNote] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -414,7 +420,7 @@ export default function ClientDetailPage() {
       const res = await fetch(`/api/clients/${id}/contract/${contractId}/send`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
-        setReviewContract(null);
+        closeReview();
         fetchClient();
         if (data.data?.paymentLinkError) {
           toast(`Contract sent, but invoices failed: ${data.data.paymentLinkError}`, "error");
@@ -428,6 +434,69 @@ export default function ClientDetailPage() {
       }
     } catch { toast("Network error sending contract", "error"); }
     finally { setSendingContract(false); }
+  }
+
+  function closeReview() {
+    setReviewContract(null);
+    setAiFallbackNote(null);
+    setReviewEditing(false);
+    setReviewAiChange("");
+  }
+
+  // Save a change to the open draft: new text typed by hand, or a change for the AI to make
+  async function handleSaveContractEdit(change: { body: string } | { instructions: string }) {
+    if (!reviewContract) return;
+    const mode = "body" in change ? "manual" : "ai";
+    setSavingContractEdit(mode);
+    try {
+      const res = await fetch(`/api/clients/${id}/contract/${reviewContract.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(change),
+      });
+      const data = await res.json().catch(() => ({ success: false, error: "Unexpected server response" }));
+      if (data.success) {
+        setReviewContract((r) => r && {
+          ...r,
+          contractBody: data.data.contractBody,
+          billing: data.data.billing ?? null,
+          billingError: data.data.billingError ?? null,
+        });
+        setReviewEditing(false);
+        setReviewAiChange("");
+        toast(mode === "ai" ? "Change made. Read it over before sending." : "Draft saved.", "success");
+        if (data.data.billingError) toast(data.data.billingError, "error");
+        fetchClient();
+      } else {
+        toast(data.error || "Failed to save the change", "error");
+      }
+    } catch { toast("Network error saving the change", "error"); }
+    finally { setSavingContractEdit(null); }
+  }
+
+  // Sent, signed or expired contracts stay as they are: start a new draft from one and edit that
+  async function handleCopyContract(contractId: string) {
+    setCopyingContract(contractId);
+    try {
+      const res = await fetch(`/api/clients/${id}/contract/${contractId}/copy`, { method: "POST" });
+      const data = await res.json().catch(() => ({ success: false, error: "Unexpected server response" }));
+      if (data.success) {
+        fetchClient();
+        setReviewContract({
+          id: data.data.id,
+          token: data.data.token,
+          status: data.data.status,
+          contractBody: data.data.contractBody || "",
+          billing: data.data.billing ?? null,
+        });
+        setReviewEditBody(data.data.contractBody || "");
+        setReviewEditing(true);
+        toast("New draft made from this contract. Edit it, then send.", "success");
+      } else {
+        toast(data.error || "Failed to copy contract", "error");
+      }
+    } catch { toast("Network error copying contract", "error"); }
+    finally { setCopyingContract(null); }
   }
 
   function handleCopyContractLink(token: string) {
@@ -1474,7 +1543,19 @@ export default function ClientDetailPage() {
                                   disabled={reviewLoading}
                                   className="flex items-center gap-1.5 text-xs font-medium text-bb-accent hover:text-bb-accent-light transition-colors shrink-0 disabled:opacity-50"
                                 >
-                                  {reviewLoading ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />} Review &amp; Send
+                                  {reviewLoading ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />} Review, Edit &amp; Send
+                                </button>
+                              </div>
+                            )}
+                            {contract.status !== "DRAFT" && (
+                              <div className="flex items-center justify-end">
+                                <button
+                                  onClick={() => handleCopyContract(contract.id)}
+                                  disabled={copyingContract === contract.id}
+                                  title="Start a new draft from this contract. This one stays exactly as it is."
+                                  className="flex items-center gap-1 text-xs text-bb-dim hover:text-bb-muted transition-colors disabled:opacity-50"
+                                >
+                                  {copyingContract === contract.id ? <Loader2 size={12} className="animate-spin" /> : <Edit2 size={12} />} Edit a copy
                                 </button>
                               </div>
                             )}
@@ -1863,7 +1944,7 @@ export default function ClientDetailPage() {
       </Modal>
 
       {/* Draft Contract Review Modal */}
-      <Modal open={!!reviewContract} onClose={() => { setReviewContract(null); setAiFallbackNote(null); }} title="Review Contract" className="max-w-3xl">
+      <Modal open={!!reviewContract} onClose={closeReview} title="Review Contract" className="max-w-3xl">
         {reviewContract && (
           <div className="space-y-4">
             {aiFallbackNote && (
@@ -1883,6 +1964,15 @@ export default function ClientDetailPage() {
                 </span>
                 <span className="text-xs text-bb-dim">Read it over before sending to the client.</span>
               </div>
+              {reviewContract.status === "DRAFT" && !reviewEditing && (
+                <button
+                  onClick={() => { setReviewEditBody(reviewContract.contractBody); setReviewEditing(true); }}
+                  disabled={!!savingContractEdit}
+                  className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light disabled:opacity-50 ml-auto"
+                >
+                  <Edit2 size={12} /> Edit text
+                </button>
+              )}
               <a
                 href={`/c/${reviewContract.token}`}
                 target="_blank"
@@ -1893,9 +1983,58 @@ export default function ClientDetailPage() {
               </a>
             </div>
 
-            <div className="max-h-[55vh] overflow-y-auto rounded-lg border border-bb-border bg-bb-black p-4">
-              <pre className="whitespace-pre-wrap font-mono text-xs text-bb-muted leading-relaxed">{reviewContract.contractBody}</pre>
-            </div>
+            {reviewEditing ? (
+              <div className="space-y-2">
+                <textarea
+                  value={reviewEditBody}
+                  onChange={(e) => setReviewEditBody(e.target.value)}
+                  spellCheck
+                  className="w-full h-[55vh] rounded-lg border border-bb-blue/60 bg-bb-black p-4 font-mono text-xs text-white leading-relaxed focus:outline-none focus:border-bb-blue resize-y"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setReviewEditing(false)}
+                    disabled={!!savingContractEdit}
+                    className="px-3 py-1.5 text-xs text-bb-muted hover:text-white disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleSaveContractEdit({ body: reviewEditBody })}
+                    disabled={!!savingContractEdit || !reviewEditBody.trim() || reviewEditBody === reviewContract.contractBody}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-bb-blue hover:bg-bb-blue-light text-white text-xs font-medium rounded-md disabled:opacity-50"
+                  >
+                    {savingContractEdit === "manual" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Save changes
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="max-h-[55vh] overflow-y-auto rounded-lg border border-bb-border bg-bb-black p-4">
+                <pre className="whitespace-pre-wrap font-mono text-xs text-bb-muted leading-relaxed">{reviewContract.contractBody}</pre>
+              </div>
+            )}
+
+            {reviewContract.status === "DRAFT" && !reviewEditing && (
+              <div className="space-y-1.5">
+                <label className="text-xs text-bb-dim">Or tell the AI what to change (everything else stays the same)</label>
+                <div className="flex gap-2 items-start">
+                  <textarea
+                    value={reviewAiChange}
+                    onChange={(e) => setReviewAiChange(e.target.value)}
+                    rows={2}
+                    placeholder={"e.g. Change the price to $6,000 and the deposit to 40%. Add a 12-month exclusivity clause."}
+                    className="flex-1 rounded-md border border-bb-border bg-bb-black px-3 py-2 text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue resize-y"
+                  />
+                  <button
+                    onClick={() => handleSaveContractEdit({ instructions: reviewAiChange.trim() })}
+                    disabled={!!savingContractEdit || !reviewAiChange.trim()}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-bb-elevated hover:bg-bb-border text-white text-sm rounded-md disabled:opacity-50 shrink-0"
+                  >
+                    {savingContractEdit === "ai" ? <><Loader2 size={14} className="animate-spin" /> Changing...</> : <><RotateCcw size={14} /> Apply</>}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <ContractBillingBox billing={reviewContract.billing ?? null} error={reviewContract.billingError ?? null} draft={reviewContract.status === "DRAFT"} />
 
@@ -1905,7 +2044,7 @@ export default function ClientDetailPage() {
                   onClick={async () => {
                     if (!confirm("Delete this draft? This cannot be undone.")) return;
                     await fetch(`/api/clients/${id}/contract/${reviewContract.id}`, { method: "DELETE" });
-                    setReviewContract(null);
+                    closeReview();
                     fetchClient();
                   }}
                   className="flex items-center gap-1.5 px-3 py-2 text-sm text-bb-dim hover:text-red-400 transition-colors mr-auto"
@@ -1914,7 +2053,7 @@ export default function ClientDetailPage() {
                 </button>
               )}
               <button
-                onClick={() => setReviewContract(null)}
+                onClick={closeReview}
                 className="px-4 py-2 text-sm text-bb-muted hover:text-white transition-colors"
               >
                 Close
@@ -1922,7 +2061,7 @@ export default function ClientDetailPage() {
               {reviewContract.status === "DRAFT" && (
                 <button
                   onClick={() => handleSendContract(reviewContract.id)}
-                  disabled={sendingContract}
+                  disabled={sendingContract || reviewEditing || !!savingContractEdit}
                   className="flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
                 >
                   {sendingContract ? (
