@@ -398,7 +398,7 @@ export default function AnalyticsPage() {
               <Plus size={16} /> <span className="hidden sm:inline">Add website</span>
             </button>
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto">
+          <div className="flex flex-wrap items-center gap-2">
             <Tabs value={range} onChange={setRange} options={RANGES} />
             <select aria-label="Device" className={cn(select, "py-1.5 text-xs shrink-0")} value={device} onChange={(e) => setDevice(e.target.value)}>
               {DEVICES.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
