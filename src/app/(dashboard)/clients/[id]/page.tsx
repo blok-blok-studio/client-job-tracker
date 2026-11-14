@@ -20,6 +20,7 @@ import { CLIENT_AGREEMENT_KINDS, SOCIAL_MEDIA_DEFAULTS, type ContractKind, type 
 import MediaManager from "@/components/clients/MediaManager";
 import ClientTasks from "@/components/clients/ClientTasks";
 import ClientServices from "@/components/clients/ClientServices";
+import ClientAnalytics from "@/components/clients/ClientAnalytics";
 import ClientLifecycle from "@/components/clients/ClientLifecycle";
 import ClientInvoices from "@/components/clients/ClientInvoices";
 import ClientMerge from "@/components/clients/ClientMerge";
@@ -829,6 +830,7 @@ export default function ClientDetailPage() {
             </div>
 
             <ClientServices clientId={id} />
+            <ClientAnalytics clientId={id} />
 
             <ClientLifecycle clientId={id} isOwner={isOwner} />
 

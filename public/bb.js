@@ -32,20 +32,22 @@
 
   var pid, path, maxScroll, activeMs, since, queue = [], timer, first = true;
 
-  function post(events) {
+  function post(events, leaving) {
     if (!events.length || w.__bbOff) return; // __bbOff: the site's consent banner switched counting off
     var body = JSON.stringify({ k: key, e: events }), url = api + '/api/bb/e';
+    // A closing page drops ordinary requests; the beacon queue survives it.
+    try { if (leaving && navigator.sendBeacon && navigator.sendBeacon(url, body)) return; } catch (e0) {}
     try {
       fetch(url, { method: 'POST', body: body, keepalive: true, credentials: 'omit', headers: { 'Content-Type': 'text/plain' } })['catch'](function () {});
     } catch (e) {
       try { navigator.sendBeacon(url, body); } catch (e2) {}
     }
   }
-  function flush(extra) {
+  function flush(extra, leaving) {
     clearTimeout(timer); timer = 0;
     var out = queue; queue = [];
     if (extra) out.push(extra);
-    post(out);
+    post(out, leaving);
   }
   function id() {
     var a = new Uint8Array(12), o = '';
@@ -59,9 +61,14 @@
   function docW() {
     return Math.max(d.documentElement.scrollWidth, 1);
   }
+  var progress = 0;
   function measure() {
     var p = Math.round(((w.pageYOffset || 0) + w.innerHeight) / docH() * 100);
-    if (p > maxScroll) maxScroll = Math.min(100, p);
+    if (p > maxScroll) {
+      maxScroll = Math.min(100, p);
+      // Report progress while the page is still open, in case the goodbye message never arrives (phones).
+      if (!progress) progress = setTimeout(function () { progress = 0; if (pid) { tick(); flush({ t: 'pl', pid: pid, s: maxScroll, d: activeMs }); } }, 5000);
+    }
   }
   function tick() {
     if (since) { activeMs += Date.now() - since; since = d.visibilityState === 'hidden' ? 0 : Date.now(); }
@@ -69,7 +76,7 @@
   function leave() {
     if (!pid) return;
     measure(); tick();
-    flush({ t: 'pl', pid: pid, s: maxScroll, d: activeMs });
+    flush({ t: 'pl', pid: pid, s: maxScroll, d: activeMs }, true);
   }
   function view() {
     leave();

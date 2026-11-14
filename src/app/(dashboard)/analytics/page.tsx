@@ -194,9 +194,11 @@ export default function AnalyticsPage() {
       setSites(list);
       setSiteId((current) => {
         if (current && list.some((s) => s.id === current)) return current;
-        // /analytics?client=<id> opens that client's site
-        const wanted = new URLSearchParams(window.location.search).get("client");
-        return (list.find((s) => wanted && s.clientId === wanted) || list[0])?.id || "";
+        // /analytics?site=<id> opens that site, /analytics?client=<id> that client's first site
+        const params = new URLSearchParams(window.location.search);
+        const site = params.get("site");
+        const client = params.get("client");
+        return (list.find((s) => site && s.id === site) || list.find((s) => client && s.clientId === client) || list[0])?.id || "";
       });
     } catch {
       setSites([]);

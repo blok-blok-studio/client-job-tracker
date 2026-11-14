@@ -29,6 +29,7 @@
     '#bar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:calc(100vw - 16px);display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;background:#111;color:#fff;border:1px solid #2a2a2a;border-radius:12px;padding:8px 12px;font-size:13px;box-shadow:0 8px 30px rgba(0,0,0,.5)}' +
     '#bar b{font-weight:600}#bar .dim{color:#a0a0a0}' +
     'select,button{font:inherit;color:#fff;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:6px 10px;cursor:pointer;min-height:32px}' +
+    '@media (max-width:640px){#bar{left:8px;right:8px;bottom:8px;transform:none;max-width:none;gap:6px;padding:8px;font-size:12px}#stat{flex:1 1 100%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}select{flex:1 1 40%;min-width:0}button{flex:1 1 auto;padding:6px 8px}}' +
     'button.on{background:' + BLUE + ';border-color:' + BLUE + '}button:focus-visible,select:focus-visible{outline:2px solid #93B0EE;outline-offset:1px}' +
     '</style>' +
     '<canvas></canvas><div id="layer"></div>' +
@@ -77,6 +78,10 @@
 
   var pts = []; // click positions in page coordinates
   function find(sel) { try { return d.querySelector(sel); } catch (e) { return null; } }
+  // Closed menus and faded-out panels keep their size on the page; do not draw boxes for them.
+  function shown(el) {
+    try { return el.checkVisibility ? el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) : true; } catch (e) { return true; }
+  }
 
   function layout() {
     var x = state.data, sx = w.pageXOffset, sy = w.pageYOffset, W = docW(), H = docH(), hidden = 0;
@@ -85,7 +90,7 @@
     if (x) {
       var rects = {};
       x.elements.forEach(function (e) {
-        var el = find(e.selector), r = el && el.getBoundingClientRect();
+        var el = find(e.selector), r = el && shown(el) && el.getBoundingClientRect();
         if (!r || (!r.width && !r.height)) { hidden += e.count; return; }
         rects[e.selector] = r;
         if (!state.clicks) return;
