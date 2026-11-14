@@ -73,7 +73,8 @@ export async function siteSummary(siteId: string, opts: { range: string; tz: num
   const startLocal = opts.since.getTime() + opts.tz * 60_000;
   const buckets = Math.max(1, Math.ceil((Date.now() + opts.tz * 60_000 - startLocal) / step));
   const series = Array.from({ length: buckets }, (_, i) => ({
-    t: new Date(startLocal + i * step).toISOString(),
+    // The real moment each bucket starts; the browser shows it in the viewer's own time zone
+    t: new Date(opts.since.getTime() + i * step).toISOString(),
     views: 0,
     visitors: new Set<string>(),
   }));
