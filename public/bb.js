@@ -33,7 +33,7 @@
   var pid, path, maxScroll, activeMs, since, queue = [], timer, first = true;
 
   function post(events) {
-    if (!events.length) return;
+    if (!events.length || w.__bbOff) return; // __bbOff: the site's consent banner switched counting off
     var body = JSON.stringify({ k: key, e: events }), url = api + '/api/bb/e';
     try {
       fetch(url, { method: 'POST', body: body, keepalive: true, credentials: 'omit', headers: { 'Content-Type': 'text/plain' } })['catch'](function () {});
