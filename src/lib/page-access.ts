@@ -29,6 +29,7 @@ export const PAGE_OPTIONS: Array<{ key: string; label: string }> = [
   { key: "security", label: "Account" },
   { key: "activity", label: "Activity" },
   { key: "reports", label: "Reports" },
+  { key: "analytics", label: "Analytics" },
   { key: "monthly-reports", label: "Monthly Reports" },
   { key: "pitches", label: "Pitches" },
   { key: "support", label: "Support" },

@@ -53,6 +53,11 @@ const PUBLIC_PATHS = [
   "/api/oauth/",
   "/api/portal-manifest",
   "/api/social/media/", // signed, expiring media links platforms pull from (TikTok photos)
+  // Site analytics: the tracker script client websites load, and where it reports to.
+  // "/api/analytics/" (the dashboard's own data) stays private.
+  "/bb.js",
+  "/bb-heat.js",
+  "/api/bb/",
 ];
 
 const LEGACY_HOST = "blokblokstudio-clients.vercel.app";
@@ -68,6 +73,7 @@ const RATE_LIMIT_WINDOW = 60_000; // 1 minute
 const UPLOAD_RATE_LIMIT_MAX = 120;
 const BULK_RATE_LIMIT_MAX = 5;
 const PUBLIC_INVOICE_RATE_LIMIT_MAX = 30; // per IP per minute on /api/invoice/<token>
+const TRACKER_RATE_LIMIT_MAX = 240; // analytics events from one IP (an office behind one address shares it)
 
 function checkRateLimit(ip: string, max: number = RATE_LIMIT_MAX, prefix = "api"): boolean {
   const key = `${prefix}:${ip}`;
@@ -210,6 +216,12 @@ export async function middleware(request: NextRequest) {
         return addSecurityHeaders(
           NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429, headers: { "Retry-After": "60" } })
         );
+      }
+    }
+    // Analytics tracker: its own bucket, so a busy client site can never use up the app's allowance
+    else if (pathname.startsWith("/api/bb/")) {
+      if (!checkRateLimit(ip, TRACKER_RATE_LIMIT_MAX, "bb")) {
+        return new NextResponse(null, { status: 429, headers: { "Access-Control-Allow-Origin": "*", "Retry-After": "60" } });
       }
     }
     // Standard API rate limit

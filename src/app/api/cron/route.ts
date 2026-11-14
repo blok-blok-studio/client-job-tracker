@@ -33,6 +33,15 @@ export async function GET(request: NextRequest) {
       return 0;
     });
 
+    // Site analytics: visit and click records are kept for 13 months, then removed
+    const analyticsCutoff = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
+    await prisma.analyticsClick.deleteMany({ where: { createdAt: { lt: analyticsCutoff } } }).catch((err) => {
+      console.error("[Cron] Analytics click cleanup error:", err);
+    });
+    await prisma.analyticsPageview.deleteMany({ where: { createdAt: { lt: analyticsCutoff } } }).catch((err) => {
+      console.error("[Cron] Analytics page view cleanup error:", err);
+    });
+
     // Nudge about tasks stuck in Blocked for 3+ days (once per blocked stint)
     const staleBlockedCutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     let staleBlocked: Array<{ id: string; title: string; clientId: string | null; blockedAt: Date | null; blockedReason: string | null; client: { name: string } | null }> = [];

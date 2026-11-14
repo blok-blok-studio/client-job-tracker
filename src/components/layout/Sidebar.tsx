@@ -36,6 +36,7 @@ import {
   Handshake,
   Receipt,
   Presentation,
+  MousePointerClick,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,7 @@ const navItems = [
   { href: "/security", label: "Account", icon: ShieldCheck },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/analytics", label: "Analytics", icon: MousePointerClick },
   { href: "/monthly-reports", label: "Monthly Reports", icon: FileBarChart },
   { href: "/pitches", label: "Pitches", icon: Presentation },
   { href: "/support", label: "Support", icon: MessageCircle },

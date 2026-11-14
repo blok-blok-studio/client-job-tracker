@@ -158,6 +158,8 @@ model Client {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  analyticsSites AnalyticsSite[]
+
   @@index([type])
   @@index([tier])
   @@index([updatedAt])
@@ -2393,4 +2395,87 @@ model PitchImage {
   createdAt DateTime @default(now())
 
   @@index([pitchId])
+}
+
+// --- Site analytics (cookieless; first-party tracker served from /bb.js) ---
+// One row per tracked website. `key` is the public id in the site's script tag.
+model AnalyticsSite {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  domain    String // bare host, e.g. blokblokstudio.com (www. and subdomains accepted)
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  pageviews AnalyticsPageview[]
+  clicks    AnalyticsClick[]
+  goals     AnalyticsGoal[]
+
+  @@index([clientId])
+}
+
+// One page view. No IP and no cookie id are stored: visitorId is a hash that
+// changes every day, sessionId groups one visitor's views within 30 minutes.
+model AnalyticsPageview {
+  id          String        @id @default(cuid())
+  siteId      String
+  site        AnalyticsSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  pid         String        @unique // random id made in the browser, used to attach scroll depth + time on leave
+  visitorId   String
+  sessionId   String
+  path        String
+  referrer    String? // referring host only, never the full URL
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  country     String?
+  device      String // desktop | tablet | mobile
+  browser     String?
+  os          String?
+  viewportW   Int?
+  maxScroll   Int           @default(0) // furthest point reached, percent of page height
+  foldPx      Int? // viewport height: where the fold sat
+  durationMs  Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  @@index([siteId, createdAt])
+  @@index([siteId, path, createdAt])
+  @@index([siteId, visitorId, createdAt])
+}
+
+model AnalyticsClick {
+  id        String        @id @default(cuid())
+  siteId    String
+  site      AnalyticsSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  pid       String // page view it happened in
+  sessionId String
+  path      String
+  device    String
+  selector  String // CSS path of the clicked element
+  label     String? // visible text of the button or link (never form values)
+  href      String?
+  x         Float // across the page, 0..1
+  y         Int // px from the top of the page
+  ex        Float // position inside the element, 0..1
+  ey        Float
+  createdAt DateTime      @default(now())
+
+  @@index([siteId, path, createdAt])
+  @@index([siteId, createdAt])
+}
+
+// A conversion to measure: a click on an element, or a visit to a page.
+model AnalyticsGoal {
+  id        String        @id @default(cuid())
+  siteId    String
+  site      AnalyticsSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name      String
+  kind      String // click | page
+  match     String // click: selector (exact) ; page: path (exact, or prefix ending in *)
+  path      String? // click goals: limit to one page
+  createdAt DateTime      @default(now())
+
+  @@index([siteId])
 }

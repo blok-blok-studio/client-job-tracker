@@ -75,6 +75,11 @@ const nextConfig = {
         ],
       },
       {
+        // Analytics tracker scripts, loaded by client websites: cache for an hour
+        source: "/:file(bb|bb-heat).js",
+        headers: [{ key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" }],
+      },
+      {
         // Invoice preview PDF is shown inside the app (own origin only)
         source: "/api/studio-invoices/:id/preview",
         headers: [
