@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Plus, Settings, Users, Eye, Activity, LogOut, Timer, MousePointerClick, Flame, Copy, Target, Trash2, ArrowRight, ExternalLink,
+  Plus, Settings, Users, Eye, Activity, LogOut, Timer, MousePointerClick, Flame, Copy, Target, Trash2, ArrowRight,
+  ExternalLink, Filter, X, Download, Gauge, Globe, ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
@@ -18,25 +19,42 @@ interface Site {
   active: boolean;
   clientId: string | null;
   client: { id: string; name: string; company: string | null } | null;
-  views24h: number;
+  visitors7d: number;
+  visits7d: number;
+  views7d: number;
+  days: number[];
+  lastSeen: string | null;
 }
 interface Named { name: string; count: number }
-interface PageRow { path: string; count: number; visitors: number; avgMs: number; avgScroll: number; entries: number; exits: number }
+interface PageRow { path: string; count: number; visitors: number; avgMs: number; avgScroll: number; entries: number; exits: number; lcp: number | null; inp: number | null; cls: number | null }
 interface Goal { id: string; name: string; kind: string; match: string; path: string | null; conversions: number; rate: number }
+interface Totals { visitors: number; sessions: number; pageviews: number; bounceRate: number; avgSessionMs: number; pagesPerSession: number }
+type VitalKey = "lcp" | "inp" | "cls" | "fcp" | "ttfb";
+type Vitals = Record<VitalKey, { p75: number | null; good: number; samples: number }>;
 interface Summary {
   hourly: boolean;
   truncated: boolean;
-  totals: { visitors: number; sessions: number; pageviews: number; bounceRate: number; avgSessionMs: number; pagesPerSession: number; avgFold: number | null };
+  live: number;
+  totals: Totals & { avgFold: number | null };
+  previous: Totals;
   series: { t: string; views: number; visitors: number }[];
+  week: number[][];
   pages: PageRow[];
   sources: Named[];
+  channels: Named[];
   campaigns: Named[];
   countries: Named[];
   devices: Named[];
   browsers: Named[];
   systems: Named[];
+  languages: Named[];
+  hosts: Named[];
   flow: { entries: Named[]; exits: Named[]; steps: { from: string; to: string; count: number }[] };
   clicks: { path: string; selector: string; label: string | null; count: number }[];
+  events: { name: string; count: number; visits: number; values: Named[] }[];
+  forms: { started: number; sent: number };
+  broken: Named[];
+  speed: Vitals & { samples: number };
   goals: Goal[];
 }
 interface PageDetail {
@@ -47,10 +65,12 @@ interface PageDetail {
   avgMs: number;
   avgFold: number | null;
   reach: number[];
+  speed: Vitals;
   elements: { selector: string; label: string | null; href: string | null; count: number }[];
   heatUrl: string;
 }
 interface ClientOption { id: string; name: string; company: string | null }
+type FilterKey = "page" | "source" | "channel" | "campaign" | "country" | "browser" | "os" | "language" | "host";
 
 const RANGES = [
   { key: "today", label: "Today" },
@@ -65,6 +85,20 @@ const DEVICES = [
   { key: "tablet", label: "Tablet" },
   { key: "mobile", label: "Mobile" },
 ];
+const FILTER_LABEL: Record<FilterKey, string> = {
+  page: "Visited", source: "Source", channel: "Channel", campaign: "Campaign", country: "Country",
+  browser: "Browser", os: "System", language: "Language", host: "Host",
+};
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+// Google's published limits: [good up to, poor from]
+const VITALS: { key: VitalKey; name: string; what: string; limits: [number, number]; unit: "ms" | "" }[] = [
+  { key: "lcp", name: "Main content shows", what: "Largest Contentful Paint", limits: [2500, 4000], unit: "ms" },
+  { key: "inp", name: "Reacts to a tap", what: "Interaction to Next Paint", limits: [200, 500], unit: "ms" },
+  { key: "cls", name: "Layout stays put", what: "Cumulative Layout Shift", limits: [0.1, 0.25], unit: "" },
+  { key: "fcp", name: "First thing shows", what: "First Contentful Paint", limits: [1800, 3000], unit: "ms" },
+  { key: "ttfb", name: "Server answers", what: "Time to First Byte", limits: [800, 1800], unit: "ms" },
+];
 
 const share = (n: number) => `${Math.round(n * 100)}%`;
 
@@ -74,14 +108,38 @@ function duration(ms: number): string {
   return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
 }
 
+function speedText(value: number | null, unit: "ms" | ""): string {
+  if (value === null) return "–";
+  if (unit === "") return value.toFixed(2);
+  return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${Math.round(value)}ms`;
+}
+
+function rating(value: number | null, limits: readonly [number, number]) {
+  if (value === null) return { word: "No data yet", tone: "text-bb-dim", dot: "bg-bb-border" };
+  if (value <= limits[0]) return { word: "Good", tone: "text-green-400", dot: "bg-green-400" };
+  if (value <= limits[1]) return { word: "Needs work", tone: "text-amber-400", dot: "bg-amber-400" };
+  return { word: "Poor", tone: "text-red-400", dot: "bg-red-400" };
+}
+
+function ago(iso: string | null): string {
+  if (!iso) return "";
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (mins < 2) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  if (mins < 60 * 48) return `${Math.round(mins / 60)} h ago`;
+  return `${Math.round(mins / 1440)} days ago`;
+}
+
 const regionNames = typeof Intl !== "undefined" ? new Intl.DisplayNames(["en"], { type: "region" }) : null;
-function country(code: string): string {
+const languageNames = typeof Intl !== "undefined" ? new Intl.DisplayNames(["en"], { type: "language" }) : null;
+const named = (names: Intl.DisplayNames | null, code: string) => {
   try {
-    return regionNames?.of(code) || code;
+    return names?.of(code) || code;
   } catch {
     return code;
   }
-}
+};
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const card = "bg-bb-surface border border-bb-border rounded-lg";
 const input = "w-full bg-bb-black border border-bb-border rounded-md px-3 py-2 text-sm text-white placeholder:text-bb-dim focus:outline-none focus:border-bb-blue";
@@ -89,12 +147,13 @@ const select = "bg-bb-surface border border-bb-border rounded-md px-3 py-2 text-
 
 /** A ranked list where each row carries a bar sized to its share of the biggest row. */
 function Ranked({
-  rows, empty, onPick, format = (n) => n.toLocaleString(),
+  rows, empty, onPick, onFilter, pickLabel,
 }: {
   rows: { key: string; label: React.ReactNode; count: number; hint?: string }[];
   empty: string;
   onPick?: (key: string) => void;
-  format?: (n: number) => string;
+  onFilter?: (key: string) => void;
+  pickLabel?: string;
 }) {
   if (!rows.length) return <p className="text-sm text-bb-dim py-6 text-center">{empty}</p>;
   const max = Math.max(...rows.map((r) => r.count), 1);
@@ -107,20 +166,25 @@ function Ranked({
             <span className="relative flex items-center justify-between gap-3 px-2.5 py-1.5">
               <span className="min-w-0 truncate text-sm text-white">{r.label}</span>
               <span className="shrink-0 text-sm tabular-nums text-bb-muted">
-                {r.hint && <span className="text-bb-dim mr-2">{r.hint}</span>}
-                {format(r.count)}
+                {r.hint && <span className="text-bb-dim mr-2 hidden sm:inline">{r.hint}</span>}
+                {r.count.toLocaleString()}
               </span>
             </span>
           </>
         );
         return (
-          <li key={r.key}>
+          <li key={r.key} className="flex items-stretch gap-1">
             {onPick ? (
-              <button type="button" onClick={() => onPick(r.key)} className="relative block w-full text-left rounded hover:bg-bb-elevated transition-colors">
+              <button type="button" title={pickLabel} onClick={() => onPick(r.key)} className="relative block flex-1 min-w-0 text-left rounded hover:bg-bb-elevated transition-colors">
                 {inner}
               </button>
             ) : (
-              <div className="relative rounded">{inner}</div>
+              <div className="relative flex-1 min-w-0 rounded">{inner}</div>
+            )}
+            {onFilter && (
+              <button type="button" onClick={() => onFilter(r.key)} aria-label="Show only visits like this" title="Show only visits like this" className="px-2 rounded text-bb-dim hover:text-white hover:bg-bb-elevated shrink-0">
+                <Filter size={13} />
+              </button>
             )}
           </li>
         );
@@ -132,7 +196,7 @@ function Ranked({
 function Panel({ title, action, children, className }: { title: string; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
     <section className={cn(card, "p-4", className)}>
-      <div className="flex items-center justify-between gap-2 mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h2 className="text-sm font-semibold text-white">{title}</h2>
         {action}
       </div>
@@ -143,7 +207,7 @@ function Panel({ title, action, children, className }: { title: string; action?:
 
 function Tabs<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { key: T; label: string }[] }) {
   return (
-    <div className="flex gap-1 bg-bb-black border border-bb-border rounded-md p-0.5">
+    <div className="flex gap-1 bg-bb-black border border-bb-border rounded-md p-0.5 overflow-x-auto max-w-full">
       {options.map((o) => (
         <button
           key={o.key}
@@ -158,18 +222,58 @@ function Tabs<T extends string>({ value, onChange, options }: { value: T; onChan
   );
 }
 
+/** Change against the period before. `lowerIsBetter` flips which direction reads as good. */
+function Delta({ now, before, lowerIsBetter }: { now: number; before: number; lowerIsBetter?: boolean }) {
+  if (!before || !Number.isFinite(now / before)) return null;
+  const change = (now - before) / before;
+  if (Math.abs(change) < 0.005) return <span className="text-xs text-bb-dim">no change</span>;
+  const up = change > 0;
+  const good = lowerIsBetter ? !up : up;
+  const Icon = up ? ArrowUpRight : ArrowDownRight;
+  return (
+    <span className={cn("inline-flex items-center gap-0.5 text-xs tabular-nums", good ? "text-green-400" : "text-red-400")} title="Compared with the period before">
+      <Icon size={12} aria-hidden />
+      {up ? "up" : "down"} {Math.abs(change) >= 10 ? "10x+" : `${Math.round(Math.abs(change) * 100)}%`}
+    </span>
+  );
+}
+
+function SpeedCards({ speed }: { speed: Vitals }) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+      {VITALS.map((v) => {
+        const stat = speed[v.key];
+        const r = rating(stat.p75, v.limits);
+        return (
+          <div key={v.key} className="bg-bb-black border border-bb-border rounded-md p-3" title={v.what}>
+            <p className="text-xs text-bb-dim truncate">{v.name}</p>
+            <p className="text-lg font-semibold text-white tabular-nums">{speedText(stat.p75, v.unit)}</p>
+            <p className={cn("flex items-center gap-1.5 text-xs", r.tone)}>
+              <span className={cn("inline-block w-1.5 h-1.5 rounded-full", r.dot)} aria-hidden />
+              {r.word}
+              {stat.samples > 0 && <span className="text-bb-dim">· {share(stat.good)} good</span>}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const { toast } = useToast();
   const [sites, setSites] = useState<Site[] | null>(null);
   const [clients, setClients] = useState<ClientOption[]>([]);
-  const [siteId, setSiteId] = useState<string>("");
+  const [siteId, setSiteId] = useState<string>(""); // "" = all websites
   const [range, setRange] = useState("7d");
   const [device, setDevice] = useState("all");
+  const [filters, setFilters] = useState<Partial<Record<FilterKey, string>>>({});
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
   const [metric, setMetric] = useState<"visitors" | "views">("visitors");
-  const [sourceTab, setSourceTab] = useState<"sources" | "campaigns">("sources");
+  const [sourceTab, setSourceTab] = useState<"channels" | "sources" | "campaigns">("channels");
   const [techTab, setTechTab] = useState<"devices" | "browsers" | "systems">("devices");
+  const [openEvent, setOpenEvent] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [pagePath, setPagePath] = useState<string | null>(null);
@@ -180,14 +284,16 @@ export default function AnalyticsPage() {
   const [saving, setSaving] = useState(false);
 
   const site = useMemo(() => sites?.find((s) => s.id === siteId) || null, [sites, siteId]);
+  const tz = useMemo(() => -new Date().getTimezoneOffset(), []);
+  const baseQuery = `range=${range}&device=${device}&tz=${tz}`;
   const query = useMemo(
-    () => `range=${range}&device=${device}&tz=${-new Date().getTimezoneOffset()}`,
-    [range, device]
+    () => baseQuery + Object.entries(filters).map(([k, v]) => `&f_${k}=${encodeURIComponent(v)}`).join(""),
+    [baseQuery, filters]
   );
 
   const loadSites = useCallback(async () => {
     try {
-      const res = await fetch("/api/analytics/sites");
+      const res = await fetch(`/api/analytics/sites?tz=${tz}`);
       const json = await res.json();
       if (!json.success) throw new Error();
       const list: Site[] = json.data;
@@ -196,14 +302,15 @@ export default function AnalyticsPage() {
         if (current && list.some((s) => s.id === current)) return current;
         // /analytics?site=<id> opens that site, /analytics?client=<id> that client's first site
         const params = new URLSearchParams(window.location.search);
-        const site = params.get("site");
-        const client = params.get("client");
-        return (list.find((s) => site && s.id === site) || list.find((s) => client && s.clientId === client) || list[0])?.id || "";
+        const wantedSite = params.get("site");
+        const wantedClient = params.get("client");
+        const match = list.find((s) => wantedSite && s.id === wantedSite) || list.find((s) => wantedClient && s.clientId === wantedClient);
+        return match?.id || (list.length === 1 ? list[0].id : "");
       });
     } catch {
       setSites([]);
     }
-  }, []);
+  }, [tz]);
 
   useEffect(() => {
     loadSites();
@@ -236,14 +343,35 @@ export default function AnalyticsPage() {
     loadSummary();
   }, [loadSummary]);
 
+  // Keep the numbers fresh while the tab is open
+  useEffect(() => {
+    if (!siteId) return;
+    const t = setInterval(() => document.visibilityState === "visible" && loadSummary(), 60_000);
+    return () => clearInterval(t);
+  }, [siteId, loadSummary]);
+
   useEffect(() => {
     if (!pagePath || !siteId) return;
     setPage(null);
-    fetch(`/api/analytics/sites/${siteId}/page?path=${encodeURIComponent(pagePath)}&${query}`)
+    fetch(`/api/analytics/sites/${siteId}/page?path=${encodeURIComponent(pagePath)}&${baseQuery}`)
       .then((r) => r.json())
       .then((j) => j.success && setPage(j.data))
       .catch(() => {});
-  }, [pagePath, siteId, query]);
+  }, [pagePath, siteId, baseQuery]);
+
+  const openSite = (id: string) => {
+    setFilters({});
+    setSiteId(id);
+  };
+  const addFilter = (key: FilterKey, value: string) => setFilters((f) => ({ ...f, [key]: value }));
+  const dropFilter = (key: FilterKey) =>
+    setFilters((f) => {
+      const next = { ...f };
+      delete next[key];
+      return next;
+    });
+  const filterValue = (key: FilterKey, value: string) =>
+    key === "country" ? named(regionNames, value) : key === "language" ? capital(named(languageNames, value)) : value;
 
   async function addSite(e: React.FormEvent) {
     e.preventDefault();
@@ -257,7 +385,7 @@ export default function AnalyticsPage() {
       const json = await res.json();
       if (!json.success) return toast(json.error || "Could not add the site", "error");
       setSites((prev) => [...(prev || []), json.data]);
-      setSiteId(json.data.id);
+      openSite(json.data.id);
       setShowAdd(false);
       setForm({ name: "", domain: "", clientId: "" });
       setShowSettings(true);
@@ -290,7 +418,7 @@ export default function AnalyticsPage() {
     loadSites();
   }
 
-  async function addGoal(goal: { name: string; kind: "click" | "page"; match: string; path?: string }) {
+  async function addGoal(goal: { name: string; kind: "click" | "page" | "event"; match: string; path?: string }) {
     if (!site) return;
     const res = await fetch(`/api/analytics/sites/${site.id}/goals`, {
       method: "POST",
@@ -309,42 +437,52 @@ export default function AnalyticsPage() {
     loadSummary();
   }
 
+  function exportCsv() {
+    if (!summary || !site) return;
+    const cell = (v: string | number | null) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const block = (title: string, head: string[], rows: (string | number | null)[][]) =>
+      [cell(title), head.map(cell).join(","), ...rows.map((r) => r.map(cell).join(",")), ""].join("\n");
+    const t = summary.totals;
+    const csv = [
+      block(`${site.name} (${site.domain}), ${RANGES.find((r) => r.key === range)?.label}`, ["Visitors", "Visits", "Page views", "Bounce rate", "Time per visit (s)", "Pages per visit"], [
+        [t.visitors, t.sessions, t.pageviews, share(t.bounceRate), Math.round(t.avgSessionMs / 1000), t.pagesPerSession.toFixed(2)],
+      ]),
+      block("By day", ["Start", "Visitors", "Page views"], summary.series.map((s) => [s.t, s.visitors, s.views])),
+      block("Pages", ["Page", "Views", "Visitors", "Avg time (s)", "Avg scroll %", "Landed here", "Left here", "LCP p75 (ms)"], summary.pages.map((p) => [p.path, p.count, p.visitors, Math.round(p.avgMs / 1000), p.avgScroll, p.entries, p.exits, p.lcp])),
+      block("Channels", ["Channel", "Visits"], summary.channels.map((r) => [r.name, r.count])),
+      block("Sources", ["Source", "Visits"], summary.sources.map((r) => [r.name, r.count])),
+      block("Campaigns", ["Campaign", "Visits"], summary.campaigns.map((r) => [r.name, r.count])),
+      block("Countries", ["Country", "Visits"], summary.countries.map((r) => [named(regionNames, r.name), r.count])),
+      block("Events", ["Event", "Times", "Visits"], summary.events.map((e) => [e.name, e.count, e.visits])),
+      block("Most clicked", ["Page", "Element", "Clicks"], summary.clicks.map((c) => [c.path, c.label || c.selector, c.count])),
+      block("Goals", ["Goal", "Visits that did it", "Rate"], summary.goals.map((g) => [g.name, g.conversions, share(g.rate)])),
+    ].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `${site.domain}-analytics-${range}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const snippet = site ? `<script defer src="${origin}/bb.js" data-site="${site.key}"></script>` : "";
+  const consentSnippet = site ? `<script defer src="${origin}/bb.js" data-site="${site.key}" data-consent="wait"></script>` : "";
   const copy = (text: string, what: string) =>
     navigator.clipboard.writeText(text).then(() => toast(`${what} copied`, "success")).catch(() => toast("Could not copy", "error"));
 
   const t = summary?.totals;
+  const p = summary?.previous;
   const tiles = [
-    { label: "Visitors", value: t ? compact(t.visitors) : "–", icon: Users },
-    { label: "Visits", value: t ? compact(t.sessions) : "–", icon: Activity },
-    { label: "Page views", value: t ? compact(t.pageviews) : "–", icon: Eye },
-    { label: "Bounce rate", value: t && t.sessions ? share(t.bounceRate) : "–", icon: LogOut },
-    { label: "Time per visit", value: t && t.sessions ? duration(t.avgSessionMs) : "–", icon: Timer },
-    { label: "Pages per visit", value: t && t.sessions ? t.pagesPerSession.toFixed(1) : "–", icon: MousePointerClick },
+    { label: "Visitors", value: t ? compact(t.visitors) : "–", icon: Users, now: t?.visitors, before: p?.visitors },
+    { label: "Visits", value: t ? compact(t.sessions) : "–", icon: Activity, now: t?.sessions, before: p?.sessions },
+    { label: "Page views", value: t ? compact(t.pageviews) : "–", icon: Eye, now: t?.pageviews, before: p?.pageviews },
+    { label: "Bounce rate", value: t && t.sessions ? share(t.bounceRate) : "–", icon: LogOut, now: t?.bounceRate, before: p?.sessions ? p.bounceRate : 0, lowerIsBetter: true },
+    { label: "Time per visit", value: t && t.sessions ? duration(t.avgSessionMs) : "–", icon: Timer, now: t?.avgSessionMs, before: p?.avgSessionMs },
+    { label: "Pages per visit", value: t && t.sessions ? t.pagesPerSession.toFixed(1) : "–", icon: MousePointerClick, now: t?.pagesPerSession, before: p?.pagesPerSession },
   ];
-
-  // ─── No sites yet ───
-  if (sites && sites.length === 0) {
-    return (
-      <div>
-        <TopBar title="Analytics" subtitle="Traffic, clicks and heatmaps for the websites we build" />
-        <div className="px-4 lg:px-6">
-          <div className={cn(card, "p-8 text-center max-w-xl mx-auto mt-8")}>
-            <Flame size={28} className="text-bb-accent mx-auto mb-3" />
-            <h2 className="text-lg font-display font-semibold text-white mb-2">No websites tracked yet</h2>
-            <p className="text-sm text-bb-muted mb-5">
-              Add a site, paste one line into its code, and visits start showing here. No cookies, so no consent banner.
-            </p>
-            <button onClick={() => setShowAdd(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors">
-              <Plus size={16} /> Add a website
-            </button>
-          </div>
-        </div>
-        {addModal()}
-      </div>
-    );
-  }
+  const weekMax = summary ? Math.max(1, ...summary.week.flat()) : 1;
+  const slowPages = (summary?.pages || []).filter((r) => r.lcp !== null).sort((a, b) => (b.lcp || 0) - (a.lcp || 0)).slice(0, 6);
+  const activeFilters = Object.entries(filters) as [FilterKey, string][];
 
   function addModal() {
     return (
@@ -357,7 +495,7 @@ export default function AnalyticsPage() {
           <label className="block">
             <span className="block text-xs text-bb-muted mb-1.5">Domain</span>
             <input className={input} value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} placeholder="example.com" required autoCapitalize="none" autoCorrect="off" />
-            <span className="block text-xs text-bb-dim mt-1.5">Without www. Subdomains are counted too.</span>
+            <span className="block text-xs text-bb-dim mt-1.5">Without www. Subdomains are counted too. Works on any website that lets you add a script tag.</span>
           </label>
           <label className="block">
             <span className="block text-xs text-bb-muted mb-1.5">Client</span>
@@ -379,185 +517,389 @@ export default function AnalyticsPage() {
     );
   }
 
+  // ─── No sites yet ───
+  if (sites && sites.length === 0) {
+    return (
+      <div>
+        <TopBar title="Analytics" subtitle="Traffic, clicks, speed and heatmaps for the websites we build" />
+        <div className="px-4 lg:px-6">
+          <div className={cn(card, "p-8 text-center max-w-xl mx-auto mt-8")}>
+            <Flame size={28} className="text-bb-accent mx-auto mb-3" />
+            <h2 className="text-lg font-display font-semibold text-white mb-2">No websites tracked yet</h2>
+            <p className="text-sm text-bb-muted mb-5">Add a site, paste one line into its code, and visits start showing here.</p>
+            <button onClick={() => setShowAdd(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors">
+              <Plus size={16} /> Add a website
+            </button>
+          </div>
+        </div>
+        {addModal()}
+      </div>
+    );
+  }
+
   return (
     <div>
-      <TopBar title="Analytics" subtitle="Traffic, clicks and heatmaps for the websites we build" />
+      <TopBar title="Analytics" subtitle="Traffic, clicks, speed and heatmaps for the websites we build" />
       <div className="px-4 lg:px-6 pb-10 space-y-4">
         {/* ─── Controls ─── */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <select aria-label="Website" className={cn(select, "min-w-0 flex-1 lg:flex-none lg:min-w-64")} value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+            <select aria-label="Website" className={cn(select, "min-w-0 flex-1 lg:flex-none lg:min-w-64")} value={siteId} onChange={(e) => openSite(e.target.value)}>
+              <option value="">All websites</option>
               {(sites || []).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}{s.client ? ` · ${s.client.name}` : ""}{s.active ? "" : " (paused)"}
                 </option>
               ))}
             </select>
-            <button onClick={() => setShowSettings(true)} disabled={!site} aria-label="Site setup" title="Site setup" className="p-2 rounded-md border border-bb-border text-bb-muted hover:text-white hover:bg-bb-elevated transition-colors shrink-0">
-              <Settings size={16} />
-            </button>
+            {site && (
+              <button onClick={() => setShowSettings(true)} aria-label="Site setup" title="Site setup" className="p-2 rounded-md border border-bb-border text-bb-muted hover:text-white hover:bg-bb-elevated transition-colors shrink-0">
+                <Settings size={16} />
+              </button>
+            )}
             <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 bg-bb-blue hover:bg-bb-blue-light text-white text-sm font-medium rounded-md transition-colors shrink-0">
               <Plus size={16} /> <span className="hidden sm:inline">Add website</span>
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Tabs value={range} onChange={setRange} options={RANGES} />
-            <select aria-label="Device" className={cn(select, "py-1.5 text-xs shrink-0")} value={device} onChange={(e) => setDevice(e.target.value)}>
-              {DEVICES.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
-            </select>
-          </div>
+          {site && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-xs text-bb-muted mr-1" title="Visitors with a page view in the last five minutes">
+                <span className={cn("inline-block w-2 h-2 rounded-full", summary?.live ? "bg-green-400" : "bg-bb-border")} aria-hidden />
+                {summary ? `${summary.live} on the site now` : "…"}
+              </span>
+              <Tabs value={range} onChange={setRange} options={RANGES} />
+              <select aria-label="Device" className={cn(select, "py-1.5 text-xs shrink-0")} value={device} onChange={(e) => setDevice(e.target.value)}>
+                {DEVICES.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+              </select>
+              <button onClick={exportCsv} disabled={!summary} title="Download these numbers as a spreadsheet file" className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-bb-border rounded-md text-bb-muted hover:text-white hover:bg-bb-elevated disabled:opacity-50">
+                <Download size={13} /> Export
+              </button>
+            </div>
+          )}
         </div>
 
-        {site && site.views24h === 0 && summary && summary.totals.pageviews === 0 && (
-          <div className={cn(card, "p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3")}>
-            <p className="text-sm text-bb-muted">
-              Nothing recorded for <span className="text-white">{site.domain}</span> in this period. If the site is new here, add the tracking line to its code.
-            </p>
-            <button onClick={() => setShowSettings(true)} className="text-sm text-bb-accent hover:text-bb-accent-light shrink-0">Show the tracking line</button>
+        {/* ─── All websites ─── */}
+        {!site && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {(sites || []).map((s) => {
+              const peak = Math.max(1, ...s.days);
+              return (
+                <button key={s.id} type="button" onClick={() => openSite(s.id)} className={cn(card, "p-4 text-left hover:border-bb-blue/60 transition-colors")}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{s.name}</p>
+                      <p className="text-xs text-bb-dim truncate">{s.domain}{s.client ? ` · ${s.client.name}` : ""}</p>
+                    </div>
+                    <div className="flex items-end gap-0.5 h-8 shrink-0" aria-label="Visitors per day, last seven days">
+                      {s.days.map((n, i) => (
+                        <span key={i} className="w-1.5 rounded-sm bg-bb-blue" style={{ height: `${Math.max(6, (n / peak) * 100)}%`, opacity: n ? 1 : 0.25 }} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {[["Visitors", s.visitors7d], ["Visits", s.visits7d], ["Page views", s.views7d]].map(([label, value]) => (
+                      <div key={label as string}>
+                        <p className="text-lg font-semibold text-white tabular-nums">{compact(value as number)}</p>
+                        <p className="text-xs text-bb-dim">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="flex items-center gap-1.5 text-xs text-bb-muted">
+                    <span className={cn("inline-block w-1.5 h-1.5 rounded-full", !s.active ? "bg-amber-400" : s.lastSeen ? "bg-green-400" : "bg-bb-border")} aria-hidden />
+                    {!s.active ? "Tracking paused" : s.lastSeen ? `Receiving data · last visit ${ago(s.lastSeen)}` : "Waiting for the first visit"}
+                    <span className="ml-auto text-bb-dim">Last 7 days</span>
+                  </p>
+                </button>
+              );
+            })}
           </div>
         )}
 
-        {/* ─── Totals ─── */}
-        <div className={cn("grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 transition-opacity", loading && "opacity-60")}>
-          {tiles.map((tile) => (
-            <div key={tile.label} className={cn(card, "p-4")}>
-              <p className="flex items-center gap-1.5 text-xs text-bb-dim mb-1"><tile.icon size={13} className="text-bb-accent" />{tile.label}</p>
-              <p className="text-2xl font-display font-semibold text-white tabular-nums">{tile.value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* ─── Trend ─── */}
-        <Panel
-          title={metric === "visitors" ? "Visitors" : "Page views"}
-          action={<Tabs value={metric} onChange={setMetric} options={[{ key: "visitors", label: "Visitors" }, { key: "views", label: "Page views" }]} />}
-        >
-          {summary ? (
-            <TrendChart
-              data={summary.series}
-              dataKey={metric}
-              xKey="t"
-              metricLabel={metric === "visitors" ? "Visitors" : "Page views"}
-              dateFormat={summary.hourly ? "HH:mm" : "MMM d"}
-              tooltipDateFormat={summary.hourly ? "HH:mm" : "EEE MMM d"}
-            />
-          ) : (
-            <div className="h-[220px] animate-pulse rounded bg-bb-elevated/40" />
-          )}
-          {summary?.truncated && <p className="text-xs text-bb-dim mt-2">This period has more traffic than one view can total. Pick a shorter period for exact numbers.</p>}
-        </Panel>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* ─── Pages ─── */}
-          <Panel title="Top pages" action={<span className="text-xs text-bb-dim">Pick a page for clicks and heatmap</span>}>
-            <Ranked
-              empty="No page views yet"
-              onPick={setPagePath}
-              rows={(summary?.pages || []).slice(0, 12).map((p) => ({ key: p.path, label: p.path, count: p.count, hint: `${p.avgScroll}% scrolled · ${duration(p.avgMs)}` }))}
-            />
-          </Panel>
-
-          {/* ─── Sources ─── */}
-          <Panel
-            title="Where visitors come from"
-            action={<Tabs value={sourceTab} onChange={setSourceTab} options={[{ key: "sources", label: "Sources" }, { key: "campaigns", label: "Campaigns" }]} />}
-          >
-            <Ranked
-              empty={sourceTab === "sources" ? "No visits yet" : "No links with utm_campaign yet"}
-              rows={(summary?.[sourceTab] || []).map((r) => ({ key: r.name, label: r.name, count: r.count }))}
-            />
-          </Panel>
-        </div>
-
-        {/* ─── Flow ─── */}
-        <Panel title="Traffic flow" action={<span className="text-xs text-bb-dim">Counted per visit</span>}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div>
-              <h3 className="text-xs text-bb-dim mb-2">Where people land</h3>
-              <Ranked empty="No visits yet" onPick={setPagePath} rows={(summary?.flow.entries || []).map((r) => ({ key: r.name, label: r.name, count: r.count }))} />
-            </div>
-            <div>
-              <h3 className="text-xs text-bb-dim mb-2">Where they go next</h3>
-              <Ranked
-                empty="Nobody has moved between pages yet"
-                rows={(summary?.flow.steps || []).slice(0, 8).map((r) => ({
-                  key: `${r.from}>${r.to}`,
-                  count: r.count,
-                  label: <span className="inline-flex items-center gap-1.5 max-w-full"><span className="truncate">{r.from}</span><ArrowRight size={12} className="text-bb-dim shrink-0" /><span className="truncate">{r.to}</span></span>,
-                }))}
-              />
-            </div>
-            <div>
-              <h3 className="text-xs text-bb-dim mb-2">Where they leave</h3>
-              <Ranked empty="No visits yet" onPick={setPagePath} rows={(summary?.flow.exits || []).map((r) => ({ key: r.name, label: r.name, count: r.count }))} />
-            </div>
-          </div>
-        </Panel>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* ─── Clicks ─── */}
-          <Panel title="Most clicked">
-            <Ranked
-              empty="No clicks yet"
-              onPick={(key) => setPagePath(key.split("\u0000")[0])}
-              rows={(summary?.clicks || []).map((c) => ({ key: `${c.path}\u0000${c.selector}`, label: c.label || c.selector, count: c.count, hint: c.path }))}
-            />
-          </Panel>
-
-          {/* ─── Goals ─── */}
-          <Panel title="Goals" action={<span className="text-xs text-bb-dim">Share of visits that did it</span>}>
-            {summary?.goals.length ? (
-              <ul className="space-y-1 mb-4">
-                {summary.goals.map((g) => (
-                  <li key={g.id} className="flex items-center justify-between gap-3 px-2.5 py-2 rounded bg-bb-black border border-bb-border">
-                    <span className="min-w-0">
-                      <span className="block text-sm text-white truncate">{g.name}</span>
-                      <span className="block text-xs text-bb-dim truncate">{g.kind === "page" ? `Visits ${g.match}` : `Click${g.path ? ` on ${g.path}` : ""}`}</span>
-                    </span>
-                    <span className="flex items-center gap-3 shrink-0">
-                      <span className="text-right">
-                        <span className="block text-sm font-semibold text-white tabular-nums">{(g.rate * 100).toFixed(g.rate > 0 && g.rate < 0.1 ? 1 : 0)}%</span>
-                        <span className="block text-xs text-bb-dim tabular-nums">{g.conversions.toLocaleString()} visits</span>
-                      </span>
-                      <button onClick={() => removeGoal(g.id)} aria-label={`Remove goal ${g.name}`} className="p-1.5 rounded text-bb-dim hover:text-red-400 hover:bg-bb-elevated"><Trash2 size={14} /></button>
-                    </span>
-                  </li>
+        {site && (
+          <>
+            {activeFilters.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-bb-dim">Showing only visits where</span>
+                {activeFilters.map(([key, value]) => (
+                  <button key={key} onClick={() => dropFilter(key)} className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 text-xs rounded-full bg-bb-blue/20 border border-bb-blue/40 text-white hover:bg-bb-blue/30" aria-label={`Remove filter ${FILTER_LABEL[key]}: ${value}`}>
+                    <span className="text-bb-accent-light">{FILTER_LABEL[key]}</span> {filterValue(key, value)} <X size={12} />
+                  </button>
                 ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-bb-dim mb-4">No goals yet. Open a page and choose “Track as goal” on a button, or add a page below.</p>
+                <button onClick={() => setFilters({})} className="text-xs text-bb-accent hover:text-bb-accent-light">Clear all</button>
+              </div>
             )}
-            <form
-              className="flex flex-col sm:flex-row gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                addGoal({ name: goalForm.name || `Reached ${goalForm.match}`, kind: "page", match: goalForm.match });
-              }}
-            >
-              <input className={input} aria-label="Goal name" placeholder="Name, e.g. Saw thank-you page" value={goalForm.name} onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })} />
-              <input className={input} aria-label="Page path" placeholder="/thanks or /blog/*" value={goalForm.match} onChange={(e) => setGoalForm({ ...goalForm, match: e.target.value })} required />
-              <button type="submit" className="flex items-center justify-center gap-1.5 px-3 py-2 border border-bb-border hover:bg-bb-elevated text-white text-sm rounded-md shrink-0"><Target size={14} /> Add</button>
-            </form>
-          </Panel>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Panel title="Countries">
-            <Ranked empty="No visits yet" rows={(summary?.countries || []).map((r) => ({ key: r.name, label: country(r.name), count: r.count }))} />
-          </Panel>
-          <Panel
-            title="Devices"
-            action={<Tabs value={techTab} onChange={setTechTab} options={[{ key: "devices", label: "Type" }, { key: "browsers", label: "Browser" }, { key: "systems", label: "System" }]} />}
-          >
-            <Ranked empty="No visits yet" rows={(summary?.[techTab] || []).map((r) => ({ key: r.name, label: r.name.charAt(0).toUpperCase() + r.name.slice(1), count: r.count }))} />
-            {t?.avgFold ? <p className="text-xs text-bb-dim mt-3">Average screen height (the fold): {t.avgFold}px</p> : null}
-          </Panel>
-        </div>
+            {!site.lastSeen && summary && summary.totals.pageviews === 0 && (
+              <div className={cn(card, "p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3")}>
+                <p className="text-sm text-bb-muted">
+                  Nothing has arrived from <span className="text-white">{site.domain}</span> yet. Add the tracking line to the site and the first visit shows here within a minute.
+                </p>
+                <button onClick={() => setShowSettings(true)} className="text-sm text-bb-accent hover:text-bb-accent-light shrink-0">Show the tracking line</button>
+              </div>
+            )}
+
+            {/* ─── Totals ─── */}
+            <div className={cn("grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 transition-opacity", loading && "opacity-60")}>
+              {tiles.map((tile) => (
+                <div key={tile.label} className={cn(card, "p-4")}>
+                  <p className="flex items-center gap-1.5 text-xs text-bb-dim mb-1"><tile.icon size={13} className="text-bb-accent" />{tile.label}</p>
+                  <p className="text-2xl font-display font-semibold text-white tabular-nums">{tile.value}</p>
+                  <div className="h-4 mt-0.5">
+                    {tile.now !== undefined && tile.before !== undefined && <Delta now={tile.now} before={tile.before} lowerIsBetter={tile.lowerIsBetter} />}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ─── Trend ─── */}
+            <Panel
+              title={metric === "visitors" ? "Visitors" : "Page views"}
+              action={<Tabs value={metric} onChange={setMetric} options={[{ key: "visitors", label: "Visitors" }, { key: "views", label: "Page views" }]} />}
+            >
+              {summary ? (
+                <TrendChart
+                  data={summary.series}
+                  dataKey={metric}
+                  xKey="t"
+                  metricLabel={metric === "visitors" ? "Visitors" : "Page views"}
+                  dateFormat={summary.hourly ? "HH:mm" : "MMM d"}
+                  tooltipDateFormat={summary.hourly ? "HH:mm" : "EEE MMM d"}
+                />
+              ) : (
+                <div className="h-[220px] animate-pulse rounded bg-bb-elevated/40" />
+              )}
+              {summary?.truncated && <p className="text-xs text-bb-dim mt-2">This period has more traffic than one view can total. Pick a shorter period for exact numbers.</p>}
+            </Panel>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Panel title="Top pages" action={<span className="text-xs text-bb-dim">Open a page for clicks, heatmap and speed</span>}>
+                <Ranked
+                  empty="No page views yet"
+                  onPick={setPagePath}
+                  pickLabel="Open this page"
+                  onFilter={(key) => addFilter("page", key)}
+                  rows={(summary?.pages || []).slice(0, 12).map((r) => ({ key: r.path, label: r.path, count: r.count, hint: `${r.avgScroll}% scrolled · ${duration(r.avgMs)}` }))}
+                />
+              </Panel>
+
+              <Panel
+                title="Where visitors come from"
+                action={<Tabs value={sourceTab} onChange={setSourceTab} options={[{ key: "channels", label: "Channels" }, { key: "sources", label: "Sources" }, { key: "campaigns", label: "Campaigns" }]} />}
+              >
+                <Ranked
+                  empty={sourceTab === "campaigns" ? "No links with utm_campaign yet" : "No visits yet"}
+                  onPick={(key) => addFilter(sourceTab === "channels" ? "channel" : sourceTab === "sources" ? "source" : "campaign", key)}
+                  pickLabel="Show only these visits"
+                  rows={(summary?.[sourceTab] || []).map((r) => ({ key: r.name, label: r.name, count: r.count }))}
+                />
+                {sourceTab === "channels" && <p className="text-xs text-bb-dim mt-3">AI assistants covers visits sent by ChatGPT, Perplexity, Claude, Gemini, Copilot and similar.</p>}
+              </Panel>
+            </div>
+
+            {/* ─── Flow ─── */}
+            <Panel title="Traffic flow" action={<span className="text-xs text-bb-dim">Counted per visit</span>}>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div>
+                  <h3 className="text-xs text-bb-dim mb-2">Where people land</h3>
+                  <Ranked empty="No visits yet" onPick={setPagePath} rows={(summary?.flow.entries || []).map((r) => ({ key: r.name, label: r.name, count: r.count }))} />
+                </div>
+                <div>
+                  <h3 className="text-xs text-bb-dim mb-2">Where they go next</h3>
+                  <Ranked
+                    empty="Nobody has moved between pages yet"
+                    rows={(summary?.flow.steps || []).slice(0, 8).map((r) => ({
+                      key: `${r.from}>${r.to}`,
+                      count: r.count,
+                      label: <span className="inline-flex items-center gap-1.5 max-w-full"><span className="truncate">{r.from}</span><ArrowRight size={12} className="text-bb-dim shrink-0" /><span className="truncate">{r.to}</span></span>,
+                    }))}
+                  />
+                </div>
+                <div>
+                  <h3 className="text-xs text-bb-dim mb-2">Where they leave</h3>
+                  <Ranked empty="No visits yet" onPick={setPagePath} rows={(summary?.flow.exits || []).map((r) => ({ key: r.name, label: r.name, count: r.count }))} />
+                </div>
+              </div>
+            </Panel>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* ─── Events ─── */}
+              <Panel title="What visitors do" action={<span className="text-xs text-bb-dim">Forms, outbound links, downloads, your own events</span>}>
+                {summary && summary.forms.started > 0 && (
+                  <p className="text-sm text-bb-muted mb-3">
+                    Forms: started in <span className="text-white tabular-nums">{summary.forms.started}</span> {summary.forms.started === 1 ? "visit" : "visits"}, sent in <span className="text-white tabular-nums">{summary.forms.sent}</span>
+                    <span className="text-bb-dim"> ({share(summary.forms.sent / summary.forms.started)})</span>
+                  </p>
+                )}
+                {summary?.events.length ? (
+                  <ul className="space-y-1">
+                    {summary.events.map((e) => (
+                      <li key={e.name} className="rounded bg-bb-black border border-bb-border">
+                        <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+                          <button type="button" onClick={() => setOpenEvent(openEvent === e.name ? null : e.name)} className="min-w-0 flex-1 text-left" aria-expanded={openEvent === e.name}>
+                            <span className="block text-sm text-white truncate">{e.name}</span>
+                            <span className="block text-xs text-bb-dim tabular-nums">{e.count === 1 ? "Once" : `${e.count.toLocaleString()} times`} in {e.visits.toLocaleString()} {e.visits === 1 ? "visit" : "visits"}</span>
+                          </button>
+                          <button onClick={() => addGoal({ name: e.name, kind: "event", match: e.name })} className="px-2 py-1 text-xs border border-bb-border rounded hover:bg-bb-elevated text-bb-muted hover:text-white whitespace-nowrap">Track as goal</button>
+                        </div>
+                        {openEvent === e.name && e.values.length > 0 && (
+                          <ul className="px-2.5 pb-2 space-y-0.5">
+                            {e.values.map((v) => (
+                              <li key={v.name} className="flex items-center justify-between gap-3 text-xs">
+                                <span className="truncate text-bb-muted">{v.name}</span>
+                                <span className="tabular-nums text-bb-dim">{v.count.toLocaleString()}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-bb-dim py-6 text-center">Nothing yet. Forms, outbound links, downloads, email and phone links are picked up on their own.</p>
+                )}
+              </Panel>
+
+              {/* ─── Goals ─── */}
+              <Panel title="Goals" action={<span className="text-xs text-bb-dim">Share of visits that did it</span>}>
+                {summary?.goals.length ? (
+                  <ul className="space-y-1 mb-4">
+                    {summary.goals.map((g) => (
+                      <li key={g.id} className="flex items-center justify-between gap-3 px-2.5 py-2 rounded bg-bb-black border border-bb-border">
+                        <span className="min-w-0">
+                          <span className="block text-sm text-white truncate">{g.name}</span>
+                          <span className="block text-xs text-bb-dim truncate">{g.kind === "page" ? `Visits ${g.match}` : g.kind === "event" ? "Event" : `Click${g.path ? ` on ${g.path}` : ""}`}</span>
+                        </span>
+                        <span className="flex items-center gap-3 shrink-0">
+                          <span className="text-right">
+                            <span className="block text-sm font-semibold text-white tabular-nums">{(g.rate * 100).toFixed(g.rate > 0 && g.rate < 0.1 ? 1 : 0)}%</span>
+                            <span className="block text-xs text-bb-dim tabular-nums">{g.conversions.toLocaleString()} visits</span>
+                          </span>
+                          <button onClick={() => removeGoal(g.id)} aria-label={`Remove goal ${g.name}`} className="p-1.5 rounded text-bb-dim hover:text-red-400 hover:bg-bb-elevated"><Trash2 size={14} /></button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-bb-dim mb-4">No goals yet. Choose “Track as goal” on a button or an event, or add a page below.</p>
+                )}
+                <form
+                  className="flex flex-col sm:flex-row gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    addGoal({ name: goalForm.name || `Reached ${goalForm.match}`, kind: "page", match: goalForm.match });
+                  }}
+                >
+                  <input className={input} aria-label="Goal name" placeholder="Name, e.g. Saw thank-you page" value={goalForm.name} onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })} />
+                  <input className={input} aria-label="Page path" placeholder="/thanks or /blog/*" value={goalForm.match} onChange={(e) => setGoalForm({ ...goalForm, match: e.target.value })} required />
+                  <button type="submit" className="flex items-center justify-center gap-1.5 px-3 py-2 border border-bb-border hover:bg-bb-elevated text-white text-sm rounded-md shrink-0"><Target size={14} /> Add</button>
+                </form>
+              </Panel>
+            </div>
+
+            {/* ─── Speed ─── */}
+            <Panel
+              title="Speed, as visitors experienced it"
+              action={<span className="flex items-center gap-1.5 text-xs text-bb-dim"><Gauge size={13} /> {summary?.speed.samples ? `${summary.speed.samples.toLocaleString()} page loads measured` : "No page loads measured yet"}</span>}
+            >
+              {summary && <SpeedCards speed={summary.speed} />}
+              <p className="text-xs text-bb-dim mt-3">Each number is what three in four visitors got or better, measured in their own browser on the first page of a visit. Safari reports fewer of these than Chrome.</p>
+              {slowPages.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-xs text-bb-dim mb-2">Slowest pages to show their main content</h3>
+                  <ul className="space-y-1">
+                    {slowPages.map((r) => {
+                      const rate = rating(r.lcp, [2500, 4000]);
+                      return (
+                        <li key={r.path}>
+                          <button type="button" onClick={() => setPagePath(r.path)} className="flex w-full items-center justify-between gap-3 px-2.5 py-1.5 rounded hover:bg-bb-elevated text-left">
+                            <span className="min-w-0 truncate text-sm text-white">{r.path}</span>
+                            <span className={cn("shrink-0 text-sm tabular-nums", rate.tone)}>{speedText(r.lcp, "ms")} · {rate.word}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </Panel>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Panel title="Most clicked">
+                <Ranked
+                  empty="No clicks yet"
+                  onPick={(key) => setPagePath(key.split("\u0000")[0])}
+                  pickLabel="Open this page"
+                  rows={(summary?.clicks || []).map((c) => ({ key: `${c.path}\u0000${c.selector}`, label: c.label || c.selector, count: c.count, hint: c.path }))}
+                />
+              </Panel>
+              <Panel title="When people visit" action={<span className="text-xs text-bb-dim">Visits by weekday and hour, your time</span>}>
+                {summary && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-separate" style={{ borderSpacing: 2 }}>
+                      <tbody>
+                        {summary.week.map((hours, day) => (
+                          <tr key={day}>
+                            <th scope="row" className="pr-1 text-left text-[11px] font-normal text-bb-dim w-8">{DAYS[day]}</th>
+                            {hours.map((n, hour) => (
+                              <td key={hour} title={`${DAYS[day]} ${String(hour).padStart(2, "0")}:00, ${n} ${n === 1 ? "visit" : "visits"}`} className="h-4 min-w-2 rounded-sm" style={{ background: n ? `rgba(37,97,216,${0.2 + 0.8 * (n / weekMax)})` : "#1A1A1A" }} />
+                            ))}
+                          </tr>
+                        ))}
+                        <tr>
+                          <td />
+                          {Array.from({ length: 24 }, (_, hour) => (
+                            <td key={hour} className="text-[10px] text-bb-dim text-center">{hour % 6 === 0 ? String(hour).padStart(2, "0") : ""}</td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Panel>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <Panel title="Countries">
+                <Ranked empty="No visits yet" onPick={(key) => addFilter("country", key)} pickLabel="Show only these visits" rows={(summary?.countries || []).slice(0, 10).map((r) => ({ key: r.name, label: named(regionNames, r.name), count: r.count }))} />
+              </Panel>
+              <Panel
+                title="Devices"
+                action={<Tabs value={techTab} onChange={setTechTab} options={[{ key: "devices", label: "Type" }, { key: "browsers", label: "Browser" }, { key: "systems", label: "System" }]} />}
+              >
+                <Ranked
+                  empty="No visits yet"
+                  onPick={techTab === "devices" ? (key) => setDevice(key) : (key) => addFilter(techTab === "browsers" ? "browser" : "os", key)}
+                  pickLabel="Show only these visits"
+                  rows={(summary?.[techTab] || []).map((r) => ({ key: r.name, label: capital(r.name), count: r.count }))}
+                />
+                {t?.avgFold ? <p className="text-xs text-bb-dim mt-3">Average screen height (the fold): {t.avgFold}px</p> : null}
+              </Panel>
+              <Panel title="Languages" action={<Globe size={13} className="text-bb-dim" />}>
+                <Ranked empty="No visits yet" onPick={(key) => addFilter("language", key)} pickLabel="Show only these visits" rows={(summary?.languages || []).slice(0, 10).map((r) => ({ key: r.name, label: capital(named(languageNames, r.name)), count: r.count }))} />
+              </Panel>
+            </div>
+
+            {summary && (summary.hosts.length > 1 || summary.broken.length > 0) && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {summary.hosts.length > 1 && (
+                  <Panel title="Addresses people used">
+                    <Ranked empty="" onPick={(key) => addFilter("host", key)} pickLabel="Show only these visits" rows={summary.hosts.map((r) => ({ key: r.name, label: r.name, count: r.count }))} />
+                  </Panel>
+                )}
+                {summary.broken.length > 0 && (
+                  <Panel title="Broken pages people hit" action={<span className="text-xs text-bb-dim">Answered “not found”</span>}>
+                    <Ranked empty="" rows={summary.broken.map((r) => ({ key: r.name, label: r.name, count: r.count }))} />
+                  </Panel>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {addModal()}
 
-      {/* ─── One page: heatmap link, scroll depth, clicks per element ─── */}
+      {/* ─── One page: heatmap link, speed, scroll depth, clicks per element ─── */}
       <Modal open={!!pagePath} onClose={() => setPagePath(null)} title={pagePath || ""} className="max-w-3xl">
         {!page ? (
           <div className="h-64 animate-pulse rounded bg-bb-elevated/40" />
@@ -585,16 +927,21 @@ export default function AnalyticsPage() {
             </div>
 
             <div>
+              <h3 className="text-sm font-semibold text-white mb-2">Speed of this page</h3>
+              <SpeedCards speed={page.speed} />
+            </div>
+
+            <div>
               <h3 className="text-sm font-semibold text-white mb-2">How far people scroll</h3>
               {page.views === 0 ? (
                 <p className="text-sm text-bb-dim">No views in this period.</p>
               ) : (
                 <ul className="space-y-1">
-                  {page.reach.map((share, i) => (
+                  {page.reach.map((reached, i) => (
                     <li key={i} className="flex items-center gap-3 text-xs">
                       <span className="w-20 shrink-0 text-bb-dim">{i === 9 ? "Bottom" : `${(i + 1) * 10}% down`}</span>
-                      <span className="flex-1 h-4 rounded bg-bb-elevated overflow-hidden"><span className="block h-full bg-bb-blue" style={{ width: `${share}%` }} /></span>
-                      <span className="w-10 shrink-0 text-right tabular-nums text-bb-muted">{share}%</span>
+                      <span className="flex-1 h-4 rounded bg-bb-elevated overflow-hidden"><span className="block h-full bg-bb-blue" style={{ width: `${reached}%` }} /></span>
+                      <span className="w-10 shrink-0 text-right tabular-nums text-bb-muted">{reached}%</span>
                     </li>
                   ))}
                 </ul>
@@ -639,9 +986,14 @@ export default function AnalyticsPage() {
       <Modal open={showSettings && !!site} onClose={() => setShowSettings(false)} title={site ? `${site.name} setup` : ""}>
         {site && (
           <div className="space-y-5">
+            <p className="flex items-center gap-2 text-sm text-bb-muted">
+              <span className={cn("inline-block w-2 h-2 rounded-full", !site.active ? "bg-amber-400" : site.lastSeen ? "bg-green-400" : "bg-bb-border")} aria-hidden />
+              {!site.active ? "Tracking is paused." : site.lastSeen ? `Receiving data. Last visit ${ago(site.lastSeen)}.` : "Waiting for the first visit."}
+            </p>
+
             <div>
               <h3 className="text-sm font-semibold text-white mb-1">Tracking line</h3>
-              <p className="text-xs text-bb-muted mb-2">Paste this once into the site&apos;s main layout, just before the closing body tag. It covers every page.</p>
+              <p className="text-xs text-bb-muted mb-2">Paste this once into the site&apos;s main layout or its “custom code” box, just before the closing body tag. It covers every page, on any kind of website.</p>
               <div className="relative">
                 <pre className="bg-bb-black border border-bb-border rounded-md p-3 pr-11 text-xs text-bb-gray font-mono whitespace-pre-wrap break-all">{snippet}</pre>
                 <button onClick={() => copy(snippet, "Tracking line")} aria-label="Copy tracking line" className="absolute top-2 right-2 p-1.5 rounded text-bb-muted hover:text-white hover:bg-bb-elevated"><Copy size={14} /></button>
@@ -650,6 +1002,21 @@ export default function AnalyticsPage() {
                 If the site has a Content-Security-Policy, allow <span className="font-mono">{origin}</span> under script-src and connect-src.
               </p>
             </div>
+
+            <details className="group">
+              <summary className="cursor-pointer text-sm font-semibold text-white">Count only after the visitor agrees</summary>
+              <p className="text-xs text-bb-muted mt-2 mb-2">For sites with a cookie banner. Use this line instead; nothing is counted until the banner calls <span className="font-mono">bbConsent(true)</span>. <span className="font-mono">bbConsent(false)</span> stops it again.</p>
+              <div className="relative">
+                <pre className="bg-bb-black border border-bb-border rounded-md p-3 pr-11 text-xs text-bb-gray font-mono whitespace-pre-wrap break-all">{consentSnippet}</pre>
+                <button onClick={() => copy(consentSnippet, "Tracking line")} aria-label="Copy the consent tracking line" className="absolute top-2 right-2 p-1.5 rounded text-bb-muted hover:text-white hover:bg-bb-elevated"><Copy size={14} /></button>
+              </div>
+            </details>
+
+            <details className="group">
+              <summary className="cursor-pointer text-sm font-semibold text-white">Count your own events</summary>
+              <p className="text-xs text-bb-muted mt-2">Forms, outbound links, downloads, email and phone links are counted on their own. For anything else, mark the element or call it from code:</p>
+              <pre className="bg-bb-black border border-bb-border rounded-md p-3 mt-2 text-xs text-bb-gray font-mono whitespace-pre-wrap break-all">{`<button data-bb-event="Booked a call">Book a call</button>\n\nbb("Signed up", { plan: "pro" })`}</pre>
+            </details>
 
             <div>
               <h3 className="text-sm font-semibold text-white mb-1">Leave my own visits out</h3>

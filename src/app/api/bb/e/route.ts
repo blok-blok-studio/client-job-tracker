@@ -23,6 +23,19 @@ export function OPTIONS() {
 
 type Ev = Record<string, unknown>;
 
+/** Details a site sends with its own event: a few short text, number or yes/no values, nothing nested. */
+function cleanProps(input: unknown): Record<string, string | number | boolean> | undefined {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return undefined;
+  const out: Record<string, string | number | boolean> = {};
+  for (const [k, v] of Object.entries(input as Ev).slice(0, 8)) {
+    const key = k.slice(0, 40);
+    if (typeof v === "string") out[key] = v.slice(0, 120);
+    else if (typeof v === "number" && Number.isFinite(v)) out[key] = v;
+    else if (typeof v === "boolean") out[key] = v;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const text = await request.text();
@@ -78,6 +91,9 @@ export async function POST(request: NextRequest) {
             device,
             browser,
             os,
+            hostname: from,
+            language: str(e.l, 12),
+            status: num(e.st, 100, 599) !== null ? Math.round(num(e.st, 100, 599)!) : null,
             viewportW: num(e.w, 0, 10000) !== null ? Math.round(num(e.w, 0, 10000)!) : null,
             foldPx: num(e.h, 0, 10000) !== null ? Math.round(num(e.h, 0, 10000)!) : null,
           },
@@ -88,18 +104,27 @@ export async function POST(request: NextRequest) {
     for (const e of events.filter((x) => x.t === "pl")) {
       const pid = str(e.pid, 40);
       if (!pid) continue;
+      // Loading speed, sent with the first page of a visit. Each number only once it is known.
+      const v = (e.v && typeof e.v === "object" ? e.v : {}) as Ev;
+      const ms = (x: unknown, max: number) => (num(x, 0, max) !== null ? Math.round(num(x, 0, max)!) : undefined);
       await prisma.analyticsPageview.updateMany({
         where: { pid, siteId: site.id },
         data: {
           maxScroll: Math.round(num(e.s, 0, 100) ?? 0),
           durationMs: Math.round(num(e.d, 0, 4 * 60 * 60 * 1000) ?? 0),
+          lcp: ms(v.l, 120_000),
+          fcp: ms(v.f, 120_000),
+          ttfb: ms(v.t, 120_000),
+          inp: ms(v.i, 60_000),
+          cls: num(v.c, 0, 50) ?? undefined,
         },
       });
     }
 
     const clicks = events.filter((x) => x.t === "c");
-    if (clicks.length) {
-      const pids = [...new Set(clicks.map((c) => str(c.pid, 40)).filter(Boolean) as string[])];
+    const named = events.filter((x) => x.t === "e");
+    if (clicks.length || named.length) {
+      const pids = [...new Set([...clicks, ...named].map((c) => str(c.pid, 40)).filter(Boolean) as string[])];
       const views = await prisma.analyticsPageview.findMany({
         where: { pid: { in: pids }, siteId: site.id },
         select: { pid: true, sessionId: true, path: true, device: true },
@@ -126,6 +151,24 @@ export async function POST(request: NextRequest) {
         });
       }
       if (rows.length) await prisma.analyticsClick.createMany({ data: rows });
+
+      const eventRows = [];
+      for (const n of named) {
+        const view = byPid.get(str(n.pid, 40) || "");
+        const name = str(n.n, 60);
+        if (!view || !name) continue;
+        eventRows.push({
+          siteId: site.id,
+          pid: view.pid,
+          sessionId: view.sessionId,
+          path: view.path,
+          device: view.device,
+          name,
+          value: str(n.v, 200),
+          props: cleanProps(n.p),
+        });
+      }
+      if (eventRows.length) await prisma.analyticsEvent.createMany({ data: eventRows });
     }
   } catch (err) {
     console.error("[analytics] collect failed:", err);

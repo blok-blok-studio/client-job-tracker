@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { cleanPath } from "@/lib/analytics/ingest";
 
-// POST /api/analytics/sites/[id]/goals — measure a click on an element, or a visit to a page
+// POST /api/analytics/sites/[id]/goals — measure a click on an element, a visit to a page, or an event by name
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
   const name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : "";
-  const kind = body.kind === "page" ? "page" : "click";
+  const kind = body.kind === "page" ? "page" : body.kind === "event" ? "event" : "click";
   let match = typeof body.match === "string" ? body.match.trim().slice(0, 500) : "";
   if (kind === "page" && match) {
     const wild = match.endsWith("*");

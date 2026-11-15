@@ -2,21 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import { normaliseDomain } from "@/lib/analytics/ingest";
+import { sitesOverview } from "@/lib/analytics/query";
 
 const include = { client: { select: { id: true, name: true, company: true } } };
 
-// GET /api/analytics/sites — every tracked website, with its client and the last 24h of traffic
-export async function GET() {
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const [sites, recent] = await Promise.all([
-    prisma.analyticsSite.findMany({ include, orderBy: { createdAt: "asc" } }),
-    // The Accelerate-extended client loses groupBy result inference inside Promise.all
-    prisma.analyticsPageview.groupBy({ by: ["siteId"], where: { createdAt: { gte: since } }, _count: { _all: true } }) as unknown as Promise<
-      Array<{ siteId: string; _count: { _all: number } }>
-    >,
-  ]);
-  const views = new Map(recent.map((r) => [r.siteId, r._count._all]));
-  return NextResponse.json({ success: true, data: sites.map((s) => ({ ...s, views24h: views.get(s.id) || 0 })) });
+// GET /api/analytics/sites?tz=60 — every tracked website with its client and the last seven days
+export async function GET(request: NextRequest) {
+  const tzRaw = parseInt(request.nextUrl.searchParams.get("tz") || "0", 10);
+  const tz = Number.isFinite(tzRaw) ? Math.max(-840, Math.min(840, tzRaw)) : 0;
+  return NextResponse.json({ success: true, data: await sitesOverview(tz) });
 }
 
 // POST /api/analytics/sites — start tracking a website
@@ -36,7 +30,7 @@ export async function POST(request: NextRequest) {
       data: { name, domain, clientId, key: randomBytes(6).toString("hex") },
       include,
     });
-    return NextResponse.json({ success: true, data: { ...site, views24h: 0 } }, { status: 201 });
+    return NextResponse.json({ success: true, data: { ...site, visitors7d: 0, visits7d: 0, views7d: 0, days: [0, 0, 0, 0, 0, 0, 0], lastSeen: null } }, { status: 201 });
   } catch (err) {
     console.error("Failed to add analytics site:", err);
     return NextResponse.json({ success: false, error: "Could not add the site" }, { status: 500 });

@@ -2411,6 +2411,7 @@ model AnalyticsSite {
 
   pageviews AnalyticsPageview[]
   clicks    AnalyticsClick[]
+  events    AnalyticsEvent[]
   goals     AnalyticsGoal[]
 
   @@index([clientId])
@@ -2438,11 +2439,39 @@ model AnalyticsPageview {
   maxScroll   Int           @default(0) // furthest point reached, percent of page height
   foldPx      Int? // viewport height: where the fold sat
   durationMs  Int           @default(0)
+  hostname    String? // which host served the page (www, shop., a second domain)
+  language    String? // browser language, e.g. de-DE
+  status      Int? // HTTP status of the page load when the browser reports it (404s)
+  // Loading speed as the visitor experienced it, first page of a visit only
+  lcp         Int? // largest contentful paint, ms
+  fcp         Int? // first contentful paint, ms
+  ttfb        Int? // time to first byte, ms
+  inp         Int? // slowest interaction, ms
+  cls         Float? // layout shift score
   createdAt   DateTime      @default(now())
 
   @@index([siteId, createdAt])
   @@index([siteId, path, createdAt])
   @@index([siteId, visitorId, createdAt])
+}
+
+// Things visitors do besides viewing and clicking: forms started and sent, outbound
+// links, downloads, and any event a site reports itself with bb("Name").
+model AnalyticsEvent {
+  id        String        @id @default(cuid())
+  siteId    String
+  site      AnalyticsSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  pid       String
+  sessionId String
+  path      String
+  device    String
+  name      String
+  value     String? // what it was about: the link, the file, the form
+  props     Json? // extra details a site sends with its own events
+  createdAt DateTime      @default(now())
+
+  @@index([siteId, createdAt])
+  @@index([siteId, name, createdAt])
 }
 
 model AnalyticsClick {
@@ -2472,8 +2501,8 @@ model AnalyticsGoal {
   siteId    String
   site      AnalyticsSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
   name      String
-  kind      String // click | page
-  match     String // click: selector (exact) ; page: path (exact, or prefix ending in *)
+  kind      String // click | page | event
+  match     String // click: selector (exact) ; page: path (exact, or prefix ending in *) ; event: its name
   path      String? // click goals: limit to one page
   createdAt DateTime      @default(now())
 

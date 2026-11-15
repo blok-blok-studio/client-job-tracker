@@ -10,7 +10,7 @@ interface Site {
   domain: string;
   active: boolean;
   clientId: string | null;
-  views24h: number;
+  visitors7d: number;
 }
 
 /** Client page card: this client's tracked websites, each opening its numbers in the Analytics tab. */
@@ -44,7 +44,7 @@ export default function ClientAnalytics({ clientId }: { clientId: string }) {
             <span className="min-w-0">
               <span className="block text-sm text-white truncate">{s.domain}</span>
               <span className="block text-xs text-bb-dim">
-                {s.active ? `${s.views24h.toLocaleString()} page ${s.views24h === 1 ? "view" : "views"} in the last 24 hours` : "Tracking paused"}
+                {s.active ? `${s.visitors7d.toLocaleString()} ${s.visitors7d === 1 ? "visitor" : "visitors"} in the last 7 days` : "Tracking paused"}
               </span>
             </span>
             <ArrowRight size={14} className="text-bb-dim shrink-0" />
