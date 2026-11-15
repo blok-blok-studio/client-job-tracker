@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { forgetSite, normaliseDomain } from "@/lib/analytics/ingest";
+import { newShareToken } from "@/lib/analytics/share";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -18,6 +19,8 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   }
   if ("clientId" in body) data.clientId = typeof body.clientId === "string" && body.clientId ? body.clientId : null;
   if (typeof body.active === "boolean") data.active = body.active;
+  // A read-only link for the client: switching it on makes a new address, switching it off kills the old one.
+  if (typeof body.share === "boolean") data.shareToken = body.share ? newShareToken() : null;
   try {
     const site = await prisma.analyticsSite.update({
       where: { id },

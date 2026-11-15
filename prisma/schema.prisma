@@ -2407,6 +2407,7 @@ model AnalyticsSite {
   clientId  String?
   client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   active    Boolean  @default(true)
+  shareToken String? // set while a read-only link for the client is switched on (random, looked up through the index below)
   createdAt DateTime @default(now())
 
   pageviews AnalyticsPageview[]
@@ -2415,6 +2416,7 @@ model AnalyticsSite {
   goals     AnalyticsGoal[]
 
   @@index([clientId])
+  @@index([shareToken])
 }
 
 // One page view. No IP and no cookie id are stored: visitorId is a hash that

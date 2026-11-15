@@ -308,30 +308,61 @@ export async function siteSummary(
     events.set(e.name, row);
   }
 
-  // ── Goals ──
+  // ── Goals: which visits did it, and through which channel they came ──
+  const channelSize = new Map<string, number>();
+  const channelBySession = new Map<string, string>();
+  for (const s of sessions) {
+    const c = channelOf(s.first);
+    channelBySession.set(s.id, c);
+    channelSize.set(c, (channelSize.get(c) || 0) + 1);
+  }
   const goalRows = goals.map((g) => {
-    let converted = 0;
+    const did = new Set<string>();
     if (g.kind === "click") {
-      if (g.path) converted = clickSessions.get(`${g.path}\u0000${g.match}`)?.size || 0;
-      else {
-        const all = new Set<string>();
-        for (const [key, set] of clickSessions) if (key.endsWith(`\u0000${g.match}`)) set.forEach((id) => all.add(id));
-        converted = all.size;
+      for (const [key, set] of clickSessions) {
+        if (g.path ? key === `${g.path}\u0000${g.match}` : key.endsWith(`\u0000${g.match}`)) set.forEach((id) => did.add(id));
       }
     } else if (g.kind === "event") {
-      converted = events.get(g.match)?.sessions.size || 0;
+      events.get(g.match)?.sessions.forEach((id) => did.add(id));
     } else {
       const prefix = g.match.endsWith("*") ? g.match.slice(0, -1) : null;
       for (const s of sessions) {
-        if (s.views.some((v) => (prefix !== null ? v.path.startsWith(prefix) : v.path === g.match))) converted++;
+        if (s.views.some((v) => (prefix !== null ? v.path.startsWith(prefix) : v.path === g.match))) did.add(s.id);
       }
     }
+    const by = new Map<string, number>();
+    did.forEach((id) => tally(by, channelBySession.get(id)));
     return {
       id: g.id, name: g.name, kind: g.kind, match: g.match, path: g.path,
-      conversions: converted,
-      rate: sessions.length ? converted / sessions.length : 0,
+      conversions: did.size,
+      rate: sessions.length ? did.size / sessions.length : 0,
+      byChannel: top([...by].map(([name, count]) => ({ name, count, rate: count / (channelSize.get(name) || 1) })), 8),
     };
   });
+
+  // ── The latest visits, each as the path one person took ──
+  const eventsBySession = new Map<string, string[]>();
+  for (const e of eventRows) {
+    if (!kept.has(e.sessionId)) continue;
+    const names = eventsBySession.get(e.sessionId) || [];
+    if (!names.includes(e.name)) names.push(e.name);
+    eventsBySession.set(e.sessionId, names);
+  }
+  const visits = sessions
+    .slice(-25)
+    .reverse()
+    .map((s) => ({
+      id: s.id.slice(0, 8),
+      at: s.first.createdAt.toISOString(),
+      source: sourceOf(s.first),
+      channel: channelOf(s.first),
+      country: s.first.country,
+      device: s.first.device,
+      browser: s.first.browser,
+      ms: s.ms,
+      pages: s.views.map((v) => v.path).filter((p, i, all) => i === 0 || p !== all[i - 1]).slice(0, 12),
+      did: eventsBySession.get(s.id) || [],
+    }));
 
   const formsStarted = events.get("Form started");
   const formsSent = events.get("Form sent");
@@ -400,6 +431,7 @@ export async function siteSummary(
     broken: list(broken, 10),
     speed: { ...vitalStats(speedRows), samples: speedRows.length },
     goals: goalRows,
+    visits,
   };
 }
 
@@ -451,7 +483,7 @@ export async function pageDetail(
     createdAt: { gte: opts.since },
     ...(opts.device !== "all" ? { device: opts.device } : {}),
   };
-  const [views, groups, points] = await Promise.all([
+  const [views, groups, points, around] = await Promise.all([
     prisma.analyticsPageview.findMany({
       where,
       take: MAX_ROWS,
@@ -468,7 +500,37 @@ export async function pageDetail(
           select: { selector: true, x: true, y: true, ex: true, ey: true },
         })
       : Promise.resolve([]),
+    // every page view of the period, to read what came before and after this page in each visit
+    withPoints
+      ? Promise.resolve([])
+      : prisma.analyticsPageview.findMany({
+          where: { siteId, createdAt: { gte: opts.since }, ...(opts.device !== "all" ? { device: opts.device } : {}) },
+          orderBy: { createdAt: "asc" },
+          take: MAX_ROWS,
+          select: { sessionId: true, path: true, referrer: true, utmSource: true, utmMedium: true },
+        }),
   ]);
+
+  const before = new Map<string, number>();
+  const after = new Map<string, number>();
+  type Around = { sessionId: string; path: string; referrer: string | null; utmSource: string | null; utmMedium: string | null };
+  const bySession = new Map<string, Around[]>();
+  for (const v of around as Around[]) {
+    const list = bySession.get(v.sessionId);
+    if (list) list.push(v);
+    else bySession.set(v.sessionId, [v]);
+  }
+  for (const list of bySession.values()) {
+    list.forEach((v, i) => {
+      if (v.path !== path) return;
+      const prev = list[i - 1];
+      const next = list[i + 1];
+      if (!prev) tally(before, `Arrived from ${channelOf(v) === "Direct" ? "a typed address or bookmark" : sourceOf(v)}`);
+      else if (prev.path !== path) tally(before, prev.path);
+      if (!next) tally(after, "Left the site");
+      else if (next.path !== path) tally(after, next.path);
+    });
+  }
 
   const elements = new Map<string, { selector: string; label: string | null; href: string | null; count: number; best: number }>();
   let clicks = 0;
@@ -508,6 +570,8 @@ export async function pageDetail(
     avgFold: foldN ? Math.round(fold / foldN) : null,
     reach: reach.map((n) => (views.length ? Math.round((n / views.length) * 100) : 0)),
     speed: vitalStats(views),
+    before: list(before, 8),
+    after: list(after, 8),
     elements: top([...elements.values()].map((e) => ({ selector: e.selector, label: e.label, href: e.href, count: e.count })), 200),
     points: points.map((p) => [p.selector, +p.ex.toFixed(3), +p.ey.toFixed(3), +p.x.toFixed(4), p.y] as const),
   };

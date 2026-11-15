@@ -58,6 +58,9 @@ const PUBLIC_PATHS = [
   "/bb.js",
   "/bb-heat.js",
   "/api/bb/",
+  // Read-only analytics for a client, behind a random link the team switches on per site
+  "/stats/",
+  "/api/stats/",
 ];
 
 const LEGACY_HOST = "blokblokstudio-clients.vercel.app";
