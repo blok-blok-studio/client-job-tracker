@@ -180,7 +180,7 @@ export async function siteSummary(
   const before = new Date(opts.since.getTime() - span);
   const scope = { siteId, createdAt: { gte: opts.since }, ...(opts.device !== "all" ? { device: opts.device } : {}) };
 
-  const [views, earlier, clickRows, eventRows, goals, live] = await Promise.all([
+  const [views, earlier, clickRows, eventRows, goals, funnels, live] = await Promise.all([
     loadViews(siteId, opts.since, null, opts.device),
     loadViews(siteId, before, opts.since, opts.device),
     prisma.analyticsClick.findMany({
@@ -193,9 +193,10 @@ export async function siteSummary(
       where: scope,
       orderBy: { createdAt: "desc" },
       take: 60_000,
-      select: { sessionId: true, path: true, name: true, value: true },
+      select: { sessionId: true, path: true, name: true, value: true, createdAt: true },
     }),
     prisma.analyticsGoal.findMany({ where: { siteId }, orderBy: { createdAt: "asc" } }),
+    prisma.analyticsFunnel.findMany({ where: { siteId }, orderBy: { createdAt: "asc" } }),
     prisma.analyticsPageview.findMany({
       where: { siteId, createdAt: { gte: new Date(now.getTime() - 5 * 60_000) } },
       distinct: ["visitorId"],
@@ -340,6 +341,31 @@ export async function siteSummary(
     };
   });
 
+  // ── Funnels: of the visits that did step one, how many went on to do each next step, in order ──
+  const timeline = new Map<string, { at: number; kind: "page" | "event"; key: string }[]>();
+  for (const s of sessions) timeline.set(s.id, s.views.map((v) => ({ at: v.createdAt.getTime(), kind: "page" as const, key: v.path })));
+  for (const e of eventRows) timeline.get(e.sessionId)?.push({ at: e.createdAt.getTime(), kind: "event", key: e.name });
+  for (const items of timeline.values()) items.sort((a, b) => a.at - b.at);
+  const stepMatches = (step: { kind: string; match: string }, item: { kind: string; key: string }) => {
+    if (step.kind !== item.kind) return false;
+    if (step.kind === "page" && step.match.endsWith("*")) return item.key.startsWith(step.match.slice(0, -1));
+    return item.key === step.match;
+  };
+  const funnelRows = funnels.map((f) => {
+    const steps = (Array.isArray(f.steps) ? f.steps : []) as { kind: string; match: string }[];
+    const reached = steps.map(() => 0);
+    for (const items of timeline.values()) {
+      let from = 0;
+      for (let i = 0; i < steps.length; i++) {
+        const at = items.findIndex((item, index) => index >= from && stepMatches(steps[i], item));
+        if (at === -1) break;
+        reached[i]++;
+        from = at + 1;
+      }
+    }
+    return { id: f.id, name: f.name, steps: steps.map((st, i) => ({ kind: st.kind, match: st.match, count: reached[i] })) };
+  });
+
   // ── The latest visits, each as the path one person took ──
   const eventsBySession = new Map<string, string[]>();
   for (const e of eventRows) {
@@ -431,6 +457,7 @@ export async function siteSummary(
     broken: list(broken, 10),
     speed: { ...vitalStats(speedRows), samples: speedRows.length },
     goals: goalRows,
+    funnels: funnelRows,
     visits,
   };
 }

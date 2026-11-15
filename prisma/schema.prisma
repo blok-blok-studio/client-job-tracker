@@ -2414,9 +2414,22 @@ model AnalyticsSite {
   clicks    AnalyticsClick[]
   events    AnalyticsEvent[]
   goals     AnalyticsGoal[]
+  funnels   AnalyticsFunnel[]
 
   @@index([clientId])
   @@index([shareToken])
+}
+
+// A sequence of steps (pages visited, events done) and how many visits get through each, in order.
+model AnalyticsFunnel {
+  id        String        @id @default(cuid())
+  siteId    String
+  site      AnalyticsSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name      String
+  steps     Json // [{ kind: "page" | "event", match: string }]
+  createdAt DateTime      @default(now())
+
+  @@index([siteId])
 }
 
 // One page view. No IP and no cookie id are stored: visitorId is a hash that

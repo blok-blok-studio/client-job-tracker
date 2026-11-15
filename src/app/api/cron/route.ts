@@ -42,6 +42,11 @@ export async function GET(request: NextRequest) {
       console.error("[Cron] Analytics page view cleanup error:", err);
     });
 
+    // Monday summary of the tracked websites to Slack (off until the owner switches it on)
+    await import("@/lib/analytics/digest")
+      .then((m) => m.sendWeeklyDigestIfDue())
+      .catch((err) => console.error("[Cron] Analytics digest error:", err));
+
     // Nudge about tasks stuck in Blocked for 3+ days (once per blocked stint)
     const staleBlockedCutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     let staleBlocked: Array<{ id: string; title: string; clientId: string | null; blockedAt: Date | null; blockedReason: string | null; client: { name: string } | null }> = [];

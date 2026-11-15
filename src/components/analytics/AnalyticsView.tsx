@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus, Settings, Users, Eye, Activity, LogOut, Timer, MousePointerClick, Flame, Copy, Target, Trash2, ArrowRight,
-  ExternalLink, Filter, X, Download, Gauge, Globe, ArrowUpRight, ArrowDownRight,
+  ExternalLink, Filter, X, Download, Gauge, Globe, ArrowUpRight, ArrowDownRight, Link2,
 } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import Modal from "@/components/shared/Modal";
@@ -58,6 +58,7 @@ interface Summary {
   broken: Named[];
   speed: Vitals & { samples: number };
   goals: Goal[];
+  funnels: { id: string; name: string; steps: { kind: string; match: string; count: number }[] }[];
   visits: Visit[];
 }
 interface PageDetail {
@@ -106,7 +107,7 @@ const VITALS: { key: VitalKey; name: string; what: string; limits: [number, numb
 ];
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
-const share100 = (n: number) => `${(n * 100).toFixed(n > 0 && n < 0.1 ? 1 : 0)}%`;
+const pct100 = (n: number) => `${(n * 100).toFixed(n > 0 && n < 0.1 ? 1 : 0)}%`;
 
 function duration(ms: number): string {
   const s = Math.round(ms / 1000);
@@ -284,6 +285,10 @@ export default function AnalyticsView({ share }: { share?: string }) {
   const [openEvent, setOpenEvent] = useState<string | null>(null);
   const [openGoal, setOpenGoal] = useState<string | null>(null);
   const [gone, setGone] = useState(false);
+  const [funnelForm, setFunnelForm] = useState<{ name: string; steps: { kind: "page" | "event"; match: string }[] } | null>(null);
+  const [showLinks, setShowLinks] = useState(false);
+  const [link, setLink] = useState({ path: "/", source: "", medium: "", campaign: "" });
+  const [digest, setDigest] = useState<{ weeklyDigest: boolean; preview: string | null } | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [pagePath, setPagePath] = useState<string | null>(null);
@@ -346,6 +351,10 @@ export default function AnalyticsView({ share }: { share?: string }) {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setIsOwner(d?.user?.role === "OWNER"))
+      .catch(() => {});
+    fetch("/api/analytics/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.success && setDigest(d.data))
       .catch(() => {});
   }, [loadSites, share]);
 
@@ -457,6 +466,38 @@ export default function AnalyticsView({ share }: { share?: string }) {
     loadSummary();
   }
 
+  async function saveFunnel(e: React.FormEvent) {
+    e.preventDefault();
+    if (!site || !funnelForm) return;
+    const res = await fetch(`/api/analytics/sites/${site.id}/funnels`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(funnelForm),
+    });
+    const json = await res.json();
+    if (!json.success) return toast(json.error || "Could not save the funnel", "error");
+    setFunnelForm(null);
+    loadSummary();
+  }
+
+  async function removeFunnel(id: string) {
+    await fetch(`/api/analytics/funnels/${id}`, { method: "DELETE" });
+    loadSummary();
+  }
+
+  async function toggleDigest() {
+    if (!digest) return;
+    const res = await fetch("/api/analytics/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weeklyDigest: !digest.weeklyDigest }),
+    });
+    const json = await res.json();
+    if (!json.success) return toast(json.error || "Could not change this", "error");
+    setDigest({ ...digest, weeklyDigest: json.data.weeklyDigest });
+    toast(json.data.weeklyDigest ? "Monday summary switched on" : "Monday summary switched off", "success");
+  }
+
   async function removeGoal(id: string) {
     await fetch(`/api/analytics/goals/${id}`, { method: "DELETE" });
     loadSummary();
@@ -492,6 +533,17 @@ export default function AnalyticsView({ share }: { share?: string }) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const snippet = site ? `<script defer src="${origin}/bb.js" data-site="${site.key}"></script>` : "";
   const consentSnippet = site ? `<script defer src="${origin}/bb.js" data-site="${site.key}" data-consent="wait"></script>` : "";
+  const campaignLink = (() => {
+    if (!site) return "";
+    const path = link.path.startsWith("/") ? link.path : `/${link.path}`;
+    const q = new URLSearchParams();
+    const slug = (v: string) => v.trim().toLowerCase().replace(/\s+/g, "-");
+    if (link.source.trim()) q.set("utm_source", slug(link.source));
+    if (link.medium.trim()) q.set("utm_medium", slug(link.medium));
+    if (link.campaign.trim()) q.set("utm_campaign", slug(link.campaign));
+    const qs = q.toString();
+    return `https://${site.domain}${path}${qs ? `?${qs}` : ""}`;
+  })();
   const copy = (text: string, what: string) =>
     navigator.clipboard.writeText(text).then(() => toast(`${what} copied`, "success")).catch(() => toast("Could not copy", "error"));
 
@@ -612,6 +664,11 @@ export default function AnalyticsView({ share }: { share?: string }) {
               <select aria-label="Device" className={cn(select, "py-1.5 text-xs shrink-0")} value={device} onChange={(e) => setDevice(e.target.value)}>
                 {DEVICES.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
               </select>
+              {!ro && (
+                <button onClick={() => setShowLinks(true)} title="Make a link that shows up under its own source and campaign" className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-bb-border rounded-md text-bb-muted hover:text-white hover:bg-bb-elevated">
+                  <Link2 size={13} /> Campaign link
+                </button>
+              )}
               <button onClick={exportCsv} disabled={!summary} title="Download these numbers as a spreadsheet file" className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-bb-border rounded-md text-bb-muted hover:text-white hover:bg-bb-elevated disabled:opacity-50">
                 <Download size={13} /> Export
               </button>
@@ -653,6 +710,28 @@ export default function AnalyticsView({ share }: { share?: string }) {
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {!site && !ro && digest && (
+          <div className={cn(card, "p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3")}>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Monday summary in Slack</p>
+              <p className="text-xs text-bb-muted">One message each Monday morning in the team channel: visitors, change on the week before, top page and main source for every website here.</p>
+              {digest.preview && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-bb-accent">See what it would say today</summary>
+                  <pre className="mt-2 bg-bb-black border border-bb-border rounded-md p-3 text-xs text-bb-gray whitespace-pre-wrap break-words font-sans">{digest.preview.replace(/[*]/g, "").replace(":bar_chart: ", "")}</pre>
+                </details>
+              )}
+            </div>
+            {isOwner ? (
+              <button type="button" role="switch" aria-checked={digest.weeklyDigest} aria-label="Monday summary in Slack" onClick={toggleDigest} className={cn("relative w-11 h-6 rounded-full shrink-0 transition-colors", digest.weeklyDigest ? "bg-bb-blue" : "bg-bb-border")}>
+                <span className={cn("absolute top-1 w-4 h-4 rounded-full bg-white transition-all", digest.weeklyDigest ? "left-6" : "left-1")} />
+              </button>
+            ) : (
+              <span className="text-xs text-bb-dim shrink-0">{digest.weeklyDigest ? "On" : "Off"} · owner setting</span>
+            )}
           </div>
         )}
 
@@ -825,7 +904,7 @@ export default function AnalyticsView({ share }: { share?: string }) {
                             {g.byChannel.map((c) => (
                               <li key={c.name} className="flex items-center justify-between gap-3 text-xs">
                                 <span className="truncate text-bb-muted">{c.name}</span>
-                                <span className="tabular-nums text-bb-dim">{c.count.toLocaleString()} · {share100(c.rate)} of that channel</span>
+                                <span className="tabular-nums text-bb-dim">{c.count.toLocaleString()} · {pct100(c.rate)} of that channel</span>
                               </li>
                             ))}
                           </ul>
@@ -849,6 +928,89 @@ export default function AnalyticsView({ share }: { share?: string }) {
                 </form>}
               </Panel>
             </div>
+
+            {/* ─── Funnels ─── */}
+            {(!ro || (summary?.funnels.length || 0) > 0) && (
+              <Panel
+                title="Funnels"
+                action={!ro && !funnelForm ? (
+                  <button onClick={() => setFunnelForm({ name: "", steps: [{ kind: "page", match: "/" }, { kind: "page", match: "" }] })} className="flex items-center gap-1 text-xs text-bb-accent hover:text-bb-accent-light"><Plus size={13} /> New funnel</button>
+                ) : <span className="text-xs text-bb-dim">Steps done in order within one visit</span>}
+              >
+                {funnelForm && (
+                  <form onSubmit={saveFunnel} className="space-y-2 mb-4 bg-bb-black border border-bb-border rounded-md p-3">
+                    <input className={input} aria-label="Funnel name" placeholder="Name, e.g. Home to enquiry" value={funnelForm.name} onChange={(e) => setFunnelForm({ ...funnelForm, name: e.target.value })} required />
+                    {funnelForm.steps.map((step, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="w-5 text-xs text-bb-dim tabular-nums shrink-0">{i + 1}.</span>
+                        <select aria-label={`Step ${i + 1} kind`} className={cn(select, "py-2 text-xs shrink-0")} value={step.kind} onChange={(e) => setFunnelForm({ ...funnelForm, steps: funnelForm.steps.map((st, j) => (j === i ? { kind: e.target.value as "page" | "event", match: "" } : st)) })}>
+                          <option value="page">Visited page</option>
+                          <option value="event">Did</option>
+                        </select>
+                        <input
+                          className={input}
+                          aria-label={`Step ${i + 1}`}
+                          list={step.kind === "page" ? "bb-funnel-pages" : "bb-funnel-events"}
+                          placeholder={step.kind === "page" ? "/pricing or /blog/*" : "Form sent"}
+                          value={step.match}
+                          onChange={(e) => setFunnelForm({ ...funnelForm, steps: funnelForm.steps.map((st, j) => (j === i ? { ...st, match: e.target.value } : st)) })}
+                          required
+                        />
+                        {funnelForm.steps.length > 2 && (
+                          <button type="button" aria-label={`Remove step ${i + 1}`} onClick={() => setFunnelForm({ ...funnelForm, steps: funnelForm.steps.filter((_, j) => j !== i) })} className="p-1.5 rounded text-bb-dim hover:text-white hover:bg-bb-elevated shrink-0"><X size={14} /></button>
+                        )}
+                      </div>
+                    ))}
+                    <datalist id="bb-funnel-pages">{(summary?.pages || []).slice(0, 40).map((r) => <option key={r.path} value={r.path} />)}</datalist>
+                    <datalist id="bb-funnel-events">{["Form started", "Form sent", ...(summary?.events || []).map((e) => e.name)].filter((v, i, all) => all.indexOf(v) === i).map((n) => <option key={n} value={n} />)}</datalist>
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                      {funnelForm.steps.length < 8 ? (
+                        <button type="button" onClick={() => setFunnelForm({ ...funnelForm, steps: [...funnelForm.steps, { kind: "page", match: "" }] })} className="text-xs text-bb-accent hover:text-bb-accent-light">Add a step</button>
+                      ) : <span />}
+                      <span className="flex gap-2">
+                        <button type="button" onClick={() => setFunnelForm(null)} className="px-3 py-1.5 text-xs text-bb-muted hover:text-white">Cancel</button>
+                        <button type="submit" className="px-3 py-1.5 text-xs bg-bb-blue hover:bg-bb-blue-light text-white rounded-md">Save funnel</button>
+                      </span>
+                    </div>
+                  </form>
+                )}
+                {summary?.funnels.length ? (
+                  <div className="space-y-5">
+                    {summary.funnels.map((f) => {
+                      const first = f.steps[0]?.count || 0;
+                      const last = f.steps[f.steps.length - 1]?.count || 0;
+                      return (
+                        <div key={f.id}>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <h3 className="text-sm text-white truncate">{f.name} <span className="text-bb-dim">· {first ? pct100(last / first) : "0%"} get all the way</span></h3>
+                            {!ro && <button onClick={() => removeFunnel(f.id)} aria-label={`Remove funnel ${f.name}`} className="p-1.5 rounded text-bb-dim hover:text-red-400 hover:bg-bb-elevated shrink-0"><Trash2 size={14} /></button>}
+                          </div>
+                          <ol className="space-y-1">
+                            {f.steps.map((st, i) => {
+                              const prev = i === 0 ? st.count : f.steps[i - 1].count;
+                              return (
+                                <li key={i} className="relative rounded bg-bb-black border border-bb-border overflow-hidden">
+                                  <span className="absolute inset-y-0 left-0 bg-bb-blue/25" style={{ width: `${first ? (st.count / first) * 100 : 0}%` }} aria-hidden />
+                                  <span className="relative flex items-center justify-between gap-3 px-2.5 py-1.5 text-sm">
+                                    <span className="min-w-0 truncate text-white"><span className="text-bb-dim tabular-nums mr-2">{i + 1}</span>{st.kind === "page" ? `Visited ${st.match}` : st.match}</span>
+                                    <span className="shrink-0 tabular-nums text-bb-muted">
+                                      {i > 0 && prev > 0 && <span className="text-bb-dim mr-2">{pct100(1 - st.count / prev)} dropped</span>}
+                                      {st.count.toLocaleString()}
+                                    </span>
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ol>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  !funnelForm && <p className="text-sm text-bb-dim py-4 text-center">No funnels yet. Line up the steps you hope a visitor takes and see where they stop.</p>
+                )}
+              </Panel>
+            )}
 
             {/* ─── Latest visits ─── */}
             <Panel title="Latest visits" action={<span className="text-xs text-bb-dim">The path each visitor took. No names, nothing personal.</span>}>
@@ -1077,6 +1239,41 @@ export default function AnalyticsView({ share }: { share?: string }) {
                 </ul>
               )}
             </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ─── Campaign link builder ─── */}
+      <Modal open={showLinks && !!site} onClose={() => setShowLinks(false)} title="Campaign link">
+        {site && (
+          <div className="space-y-4">
+            <p className="text-xs text-bb-muted">Use this link in a post, an ad, an email or a QR code. Visits through it show up under their own source and campaign in “Where visitors come from”.</p>
+            <label className="block">
+              <span className="block text-xs text-bb-muted mb-1.5">Page on {site.domain}</span>
+              <input className={input} list="bb-link-pages" value={link.path} onChange={(e) => setLink({ ...link, path: e.target.value })} placeholder="/" autoCapitalize="none" />
+              <datalist id="bb-link-pages">{(summary?.pages || []).slice(0, 40).map((r) => <option key={r.path} value={r.path} />)}</datalist>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block">
+                <span className="block text-xs text-bb-muted mb-1.5">Where it is posted</span>
+                <input className={input} list="bb-link-sources" value={link.source} onChange={(e) => setLink({ ...link, source: e.target.value })} placeholder="instagram" autoCapitalize="none" />
+                <datalist id="bb-link-sources">{["instagram", "facebook", "linkedin", "tiktok", "youtube", "google", "newsletter", "whatsapp", "qr-code", "flyer"].map((v) => <option key={v} value={v} />)}</datalist>
+              </label>
+              <label className="block">
+                <span className="block text-xs text-bb-muted mb-1.5">Kind of placement</span>
+                <input className={input} list="bb-link-mediums" value={link.medium} onChange={(e) => setLink({ ...link, medium: e.target.value })} placeholder="social" autoCapitalize="none" />
+                <datalist id="bb-link-mediums">{["social", "cpc", "email", "bio", "story", "print", "referral"].map((v) => <option key={v} value={v} />)}</datalist>
+              </label>
+            </div>
+            <label className="block">
+              <span className="block text-xs text-bb-muted mb-1.5">Campaign name</span>
+              <input className={input} value={link.campaign} onChange={(e) => setLink({ ...link, campaign: e.target.value })} placeholder="spring-launch" autoCapitalize="none" />
+            </label>
+            <div className="relative">
+              <pre className="bg-bb-black border border-bb-border rounded-md p-3 pr-11 text-xs text-bb-gray font-mono whitespace-pre-wrap break-all">{campaignLink}</pre>
+              <button onClick={() => copy(campaignLink, "Link")} aria-label="Copy the campaign link" className="absolute top-2 right-2 p-1.5 rounded text-bb-muted hover:text-white hover:bg-bb-elevated"><Copy size={14} /></button>
+            </div>
+            <p className="text-xs text-bb-dim">“cpc” counts as Paid ads and “email” as Email. Anything else is grouped by where it was posted.</p>
           </div>
         )}
       </Modal>
