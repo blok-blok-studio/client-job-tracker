@@ -75,9 +75,10 @@ const nextConfig = {
         ],
       },
       {
-        // Analytics tracker scripts, loaded by client websites: cache for an hour
+        // Analytics tracker scripts, loaded by client websites. Short cache, so a tracker
+        // update reaches returning visitors within the hour and not a day later.
         source: "/:file(bb|bb-heat).js",
-        headers: [{ key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" }],
+        headers: [{ key: "Cache-Control", value: "public, max-age=300, stale-while-revalidate=3600" }],
       },
       {
         // Invoice preview PDF is shown inside the app (own origin only)
