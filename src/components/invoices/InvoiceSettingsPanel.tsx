@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Save, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
-import { DEFAULT_INVOICE_SETTINGS, isValidIban, CURRENCY_OPTIONS, type InvoiceSettings, type OtherBank } from "@/lib/invoicing/settings-core";
+import { DEFAULT_INVOICE_SETTINGS, eurSwiftExtras, isValidIban, CURRENCY_OPTIONS, type InvoiceSettings, type OtherBank } from "@/lib/invoicing/settings-core";
 import { Plus, Trash2 } from "lucide-react";
 import { inputCls, labelCls, btnPrimary, readJsonSafe } from "./shared";
 
@@ -120,11 +120,11 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
           <Field label="BIC (optional inside the EEA, needed for SWIFT)">
             <input className={`${inputCls} font-mono`} value={s.eur.bic} onChange={(e) => setEur("bic", e.target.value)} />
           </Field>
-          <Field label="Bank address (for SWIFT transfers from outside Europe)">
-            <input className={inputCls} value={s.eur.bankAddress || ""} onChange={(e) => setEur("bankAddress", e.target.value)} />
+          <Field label="Bank address (automatic, override only if wrong)">
+            <input className={inputCls} placeholder={eurSwiftExtras(s.eur, s.addressLines).bankAddress || "Filled from the BIC"} value={s.eur.bankAddress || ""} onChange={(e) => setEur("bankAddress", e.target.value)} />
           </Field>
-          <Field label="Account holder address (for SWIFT transfers)">
-            <input className={inputCls} value={s.eur.holderAddress || ""} onChange={(e) => setEur("holderAddress", e.target.value)} />
+          <Field label="Account holder address (automatic: your business address)">
+            <input className={inputCls} placeholder={eurSwiftExtras(s.eur, s.addressLines).holderAddress} value={s.eur.holderAddress || ""} onChange={(e) => setEur("holderAddress", e.target.value)} />
           </Field>
         </div>
         <p className="text-xs text-bb-dim mt-2">

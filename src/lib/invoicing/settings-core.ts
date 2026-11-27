@@ -266,3 +266,17 @@ export const MAIN_CURRENCIES: Array<{ code: string; label: string }> = [
   { code: "CNY", label: "RMB" },
   { code: "PHP", label: "PHP" },
 ];
+
+/**
+ * SWIFT extras filled from what is already saved, so nothing has to be typed twice:
+ * holder address = the business address on the invoice, bank address = looked up
+ * from the BIC for banks we know. A value typed in Settings always wins.
+ */
+const BANK_ADDRESS_BY_BIC: Record<string, string> = {
+  BELADEBE: "Berliner Sparkasse, Alexanderplatz 2, 10178 Berlin, Germany",
+};
+export function eurSwiftExtras(eur: { bic?: string; bankAddress?: string; holderAddress?: string } | null | undefined, addressLines: string[]) {
+  const holderAddress = eur?.holderAddress?.trim() || addressLines.map((l) => l.replace(/^Deutschland \/ Germany$/, "Germany")).join(", ");
+  const bankAddress = eur?.bankAddress?.trim() || BANK_ADDRESS_BY_BIC[(eur?.bic || "").toUpperCase().slice(0, 8)] || "";
+  return { holderAddress, bankAddress };
+}

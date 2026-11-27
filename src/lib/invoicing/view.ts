@@ -8,6 +8,7 @@ import { computeTotals, toDateOnly } from "./money";
 import { buildEpcPayload } from "./epc-qr";
 import { guessCountry } from "./vat";
 import { openBank, type SealedBank } from "./bank-vault";
+import { eurSwiftExtras } from "./settings-core";
 
 export function appUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL || "https://app.blokblokstudio.com").replace(/\/$/, "");
@@ -26,7 +27,7 @@ export function snapshotSeller(s: InvoiceSettings): SellerSnapshot {
     addressLines: [...s.addressLines],
     steuernummer: s.steuernummer,
     ustIdNr: s.ustIdNr,
-    eur: { ...s.eur },
+    eur: { ...s.eur, ...eurSwiftExtras(s.eur, s.addressLines) },
     usd: { ...s.usd },
     otherBanks: s.otherBanks.map((b) => ({ ...b, lines: b.lines.map((l) => ({ ...l })) })),
     wisePayLink: s.wisePayLink,
@@ -75,8 +76,10 @@ function asSeller(raw: unknown, fallback: InvoiceSettings): SellerSnapshot {
       ? {
           ...r.eur,
           // Snapshots frozen before these two fields existed: take them from Settings
-          bankAddress: r.eur.bankAddress || base.eur?.bankAddress || "",
-          holderAddress: r.eur.holderAddress || base.eur?.holderAddress || "",
+          ...eurSwiftExtras(
+            { bic: r.eur.bic, bankAddress: r.eur.bankAddress || base.eur?.bankAddress, holderAddress: r.eur.holderAddress || base.eur?.holderAddress },
+            Array.isArray(r.addressLines) ? r.addressLines : base.addressLines,
+          ),
         }
       : base.eur,
     usd: r.usd ?? base.usd,
