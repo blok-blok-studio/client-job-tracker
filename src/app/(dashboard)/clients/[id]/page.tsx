@@ -50,7 +50,7 @@ interface ClientDetail {
   onboardToken: string | null;
   uploadToken: string | null;
   uploadLimitMb: number | null;
-  contacts: Array<{ id: string; name: string; role: string | null; email: string | null; phone: string | null; isPrimary: boolean }>;
+  contacts: Array<{ id: string; name: string; role: string | null; email: string | null; phone: string | null; isPrimary: boolean; receivesInvoices?: boolean }>;
   tasks: Array<{ id: string; title: string; status: string; priority: string; dueDate: string | null }>;
   credentials: Array<{ id: string; platform: string; username: string; label?: string }>;
   checklistItems: Array<{ id: string; label: string; checked: boolean }>;
@@ -79,7 +79,7 @@ export default function ClientDetailPage() {
   const [isOwner, setIsOwner] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [newContact, setNewContact] = useState(false);
-  const [contactForm, setContactForm] = useState({ name: "", role: "", email: "", phone: "" });
+  const [contactForm, setContactForm] = useState({ name: "", role: "", email: "", phone: "", receivesInvoices: false });
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [limitDraft, setLimitDraft] = useState("");
@@ -268,7 +268,16 @@ export default function ClientDetailPage() {
       body: JSON.stringify(contactForm),
     });
     setNewContact(false);
-    setContactForm({ name: "", role: "", email: "", phone: "" });
+    setContactForm({ name: "", role: "", email: "", phone: "", receivesInvoices: false });
+    fetchClient();
+  }
+
+  async function handleToggleInvoiceContact(contactId: string, receivesInvoices: boolean) {
+    await fetch(`/api/clients/${id}/contacts/${contactId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ receivesInvoices }),
+    });
     fetchClient();
   }
 
@@ -850,6 +859,10 @@ export default function ClientDetailPage() {
                     <input placeholder="Email" value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} className="px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
                     <input placeholder="Phone" value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} className="px-3 py-1.5 bg-bb-surface border border-bb-border rounded text-sm text-white" />
                   </div>
+                  <label className="flex items-center gap-2 text-xs text-bb-muted cursor-pointer">
+                    <input type="checkbox" checked={contactForm.receivesInvoices} onChange={(e) => setContactForm({ ...contactForm, receivesInvoices: e.target.checked })} />
+                    Gets invoices (copied on every invoice, reminder and receipt email)
+                  </label>
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => setNewContact(false)} className="p-1 text-bb-dim hover:text-white"><X size={16} /></button>
                     <button onClick={handleAddContact} disabled={!contactForm.name} className="p-1 text-bb-accent hover:text-bb-accent-light disabled:opacity-50"><Check size={16} /></button>
@@ -864,7 +877,18 @@ export default function ClientDetailPage() {
                       {c.role && <span className="text-xs text-bb-dim ml-2">{c.role}</span>}
                       <div className="text-xs text-bb-dim">{[c.email, c.phone].filter(Boolean).join(" \u00B7 ")}</div>
                     </div>
-                    <button onClick={() => handleDeleteContact(c.id)} className="p-1 text-bb-dim hover:text-red-400"><Trash2 size={14} /></button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {c.email && (
+                        <button
+                          onClick={() => handleToggleInvoiceContact(c.id, !c.receivesInvoices)}
+                          title={c.receivesInvoices ? "Copied on every invoice email. Click to stop." : "Copy this person on every invoice, reminder and receipt email"}
+                          className={`px-2 py-0.5 rounded-full text-[11px] border transition-colors ${c.receivesInvoices ? "border-bb-blue bg-bb-blue/15 text-white" : "border-bb-border text-bb-dim hover:text-white hover:border-bb-muted"}`}
+                        >
+                          {c.receivesInvoices ? "Gets invoices" : "+ Invoices"}
+                        </button>
+                      )}
+                      <button onClick={() => handleDeleteContact(c.id)} className="p-1 text-bb-dim hover:text-red-400"><Trash2 size={14} /></button>
+                    </div>
                   </div>
                 ))}
                 {client.contacts.length === 0 && !newContact && <p className="text-sm text-bb-dim">No contacts added</p>}

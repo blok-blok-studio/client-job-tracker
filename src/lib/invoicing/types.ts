@@ -57,6 +57,8 @@ export interface InvoiceView {
   total: number;
   paymentMethod: PaymentMethod;
   paymentUrl: string | null;
+  /** Non-EUR invoice that also prints the German EUR account for regular / SWIFT bank transfers */
+  showEurBank: boolean;
   notes: string | null;
   sentAt: string | null;
   sentTo: string | null;
@@ -108,6 +110,9 @@ export const LABELS: Record<InvoiceLanguage, Record<string, string>> = {
     iban: "IBAN",
     bic: "BIC",
     bank: "Bank",
+    eurBankHeading: "Oder per Überweisung auf unser Konto in Deutschland (normale Überweisung oder internationale SWIFT-Überweisung):",
+    bankAddress: "Anschrift der Bank",
+    holderAddress: "Anschrift Kontoinhaber",
     reference: "Verwendungszweck",
     payBy: "Bitte überweisen Sie den Betrag bis zum",
     qrCaption: "GiroCode: mit der Banking-App scannen, Überweisung ist vorausgefüllt.",
@@ -176,6 +181,9 @@ export const LABELS: Record<InvoiceLanguage, Record<string, string>> = {
     iban: "IBAN",
     bic: "BIC / SWIFT",
     bank: "Bank",
+    eurBankHeading: "Or pay by bank transfer to our account in Germany (regular or international SWIFT transfer):",
+    bankAddress: "Bank address",
+    holderAddress: "Account holder address",
     reference: "Payment reference",
     payBy: "Please pay by",
     qrCaption: "Scan with your banking app: the transfer is pre-filled.",

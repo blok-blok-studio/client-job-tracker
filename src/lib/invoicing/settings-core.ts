@@ -12,6 +12,10 @@ export interface EurBank {
   iban: string;
   bic: string;
   bank: string;
+  /** Optional: the bank's postal address, asked for by banks outside Europe on SWIFT transfers */
+  bankAddress?: string;
+  /** Optional: the account holder's address, asked for on SWIFT transfers */
+  holderAddress?: string;
 }
 
 export interface UsdBank {
@@ -80,7 +84,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   addressLines: ["Max-Beer-Straße 50", "10119 Berlin", "Deutschland / Germany"],
   steuernummer: "13/334/01938",
   ustIdNr: "",
-  eur: { holder: "Blok Blok Studio LLC", iban: "", bic: "", bank: "" },
+  eur: { holder: "Blok Blok Studio LLC", iban: "", bic: "", bank: "", bankAddress: "", holderAddress: "" },
   usd: { holder: "Blok Blok Studio LLC", bank: "", routing: "", account: "", swift: "", bankAddress: "" },
   wisePayLink: "",
   defaultDueDays: 14,
@@ -124,6 +128,8 @@ export function normalizeInvoiceSettings(raw: unknown): InvoiceSettings {
       iban: str(eur.iban, "").replace(/\s+/g, "").toUpperCase(),
       bic: str(eur.bic, "").replace(/\s+/g, "").toUpperCase(),
       bank: str(eur.bank, ""),
+      bankAddress: str(eur.bankAddress, ""),
+      holderAddress: str(eur.holderAddress, ""),
     },
     usd: {
       holder: str(usd.holder, d.usd.holder),

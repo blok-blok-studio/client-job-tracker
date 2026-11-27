@@ -80,6 +80,7 @@ export const contactSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   isPrimary: z.boolean().optional(),
+  receivesInvoices: z.boolean().optional(),
   notes: z.string().optional().or(z.literal("")),
 });
 

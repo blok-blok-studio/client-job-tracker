@@ -117,10 +117,19 @@ export default function InvoiceSettingsPanel({ onSaved }: { onSaved?: () => void
               )}
             </div>
           </Field>
-          <Field label="BIC (optional inside the EEA)">
+          <Field label="BIC (optional inside the EEA, needed for SWIFT)">
             <input className={`${inputCls} font-mono`} value={s.eur.bic} onChange={(e) => setEur("bic", e.target.value)} />
           </Field>
+          <Field label="Bank address (for SWIFT transfers from outside Europe)">
+            <input className={inputCls} value={s.eur.bankAddress || ""} onChange={(e) => setEur("bankAddress", e.target.value)} />
+          </Field>
+          <Field label="Account holder address (for SWIFT transfers)">
+            <input className={inputCls} value={s.eur.holderAddress || ""} onChange={(e) => setEur("holderAddress", e.target.value)} />
+          </Field>
         </div>
+        <p className="text-xs text-bb-dim mt-2">
+          Non-EUR invoices can also print this account for clients who pay by regular bank transfer or SWIFT instead of Wise: switch it on per invoice under &quot;German bank account&quot;.
+        </p>
       </Section>
 
       <Section title="USD account (Wise, printed on USD invoices)">

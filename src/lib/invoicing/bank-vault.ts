@@ -14,7 +14,7 @@ export interface SealedBank {
   otherBanks?: OtherBank[] | null;
 }
 
-const EMPTY_EUR: EurBank = { holder: "", iban: "", bic: "", bank: "" };
+const EMPTY_EUR: EurBank = { holder: "", iban: "", bic: "", bank: "", bankAddress: "", holderAddress: "" };
 const EMPTY_USD: UsdBank = { holder: "", bank: "", routing: "", account: "", swift: "", bankAddress: "" };
 
 export function sealBank<T extends SealedBank>(obj: T): T {

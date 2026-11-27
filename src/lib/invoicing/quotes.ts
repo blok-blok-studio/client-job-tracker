@@ -162,6 +162,7 @@ export function quoteView(q: Quote, settings: Awaited<ReturnType<typeof loadInvo
     total: Number(q.total),
     paymentMethod: "BANK",
     paymentUrl: null,
+    showEurBank: false,
     notes: q.notes,
     sentAt: q.sentAt?.toISOString() ?? null,
     sentTo: null,

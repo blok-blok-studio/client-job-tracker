@@ -63,7 +63,7 @@ function subjectAndBody(kind: Stage["kind"], v: ReturnType<typeof buildInvoiceVi
   };
 }
 
-async function sendReminderEmail(kind: Stage["kind"], v: ReturnType<typeof buildInvoiceView>, to: string): Promise<string | null> {
+async function sendReminderEmail(kind: Stage["kind"], v: ReturnType<typeof buildInvoiceView>, to: string, cc: string[] = []): Promise<string | null> {
   if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY missing");
   const resend = new Resend(process.env.RESEND_API_KEY);
   const de = v.language === "de";
@@ -80,7 +80,7 @@ async function sendReminderEmail(kind: Stage["kind"], v: ReturnType<typeof build
       <hr style="border:none;border-top:1px solid #e5e5e5;margin:32px 0;"/>
       <p style="color:#777;font-size:12px;line-height:1.6;">${esc(v.seller.sellerName)} · ${esc(v.seller.addressLines.join(", "))} · ${esc(v.seller.email)}</p>
     </div>`;
-  const { data, error } = await resend.emails.send({ from: FROM_EMAIL, to, replyTo: v.seller.email || undefined, subject, html });
+  const { data, error } = await resend.emails.send({ from: FROM_EMAIL, to, cc: cc.length ? cc : undefined, replyTo: v.seller.email || undefined, subject, html });
   if (error) throw new Error(error.message);
   return data?.id ?? null;
 }
@@ -115,7 +115,9 @@ export async function runPaymentReminders(now = new Date()): Promise<Array<{ num
     }
     const view = buildInvoiceView(inv, settings);
     try {
-      const emailId = await sendReminderEmail(next.kind, view, billTo.email);
+      const { invoiceCcFor } = await import("./recipients");
+      const cc = await invoiceCcFor(inv.clientId, billTo.email).catch(() => [] as string[]);
+      const emailId = await sendReminderEmail(next.kind, view, billTo.email, cc);
       await prisma.studioInvoice.update({ where: { id: inv.id }, data: { reminderStage: next.stage, lastReminderAt: now } });
       await logInvoiceActivity({ clientId: inv.clientId, actor: "system", action: `invoice_reminder_${next.kind}`, details: `${next.kind === "final" ? "Final notice (Mahnung)" : next.kind === "overdue" ? "Payment reminder" : "Due-soon reminder"} for ${inv.number} emailed to ${billTo.email}${emailId ? ` (email ${emailId})` : ""}` });
       if (next.kind === "final") {

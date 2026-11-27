@@ -80,7 +80,7 @@ export default function PublicInvoicePage() {
   const eur = inv.currency === "EUR" ? inv.seller.eur : null;
   const usd = inv.currency === "USD" ? inv.seller.usd : null;
   const other = inv.currency !== "EUR" && inv.currency !== "USD" ? inv.seller.otherBanks?.find((b) => b.currency === inv.currency) || null : null;
-  const rows: Array<[string, string, boolean]> = [];
+  const rows: Array<[string, string, boolean, boolean?]> = []; // label, value, copyable, heading
   if (isCard) rows.push([L.cardHint, inv.paymentUrl!, true]);
   else if (!eur && paysViaWiseOnly(inv.seller, inv.currency)) {
     rows.push([L.holder, usd?.holder || other?.holder || inv.seller.sellerName, true]);
@@ -101,6 +101,17 @@ export default function PublicInvoicePage() {
     if (usd.account) rows.push([L.account, usd.account, true]);
     if (usd.swift) rows.push([L.swift, usd.swift, true]);
     if (usd.bankAddress) rows.push(["", usd.bankAddress, false]);
+  }
+  // Per invoice: also the German EUR account, for a regular bank transfer or SWIFT instead of Wise
+  const de = !isCard && !eur && inv.showEurBank && inv.seller.eur?.iban ? inv.seller.eur : null;
+  if (de) {
+    rows.push(["", L.eurBankHeading, false, true]);
+    rows.push([L.holder, de.holder || inv.seller.sellerName, true]);
+    if (de.holderAddress) rows.push([L.holderAddress, de.holderAddress, true]);
+    rows.push([L.iban, de.iban.replace(/(.{4})/g, "$1 ").trim(), true]);
+    if (de.bic) rows.push([L.swift, de.bic, true]);
+    if (de.bank) rows.push([L.bank, de.bank, false]);
+    if (de.bankAddress) rows.push([L.bankAddress, de.bankAddress, true]);
   }
   rows.push([L.reference, inv.number || "", true]);
 
@@ -149,15 +160,17 @@ export default function PublicInvoicePage() {
           <h2 className="text-sm font-semibold text-white uppercase tracking-wide">{isCard ? L.paymentTitleCard : L.paymentTitle}</h2>
           <div className="mt-4 grid sm:grid-cols-[1fr_auto] gap-6">
             <dl className="space-y-2 text-sm">
-              {rows.map(([k, v, copyable]) => (
-                <div key={`${k}-${v}`} className="flex items-start justify-between gap-3">
+              {rows.map(([k, v, copyable, heading], i) => heading ? (
+                <p key={`h-${i}`} className="pt-4 mt-2 border-t border-neutral-800 text-sm font-medium text-white">{v}</p>
+              ) : (
+                <div key={`${i}-${k}-${v}`} className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     {k && <dt className="text-xs text-neutral-500">{k}</dt>}
                     <dd className={`text-white break-all ${k === L.reference ? "font-semibold" : ""} ${k === L.iban || k === L.account || k === L.routing ? "font-mono" : ""}`}>{v}</dd>
                   </div>
                   {copyable && v && (
-                    <button onClick={() => copy(k || v, v.replace(/\s+/g, k === L.iban ? "" : " "))} aria-label={`Copy ${k}`} className="shrink-0 p-1.5 rounded text-neutral-500 hover:text-white">
-                      {copied === (k || v) ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                    <button onClick={() => copy(`${i}`, v.replace(/\s+/g, k === L.iban ? "" : " "))} aria-label={`Copy ${k}`} className="shrink-0 p-1.5 rounded text-neutral-500 hover:text-white">
+                      {copied === `${i}` ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                     </button>
                   )}
                 </div>

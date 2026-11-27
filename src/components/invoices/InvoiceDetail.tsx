@@ -23,6 +23,7 @@ type Detail = Omit<InvoiceView, "qrs"> & {
   draftedBy: string | null;
   correctedBy: { id: string; number: string | null } | null;
   correctsId: string | null;
+  contacts: Array<{ id: string; name: string; role: string | null; email: string | null; receivesInvoices: boolean }>;
 };
 
 interface Props {
@@ -43,6 +44,8 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged, au
   const [correctReason, setCorrectReason] = useState("");
   const [sendTo, setSendTo] = useState("");
   const [sendMsg, setSendMsg] = useState("");
+  const [ccPick, setCcPick] = useState<Record<string, boolean>>({});
+  const [ccExtra, setCcExtra] = useState("");
   const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10));
   const [paidMethod, setPaidMethod] = useState<"bank" | "wise" | "stripe" | "paypal" | "cash" | "other">("bank");
   const [paidNote, setPaidNote] = useState("");
@@ -54,6 +57,8 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged, au
     if (autoPreview && inv?.id === id && inv?.status === "DRAFT") setPreviewOpen(true);
   }, [autoPreview, inv?.id, inv?.status, id]);
   const [note, setNote] = useState("");
+  const ccExtraList = ccExtra.split(/[,;\s]+/).map((e) => e.trim()).filter(Boolean);
+  const ccExtraBad = ccExtraList.some((e) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -66,6 +71,8 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged, au
     const d = json.data as Detail;
     setInv(d);
     setSendTo(d.billTo.email || d.client.email || "");
+    setCcPick(Object.fromEntries((d.contacts || []).map((c) => [c.id, c.receivesInvoices])));
+    setCcExtra("");
     setNote(d.internalNote || "");
     const reportedDate = /paid (\d{4}-\d{2}-\d{2})/.exec(d.paymentReportedNote || "")?.[1];
     if (reportedDate) setPaidAt(reportedDate);
@@ -230,6 +237,29 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged, au
                 <input className={inputCls} value={sendTo} onChange={(e) => setSendTo(e.target.value)} placeholder="client@example.com" />
               </div>
               <div>
+                <label className={labelCls}>Also send a copy to</label>
+                {(inv.contacts || []).filter((c) => c.email && c.email.toLowerCase() !== sendTo.trim().toLowerCase()).length > 0 ? (
+                  <div className="space-y-1 mb-2">
+                    {inv.contacts
+                      .filter((c) => c.email && c.email.toLowerCase() !== sendTo.trim().toLowerCase())
+                      .map((c) => (
+                        <label key={c.id} className="flex items-center gap-2 text-sm text-white cursor-pointer">
+                          <input type="checkbox" checked={!!ccPick[c.id]} onChange={(e) => setCcPick((p) => ({ ...p, [c.id]: e.target.checked }))} />
+                          <span>{c.name}</span>
+                          <span className="text-xs text-bb-dim">{[c.role, c.email].filter(Boolean).join(" · ")}</span>
+                        </label>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-bb-dim mb-2">No other contacts with an email on this client yet.</p>
+                )}
+                <input className={inputCls} value={ccExtra} onChange={(e) => setCcExtra(e.target.value)} placeholder="Other emails, comma separated (optional)" />
+                <p className="text-[11px] text-bb-dim mt-1">
+                  To copy someone on every invoice, reminder and receipt automatically, switch on &quot;Gets invoices&quot; for them under Contacts on the{" "}
+                  <a className="underline hover:text-white" href={`/clients/${inv.client.id}`}>client page</a>.
+                </p>
+              </div>
+              <div>
                 <label className={labelCls}>Personal note (optional, goes above the payment details)</label>
                 <textarea className={inputCls} rows={2} value={sendMsg} onChange={(e) => setSendMsg(e.target.value)} />
               </div>
@@ -237,9 +267,11 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged, au
                 <button className={btnGhost} onClick={() => setPanel(null)}>Cancel</button>
                 <button
                   className={btnPrimary}
-                  disabled={busy || !sendTo}
+                  disabled={busy || !sendTo || ccExtraBad}
                   onClick={async () => {
-                    if (await act("/send", jsonInit("POST", { to: sendTo, message: sendMsg || undefined }), `Emailed to ${sendTo}`)) setPanel(null);
+                    const cc = [...(inv.contacts || []).filter((c) => ccPick[c.id] && c.email && c.email.toLowerCase() !== sendTo.trim().toLowerCase()).map((c) => c.email as string), ...ccExtraList];
+                    const label = cc.length ? `Emailed to ${sendTo} + ${cc.length} cc` : `Emailed to ${sendTo}`;
+                    if (await act("/send", jsonInit("POST", { to: sendTo, message: sendMsg || undefined, cc }), label)) setPanel(null);
                   }}
                 >
                   {busy ? "Sending…" : "Send with PDF"}
@@ -367,6 +399,33 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged, au
                   <p>{inv.seller.usd.holder} · {inv.seller.usd.bank || "bank not set"}</p>
                   <p className="font-mono">Routing {inv.seller.usd.routing || "?"} · Account {inv.seller.usd.account || "?"}{inv.seller.usd.swift ? ` · ${inv.seller.usd.swift}` : ""}</p>
                 </>
+              )}
+              {inv.paymentMethod !== "STRIPE" && inv.currency !== "EUR" && inv.kind !== "CORRECTION" && (
+                <div className="pt-2 mt-2 border-t border-bb-border/60">
+                  <label className={`flex items-start gap-2 ${inv.seller.eur?.iban ? "cursor-pointer" : "opacity-60"}`}>
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={inv.showEurBank}
+                      disabled={busy || !inv.seller.eur?.iban || inv.status === "PAID" || inv.status === "VOID"}
+                      onChange={(e) =>
+                        act("", jsonInit("PATCH", { showEurBank: e.target.checked }), e.target.checked ? "German bank account added to this invoice" : "German bank account removed from this invoice")
+                      }
+                    />
+                    <span>
+                      <span className="text-white">German bank account</span>: also print our German IBAN + SWIFT/BIC, for a regular or SWIFT bank transfer instead of Wise
+                      {!inv.seller.eur?.iban && <span className="block text-bb-dim">Add the IBAN under Settings first.</span>}
+                    </span>
+                  </label>
+                  {inv.showEurBank && inv.seller.eur?.iban && (
+                    <div className="mt-1 pl-6 space-y-0.5">
+                      <p>{inv.seller.eur.holder}{inv.seller.eur.bank ? ` · ${inv.seller.eur.bank}` : ""}</p>
+                      <p className="font-mono">{inv.seller.eur.iban.replace(/(.{4})/g, "$1 ").trim()}{inv.seller.eur.bic ? ` · ${inv.seller.eur.bic}` : " · BIC missing (needed for SWIFT)"}</p>
+                      {!inv.seller.eur.bankAddress && <p className="text-bb-dim">Tip: add the bank address + holder address in Settings, banks outside Europe ask for them.</p>}
+                      {inv.status !== "DRAFT" && <p className="text-bb-dim">Already sent? Use Send again so they get the updated PDF.</p>}
+                    </div>
+                  )}
+                </div>
               )}
               <p>Reference: <span className="text-white font-medium">{inv.number || "(assigned on issue)"}</span></p>
               {inv.status !== "DRAFT" && <p className="break-all">Pay page: {inv.publicUrl}</p>}

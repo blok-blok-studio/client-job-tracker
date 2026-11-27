@@ -247,6 +247,8 @@ model Contact {
   email     String?
   phone     String?
   isPrimary Boolean @default(false)
+  // Gets a copy (CC) of every invoice email, reminder and receipt for this client
+  receivesInvoices Boolean @default(false)
   notes     String?
 
   createdAt DateTime @default(now())
@@ -618,6 +620,10 @@ model StudioInvoice {
 
   paymentMethod String  @default("BANK") // BANK | STRIPE
   paymentUrl    String? // Stripe payment link when paymentMethod = STRIPE
+  // Also print the German EUR account (IBAN + SWIFT/BIC) on a non-EUR invoice, for clients
+  // who pay by regular bank transfer instead of Wise. Not part of contentHash: it only adds
+  // a way to pay from the frozen seller snapshot, so it may be switched after issuing.
+  showEurBank   Boolean @default(false)
   notes         String? @db.Text // printed on the invoice
   internalNote  String? @db.Text // never printed
 

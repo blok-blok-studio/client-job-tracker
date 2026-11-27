@@ -30,8 +30,13 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
       select: { id: true, action: true, actor: true, details: true, createdAt: true },
     });
     const partnerContext = await partnerContextForInvoice(invoice.id);
+    const contacts = await prisma.contact.findMany({
+      where: { clientId: invoice.clientId, email: { not: null } },
+      select: { id: true, name: true, role: true, email: true, receivesInvoices: true },
+      orderBy: { createdAt: "asc" },
+    });
     const origin = invoice.partnerRepId ? await prisma.partnerRep.findUnique({ where: { id: invoice.partnerRepId }, select: { name: true, partner: { select: { name: true } } } }).catch(() => null) : null;
-    return NextResponse.json({ success: true, data: { ...view, client: invoice.client, internalNote: invoice.internalNote, qrs, activity, contentHash: invoice.contentHash, integrity: integrityOf(invoice), partnerContext, draftedBy: origin ? `${origin.name} (${origin.partner.name})` : null, correctedBy, correctsId: invoice.correctsId } });
+    return NextResponse.json({ success: true, data: { ...view, client: invoice.client, internalNote: invoice.internalNote, qrs, activity, contentHash: invoice.contentHash, integrity: integrityOf(invoice), partnerContext, draftedBy: origin ? `${origin.name} (${origin.partner.name})` : null, correctedBy, correctsId: invoice.correctsId, contacts } });
   } catch (err) {
     return handleError(err, "Failed to load invoice");
   }
@@ -46,6 +51,15 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     const body = await request.json();
     const existing = await prisma.studioInvoice.findUnique({ where: { id }, select: { status: true, clientId: true } });
     if (!existing) throw new InvoiceError("Invoice not found", 404);
+    // Printing the German bank account is a payment option, not invoice content
+    // (not in contentHash), so it can be switched on drafts and issued invoices alike
+    if (body && typeof body === "object" && Object.keys(body).length === 1 && typeof body.showEurBank === "boolean") {
+      const invoice = await prisma.studioInvoice.update({ where: { id }, data: { showEurBank: body.showEurBank } });
+      await prisma.activityLog
+        .create({ data: { clientId: invoice.clientId, actor: session.name, action: "invoice_payment_option", details: `Invoice ${invoice.number || "draft"}: German bank account ${body.showEurBank ? "added to" : "removed from"} the payment details` } })
+        .catch(() => {});
+      return NextResponse.json({ success: true, data: { id: invoice.id, showEurBank: invoice.showEurBank } });
+    }
     if (existing.status !== "DRAFT") {
       const note = typeof body?.internalNote === "string" ? body.internalNote.slice(0, 2000) : null;
       if (note === null && !("internalNote" in (body || {}))) throw new InvoiceError("Only the internal note can change after issuing.", 409);

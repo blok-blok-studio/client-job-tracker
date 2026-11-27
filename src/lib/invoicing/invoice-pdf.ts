@@ -319,7 +319,7 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
 
   // ── Payment panel ──────────────────────────────────────────────
   const isCard = view.paymentMethod === "STRIPE" && !!view.paymentUrl;
-  const rows: Array<[string, string, boolean]> = []; // label, value, mono
+  const rows: Array<[string, string, boolean, boolean?]> = []; // label, value, mono, heading
   if (isCard) {
     rows.push([L.cardHint, "", false]);
     rows.push(["", view.paymentUrl!, true]);
@@ -346,6 +346,18 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
     if (b.swift) rows.push([L.swift, b.swift, true]);
     if (b.bankAddress) rows.push(["", b.bankAddress, false]);
   }
+  // Per invoice: also the German EUR account, for clients who pay by regular
+  // bank transfer or SWIFT instead of Wise (same IBAN + BIC works for both)
+  if (!isCard && cur !== "EUR" && view.showEurBank && view.seller.eur?.iban) {
+    const b = view.seller.eur;
+    rows.push(["", L.eurBankHeading, false, true]);
+    rows.push([L.holder, b.holder || view.seller.sellerName, false]);
+    if (b.holderAddress) rows.push([L.holderAddress, b.holderAddress, false]);
+    rows.push([L.iban, groupIban(b.iban), true]);
+    if (b.bic) rows.push([L.swift, b.bic, true]);
+    if (b.bank) rows.push([L.bank, b.bank, false]);
+    if (b.bankAddress) rows.push([L.bankAddress, b.bankAddress, false]);
+  }
   rows.push([L.reference, view.number || "-", false]);
 
   // Nothing left to pay: a paid or voided invoice stops printing account numbers and QR codes
@@ -368,7 +380,15 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
   const leftCol = qrCount === 2 ? colW + panelPad : 0;
   const rightCol = qrCount ? colW + panelPad : 0;
   const textX = M + panelPad + leftCol;
-  const panelH = Math.max(panelPad * 2 + 20 + rows.length * rowH + (view.dueDate ? 16 : 0), qrColH + panelPad * 2);
+  // Label column as wide as its longest label, so values never collide with it
+  const labelW = Math.max(60, ...rows.filter(([k]) => k).map(([k]) => width(k, 8, font) + 8));
+  const valX = textX + labelW;
+  const textMaxW = CW - panelPad * 2 - leftCol - rightCol - labelW;
+  const fullW = CW - panelPad * 2 - leftCol - rightCol;
+  const rowFont = (k: string, isMono: boolean, heading?: boolean) => (heading ? bold : isMono ? mono : k === L.reference ? bold : font);
+  const rowLines = rows.map(([k, v, isMono, heading]) => wrap(v, 8.5, rowFont(k, isMono, heading), Math.max(80, heading ? fullW : textMaxW)));
+  const rowsH = rows.reduce((h, row, i) => h + rowH + (rowLines[i].length - 1) * 11 + (row[3] ? 6 : 0), 0);
+  const panelH = Math.max(panelPad * 2 + 20 + rowsH + (view.dueDate ? 16 : 0), qrColH + panelPad * 2);
   ensure(panelH + 10);
   const panelTop = y;
   page.drawRectangle({ x: M, y: panelTop - panelH, width: CW, height: panelH, color: PANEL, borderColor: RULE, borderWidth: 0.5 });
@@ -379,17 +399,14 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
   let py = panelTop - panelPad - 8;
   text((isCard ? L.paymentTitleCard : L.paymentTitle).toUpperCase(), textX, py, 7.5, bold, BLUE2);
   py -= 16;
-  // Label column as wide as its longest label, so values never collide with it
-  const labelW = Math.max(60, ...rows.filter(([k]) => k).map(([k]) => width(k, 8, font) + 8));
-  const valX = textX + labelW;
-  const textMaxW = CW - panelPad * 2 - leftCol - rightCol - labelW;
-  for (const [k, v, isMono] of rows) {
+  rows.forEach(([k, , isMono, heading], r) => {
+    if (heading) py -= 6;
     if (k) text(k, textX, py, 8, font, MUTED);
-    const f = isMono ? mono : k === L.reference ? bold : font;
-    const vLines = wrap(v, 8.5, f, Math.max(80, textMaxW));
-    vLines.forEach((l, i) => text(l, k ? valX : textX, py - i * 11, 8.5, f, INK));
+    const f = rowFont(k, isMono, heading);
+    const vLines = rowLines[r];
+    vLines.forEach((l, i) => text(l, k ? valX : textX, py - i * 11, 8.5, f, heading ? BLUE2 : INK));
     py -= rowH + (vLines.length - 1) * 11;
-  }
+  });
   if (view.dueDate) {
     py -= 3;
     for (const l of wrap(`${L.payBy} ${formatDate(view.dueDate, lang)}.`, 8, font, CW - panelPad * 2 - leftCol - rightCol)) {

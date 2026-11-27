@@ -446,26 +446,33 @@ export function integrityOf(inv: Parameters<typeof invoiceContentHash>[0] & { co
  * Auto-send after issue: PDF + pay link to the bill-to email. Never throws;
  * the invoice is already issued, so a mail failure is reported, not fatal.
  */
-export async function sendIssuedInvoice(id: string, actor: string, to?: string | null, message?: string | null): Promise<{ sent: boolean; to: string | null; error: string | null }> {
+/**
+ * `cc` omitted → the client's contacts with "Gets invoices" on are copied in.
+ * Pass an array (even empty) to choose the copies for this one send.
+ */
+export async function sendIssuedInvoice(id: string, actor: string, to?: string | null, message?: string | null, cc?: string[] | null): Promise<{ sent: boolean; to: string | null; cc: string[]; error: string | null }> {
   const invoice = await prisma.studioInvoice.findUnique({ where: { id } });
-  if (!invoice || !["ISSUED", "SENT", "PAID"].includes(invoice.status)) return { sent: false, to: null, error: "Invoice is not issued" };
+  if (!invoice || !["ISSUED", "SENT", "PAID"].includes(invoice.status)) return { sent: false, to: null, cc: [], error: "Invoice is not issued" };
   const billTo = invoice.billTo as unknown as BillTo;
   const recipient = to || billTo.email;
-  if (!recipient) return { sent: false, to: null, error: "No email on the invoice. Add one under Bill to, or copy the pay link." };
-  if (!process.env.RESEND_API_KEY) return { sent: false, to: recipient, error: "Email sending is not configured (RESEND_API_KEY missing)." };
+  if (!recipient) return { sent: false, to: null, cc: [], error: "No email on the invoice. Add one under Bill to, or copy the pay link." };
+  const { invoiceCcFor, cleanCc } = await import("./recipients");
+  const copies = cc ? cleanCc(cc, recipient) : await invoiceCcFor(invoice.clientId, recipient).catch(() => [] as string[]);
+  const allTo = [recipient, ...copies].join(", ");
+  if (!process.env.RESEND_API_KEY) return { sent: false, to: recipient, cc: copies, error: "Email sending is not configured (RESEND_API_KEY missing)." };
   try {
     const [{ buildInvoiceView }, { renderInvoicePdf }, { sendStudioInvoiceEmail }] = await Promise.all([import("./view"), import("./invoice-pdf"), import("./email")]);
     const settings = await loadInvoiceSettings();
     const corrects = invoice.correctsId ? await prisma.studioInvoice.findUnique({ where: { id: invoice.correctsId }, select: { number: true, issueDate: true } }) : null;
     const view = buildInvoiceView(invoice, settings, { corrects });
     const pdf = await renderInvoicePdf(view);
-    const { id: emailId } = await sendStudioInvoiceEmail({ to: recipient, view, pdf, message, replyTo: settings.email });
-    if (invoice.status !== "PAID") await recordSent(id, recipient, emailId, actor);
-    else await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_sent", details: `Invoice ${invoice.number} copy emailed to ${recipient}` });
-    return { sent: true, to: recipient, error: null };
+    const { id: emailId } = await sendStudioInvoiceEmail({ to: recipient, view, pdf, message, replyTo: settings.email, cc: copies });
+    if (invoice.status !== "PAID") await recordSent(id, allTo, emailId, actor);
+    else await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_sent", details: `Invoice ${invoice.number} copy emailed to ${allTo}` });
+    return { sent: true, to: recipient, cc: copies, error: null };
   } catch (err) {
-    await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_send_failed", details: `Invoice ${invoice.number} email to ${recipient} failed: ${err instanceof Error ? err.message : "unknown"}` });
-    return { sent: false, to: recipient, error: err instanceof Error ? err.message : "Email failed" };
+    await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_send_failed", details: `Invoice ${invoice.number} email to ${allTo} failed: ${err instanceof Error ? err.message : "unknown"}` });
+    return { sent: false, to: recipient, cc: copies, error: err instanceof Error ? err.message : "Email failed" };
   }
 }
 
@@ -504,9 +511,11 @@ export async function sendPaymentReceipt(id: string, actor: string): Promise<{ s
     const settings = await loadInvoiceSettings();
     const view = buildInvoiceView(invoice, settings);
     const pdf = await renderInvoicePdf(view); // carries the PAID stamp now
-    await sendPaymentReceiptEmail({ to: billTo.email, view, pdf, replyTo: settings.email });
+    const { invoiceCcFor } = await import("./recipients");
+    const cc = await invoiceCcFor(invoice.clientId, billTo.email).catch(() => [] as string[]);
+    await sendPaymentReceiptEmail({ to: billTo.email, view, pdf, replyTo: settings.email, cc });
     await prisma.studioInvoice.update({ where: { id }, data: { receiptSentAt: new Date() } });
-    await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_receipt_sent", details: `Receipt for ${invoice.number} emailed to ${billTo.email}` });
+    await logInvoiceActivity({ clientId: invoice.clientId, actor, action: "invoice_receipt_sent", details: `Receipt for ${invoice.number} emailed to ${[billTo.email, ...cc].join(", ")}` });
     return { sent: true, error: null };
   } catch (err) {
     return { sent: false, error: err instanceof Error ? err.message : "failed" };

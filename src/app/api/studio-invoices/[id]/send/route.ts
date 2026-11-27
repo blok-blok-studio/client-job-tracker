@@ -10,6 +10,8 @@ export const maxDuration = 60;
 const schema = z.object({
   to: z.string().trim().email().optional(),
   message: z.string().max(2000).optional(),
+  // Copies for this send; omitted = the client's "Gets invoices" contacts
+  cc: z.array(z.string().trim().email()).max(10).optional(),
 });
 
 // POST — email the invoice (PDF attached + pay link) and mark it SENT
@@ -23,9 +25,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!invoice) throw new InvoiceError("Invoice not found", 404);
     if (!["ISSUED", "SENT", "PAID"].includes(invoice.status)) throw new InvoiceError("Issue the invoice before sending it.", 409);
     if (!process.env.RESEND_API_KEY) throw new InvoiceError("Email sending is not configured (RESEND_API_KEY missing). Download the PDF and send it yourself, or copy the pay link.", 503);
-    const result = await sendIssuedInvoice(id, session.name, body.to || null, body.message || null);
+    const result = await sendIssuedInvoice(id, session.name, body.to || null, body.message || null, body.cc ?? null);
     if (!result.sent) throw new InvoiceError(result.error || "The email could not be sent.", result.to ? 502 : 422);
-    return NextResponse.json({ success: true, data: { id, status: invoice.status === "PAID" ? "PAID" : "SENT", sentTo: result.to } });
+    return NextResponse.json({ success: true, data: { id, status: invoice.status === "PAID" ? "PAID" : "SENT", sentTo: result.to, cc: result.cc } });
   } catch (err) {
     return handleError(err, "Failed to send invoice");
   }

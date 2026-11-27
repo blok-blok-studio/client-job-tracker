@@ -19,6 +19,7 @@ export async function sendStudioInvoiceEmail(params: {
   pdf: Uint8Array;
   message?: string | null;
   replyTo?: string | null;
+  cc?: string[];
 }): Promise<{ id: string | null }> {
   if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set, invoice email not sent");
   const resend = new Resend(process.env.RESEND_API_KEY);
@@ -27,6 +28,7 @@ export async function sendStudioInvoiceEmail(params: {
   const { data, error } = await resend.emails.send({
     from: FROM_EMAIL,
     to: params.to,
+    cc: params.cc?.length ? params.cc : undefined,
     replyTo: params.replyTo || params.view.seller.email || undefined,
     subject,
     html,
@@ -94,7 +96,7 @@ export function buildStudioInvoiceEmail(v: InvoiceView, message?: string | null)
 }
 
 /** Payment confirmation (Zahlungsbestätigung) with the PAID-stamped invoice attached. */
-export async function sendPaymentReceiptEmail(params: { to: string; view: InvoiceView; pdf: Uint8Array; replyTo?: string | null }): Promise<{ id: string | null }> {
+export async function sendPaymentReceiptEmail(params: { to: string; view: InvoiceView; pdf: Uint8Array; replyTo?: string | null; cc?: string[] }): Promise<{ id: string | null }> {
   if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
   const resend = new Resend(process.env.RESEND_API_KEY);
   const v = params.view;
@@ -117,6 +119,7 @@ export async function sendPaymentReceiptEmail(params: { to: string; view: Invoic
   const { data, error } = await resend.emails.send({
     from: FROM_EMAIL,
     to: params.to,
+    cc: params.cc?.length ? params.cc : undefined,
     replyTo: params.replyTo || v.seller.email || undefined,
     subject,
     html,

@@ -196,7 +196,7 @@ const base: Omit<InvoiceView, "language" | "currency" | "template" | "vatScheme"
     { description: "Social media videos (October)", qty: 4, unitPrice: 200 },
     { description: "Additional development hours", qty: 2.5, unitPrice: 90 },
   ], 0).items,
-  subtotal: 6025, vatAmount: 0, total: 6025, paymentMethod: "BANK", paymentUrl: null,
+  subtotal: 6025, vatAmount: 0, total: 6025, paymentMethod: "BANK", paymentUrl: null, showEurBank: false,
   notes: "Zahlbar innerhalb von 14 Tagen ohne Abzug.", sentAt: null, sentTo: null, paidAt: null, paidMethod: null, voidedAt: null, voidReason: null,
   paymentReportedAt: null, paymentReportedNote: null, eurAmount: null, fxRateToEur: null, receiptSentAt: null,
   publicUrl: "https://app.blokblokstudio.com/b/sampletoken", createdAt: new Date().toISOString(),
@@ -237,6 +237,15 @@ const de27View: InvoiceView = {
   const qb = await renderInvoicePdf({ ...usView, number: "BBS-Q-2026-001" }, { docType: "QUOTE", validUntil: "2026-12-02", schedule: [{ label: "Deposit at signing", percent: 50 }, { label: "On completion", percent: 50 }], acceptUrl: "https://app.blokblokstudio.com/q/sampletoken" });
   fs.writeFileSync(path.join(outDir, "sample-quote.pdf"), qb);
   check("quote pdf", qb.length > 5000);
+  // USD invoice paid via Wise that also prints the German account for a regular / SWIFT transfer
+  const phView: InvoiceView = {
+    ...usView, number: "BBS-2026-010", showEurBank: true,
+    billTo: { name: "Test Contact", company: "Example PH Inc.", addressLines: ["1 Test Ave", "Makati City", "Philippines"], email: "test@example.com", vatId: null, country: "PH" },
+    seller: { ...seller, usd: { ...seller.usd, routing: "", account: "" }, eur: { ...seller.eur, holder: "Test Holder", bankAddress: "Teststrasse 1, 10115 Berlin, Germany", holderAddress: "Beispielweg 2, 10115 Berlin, Germany" } },
+  };
+  const phBytes = await renderInvoicePdf(phView);
+  fs.writeFileSync(path.join(outDir, "sample-usd-german-bank.pdf"), phBytes);
+  check("pdf usd + german bank", phBytes.length > 5000, phBytes.length);
   for (const [name, v] of [["sample-de.pdf", deView], ["sample-us.pdf", usView], ["sample-de-2027-paid.pdf", de27View]] as const) {
     const bytes = await renderInvoicePdf(v);
     fs.writeFileSync(path.join(outDir, name), bytes);

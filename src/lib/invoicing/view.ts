@@ -71,7 +71,14 @@ function asSeller(raw: unknown, fallback: InvoiceSettings): SellerSnapshot {
     ...base,
     ...r,
     addressLines: Array.isArray(r.addressLines) ? r.addressLines : base.addressLines,
-    eur: r.eur ?? base.eur,
+    eur: r.eur
+      ? {
+          ...r.eur,
+          // Snapshots frozen before these two fields existed: take them from Settings
+          bankAddress: r.eur.bankAddress || base.eur?.bankAddress || "",
+          holderAddress: r.eur.holderAddress || base.eur?.holderAddress || "",
+        }
+      : base.eur,
     usd: r.usd ?? base.usd,
   };
 }
@@ -158,6 +165,7 @@ export function buildInvoiceView(inv: StudioInvoice, settings: InvoiceSettings, 
     total,
     paymentMethod,
     paymentUrl: inv.paymentUrl,
+    showEurBank: !!inv.showEurBank,
     notes: inv.notes,
     sentAt: inv.sentAt?.toISOString() ?? null,
     sentTo: inv.sentTo,
