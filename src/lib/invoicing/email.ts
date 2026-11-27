@@ -1,6 +1,14 @@
 import { Resend } from "resend";
 import type { InvoiceView } from "./types";
 import { formatDate, formatMoney } from "./money";
+import { paysViaWiseOnly } from "./settings-core";
+
+/** First name for the greeting; empty when the bill-to name is just the company ("Hi Castro," otherwise). */
+export function greetingName(v: InvoiceView): string {
+  const name = (v.billTo.name || "").trim();
+  if (!name || (v.billTo.company && name.toLowerCase() === v.billTo.company.trim().toLowerCase())) return "";
+  return name.split(" ")[0] || "";
+}
 
 const FROM_EMAIL = "Blok Blok Studio <chase@blokblokstudio.com>";
 
@@ -43,12 +51,12 @@ export function buildStudioInvoiceEmail(v: InvoiceView, message?: string | null)
   const de = v.language === "de";
   const amount = formatMoney(v.total, v.currency, v.language);
   const due = v.dueDate ? formatDate(v.dueDate, v.language) : null;
-  const first = (v.billTo.name || "").split(" ")[0] || "";
+  const first = greetingName(v);
   const number = v.number || "";
 
   const isCorrection = v.kind === "CORRECTION";
   const subject = isCorrection ? (de ? `Stornorechnung ${number} von Blok Blok Studio` : `Correction invoice ${number} from Blok Blok Studio`) : de ? `Rechnung ${number} von Blok Blok Studio` : `Invoice ${number} from Blok Blok Studio`;
-  const greeting = de ? `Hallo ${first},` : `Hi ${first},`;
+  const greeting = first ? (de ? `Hallo ${first},` : `Hi ${first},`) : de ? "Guten Tag," : "Hello,";
   const intro = isCorrection
     ? de
       ? `anbei erhalten Sie die Stornorechnung <strong>${esc(number)}</strong>${v.corrects?.number ? ` zur Rechnung <strong>${esc(v.corrects.number)}</strong>` : ""}. Die ursprüngliche Rechnung ist damit aufgehoben, Sie müssen dafür nichts bezahlen.`
@@ -65,9 +73,17 @@ export function buildStudioInvoiceEmail(v: InvoiceView, message?: string | null)
         ? de
           ? "Bezahlen Sie per Überweisung. Den GiroCode auf der Rechnung können Sie direkt mit Ihrer Banking-App scannen, die Überweisung ist dann vorausgefüllt."
           : "Please pay by bank transfer. The QR code on the invoice can be scanned with a European banking app to pre-fill the transfer."
-        : de
-          ? "Bezahlen Sie per Überweisung (ACH oder Wire) an die auf der Rechnung angegebene Bankverbindung."
-          : "Please pay by bank transfer (ACH or wire) to the account details on the invoice.";
+        : v.showEurBank && v.seller.eur?.iban
+          ? de
+            ? "Bezahlen Sie per Wise oder per Überweisung (auch international per SWIFT) auf unser Konto in Deutschland. Alle Zahlungsdetails stehen auf der Rechnung."
+            : "Please pay via Wise or by bank transfer (including international SWIFT transfers) to our account in Germany. All payment details are on the invoice."
+          : paysViaWiseOnly(v.seller, v.currency)
+            ? de
+              ? "Bezahlen Sie bequem per Wise über den Link auf der Rechnung."
+              : "Please pay via Wise using the link on the invoice."
+            : de
+              ? "Bezahlen Sie per Überweisung (ACH oder Wire) an die auf der Rechnung angegebene Bankverbindung."
+              : "Please pay by bank transfer (ACH or wire) to the account details on the invoice.";
   const refLine = de
     ? `Bitte geben Sie als Verwendungszweck <strong>${esc(number)}</strong> an.`
     : `Please use <strong>${esc(number)}</strong> as the payment reference.`;
@@ -102,14 +118,14 @@ export async function sendPaymentReceiptEmail(params: { to: string; view: Invoic
   const v = params.view;
   const de = v.language === "de";
   const amount = formatMoney(v.total, v.currency, v.language);
-  const first = (v.billTo.name || "").split(" ")[0] || "";
+  const first = greetingName(v);
   const number = v.number || "";
   const paid = v.paidAt ? formatDate(v.paidAt, v.language) : "";
   const subject = de ? `Zahlungsbestätigung: Rechnung ${number}` : `Payment received: invoice ${number}`;
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;color:#111;">
       <img src="https://app.blokblokstudio.com/bb_logo_wordmark_subhead_BLK_PNG.png" alt="Blok Blok Studio" width="170" style="display:block;width:170px;height:auto;margin:0 0 28px;border:0;" />
-      <p style="font-size:15px;line-height:1.6;">${esc(de ? `Hallo ${first},` : `Hi ${first},`)}</p>
+      <p style="font-size:15px;line-height:1.6;">${esc(first ? (de ? `Hallo ${first},` : `Hi ${first},`) : de ? "Guten Tag," : "Hello,")}</p>
       <p style="font-size:15px;line-height:1.6;">${de ? `vielen Dank, Ihre Zahlung über <strong>${esc(amount)}</strong> zur Rechnung <strong>${esc(number)}</strong> ist am ${esc(paid)} bei uns eingegangen. Die Rechnung ist damit vollständig beglichen.` : `thank you, your payment of <strong>${esc(amount)}</strong> for invoice <strong>${esc(number)}</strong> was received on ${esc(paid)}. The invoice is settled in full.`}</p>
       <p style="font-size:15px;line-height:1.6;">${de ? "Die als bezahlt gekennzeichnete Rechnung ist als PDF angehängt." : "The invoice marked as paid is attached as a PDF for your records."}</p>
       <p style="font-size:15px;line-height:1.6;">${esc(de ? "Beste Grüße" : "Best regards")}<br/>${esc(v.seller.contactName)}</p>
