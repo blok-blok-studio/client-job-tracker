@@ -384,8 +384,10 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged, au
               {inv.paymentMethod === "STRIPE" && inv.paymentUrl && <p className="break-all">{inv.paymentUrl}</p>}
               {inv.paymentMethod !== "STRIPE" && inv.currency === "EUR" && inv.seller.eur && (
                 <>
-                  <p>{inv.seller.eur.holder} · {inv.seller.eur.bank || "bank not set"}</p>
-                  <p className="font-mono">{inv.seller.eur.iban ? inv.seller.eur.iban.replace(/(.{4})/g, "$1 ").trim() : "IBAN missing"}{inv.seller.eur.bic ? ` · ${inv.seller.eur.bic}` : ""}</p>
+                  <p>Account holder: <span className="text-white">{inv.seller.eur.holder}</span></p>
+                  <p>IBAN: <span className="font-mono text-white">{inv.seller.eur.iban ? inv.seller.eur.iban.replace(/(.{4})/g, "$1 ").trim() : "missing"}</span></p>
+                  {inv.seller.eur.bic && <p>BIC / SWIFT: <span className="font-mono text-white">{inv.seller.eur.bic}</span></p>}
+                  <p>Bank: <span className="text-white">{inv.seller.eur.bank || "not set"}</span></p>
                 </>
               )}
               {inv.paymentMethod !== "STRIPE" && paysViaWiseOnly(inv.seller, inv.currency) && (
@@ -396,8 +398,11 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged, au
               )}
               {inv.paymentMethod !== "STRIPE" && !paysViaWiseOnly(inv.seller, inv.currency) && inv.currency === "USD" && inv.seller.usd && (
                 <>
-                  <p>{inv.seller.usd.holder} · {inv.seller.usd.bank || "bank not set"}</p>
-                  <p className="font-mono">Routing {inv.seller.usd.routing || "?"} · Account {inv.seller.usd.account || "?"}{inv.seller.usd.swift ? ` · ${inv.seller.usd.swift}` : ""}</p>
+                  <p>Account holder: <span className="text-white">{inv.seller.usd.holder}</span></p>
+                  <p>Bank: <span className="text-white">{inv.seller.usd.bank || "not set"}</span></p>
+                  <p>Routing number (ACH): <span className="font-mono text-white">{inv.seller.usd.routing || "?"}</span></p>
+                  <p>Account number: <span className="font-mono text-white">{inv.seller.usd.account || "?"}</span></p>
+                  {inv.seller.usd.swift && <p>SWIFT / BIC: <span className="font-mono text-white">{inv.seller.usd.swift}</span></p>}
                 </>
               )}
               {inv.paymentMethod !== "STRIPE" && inv.currency !== "EUR" && inv.kind !== "CORRECTION" && (
@@ -419,8 +424,12 @@ export default function InvoiceDetail({ open, id, onClose, onEdit, onChanged, au
                   </label>
                   {inv.showEurBank && inv.seller.eur?.iban && (
                     <div className="mt-1 pl-6 space-y-0.5">
-                      <p>{inv.seller.eur.holder}{inv.seller.eur.bank ? ` · ${inv.seller.eur.bank}` : ""}</p>
-                      <p className="font-mono">{inv.seller.eur.iban.replace(/(.{4})/g, "$1 ").trim()}{inv.seller.eur.bic ? ` · ${inv.seller.eur.bic}` : " · BIC missing (needed for SWIFT)"}</p>
+                      <p>Account holder: <span className="text-white">{inv.seller.eur.holder}</span></p>
+                      {inv.seller.eur.holderAddress && <p>Account holder address: <span className="text-white">{inv.seller.eur.holderAddress}</span></p>}
+                      <p>IBAN: <span className="font-mono text-white">{inv.seller.eur.iban.replace(/(.{4})/g, "$1 ").trim()}</span></p>
+                      <p>SWIFT / BIC: <span className="font-mono text-white">{inv.seller.eur.bic || "missing (needed for SWIFT)"}</span></p>
+                      {inv.seller.eur.bank && <p>Bank: <span className="text-white">{inv.seller.eur.bank}</span></p>}
+                      {inv.seller.eur.bankAddress && <p>Bank address: <span className="text-white">{inv.seller.eur.bankAddress}</span></p>}
                       {!inv.seller.eur.bankAddress && <p className="text-bb-dim">Tip: add the bank address + holder address in Settings, banks outside Europe ask for them.</p>}
                       {inv.status !== "DRAFT" && <p className="text-bb-dim">Already sent? Use Send again so they get the updated PDF.</p>}
                     </div>

@@ -100,7 +100,7 @@ export default function PublicInvoicePage() {
     if (usd.routing) rows.push([L.routing, usd.routing, true]);
     if (usd.account) rows.push([L.account, usd.account, true]);
     if (usd.swift) rows.push([L.swift, usd.swift, true]);
-    if (usd.bankAddress) rows.push(["", usd.bankAddress, false]);
+    if (usd.bankAddress) rows.push([L.bankAddress, usd.bankAddress, false]);
   }
   // Per invoice: also the German EUR account, for a regular bank transfer or SWIFT instead of Wise
   const de = !isCard && !eur && inv.showEurBank && inv.seller.eur?.iban ? inv.seller.eur : null;

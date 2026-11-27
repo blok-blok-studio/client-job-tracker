@@ -344,7 +344,7 @@ export async function renderInvoicePdf(view: InvoiceView, opts: RenderOptions = 
     if (b.routing) rows.push([L.routing, b.routing, true]);
     if (b.account) rows.push([L.account, b.account, true]);
     if (b.swift) rows.push([L.swift, b.swift, true]);
-    if (b.bankAddress) rows.push(["", b.bankAddress, false]);
+    if (b.bankAddress) rows.push([L.bankAddress, b.bankAddress, false]);
   }
   // Per invoice: also the German EUR account, for clients who pay by regular
   // bank transfer or SWIFT instead of Wise (same IBAN + BIC works for both)
